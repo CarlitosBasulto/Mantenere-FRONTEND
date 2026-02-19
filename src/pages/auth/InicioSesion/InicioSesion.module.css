@@ -1,0 +1,122 @@
+/* CONTENEDOR GENERAL */
+.container {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #ffffff, #ffffff);
+    border-top: 20px solid #e9ab22;
+    border-bottom: 20px solid #e9ab22;
+}
+
+/* TARJETA */
+.form {
+    width: 100%;
+    max-width: 420px;
+    background: #ffffff;
+    padding: 1.5rem 2.5rem;
+    border-radius: 18px;
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: column;
+}
+
+.logo {
+    width: 120px;
+    /* mantiene el espacio base */
+    transform: scale(3.9);
+    /* agranda visualmente */
+    margin: 0 auto 1rem auto;
+    display: block;
+    padding: 1rem;
+}
+
+/* TITULO */
+.title {
+    text-align: center;
+    font-size: 2rem;
+    color: #3e3e3e;
+    margin-bottom: 2rem;
+}
+
+/* GRUPO */
+.formGroup {
+    margin-bottom: 2rem;
+    margin-top: -1.0rem;
+}
+
+/* LABEL */
+.label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+    color: #363636;
+}
+
+/* INPUT */
+.input {
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid #afadad;
+    background: #ffffff;
+    color: rgb(24, 24, 24);
+    font-size: 1rem;
+    outline: none;
+    transition: border 0.3s, box-shadow 0.3s;
+}
+
+.input::placeholder {
+    color: #aeaeae;
+}
+
+.input:focus {
+    border-color: #e9c122;
+    box-shadow: 0 0 0 2.2px rgb(231, 204, 26);
+}
+
+.button {
+    width: 75%;
+    margin: 1.5rem auto 0 auto;
+    background: linear-gradient(135deg, #e9ab22, #e9ab22);
+    color: white;
+    padding: 14px;
+    border-radius: 44px;
+    border: none;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
+}
+
+.button:hover {
+    transform: translateY(-3px);
+
+}
+
+.button:active {
+    transform: scale(.97);
+}
+
+
+.textButton {
+    color: #2563eb;
+    /* color azul */
+    text-decoration: none;
+    /* quitar subrayado */
+    font-size: 10px;
+    font-weight: 600;
+    display: inline-block;
+    /* importante para moverlo con top */
+    position: relative;
+    /* necesario para top */
+    top: -25px;
+    /* 🔼 sube el texto 8px */
+    cursor: pointer;
+    text-align: center;
+}
+
+.textButton:hover {
+    color: #1d4ed8;
+    text-decoration: underline;
+}

@@ -1,0 +1,83 @@
+.home {
+    background-image: url('../assets/imagenes/imagen de menu.png');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+
+    width: 100%;
+    min-height: 100vh;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    position: relative;
+
+    border-top: 20px solid #e9ab22;
+    border-bottom: 20px solid #e9ab22;
+}
+
+/* Capa oscura */
+.home-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+}
+
+/* Contenido */
+.home-content {
+    position: relative;
+    z-index: 1;
+
+    max-width: 1000px;
+    padding: 0 1rem;
+    text-align: center;
+    color: rgb(255, 255, 255);
+    margin-top: 1%;
+
+    display: flex;
+    /* ✅ NUEVO */
+    flex-direction: column;
+    /* ✅ NUEVO */
+    align-items: center;
+    /* ✅ NUEVO */
+}
+
+.home-content h1 {
+    font-size: clamp(2.5rem, 5vw, 4rem);
+    margin-bottom: 1.5rem;
+}
+
+.home-content p {
+    font-size: 1.25rem;
+    line-height: 1.6;
+    margin-bottom: 2.5rem;
+}
+
+/* Botón */
+.home-btn {
+    background-color: #e9ab22;
+    color: white;
+    padding: 14px 40px;
+    border-radius: 44px;
+    border: none;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+
+    margin-top: 1%;
+    /* ✅ NUEVO */
+
+    transition: background-color 0.3s, transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+}
+
+.home-btn:hover {
+    background-color: #7b5a13;
+    transform: scale(1.05);
+}
+
+.home-btn:active {
+    transform: scale(0.95);
+}
