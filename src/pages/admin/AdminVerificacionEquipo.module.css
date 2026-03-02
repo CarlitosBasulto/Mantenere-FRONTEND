@@ -1,0 +1,229 @@
+.dashboardLayout {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    background: linear-gradient(135deg, #f5f7fa 0%, #eef2f6 100%);
+    position: relative;
+    overflow: hidden;
+}
+
+.mainCard {
+    flex: 1;
+    background: rgba(255, 255, 255, 0);
+    border-radius: 40px;
+    padding: 40px 25px 40px 40px;
+    /* Slight right padding adjustment for scrollbar */
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    display: flex;
+    flex-direction: column;
+}
+
+.bgShape1 {
+    position: absolute;
+    top: -100px;
+    right: -100px;
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(254, 191, 1, 0.15) 0%, rgba(254, 191, 1, 0) 70%);
+    border-radius: 50%;
+    filter: blur(40px);
+    z-index: 0;
+    pointer-events: none;
+}
+
+.bgShape2 {
+    position: absolute;
+    bottom: -150px;
+    left: -150px;
+    width: 700px;
+    height: 700px;
+    background: radial-gradient(circle, rgba(100, 150, 250, 0.08) 0%, rgba(100, 150, 250, 0) 70%);
+    border-radius: 50%;
+    filter: blur(60px);
+    z-index: 0;
+    pointer-events: none;
+}
+
+.contentWrapper {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.scrollableContent {
+    flex: 1;
+    overflow-y: auto;
+    padding-right: 15px;
+}
+
+/* Custom Scrollbar for premium feel */
+.scrollableContent::-webkit-scrollbar {
+    width: 6px;
+}
+
+.scrollableContent::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.scrollableContent::-webkit-scrollbar-thumb {
+    background: #e0e0e0;
+    border-radius: 10px;
+}
+
+.scrollableContent::-webkit-scrollbar-thumb:hover {
+    background: #bdbdbd;
+}
+
+.infoSectionCard {
+    background: #fdfdfd;
+    border-radius: 25px;
+    padding: 30px;
+    margin-bottom: 25px;
+    box-shadow: 10px 10px 0px rgba(14, 14, 14, 0.171);
+    border: 2px solid #d0d0d072;
+}
+
+.backButton {
+    background: none;
+    border: none;
+    cursor: pointer;
+    margin-bottom: 10px;
+    font-size: 14px;
+    color: #666;
+    width: fit-content;
+}
+
+.headerTitle {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 40px;
+}
+
+.titleMain {
+    font-size: 32px;
+    font-weight: bold;
+    margin: 0;
+}
+
+.titleSecondary {
+    font-size: 28px;
+    font-weight: bold;
+    color: #888;
+    margin: 0;
+}
+
+.jobHeader {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.jobName {
+    font-size: 24px;
+    font-weight: bold;
+    margin: 0;
+}
+
+.jobPriority {
+    background: #ff5722;
+    color: white;
+    padding: 5px 15px;
+    border-radius: 5px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.checklistGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 40px;
+}
+
+.checklistColumnTitle {
+    font-size: 20px;
+    font-weight: bold;
+    margin-bottom: 25px;
+    color: #111;
+    border-bottom: 2px solid #f0f0f0;
+    padding-bottom: 10px;
+}
+
+.checklistItems {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.checklistItem {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.2s;
+    user-select: none;
+}
+
+.checklistItemChecked {
+    background: #d0f8ce;
+}
+
+.checklistItemUnchecked {
+    background: #f0f0f0;
+}
+
+.checkbox {
+    width: 24px;
+    height: 24px;
+    border: 2px solid #333;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: bold;
+    background: #fff;
+    transition: all 0.2s;
+}
+
+.checkboxChecked {
+    background: #4caf50;
+    border-color: #4caf50;
+    color: white;
+}
+
+.itemName {
+    font-weight: bold;
+}
+
+.footer {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 30px;
+    padding-bottom: 20px;
+}
+
+.nextButton {
+    background: #333;
+    color: white;
+    border: none;
+    padding: 15px 40px;
+    border-radius: 30px;
+    font-size: 18px;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: opacity 0.3s;
+}
+
+.nextButtonDisabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}

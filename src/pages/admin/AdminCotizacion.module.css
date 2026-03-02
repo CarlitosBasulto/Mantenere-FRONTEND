@@ -1,0 +1,258 @@
+.dashboardLayout {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    background: linear-gradient(135deg, #f5f7fa 0%, #eef2f6 100%);
+    position: relative;
+    overflow: hidden;
+}
+
+.mainCard {
+    flex: 1;
+    background: rgba(255, 255, 255, 0);
+    border-radius: 40px;
+    padding: 40px 25px 40px 40px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    display: flex;
+    flex-direction: column;
+}
+
+.bgShape1 {
+    position: absolute;
+    top: -100px;
+    right: -100px;
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(254, 191, 1, 0.15) 0%, rgba(254, 191, 1, 0) 70%);
+    border-radius: 50%;
+    filter: blur(40px);
+    z-index: 0;
+    pointer-events: none;
+}
+
+.bgShape2 {
+    position: absolute;
+    bottom: -150px;
+    left: -150px;
+    width: 700px;
+    height: 700px;
+    background: radial-gradient(circle, rgba(100, 150, 250, 0.08) 0%, rgba(100, 150, 250, 0) 70%);
+    border-radius: 50%;
+    filter: blur(60px);
+    z-index: 0;
+    pointer-events: none;
+}
+
+.contentWrapper {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.scrollableContent {
+    flex: 1;
+    overflow-y: auto;
+    padding-right: 15px;
+}
+
+.scrollableContent::-webkit-scrollbar {
+    width: 6px;
+}
+
+.scrollableContent::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.scrollableContent::-webkit-scrollbar-thumb {
+    background: #e0e0e0;
+    border-radius: 10px;
+}
+
+.scrollableContent::-webkit-scrollbar-thumb:hover {
+    background: #bdbdbd;
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.backButton {
+    background: white;
+    border: none;
+    border-radius: 12px;
+    width: 45px;
+    height: 45px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #333;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.backButton:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1);
+}
+
+.pageTitle {
+    font-size: 28px;
+    font-weight: bold;
+    color: #111;
+    margin: 0;
+}
+
+.subtitle {
+    color: #777;
+    margin: 0;
+    font-size: 14px;
+    margin-top: 5px;
+}
+
+.infoSectionCard {
+    background: #fdfdfd;
+    border-radius: 25px;
+    padding: 30px;
+    margin-bottom: 25px;
+    box-shadow: 10px 10px 0px rgba(14, 14, 14, 0.171);
+    border: 2px solid #d0d0d072;
+}
+
+.sectionTitle {
+    font-size: 20px;
+    font-weight: bold;
+    color: #333;
+    border-bottom: 2px solid #f0f0f0;
+    padding-bottom: 15px;
+    margin-bottom: 25px;
+}
+
+.description {
+    color: #666;
+    margin-bottom: 20px;
+    font-size: 14px;
+}
+
+.formGrid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 20px;
+    margin-bottom: 25px;
+}
+
+.inputGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #555;
+}
+
+.input {
+    width: 100%;
+    padding: 15px;
+    border-radius: 12px;
+    border: 1px solid #ddd;
+    background: white;
+    outline: none;
+    font-size: 16px;
+    transition: border-color 0.2s;
+}
+
+.input:focus {
+    border-color: #f9ab0f;
+}
+
+.textarea {
+    width: 100%;
+    padding: 15px;
+    border-radius: 12px;
+    border: 1px solid #ddd;
+    background: white;
+    outline: none;
+    height: 120px;
+    resize: none;
+    transition: border-color 0.2s;
+    font-family: inherit;
+}
+
+.textarea:focus {
+    border-color: #f9ab0f;
+}
+
+.uploadBox {
+    border: 2px dashed #ccc;
+    border-radius: 16px;
+    padding: 40px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    background: #fafafa;
+}
+
+.uploadBox:hover {
+    border-color: #f9ab0f;
+    background: #fff;
+    box-shadow: 0 5px 15px rgba(249, 171, 15, 0.1);
+}
+
+.uploadIcon {
+    color: #999;
+}
+
+.uploadBox:hover .uploadIcon {
+    color: #f9ab0f;
+}
+
+.uploadText {
+    color: #777;
+    font-size: 15px;
+}
+
+.fileName {
+    color: #333;
+    font-weight: bold;
+    font-size: 15px;
+}
+
+.footer {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 30px;
+    padding-bottom: 20px;
+}
+
+.sendButton {
+    background: #333;
+    color: white;
+    border: none;
+    padding: 15px 40px;
+    border-radius: 30px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s;
+}
+
+.sendButton:hover {
+    background: #000;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+}
