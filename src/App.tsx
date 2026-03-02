@@ -24,56 +24,56 @@ import Cotizaciones from "./pages/cliente/Cotizaciones";
 
 
 function App() {
-  return (
-    <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          {/* PUBLIC ROUTES */}
-          <Route path="/" element={<Home />} />
+    return (
+        <AuthProvider>
+            <BrowserRouter>
+                <Routes>
+                    {/* PUBLIC ROUTES */}
+                    <Route path="/" element={<Home />} />
 
-          {/* AUTH (Sliding Page) */}
-          <Route path="/inicio-sesion" element={<AuthPage />} />
-          <Route path="/registro-sesion" element={<AuthPage />} />
+                    {/* AUTH (Sliding Page) */}
+                    <Route path="/inicio-sesion" element={<AuthPage />} />
+                    <Route path="/registro-sesion" element={<AuthPage />} />
 
-          {/* ADMIN ROUTES */}
-          <Route path="/menu" element={<AdminLayout />}>
-            <Route index element={<ListaNegocios />} />
-            <Route path="trabajadores" element={<ListaTrabajadores />} />
-            <Route path="trabajador/:id" element={<AdminPerfilTrabajador />} />
-            <Route path="solicitudes" element={<ListaSolicitudes />} />
-            <Route path="trabajo/:id" element={<TrabajoDetalle />} />
-            <Route path="trabajo-detalle/:id" element={<AdminDetalleTrabajo />} />
-            <Route path="cotizacion/:id" element={<AdminCotizacion />} />
-            <Route path="verificacion-tarea/:id" element={<AdminVerificacionEquipo />} />
-            <Route path="reporte-tarea/:id" element={<AdminReporte />} />
-            <Route path="mi-perfil" element={<MiPerfil />} />
-          </Route>
+                    {/* ADMIN ROUTES */}
+                    <Route path="/menu" element={<AdminLayout />}>
+                        <Route index element={<ListaNegocios />} />
+                        <Route path="trabajadores" element={<ListaTrabajadores />} />
+                        <Route path="trabajador/:id" element={<AdminPerfilTrabajador />} />
+                        <Route path="solicitudes" element={<ListaSolicitudes />} />
+                        <Route path="trabajo/:id" element={<TrabajoDetalle />} />
+                        <Route path="trabajo-detalle/:id" element={<AdminDetalleTrabajo />} />
+                        <Route path="cotizacion/:id" element={<AdminCotizacion />} />
+                        <Route path="verificacion-tarea/:id" element={<AdminVerificacionEquipo />} />
+                        <Route path="reporte-tarea/:id" element={<AdminReporte />} />
+                        <Route path="mi-perfil" element={<MiPerfil />} />
+                    </Route>
 
-          {/* CLIENTE ROUTES */}
-          <Route path="/cliente" element={<ClienteLayout />}>
-            <Route index element={<ListaNegocios />} />
-            <Route path="perfil-empresa" element={<PerfilEmpresa />} />
-            <Route path="mi-perfil" element={<MiPerfil />} />
-            <Route path="cotizaciones" element={<Cotizaciones />} />
-            <Route path="trabajo/:id" element={<TrabajoDetalle />} />
-            <Route path="trabajo-detalle/:id" element={<AdminDetalleTrabajo />} />
-          </Route>
+                    {/* CLIENTE ROUTES */}
+                    <Route path="/cliente" element={<ClienteLayout />}>
+                        <Route index element={<ListaNegocios />} />
+                        <Route path="perfil-empresa" element={<PerfilEmpresa />} />
+                        <Route path="mi-perfil" element={<MiPerfil />} />
+                        <Route path="cotizaciones" element={<Cotizaciones />} />
+                        <Route path="trabajo/:id" element={<TrabajoDetalle />} />
+                        <Route path="trabajo-detalle/:id" element={<AdminDetalleTrabajo />} />
+                    </Route>
 
-          {/* TECNICO ROUTES */}
-          <Route path="/tecnico" element={<TecnicoLayout />}>
-            <Route index element={<ListaNegocios />} />
-            <Route path="solicitudes" element={<ListaSolicitudes />} />
-            <Route path="mi-perfil" element={<MiPerfil />} />
-            <Route path="trabajo/:id" element={<TrabajoDetalle />} />
-            <Route path="trabajo-detalle/:id" element={<AdminDetalleTrabajo />} />
-          </Route>
+                    {/* TECNICO ROUTES */}
+                    <Route path="/tecnico" element={<TecnicoLayout />}>
+                        <Route index element={<ListaNegocios />} />
+                        <Route path="solicitudes" element={<ListaSolicitudes />} />
+                        <Route path="mi-perfil" element={<MiPerfil />} />
+                        <Route path="trabajo/:id" element={<TrabajoDetalle />} />
+                        <Route path="trabajo-detalle/:id" element={<AdminDetalleTrabajo />} />
+                    </Route>
 
-          {/* FALLBACK */}
-          <Route path="*" element={<Home />} />
-        </Routes>
-      </BrowserRouter>
-    </AuthProvider>
-  );
+                    {/* FALLBACK */}
+                    <Route path="*" element={<Home />} />
+                </Routes>
+            </BrowserRouter>
+        </AuthProvider>
+    );
 }
 
 export default App;

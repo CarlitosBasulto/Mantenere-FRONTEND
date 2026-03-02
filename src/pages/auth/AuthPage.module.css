@@ -195,11 +195,14 @@
     margin: 8px 0;
     width: 100%;
     border-radius: 20px;
+    color: #333;
 }
 
 .title {
     font-weight: bold;
     margin: 0;
+    font-size: 2rem;
+    color: #333;
 }
 
 .button {
@@ -236,10 +239,12 @@
     line-height: 20px;
     letter-spacing: 0.5px;
     margin: 20px 0 30px;
+    color: #FFFFFF;
 }
 
 .span {
     font-size: 12px;
+    color: #555;
 }
 
 .link {
