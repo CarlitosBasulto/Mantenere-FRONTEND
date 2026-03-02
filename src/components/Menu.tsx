@@ -10,7 +10,7 @@ import { HiOutlineUser, HiOutlineBell } from "react-icons/hi2";
 const MenuLayout: React.FC = () => {
     const location = useLocation();
     const navigate = useNavigate();
-    const { user } = useAuth(); // Usamos el contexto
+    const { user, login } = useAuth(); // Usamos el contexto
     const [sidebarOptions, setSidebarOptions] = useState<string[]>([]);
     const [activeOption, setActiveOption] = useState("Negocios");
     const [notificaciones, setNotificaciones] = useState<any[]>([]);
