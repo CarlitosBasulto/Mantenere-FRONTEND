@@ -53,7 +53,7 @@
     font-size: 16px;
     margin-bottom: 20px;
     display: flex;
-    alignItems: center;
+    align-items: center;
     gap: 5px;
 }
 
