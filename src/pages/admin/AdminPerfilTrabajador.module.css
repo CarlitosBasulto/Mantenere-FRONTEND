@@ -1,0 +1,154 @@
+.dashboardLayout {
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+    background-color: #f5f7fa;
+    min-height: 100vh;
+}
+
+.mainCard {
+    background: white;
+    border-radius: 30px;
+    padding: 40px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    position: relative;
+    overflow: hidden;
+    max-width: 1000px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+.bgShape1 {
+    position: absolute;
+    top: -50px;
+    right: -50px;
+    width: 300px;
+    height: 300px;
+    background: #eef2f7;
+    border-radius: 50%;
+    z-index: 0;
+}
+
+.bgShape2 {
+    position: absolute;
+    bottom: -100px;
+    left: -100px;
+    width: 400px;
+    height: 400px;
+    background: #f0f4f8;
+    border-radius: 50%;
+    z-index: 0;
+}
+
+.contentWrapper {
+    position: relative;
+    z-index: 1;
+}
+
+.backButton {
+    background: none;
+    border: none;
+    color: #888;
+    cursor: pointer;
+    font-size: 16px;
+    margin-bottom: 20px;
+    display: flex;
+    alignItems: center;
+    gap: 5px;
+}
+
+.profileHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 40px;
+}
+
+.infoGrid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 30px;
+    flex: 1;
+}
+
+.infoRow {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.label {
+    font-weight: bold;
+    color: #333;
+    font-size: 18px;
+    width: 100px;
+}
+
+.value {
+    color: #6c7a89;
+    font-size: 18px;
+    font-weight: 500;
+}
+
+.avatarContainer {
+    position: relative;
+    width: 180px;
+    height: 180px;
+}
+
+.avatarCircle {
+    width: 100%;
+    height: 100%;
+    background: #eef2f7;
+    border-radius: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 40px;
+    color: #888;
+    border: 2px solid #fff;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.editLabel {
+    font-size: 14px;
+    font-weight: bold;
+    color: #aaa;
+    margin-top: 10px;
+}
+
+.statsSection {
+    margin-top: 40px;
+    padding-top: 20px;
+    border-top: 1px solid #eee;
+    display: flex;
+    gap: 50px;
+}
+
+.statItem {
+    text-align: center;
+}
+
+.statValue {
+    display: block;
+    font-size: 24px;
+    font-weight: bold;
+    color: #333;
+}
+
+.statLabel {
+    font-size: 14px;
+    color: #888;
+}
+
+.sideDecoration {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 60px;
+    background: #e1e7ee;
+    border-radius: 30% 0 0 30%;
+    opacity: 0.6;
+}

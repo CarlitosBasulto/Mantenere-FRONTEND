@@ -1,6 +1,8 @@
 import React, { useState } from "react";
-import { useParams } from "react-router-dom";
-import styles from "../../components/Menu.module.css";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import menuStyles from "../../components/Menu.module.css";
+import styles from "./Trabajodetalles.module.css";
+import { useAuth } from "../../context/AuthContext";
 
 interface Trabajo {
     id: number;
@@ -8,8 +10,18 @@ interface Trabajo {
     ubicacion: string;
     tecnico: string;
     fecha: string; // Formato DD/MM/YYYY
-    estado: "En Espera" | "Finalizado" | "En Proceso" | "Asignado" | "Solicitud";
-    tipo?: "Visita" | "Trabajo";
+    estado: "En Espera" | "Finalizado" | "En Proceso" | "Asignado" | "Solicitud" | "Cotización Enviada" | "Cotización Aceptada" | "Cotización Rechazada";
+    tipo?: "Visita" | "Trabajo" | "Nueva Solicitud";
+    visitado?: boolean;
+    descripcion?: string;
+    fechaAsignada?: string;
+    horaAsignada?: string;
+    cotizacion?: {
+        costo: string;
+        notas: string;
+        archivo: string;
+        fecha: string;
+    };
 }
 
 interface Tecnico {
@@ -20,45 +32,57 @@ interface Tecnico {
 
 const TrabajoDetalle: React.FC = () => {
     const { id } = useParams();
+    const navigate = useNavigate();
+    const { user } = useAuth();
+    const [searchParams] = useSearchParams();
+    const isCotizacionesTab = searchParams.get('tab') === 'cotizaciones';
 
-    // DATOS SIMULADOS - TRABAJOS
-    const [trabajosData, setTrabajosData] = useState<Trabajo[]>([
-        {
-            id: 101,
-            titulo: "Electricidad - Mc Donals",
-            ubicacion: "Mc Donals",
-            tecnico: "Sin asignar",
-            fecha: "25/08/2026",
-            estado: "En Espera"
-        },
-        {
-            id: 102,
-            titulo: "Plomeria - Mc Donals",
-            ubicacion: "Mc Donals",
-            tecnico: "Jesus Antonio",
-            fecha: "25/08/2026",
-            estado: "Asignado",
-            tipo: "Trabajo"
-        },
-        {
-            id: 104,
-            titulo: "Mantenimiento General",
-            ubicacion: "Mc Donals",
-            tecnico: "Carlos Dzul",
-            fecha: "10/06/2026",
-            estado: "Finalizado",
-            tipo: "Visita"
-        },
-        {
-            id: 103,
-            titulo: "Pintor - Mc Donals",
-            ubicacion: "Mc Donals",
-            tecnico: "Pedro Javier",
-            fecha: "20/05/2026",
-            estado: "Finalizado",
-            tipo: "Trabajo"
+    // Obtener nombre del negocio desde localStorage
+    const [businessName, setBusinessName] = useState("Cargando...");
+
+    React.useEffect(() => {
+        const stored = localStorage.getItem('negocios_list');
+        if (stored) {
+            const negocios = JSON.parse(stored);
+            const current = negocios.find((n: any) => n.id === Number(id));
+            if (current) {
+                setBusinessName(current.nombre);
+                setNewRequestData(prev => ({ ...prev, cliente: current.nombre }));
+            }
         }
-    ]);
+    }, [id]);
+
+    // DATOS SIMULADOS INICIALES
+    const initialJobs: Trabajo[] = [
+        {
+            id: 200,
+            titulo: "Visita de Diagnóstico - Ejemplo",
+            ubicacion: "Mc Donals (Centro)",
+            tecnico: "Pedro Javier",
+            fecha: "27/08/2026",
+            estado: "Solicitud",
+            tipo: "Visita",
+            visitado: true,
+            descripcion: "Revisión general de instalaciones eléctricas por parpadeo de luces."
+        }
+    ];
+
+    const [trabajosData, setTrabajosData] = useState<Trabajo[]>([]);
+
+    React.useEffect(() => {
+        const stored = localStorage.getItem(`trabajos_business_${id}`);
+        if (stored) {
+            setTrabajosData(JSON.parse(stored));
+        } else {
+            // Mostramos los datos iniciales de ejemplo para cualquier negocio si está vacío
+            setTrabajosData(initialJobs);
+        }
+    }, [id]);
+
+    const saveJobs = (data: Trabajo[]) => {
+        setTrabajosData(data);
+        localStorage.setItem(`trabajos_business_${id}`, JSON.stringify(data));
+    };
 
     // DATOS SIMULADOS - TECNICOS
     const tecnicosData: Tecnico[] = [
@@ -74,9 +98,28 @@ const TrabajoDetalle: React.FC = () => {
     // Modal Asignación
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedJobId, setSelectedJobId] = useState<number | null>(null);
-    const [selectedTechnicianId, setSelectedTechnicianId] = useState<number | null>(null);
+    const [selectedTechnicians, setSelectedTechnicians] = useState<number[]>([]);
+    const [asignarFecha, setAsignarFecha] = useState("");
+    const [asignarHora, setAsignarHora] = useState("");
     const [technicianSearch, setTechnicianSearch] = useState("");
     const [selectedType, setSelectedType] = useState<"Visita" | "Trabajo">("Visita");
+
+    const handleTechToggle = (id: number) => {
+        if (selectedTechnicians.includes(id)) {
+            setSelectedTechnicians(selectedTechnicians.filter(tId => tId !== id));
+        } else {
+            setSelectedTechnicians([...selectedTechnicians, id]);
+        }
+    };
+
+    // MODAL NUEVO SERVICIO (CLIENTE)
+    const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
+    const [newRequestData, setNewRequestData] = useState({
+        categoria: "Electricidad",
+        cliente: "",
+        fecha: "",
+        descripcion: ""
+    });
 
     // Modal Filtro
     const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
@@ -84,29 +127,44 @@ const TrabajoDetalle: React.FC = () => {
     const [dateFrom, setDateFrom] = useState("");
     const [dateTo, setDateTo] = useState("");
 
-    // --- LÓGICA DE FILTRADO Y AGRUPACIÓN (SOLO PARA TAB TRABAJO) ---
+    // --- LÓGICA DE FILTRADO Y AGRUPACIÓN ---
     const getGroupedJobs = () => {
         const groups: { [key: string]: Trabajo[] } = {};
 
-        // Filtrar
-        const filteredJobs = trabajosData.filter(job => {
-            // Buscador Texto
+        // 1. Filtrar por búsqueda y estatus
+        let filteredJobs = trabajosData.filter(job => {
             const matchesSearch = job.titulo.toLowerCase().includes(searchText.toLowerCase()) ||
                 job.tecnico.toLowerCase().includes(searchText.toLowerCase());
 
-            // Filtro Estatus
             let matchesStatus = true;
             if (filterStatus !== "Todos") {
-                if (filterStatus === "Completadas" && job.estado !== "Finalizado") matchesStatus = false;
-                if (filterStatus === "En espera" && job.estado !== "En Espera") matchesStatus = false;
-                if (filterStatus === "Asignados" && job.estado !== "Asignado") matchesStatus = false;
-                if (filterStatus === "Sin asignar" && job.tecnico !== "Sin asignar") matchesStatus = false;
+                if (isCotizacionesTab) {
+                    if (filterStatus === "Pagados" && job.estado !== "Cotización Aceptada") matchesStatus = false;
+                    if (filterStatus === "En espera" && job.estado !== "Cotización Enviada") matchesStatus = false;
+                    if (filterStatus === "Rechazado" && job.estado !== "Cotización Rechazada") matchesStatus = false;
+                } else {
+                    if (filterStatus === "Completadas" && job.estado !== "Finalizado") matchesStatus = false;
+                    if (filterStatus === "En espera" && job.estado !== "En Espera") matchesStatus = false;
+                    if (filterStatus === "Asignados" && job.estado !== "Asignado") matchesStatus = false;
+                    if (filterStatus === "Sin asignar" && job.tecnico !== "Sin asignar") matchesStatus = false;
+                }
             }
 
-            return matchesSearch && matchesStatus;
+            // Filtrado adicional si estamos en la pestaña de cotizaciones
+            let matchesCotizacion = true;
+            if (isCotizacionesTab) {
+                matchesCotizacion = !!job.cotizacion && (job.estado === 'Cotización Enviada' || job.estado === 'Cotización Aceptada' || job.estado === 'Cotización Rechazada');
+            }
+
+            return matchesSearch && matchesStatus && matchesCotizacion;
         });
 
-        // Agrupar
+        // 2. FILTRO ADICIONAL: Solo mostrar trabajos del técnico si el rol es 'tecnico' y NO están finalizados
+        if (user?.role === 'tecnico') {
+            filteredJobs = filteredJobs.filter(job => job.tecnico === user.name && job.estado !== "Finalizado");
+        }
+
+        // Agrupar por fecha
         filteredJobs.forEach(job => {
             const dateKey = job.fecha;
             if (!groups[dateKey]) {
@@ -126,31 +184,95 @@ const TrabajoDetalle: React.FC = () => {
 
     // --- HANDLERS ---
     const openAssignmentModal = (jobId: number) => {
+        const job = trabajosData.find(j => j.id === jobId);
         setSelectedJobId(jobId);
-        setSelectedTechnicianId(null);
+        setSelectedTechnicians([]);
+        setAsignarFecha("");
+        setAsignarHora("");
         setTechnicianSearch("");
-        setSelectedType("Visita"); // Reset tipo por defecto
+
+        // Si es una solicitud nueva, forzamos a que sea Visita por defecto
+        if (job?.estado === "Solicitud") {
+            setSelectedType("Visita");
+        } else {
+            setSelectedType("Trabajo"); // O el tipo que ya tenga
+        }
+
         setIsModalOpen(true);
     };
 
     const handleConfirmAssignment = () => {
-        if (selectedJobId && selectedTechnicianId) {
-            const tech = tecnicosData.find(t => t.id === selectedTechnicianId);
-            if (tech) {
-                setTrabajosData(prev => prev.map(job => {
+        if (selectedJobId && selectedTechnicians.length > 0) {
+            const assignedNames = selectedTechnicians
+                .map(id => tecnicosData.find(t => t.id === id)?.nombre)
+                .filter(Boolean)
+                .join(", ");
+
+            if (assignedNames) {
+                const updated = trabajosData.map(job => {
                     if (job.id === selectedJobId) {
                         return {
                             ...job,
-                            tecnico: tech.nombre,
-                            estado: "Asignado",
-                            tipo: selectedType // Guardamos el tipo seleccionado
+                            tecnico: assignedNames,
+                            estado: job.estado === "Solicitud" ? "Asignado" : job.estado,
+                            tipo: selectedType,
+                            visitado: job.visitado,
+                            fechaAsignada: asignarFecha,
+                            horaAsignada: asignarHora
                         };
                     }
                     return job;
-                }));
+                });
+                saveJobs(updated);
             }
         }
         setIsModalOpen(false);
+    };
+
+    const handleConfirmRequest = () => {
+        const newJob: Trabajo = {
+            id: Date.now(),
+            titulo: `${newRequestData.categoria} - ${newRequestData.cliente || businessName}`,
+            ubicacion: newRequestData.cliente || businessName,
+            tecnico: "Sin asignar",
+            fecha: newRequestData.fecha || new Date().toLocaleDateString('es-MX'),
+            estado: "Solicitud",
+            tipo: "Nueva Solicitud",
+            descripcion: newRequestData.descripcion
+        };
+        const updated = [...trabajosData, newJob];
+        saveJobs(updated);
+        setIsRequestModalOpen(false);
+        // Reset form
+        setNewRequestData({
+            categoria: "Electricidad",
+            cliente: businessName,
+            fecha: "",
+            descripcion: ""
+        });
+    };
+
+    const handleAceptarCotizacion = (jobId: number) => {
+        const updated = trabajosData.map(job => {
+            if (job.id === jobId) {
+                return { ...job, estado: "Cotización Aceptada" as const };
+            }
+            return job;
+        });
+        saveJobs(updated);
+        alert("Cotización aceptada. El administrador procederá a asignar a un técnico.");
+    };
+
+    const handleRechazarCotizacion = (jobId: number) => {
+        if (window.confirm("¿Seguro que deseas rechazar la cotización?")) {
+            const updated = trabajosData.map(job => {
+                if (job.id === jobId) {
+                    return { ...job, estado: "Cotización Rechazada" as const };
+                }
+                return job;
+            });
+            saveJobs(updated);
+        }
     };
 
     const filteredTechnicians = tecnicosData.filter(t =>
@@ -158,115 +280,234 @@ const TrabajoDetalle: React.FC = () => {
     );
 
     return (
-        <div className={styles.dashboardLayout}>
-            <div className={styles.leftColumn}>
+        <div className={menuStyles.dashboardLayout}>
+            <div className={menuStyles.leftColumn}>
 
                 {/* HEADER / TITULO */}
-                <div style={{ marginBottom: '20px' }}>
-                    <h2 style={{ fontSize: '28px', fontWeight: 'bold', color: '#000', margin: 0 }}>
-                        Lista de trabajos
+                <div className={styles.headerWrapper}>
+                    <p className={styles.subTitle}>Trabajos de la sucursal:</p>
+                    <h2 className={styles.businessName}>
+                        {businessName}
                     </h2>
                 </div>
 
                 {/* BUSCADOR */}
-                <div className={styles.searchSection} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <div className={styles.searchCard} style={{ margin: 0, flex: 1, gap: '15px', background: '#f5f5f5', border: 'none' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', padding: '0 10px', color: '#666' }}>🔍</div>
-                        <input
-                            type="text"
-                            placeholder="Buscar..."
-                            className={styles.searchInput}
-                            value={searchText}
-                            onChange={(e) => setSearchText(e.target.value)}
-                            style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none' }}
-                        />
-                    </div>
+                <div className={menuStyles.searchCard}>
+                    <input
+                        type="text"
+                        placeholder="Buscar..."
+                        className={menuStyles.searchInput}
+                        value={searchText}
+                        onChange={(e) => setSearchText(e.target.value)}
+                    />
                     {/* BOTON FILTRO */}
                     <button
-                        className={styles.filterBtn}
+                        className={menuStyles.filterBtn}
                         onClick={() => setIsFilterModalOpen(true)}
-                        style={{ background: '#9ca3af', color: 'white', border: 'none', marginLeft: '10px' }}
                     >
                         ⚙️
                     </button>
+
+                    {user?.role === 'cliente' && (
+                        <button
+                            className={`${menuStyles.filterBtn} ${styles.newRequestBtn}`}
+                            onClick={() => setIsRequestModalOpen(true)}
+                        >
+                            + Nueva Solicitud
+                        </button>
+                    )}
                 </div>
 
                 {/* LISTA DE TRABAJOS */}
-                <div className={styles.jobsSection} style={{ marginTop: '20px' }}>
+                <div className={styles.jobsSection}>
                     {sortedDates.map(date => (
                         <div key={date}>
                             {groupedJobs[date].map(trabajo => (
-                                <div key={trabajo.id} className={styles.jobCard} style={{ marginBottom: '15px' }}>
+                                <div
+                                    key={trabajo.id}
+                                    className={styles.jobCard}
+                                    onClick={(e) => {
+                                        // Asegurar que no sea un clic en un botón interno (aunque ya tienen stopPropagation)
+                                        if (!(e.target as HTMLElement).closest('button')) {
+                                            const basePath = user?.role === 'tecnico' ? '/tecnico' : (user?.role === 'cliente' ? '/cliente' : '/menu');
+                                            navigate(`${basePath}/trabajo-detalle/${trabajo.id}`);
+                                        }
+                                    }}
+                                >
                                     <div className={styles.cardContent}>
 
                                         {/* ICONO */}
                                         <div className={styles.cardIconStatus}>
-                                            {trabajo.estado === "Finalizado" ? "✅" : "🕒"}
+                                            {trabajo.estado === "Finalizado" ? "✅" : (trabajo.estado === "Solicitud" ? (
+                                                <div className={styles.requestBadgeContainer}>
+                                                    <div className={styles.requestBadge}>
+                                                        Solicitud
+                                                    </div>
+                                                </div>
+                                            ) : "")}
                                         </div>
 
                                         {/* INFO */}
                                         <div className={styles.cardInfo}>
-                                            <span className={styles.cardDate}>{trabajo.fecha}</span>
-                                            <h3>{trabajo.titulo}</h3>
-                                            <p>Tecnico: <span style={{ fontWeight: 'bold' }}>{trabajo.tecnico}</span></p>
+                                            <div className={styles.cardDateWrapper}>
+                                                <span className={styles.cardDate}>{trabajo.fecha}</span>
+                                            </div>
+
+                                            {user?.role === 'admin' && trabajo.visitado && trabajo.estado !== 'Finalizado' && (
+                                                <div className={styles.diagnosisBanner}>
+                                                    <span className={styles.diagnosisIcon}>🛡️</span>
+                                                    <div>
+                                                        <p className={styles.diagnosisTitle}>AVISO DE DIAGNÓSTICO</p>
+                                                        <p className={styles.diagnosisText}>Esta sucursal ya fue visitada y tiene un diagnóstico listo para ser revisado.</p>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {(user?.role === 'cliente' || user?.role === 'admin') &&
+                                                ['Cotización Enviada', 'Cotización Aceptada', 'Cotización Rechazada'].includes(trabajo.estado) &&
+                                                trabajo.cotizacion && (
+                                                    <div style={{ background: '#fff9e6', border: '1px solid #ffe0b2', borderRadius: '15px', padding: '20px', marginTop: '15px', marginBottom: '15px' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
+                                                            <span style={{ fontSize: '24px' }}>📄</span>
+                                                            <h4 style={{ margin: 0, color: '#e65100', fontSize: '18px' }}>
+                                                                {trabajo.estado === 'Cotización Enviada' ? 'Cotización Recibida' :
+                                                                    trabajo.estado === 'Cotización Aceptada' ? 'Cotización Aceptada' :
+                                                                        'Cotización Rechazada'}
+                                                            </h4>
+                                                        </div>
+
+                                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', marginBottom: '20px' }}>
+                                                            <div style={{ flex: '1', minWidth: '200px' }}>
+                                                                <p style={{ margin: '0 0 5px 0', fontSize: '14px', color: '#666' }}>Costo Estimado:</p>
+                                                                <p style={{ margin: 0, fontSize: '24px', fontWeight: 'bold', color: '#333' }}>${trabajo.cotizacion.costo}</p>
+                                                            </div>
+                                                            <div style={{ flex: '2', minWidth: '300px' }}>
+                                                                <p style={{ margin: '0 0 5px 0', fontSize: '14px', color: '#666' }}>Notas:</p>
+                                                                <p style={{ margin: 0, fontSize: '15px', color: '#444' }}>{trabajo.cotizacion.notas || "Sin notas adicionales."}</p>
+                                                            </div>
+                                                        </div>
+
+                                                        <div style={{ marginBottom: '20px' }}>
+                                                            <a
+                                                                href={trabajo.cotizacion.archivo}
+                                                                target="_blank"
+                                                                rel="noreferrer"
+                                                                style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: '#fff', border: '1px solid #ccc', padding: '10px 20px', borderRadius: '25px', color: '#333', textDecoration: 'none', fontWeight: 'bold', fontSize: '14px' }}
+                                                                onClick={(e) => e.stopPropagation()}
+                                                            >
+                                                                📎 Ver Archivo Adjunto
+                                                            </a>
+                                                        </div>
+
+                                                        {user?.role === 'cliente' && trabajo.estado === 'Cotización Enviada' && (
+                                                            <div style={{ display: 'flex', gap: '10px' }}>
+                                                                <button
+                                                                    style={{ flex: 1, background: '#4caf50', color: 'white', border: 'none', padding: '12px', borderRadius: '25px', fontWeight: 'bold', cursor: 'pointer' }}
+                                                                    onClick={(e) => { e.stopPropagation(); handleAceptarCotizacion(trabajo.id); }}
+                                                                >
+                                                                    ✓ Aceptar Cotización
+                                                                </button>
+                                                                <button
+                                                                    style={{ flex: 1, background: '#f44336', color: 'white', border: 'none', padding: '12px', borderRadius: '25px', fontWeight: 'bold', cursor: 'pointer' }}
+                                                                    onClick={(e) => { e.stopPropagation(); handleRechazarCotizacion(trabajo.id); }}
+                                                                >
+                                                                    ✕ Rechazar
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+
+                                            <h3 className={styles.jobTitle}>{trabajo.titulo}</h3>
+                                            {trabajo.descripcion && (
+                                                <p className={styles.jobDescription}>
+                                                    {trabajo.descripcion}
+                                                </p>
+                                            )}
+                                            <p className={styles.technicianLabel}>Tecnico: <span className={styles.technicianName}>{trabajo.tecnico}</span></p>
+
+
                                             {/* Mostrar Tipo si existe */}
                                             {trabajo.tipo && (
-                                                <p style={{ fontSize: '13px', color: '#666', marginTop: '4px' }}>
-                                                    Tipo: <span style={{
-                                                        background: '#f0f0f0', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold'
-                                                    }}>{trabajo.tipo}</span>
+                                                <p className={styles.jobTypeContainer}>
+                                                    Tipo: <span className={styles.jobTypeBadge}>{trabajo.tipo}</span>
                                                 </p>
                                             )}
                                         </div>
 
-                                        {/* ACCIONES */}
-                                        <div className={styles.cardAction} style={{ display: 'flex', gap: '10px', flexDirection: 'column', alignItems: 'flex-end' }}>
-
-                                            {trabajo.tecnico === "Sin asignar" ? (
-                                                <>
-                                                    <button
-                                                        className={styles.statusBtn}
-                                                        style={{ background: '#e0e0e0', color: '#333', borderRadius: '20px', padding: '5px 15px', fontSize: '12px' }}
-                                                        onClick={() => openAssignmentModal(trabajo.id)}
-                                                    >
-                                                        Asignar
-                                                    </button>
-                                                    <button
-                                                        className={styles.statusBtn}
-                                                        style={{ background: '#d4ebf9', color: '#007bff', borderRadius: '20px', padding: '5px 15px', fontSize: '12px' }}
-                                                    >
-                                                        En espera
-                                                    </button>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    {trabajo.estado !== 'Finalizado' && (
-                                                        <button
-                                                            className={styles.statusBtn}
-                                                            style={{ background: '#e0e0e0', color: '#333', borderRadius: '20px', padding: '5px 15px', fontSize: '12px' }}
-                                                            onClick={() => openAssignmentModal(trabajo.id)}
-                                                        >
-                                                            Editar
-                                                        </button>
+                                        {/* ACCIONES - Solo Admin */}
+                                        <div className={styles.actionsContainer}>
+                                            {(trabajo.fechaAsignada || trabajo.horaAsignada) && (
+                                                <div style={{ background: '#eef8f1', padding: '6px 14px', borderRadius: '15px', display: 'inline-flex', alignItems: 'center', gap: '8px', border: '1px solid #c8e6c9' }}>
+                                                    {trabajo.fechaAsignada && (
+                                                        <span style={{ color: '#137333', fontWeight: 'bold', fontSize: '13px' }}>
+                                                            📅 {trabajo.fechaAsignada}
+                                                        </span>
                                                     )}
+                                                    {trabajo.fechaAsignada && trabajo.horaAsignada && (
+                                                        <span style={{ color: '#137333', fontWeight: 'bold', fontSize: '13px' }}>-</span>
+                                                    )}
+                                                    {trabajo.horaAsignada && (
+                                                        <span style={{ color: '#137333', fontWeight: 'bold', fontSize: '13px' }}>
+                                                            ⏰ {trabajo.horaAsignada}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            )}
 
-                                                    <button
-                                                        className={styles.statusBtn}
-                                                        style={{
-                                                            background: trabajo.estado === 'Finalizado' ? '#dfffd6' : '#d4ebf9',
-                                                            color: trabajo.estado === 'Finalizado' ? '#2e7d32' : '#007bff',
-                                                            borderRadius: '20px', padding: '5px 15px', fontSize: '12px'
-                                                        }}
-                                                    >
-                                                        {trabajo.estado}
-                                                    </button>
-                                                </>
+                                            {user?.role === 'admin' ? (
+                                                (trabajo.tecnico === "Sin asignar" || trabajo.estado === "Solicitud") ? (
+                                                    <>
+                                                        <button
+                                                            className={`${styles.statusBtn} ${styles.assignBtn}`}
+                                                            onClick={(e) => { e.stopPropagation(); openAssignmentModal(trabajo.id); }}
+                                                        >
+                                                            Asignar
+                                                        </button>
+                                                        <button
+                                                            className={`${styles.statusBtn} ${styles.statusBadge} ${trabajo.estado === "Solicitud" ? styles.statusSolicitud : styles.statusAsignado}`}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        >
+                                                            {trabajo.estado}
+                                                        </button>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        {trabajo.estado !== 'Finalizado' && (
+                                                            <button
+                                                                className={`${styles.statusBtn} ${styles.editBtn}`}
+                                                                onClick={(e) => { e.stopPropagation(); openAssignmentModal(trabajo.id); }}
+                                                            >
+                                                                Editar
+                                                            </button>
+                                                        )}
+
+                                                        <button
+                                                            className={`${styles.statusBtn} ${styles.statusBadge} ${trabajo.estado === 'Finalizado' ? styles.statusFinalizado : styles.statusAsignado}`}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        >
+                                                            {trabajo.estado}
+                                                        </button>
+                                                    </>
+                                                )
+                                            ) : (
+                                                // Vista para Tecnico o Cliente (solo badge de estado)
+                                                <button
+                                                    className={`${styles.statusBtn} ${styles.statusBadge} ${trabajo.estado === 'Finalizado' ? styles.statusFinalizado : (trabajo.estado === 'Cotización Aceptada' ? styles.statusAceptada : styles.statusAsignado)}`}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                    style={{
+                                                        background: trabajo.estado === 'Cotización Enviada' ? '#ffe0b2' : undefined,
+                                                        color: trabajo.estado === 'Cotización Enviada' ? '#e65100' : undefined
+                                                    }}
+                                                >
+                                                    {trabajo.estado}
+                                                </button>
                                             )}
                                         </div>
 
                                         {/* INDICADOR ESTADO LATERAL */}
                                         <div className={`${styles.cardIndicator} ${trabajo.estado === 'Finalizado' ? styles.green : styles.blue
-                                            }`} style={{ right: 0, left: 'auto', borderRadius: '0 20px 20px 0', width: '50px' }}></div>
+                                            } ${styles.cardIndicatorOverride}`}></div>
                                     </div>
                                 </div>
                             ))}
@@ -281,59 +522,82 @@ const TrabajoDetalle: React.FC = () => {
             {/* MODAL ASIGNAR TÉCNICO */}
             {isModalOpen && (
                 <div className={styles.modalOverlay}>
-                    <div className={styles.modalContent} style={{ width: '500px' }}>
-                        <h3 style={{ textAlign: 'center' }}>Asignar Tecnico</h3>
+                    <div className={`${styles.modalContent} ${styles.modalContentWide}`}>
+                        <h3 className={styles.modalTitle}>Asignar Tecnico</h3>
 
                         {/* SELECCION TIPO DE TRABAJO */}
                         <div style={{ marginBottom: '20px', display: 'flex', gap: '20px', justifyContent: 'center' }}>
-                            <label className={styles.radioLabel}>
+                            <label className={`${styles.radioLabel} ${styles.radioLabelLarge}`}>
                                 <input
                                     type="radio"
                                     name="type"
                                     checked={selectedType === "Visita"}
                                     onChange={() => setSelectedType("Visita")}
                                 />
-                                <span style={{ fontSize: '16px' }}>Visita</span>
+                                <span>Visita</span>
                             </label>
-                            <label className={styles.radioLabel}>
+                            <label className={`${styles.radioLabel} ${styles.radioLabelLarge}`}>
                                 <input
                                     type="radio"
                                     name="type"
                                     checked={selectedType === "Trabajo"}
                                     onChange={() => setSelectedType("Trabajo")}
                                 />
-                                <span style={{ fontSize: '16px' }}>Trabajo</span>
+                                <span>Trabajo</span>
                             </label>
                         </div>
 
-                        <div className={styles.searchCard} style={{ marginTop: '0', marginBottom: '20px', padding: '0' }}>
+                        <div className={`${menuStyles.searchCard} ${styles.techSearchWrapper}`}>
                             <input
                                 type="text"
-                                placeholder="🔍 Buscar técnico..."
-                                className={styles.searchInput}
+                                placeholder="Buscar técnico..."
+                                className={`${menuStyles.searchInput} ${styles.techSearchInput}`}
                                 value={technicianSearch}
                                 onChange={(e) => setTechnicianSearch(e.target.value)}
-                                style={{ width: '100%', background: '#f5f5f5' }}
                             />
                         </div>
 
-                        <div style={{ maxHeight: '250px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        <div className={styles.techList}>
                             {filteredTechnicians.map(tech => (
-                                <div key={tech.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px', borderBottom: '1px solid #eee' }}>
+                                <div key={tech.id} className={styles.techItem}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                        <div style={{ width: '40px', height: '40px', background: '#eee', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>👤</div>
+                                        <div className={styles.techAvatar}>👤</div>
                                         <span style={{ fontWeight: 'bold' }}>{tech.nombre}</span>
                                     </div>
-                                    <input type="radio" name="selectedTech" checked={selectedTechnicianId === tech.id} onChange={() => setSelectedTechnicianId(tech.id)} style={{ width: '20px', height: '20px', accentColor: '#333' }} />
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedTechnicians.includes(tech.id)}
+                                        onChange={() => handleTechToggle(tech.id)}
+                                        style={{ width: '20px', height: '20px', accentColor: '#333', cursor: 'pointer' }}
+                                    />
                                 </div>
                             ))}
                         </div>
 
-                        <div style={{ marginTop: '20px', textAlign: 'center' }}>
-                            <button onClick={handleConfirmAssignment} className={styles.applyBtn} disabled={!selectedTechnicianId} style={{ background: '#99e699', color: '#1a4d1a', width: 'auto', padding: '10px 30px' }}>Confirmar Tecnico Asignado</button>
-                            <div style={{ marginTop: '10px' }}>
-                                <button className={styles.cancelBtn} onClick={() => setIsModalOpen(false)}>Cancelar</button>
+                        <div style={{ display: 'flex', gap: '20px', marginTop: '20px', marginBottom: '10px' }}>
+                            <div style={{ flex: 1 }}>
+                                <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px', fontSize: '14px' }}>Fecha Asignada</label>
+                                <input
+                                    type="date"
+                                    value={asignarFecha}
+                                    onChange={(e) => setAsignarFecha(e.target.value)}
+                                    style={{ width: '100%', padding: '10px', borderRadius: '10px', border: '1px solid #ddd' }}
+                                />
                             </div>
+                            <div style={{ flex: 1 }}>
+                                <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px', fontSize: '14px' }}>Hora Estimada</label>
+                                <input
+                                    type="time"
+                                    value={asignarHora}
+                                    onChange={(e) => setAsignarHora(e.target.value)}
+                                    style={{ width: '100%', padding: '10px', borderRadius: '10px', border: '1px solid #ddd' }}
+                                />
+                            </div>
+                        </div>
+
+                        <div className={styles.modalActions} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+                            <button onClick={handleConfirmAssignment} className={styles.applyBtn} disabled={selectedTechnicians.length === 0} style={{ background: selectedTechnicians.length === 0 ? '#ccc' : '#fbbc04', color: selectedTechnicians.length === 0 ? '#666' : '#fff', width: 'auto', padding: '12px 40px', border: 'none', borderRadius: '30px', cursor: selectedTechnicians.length === 0 ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '16px', boxShadow: selectedTechnicians.length === 0 ? 'none' : '0 4px 10px rgba(251, 188, 4, 0.3)' }}>Confirmar</button>
+                            <button className={styles.cancelBtn} onClick={() => setIsModalOpen(false)}>Cancelar</button>
                         </div>
 
                     </div>
@@ -342,24 +606,23 @@ const TrabajoDetalle: React.FC = () => {
 
             {/* MODAL FILTRO */}
             {isFilterModalOpen && (
-                <div className={styles.modalOverlay}>
-                    <div className={styles.modalContent} style={{ width: '400px', padding: '30px' }}>
-                        <h2 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '20px', textAlign: 'center' }}>Filtro</h2>
+                <div className={menuStyles.modalOverlay}>
+                    <div className={menuStyles.modalContent}>
+                        <h2 className={menuStyles.modalTitle}>Filtro</h2>
 
                         {/* SECCION ESTATUS */}
-                        <div style={{ marginBottom: '25px' }}>
-                            <h4 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '15px' }}>Estatus de estado</h4>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-                                {['Completadas', 'En espera', 'Asignados', 'Sin asignar'].map(status => (
-                                    <label key={status} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px' }}>
-                                        <div style={{
-                                            width: '20px', height: '20px', borderRadius: '50%', border: '2px solid #333',
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center'
-                                        }}>
-                                            {filterStatus === status && <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#333' }}></div>}
-                                        </div>
-                                        {/* Input oculto para accesibilidad */}
-                                        <input type="radio" name="filterStatus" value={status} checked={filterStatus === status} onChange={() => setFilterStatus(status)} style={{ display: 'none' }} />
+                        <div className={menuStyles.filterSection}>
+                            <span className={menuStyles.filterSubtitle}>Estatus de estado</span>
+                            <div className={menuStyles.radioGroup}>
+                                {(isCotizacionesTab ? ['Pagados', 'En espera', 'Rechazado'] : ['Completadas', 'En espera', 'Asignados', 'Sin asignar']).map(status => (
+                                    <label key={status} className={menuStyles.radioLabel}>
+                                        <input
+                                            type="radio"
+                                            name="filterStatus"
+                                            value={status}
+                                            checked={filterStatus === status}
+                                            onChange={() => setFilterStatus(status)}
+                                        />
                                         <span>{status}</span>
                                     </label>
                                 ))}
@@ -367,24 +630,24 @@ const TrabajoDetalle: React.FC = () => {
                         </div>
 
                         {/* SECCION FECHAS */}
-                        <div style={{ marginBottom: '30px' }}>
-                            <h4 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '15px' }}>Rango de Fechas</h4>
+                        <div className={menuStyles.filterSection}>
+                            <span className={menuStyles.filterSubtitle}>Rango de Fechas</span>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                 <div style={{ position: 'relative' }}>
-                                    <input type="date" className={styles.searchInput} style={{ width: '100%', borderRadius: '10px' }} value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+                                    <input type="date" className={menuStyles.modalInput} value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
                                 </div>
                                 <div style={{ position: 'relative' }}>
-                                    <input type="date" className={styles.searchInput} style={{ width: '100%', borderRadius: '10px' }} value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+                                    <input type="date" className={menuStyles.modalInput} value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
                                 </div>
                             </div>
                         </div>
 
                         {/* BOTONES */}
-                        <div style={{ textAlign: 'center' }}>
-                            <button className={styles.applyBtn} style={{ background: '#99e699', color: '#1a4d1a', width: '100%', borderRadius: '25px', padding: '12px' }} onClick={() => setIsFilterModalOpen(false)}>
+                        <div className={menuStyles.modalActions}>
+                            <button className={menuStyles.applyBtn} onClick={() => setIsFilterModalOpen(false)}>
                                 Aplicar Filtro
                             </button>
-                            <button className={styles.cancelBtn} style={{ marginTop: '15px' }} onClick={() => setIsFilterModalOpen(false)}>
+                            <button className={menuStyles.cancelBtn} onClick={() => setIsFilterModalOpen(false)}>
                                 Cancelar
                             </button>
                         </div>
@@ -392,6 +655,76 @@ const TrabajoDetalle: React.FC = () => {
                 </div>
             )}
 
+            {/* MODAL NUEVA SOLICITUD (CLIENTE) */}
+            {isRequestModalOpen && (
+                <div className={menuStyles.modalOverlay}>
+                    <div className={`${menuStyles.modalContent} ${styles.modalContentMedium}`}>
+                        <h2 className={styles.modalTitle} style={{ fontWeight: '900', fontSize: '26px' }}>Nuevo Servicio</h2>
+
+                        <div className={styles.formGroup}>
+                            <div className={styles.formField}>
+                                <label className={styles.formLabel}>Categoria</label>
+                                <select
+                                    className={styles.newServiceInput}
+                                    style={{ flex: 1 }}
+                                    value={newRequestData.categoria}
+                                    onChange={(e) => setNewRequestData({ ...newRequestData, categoria: e.target.value })}
+                                >
+                                    <option>Electricidad</option>
+                                    <option>Plomeria</option>
+                                    <option>Albañileria</option>
+                                    <option>Limpieza</option>
+                                </select>
+                            </div>
+
+                            <div className={styles.formField}>
+                                <label className={styles.formLabel}>Cliente</label>
+                                <input
+                                    type="text"
+                                    className={styles.newServiceInput}
+                                    placeholder="pokemon center"
+                                    style={{ flex: 1 }}
+                                    value={newRequestData.cliente}
+                                    onChange={(e) => setNewRequestData({ ...newRequestData, cliente: e.target.value })}
+                                />
+                            </div>
+
+                            <div className={styles.formField}>
+                                <label className={styles.formLabel}>Fecha</label>
+                                <input
+                                    type="date"
+                                    className={styles.newServiceInput}
+                                    style={{ flex: 1 }}
+                                    value={newRequestData.fecha}
+                                    onChange={(e) => setNewRequestData({ ...newRequestData, fecha: e.target.value })}
+                                />
+                            </div>
+
+                            <textarea
+                                className={styles.newServiceTextArea}
+                                placeholder="Descripción del problema"
+                                value={newRequestData.descripcion}
+                                onChange={(e) => setNewRequestData({ ...newRequestData, descripcion: e.target.value })}
+                            />
+                        </div>
+
+                        <div className={styles.requestModalActions}>
+                            <button
+                                onClick={() => setIsRequestModalOpen(false)}
+                                className={styles.cancelBtnLarge}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={handleConfirmRequest}
+                                className={styles.confirmBtnLarge}
+                            >
+                                Confirmar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
