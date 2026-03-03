@@ -39,7 +39,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 userData = { name: "Cliente Mc Donalds", role: 'cliente' };
                 break;
             case 'tecnico':
-                userData = { name: "Técnico Pedro", role: 'tecnico' };
+                userData = { name: "Pedro Javier", role: 'tecnico' };
                 break;
             default:
                 return;

@@ -1,0 +1,318 @@
+.container {
+    padding: 20px;
+    max-width: 1000px;
+    margin: 0 auto;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+.header {
+    margin-bottom: 30px;
+}
+
+.title {
+    font-size: 28px;
+    font-weight: bold;
+    color: #000;
+    margin: 0 0 8px 0;
+}
+
+.subtitle {
+    color: #666;
+    font-size: 14px;
+    margin: 0;
+}
+
+.list {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* CARDS AL ESTILO DEL SITIO */
+.card {
+    background: white;
+    padding: 25px 35px;
+    border-radius: 40px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    width: 100%;
+    border: none;
+    min-height: 100px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+}
+
+/* Indicador Inferior (Estético Border-Bottom) */
+.cardIndicator {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 12px;
+}
+
+.borderAccepted {
+    background: #4CAF50;
+    /* Verde estilo ListaNegocios */
+}
+
+.borderRejected {
+    background: #f44336;
+    /* Rojo */
+}
+
+/* CARD CONTENIDO */
+.cardContent {
+    display: flex;
+    align-items: center;
+    gap: 25px;
+    width: 100%;
+    position: relative;
+    z-index: 1;
+}
+
+.cardIcon {
+    width: 70px;
+    height: 70px;
+    background: #d6d6d66b;
+    border-radius: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.iconDoc {
+    font-size: 32px;
+    color: #555;
+}
+
+.cardInfo {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.cardHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 5px;
+}
+
+.concepto {
+    font-size: 19px;
+    font-weight: 700;
+    color: #111;
+    margin: 0 0 5px 0;
+}
+
+.negocio {
+    font-size: 13px;
+    color: #555;
+    background: #f5f5f5;
+    padding: 4px 10px;
+    border-radius: 12px;
+    display: inline-block;
+    font-weight: 600;
+}
+
+.montoContainer {
+    text-align: right;
+}
+
+.monto {
+    font-size: 22px;
+    font-weight: bold;
+    color: #000;
+}
+
+.cardFooter {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 10px;
+}
+
+.fecha {
+    font-size: 13px;
+    color: #999;
+    font-weight: 500;
+}
+
+/* ESTATUS BADGES */
+.statusBadge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 15px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.statusIcon {
+    font-size: 16px;
+}
+
+.badgeAccepted {
+    background: #dfffd6;
+    color: #2e7d32;
+}
+
+.badgeRejected {
+    background: #fee2e2;
+    color: #c62828;
+}
+
+/* RESPONSIVE */
+@media (max-width: 640px) {
+    .container {
+        padding: 15px;
+    }
+
+    .card {
+        padding: 20px 25px;
+        border-radius: 30px;
+    }
+
+    .cardContent {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+    }
+
+    .cardIcon {
+        width: 60px;
+        height: 60px;
+        margin-bottom: 5px;
+    }
+
+    .cardHeader {
+        flex-direction: column;
+        gap: 10px;
+        width: 100%;
+    }
+
+    .montoContainer {
+        text-align: left;
+    }
+}
+
+/* BUSCADOR */
+.searchSection {
+    background: rgba(255, 255, 255, 0);
+    border-radius: 8px;
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 30px;
+}
+
+/* Modal styles */
+.modalOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    backdrop-filter: blur(2px);
+}
+
+.modalContent {
+    background: white;
+    padding: 30px;
+    border-radius: 20px;
+    width: 350px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+}
+
+.modalTitle {
+    margin-top: 0;
+    margin-bottom: 20px;
+    font-size: 20px;
+    font-weight: bold;
+    color: #333;
+    text-align: center;
+}
+
+.filterSection {
+    margin-bottom: 30px;
+}
+
+.radioGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.radioLabel {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    font-size: 15px;
+    color: #555;
+    background: #f9f9f9;
+    padding: 12px 15px;
+    border-radius: 12px;
+    border: 1px solid #eee;
+    transition: background 0.2s;
+    font-weight: 500;
+}
+
+.radioLabel:hover {
+    background: #f1f1f1;
+}
+
+.radioLabel input[type="radio"] {
+    accent-color: #fbbc04;
+    transform: scale(1.2);
+}
+
+.modalActions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
+}
+
+.applyBtn {
+    background: #fbbc04;
+    /* Amarillo del sistema */
+    color: #fff;
+    border: none;
+    padding: 12px 40px;
+    border-radius: 30px;
+    font-weight: bold;
+    cursor: pointer;
+    width: 100%;
+    font-size: 16px;
+    box-shadow: 0 4px 10px rgba(251, 188, 4, 0.3);
+}
+
+.cancelBtn {
+    background: transparent;
+    border: none;
+    color: #888;
+    cursor: pointer;
+    text-decoration: underline;
+    font-size: 14px;
+    padding: 5px;
+}

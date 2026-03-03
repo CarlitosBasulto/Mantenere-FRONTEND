@@ -1,0 +1,187 @@
+.dashboardLayout {
+    display: flex;
+    gap: 40px;
+    flex: 1;
+    min-height: 0;
+}
+
+.leftColumn {
+    display: flex;
+    flex-direction: column;
+    flex: 3;
+    min-height: 0;
+}
+
+.rightColumn {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+}
+
+.searchSection {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-top: 60px;
+    margin-bottom: 30px;
+
+}
+
+.searchCard {
+    background: transparent;
+    border-radius: 8px;
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    align-items: center;
+    flex: 1;
+}
+
+
+
+.filterBtn {
+    width: 10%;
+    height: 45px;
+    padding: 12px;
+    border-radius: 24px;
+    border: 1px solid #777777;
+    background: rgb(104, 104, 104);
+    cursor: pointer;
+}
+
+.registrarBtn {
+    background: #777777;
+    color: rgb(0, 0, 0);
+    border-radius: 10px;
+    padding: 10px 10px;
+    width: auto;
+    font-size: 11px;
+    font-weight: bold;
+    border: none;
+    cursor: pointer;
+    border-radius: 24px;
+}
+
+.jobsSection {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+    padding-right: 10px;
+}
+
+.jobCard {
+    background: rgba(255, 255, 255, 0.192);
+    padding: 10px 35px;
+    border-radius: 30px;
+    box-shadow: 0 0px 0px rgba(0, 0, 0, 0.05);
+    width: 100%;
+    border: 2px solid #eaeaea;
+    min-height: 100px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.jobCard:hover {
+    transform: translateY(-2px);
+}
+
+.cardContent {
+    display: flex;
+    align-items: center;
+    gap: 25px;
+    width: 100%;
+    padding-right: 20px;
+}
+
+.cardIcon {
+    width: 70px;
+    height: 70px;
+    background: #d6d6d66b;
+    border-radius: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    overflow: hidden;
+}
+
+.cardInfo {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.cardDate {
+    font-size: 13px;
+    color: #999;
+    margin-bottom: 4px;
+}
+
+.cardInfo h3 {
+    margin-bottom: 2px;
+    font-size: 19px;
+    color: #111;
+    font-weight: 700;
+}
+
+.cardInfo p {
+    margin: 0;
+    font-size: 14px;
+    color: #555;
+}
+
+.estadoFinalizado {
+    font-weight: bold;
+    color: #4CAF50;
+}
+
+.estadoPendiente {
+    font-weight: bold;
+    color: #d78915;
+}
+
+.cardIndicator {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 35px;
+    background: #4f7790;
+    border-top-left-radius: 40px;
+    border-bottom-left-radius: 40px;
+}
+
+.blue {
+    background: #d4ebf9;
+}
+
+.editBtn {
+    background: transparent;
+    border: none;
+    color: #888;
+    position: absolute;
+    top: 15px;
+    right: 50px;
+    /* Al lado del indicador lateral */
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 50%;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+}
+
+.editBtn:hover {
+    background: rgba(0, 0, 0, 0.05);
+    color: #111;
+}

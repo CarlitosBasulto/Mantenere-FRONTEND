@@ -1,0 +1,599 @@
+.headerWrapper {
+    margin-bottom: 20px;
+}
+
+.subTitle {
+    padding: 02;
+    color: #666;
+    margin: 0;
+    font-size: 14px;
+}
+
+.businessName {
+    font-size: 28px;
+    font-weight: bold;
+    color: #000;
+    margin: 0;
+}
+
+/* SEARCH SECTION - Supplemental styles */
+.newRequestBtn {
+    border-radius: 25px !important;
+    padding: 10px 50px !important;
+    background: #5f5f5f !important;
+    color: #fff !important;
+    font-weight: bold !important;
+    white-space: nowrap !important;
+    border: none !important;
+    transition: all 0.2s ease;
+}
+
+.newRequestBtn:hover {
+    background: #8b8b8b !important;
+    transform: scale(1.05) !important;
+}
+
+
+.jobsSection {
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.jobCard {
+    background: white;
+    padding: 20px 30px;
+    border-radius: 40px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    width: 100%;
+    border: none;
+    min-height: 100px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.jobCard:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+}
+
+.cardContent {
+    align-items: center;
+    gap: 100px;
+    width: 100%;
+    padding-right: 20px;
+}
+
+.cardIconStatus {
+    font-size: 24px;
+    margin-right: 15px;
+}
+
+.cardInfo {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.cardDate {
+    font-size: 13px;
+    color: #999;
+    margin-bottom: 4px;
+}
+
+.requestBadgeContainer {
+    position: relative;
+}
+
+.requestIcon {
+    font-size: 24px;
+}
+
+.requestBadge {
+    position: absolute;
+    top: -5px;
+    right: -100px;
+    background: #d4ebf9;
+    color: #007bff;
+    padding: 4px 15px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: bold;
+    white-space: nowrap;
+}
+
+.cardDateWrapper {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0px;
+}
+
+.cardDateWrapper .cardDate {
+    color: #616161;
+    font-size: 10px;
+}
+
+.diagnosisBanner {
+    background: #fff3e0;
+    border: 2px solid #e65100;
+    border-radius: 12px;
+    margin-bottom: 5px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 4px 10px rgba(230, 81, 0, 0.15);
+}
+
+.diagnosisIcon {
+    font-size: 0px;
+}
+
+.diagnosisTitle {
+    margin: 0;
+    color: #933300;
+    font-weight: 900;
+    font-size: 12px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.diagnosisText {
+    margin: 2px 0 0 0;
+    color: #000;
+    font-size: 10px;
+    font-weight: bold;
+}
+
+.jobTitle {
+    margin: 0 0 5px 0;
+    font-size: 20px;
+    color: #000;
+    font-weight: bold;
+}
+
+.jobDescription {
+    margin: 0 0 8px 0;
+    font-size: 10px;
+    color: #070707;
+    font-style: italic;
+    background: #d0d0d0;
+    padding: 5px 10px;
+    border-radius: 8px;
+    border-left: 4px solid #ddd;
+}
+
+.technicianLabel {
+    margin: 0;
+    font-size: 12px;
+    color: #333;
+    font-weight: bold;
+}
+
+.technicianName {
+    color: #000;
+    font-size: 12px;
+    font-weight: 20;
+}
+
+.jobTypeContainer {
+    font-size: 12px;
+    color: #130000;
+    margin-top: 8px;
+}
+
+.jobTypeBadge {
+    background: #050101;
+    color: #fff;
+    padding: 3px 12px;
+    border-radius: 20px;
+    font-weight: bold;
+    font-size: 11px;
+}
+
+.actionsContainer {
+    display: flex;
+    gap: 10px;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.assignBtn {
+    background: #333 !important;
+    color: white !important;
+    border-radius: 20px !important;
+    padding: 5px 15px !important;
+    font-size: 12px !important;
+}
+
+.editBtn {
+    background: #e0e0e0 !important;
+    color: #333 !important;
+    border-radius: 20px !important;
+    padding: 5px 15px !important;
+    font-size: 12px !important;
+}
+
+.statusBadge {
+    border-radius: 20px !important;
+    padding: 5px 15px !important;
+    font-size: 12px !important;
+}
+
+.statusSolicitud {
+    background: #fffbeb !important;
+    color: #92400e !important;
+}
+
+.statusAsignado {
+    background: #d4ebf9 !important;
+    color: #007bff !important;
+}
+
+.statusFinalizado {
+    background: #dfffd6 !important;
+    color: #2e7d32 !important;
+}
+
+.cardAction {
+    margin-right: 40px;
+    z-index: 2;
+    display: flex;
+    gap: 10px;
+    flex-direction: column;
+    align-items: flex-end;
+}
+
+.statusBtn {
+    padding: 10px 20px;
+    border-radius: 25px;
+    border: none;
+    background: #e0e0e0;
+    font-weight: 600;
+    color: #444;
+    cursor: pointer;
+    transition: background 0.2s;
+    font-size: 12px;
+}
+
+.statusBtn:hover {
+    opacity: 0.9;
+}
+
+.cardIndicator {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 35px;
+    background: #d4ebf9;
+    border-top-left-radius: 40px;
+    border-bottom-left-radius: 40px;
+}
+
+.green {
+    background: #dfffd6 !important;
+}
+
+.blue {
+    background: #d4ebf9 !important;
+}
+
+.modalOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    backdrop-filter: blur(2px);
+}
+
+.modalContent {
+    background: white;
+    padding: 30px;
+    border-radius: 20px;
+    width: 350px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.9);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.radioLabel {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.applyBtn {
+    background: #99e699;
+    color: #1a4d1a;
+    border: none;
+    padding: 10px 40px;
+    border-radius: 30px;
+    font-weight: bold;
+    cursor: pointer;
+    width: 100%;
+}
+
+.applyBtn:hover {
+    background: #85cc85;
+}
+
+.cancelBtn {
+    background: transparent;
+    border: none;
+    color: #888;
+    cursor: pointer;
+    text-decoration: underline;
+    font-size: 12px;
+}
+
+.select,
+.input {
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 14px;
+}
+
+/* Modals */
+.modalContentWide {
+    width: 500px !important;
+}
+
+.modalContentMedium {
+    width: 600px !important;
+    padding: 40px !important;
+    border-radius: 30px !important;
+}
+
+.modalContentSmall {
+    width: 400px !important;
+    padding: 30px !important;
+}
+
+.modalTitle {
+    text-align: center;
+    font-size: 24px;
+    font-weight: bold;
+    margin-bottom: 20px;
+}
+
+.radioLabelLarge {
+    font-size: 16px;
+}
+
+.techSearchWrapper {
+    margin-top: 0 !important;
+    margin-bottom: 20px !important;
+    padding: 0 !important;
+}
+
+.techSearchInput {
+    width: 100% !important;
+    background: #f5f5f5 !important;
+}
+
+.techList {
+    max-height: 250px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.techItem {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+.techAvatar {
+    width: 40px;
+    height: 40px;
+    background: #eee;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.radioInput {
+    width: 20px;
+    height: 20px;
+    accent-color: #333;
+}
+
+.modalActions {
+    margin-top: 20px;
+    text-align: center;
+}
+
+.confirmBtn {
+    background: #99e699 !important;
+    color: #1a4d1a !important;
+    width: auto !important;
+    padding: 10px 30px !important;
+}
+
+.filterGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
+.filterOption {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.customRadio {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 2px solid #333;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.customRadioActive {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #333;
+}
+
+.dateRangeSection {
+    margin-bottom: 30px;
+}
+
+.dateInput {
+    width: 100% !important;
+    border-radius: 10px !important;
+}
+
+.applyFilterBtn {
+    background: #99e699 !important;
+    color: #1a4d1a !important;
+    width: 100% !important;
+    border-radius: 25px !important;
+    padding: 12px !important;
+}
+
+.formGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.formField {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.formLabel {
+    font-weight: 800;
+    font-size: 16px;
+    min-width: 120px;
+    color: #111;
+}
+
+.formInput {
+    flex: 1;
+}
+
+.textArea {
+    height: 100px;
+    resize: none;
+}
+
+.requestModalActions {
+    margin-top: 30px;
+    display: flex;
+    gap: 20px;
+}
+
+.cancelBtnLarge {
+    flex: 1;
+    background: white;
+    color: #666;
+    border: 2px solid #e2e2e2;
+    padding: 15px;
+    border-radius: 35px;
+    font-weight: bold;
+    font-size: 16px;
+    cursor: pointer;
+    transition: transform 0.2s, background 0.2s, border-color 0.2s;
+}
+
+.cancelBtnLarge:hover {
+    background: #f9f9f9;
+    border-color: #ccc;
+    transform: scale(1.02);
+}
+
+.confirmBtnLarge {
+    flex: 1;
+    background: #fbbc04;
+    color: white;
+    border: none;
+    padding: 15px;
+    border-radius: 35px;
+    font-weight: bold;
+    font-size: 16px;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(251, 188, 4, 0.3);
+    transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
+}
+
+.confirmBtnLarge:hover {
+    background: #f2b504;
+    box-shadow: 0 6px 15px rgba(251, 188, 4, 0.4);
+    transform: scale(1.02);
+}
+
+.newServiceInput {
+    width: 100%;
+    padding: 14px 20px;
+    border-radius: 25px;
+    border: 1px solid #e2e2e2;
+    font-size: 15px;
+    color: #333;
+    background: white;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.newServiceInput:focus {
+    border-color: #fbbc04;
+}
+
+.newServiceTextArea {
+    width: 100%;
+    padding: 15px 20px;
+    border-radius: 20px;
+    border: 1px solid #e2e2e2;
+    font-size: 15px;
+    color: #333;
+    background: white;
+    outline: none;
+    transition: border-color 0.2s;
+    height: 120px;
+    resize: none;
+    font-family: inherit;
+}
+
+.newServiceTextArea:focus {
+    border-color: #fbbc04;
+}
