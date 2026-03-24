@@ -35,6 +35,11 @@ export interface AsignacionTecnico {
     horaAsignada: string;
 }
 
+interface Tecnico {
+    id: number;
+    nombre: string;
+    avatar?: string;
+}
 
 const TrabajoDetalle: React.FC = () => {
     const { id } = useParams();
@@ -79,14 +84,13 @@ const TrabajoDetalle: React.FC = () => {
         localStorage.setItem(`trabajos_business_${id}`, JSON.stringify(data));
     };
 
-    React.useEffect(() => {
-        fetchAllData();
-    }, [id, businessName]);
-
-    // Función que muta estado localmente mientras se refresca (para agilidad)
-    const saveJobs = (data: Trabajo[]) => {
-        setTrabajosData(data);
-    };
+    // DATOS SIMULADOS - TECNICOS
+    const tecnicosData: Tecnico[] = [
+        { id: 1, nombre: "Javier Antonio Medina Medina" },
+        { id: 2, nombre: "Carlos Daniel Dzul Vicente" },
+        { id: 3, nombre: "Ernesto Eduardo Martin Escalante" },
+        { id: 4, nombre: "Pedro Javier" },
+    ];
 
     // ESTADOS
     const [searchText, setSearchText] = useState("");
@@ -658,16 +662,6 @@ const TrabajoDetalle: React.FC = () => {
                                                             )}
                                                         </div>
                                                     )}
-                                                    {trabajo.fechaAsignada && trabajo.horaAsignada && (
-                                                        <span style={{ color: '#137333', fontWeight: 'bold', fontSize: '13px' }}>-</span>
-                                                    )}
-                                                    {trabajo.horaAsignada && (
-                                                        <span style={{ color: '#137333', fontWeight: 'bold', fontSize: '13px' }}>
-                                                            ⏰ {trabajo.horaAsignada}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            )}
 
                                                 <h3 className={styles.jobTitle}>{trabajo.titulo}</h3>
                                                 {trabajo.descripcion && (

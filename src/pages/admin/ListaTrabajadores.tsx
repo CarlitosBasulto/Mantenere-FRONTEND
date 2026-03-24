@@ -13,7 +13,6 @@ interface Trabajador {
     correo?: string;
     contrasena?: string; // Agregado: contraseña
     estado: "Activo" | "Baja";
-    created_at?: string;
     avatar?: string;
 }
 
@@ -136,79 +135,7 @@ const ListaTrabajadores: React.FC = () => {
             estado: "Activo"
         };
 
-        try {
-
-            const created = await createTrabajador(newWorker);
-
-            setTrabajadoresData(prev => [...prev, created]);
-
-            setIsAddModalOpen(false);
-
-            setNewWorkerName("");
-            setNewWorkerPhone("");
-            setNewWorkerEmail("");
-            setNewWorkerPassword("");
-            setNewWorkerRoles([]);
-            setCustomRole("");
-
-        } catch (error) {
-
-            console.error("Error creando trabajador", error);
-
-        }
-
-    };
-
-    const handleDeactivateWorker = async () => {
-
-        if (!workerToManage) return;
-
-        try {
-
-            const updated = await toggleEstado(workerToManage.id);
-            console.log("Respuesta de la API al DAR DE BAJA:", updated);
-
-            setTrabajadoresData(prev =>
-                prev.map(t =>
-                    t.id === workerToManage.id
-                        ? { ...t, estado: updated.estado }
-                        : t
-                )
-            );
-
-            setIsDeactivateModalOpen(false);
-            setWorkerToManage(null);
-
-        } catch (error: any) {
-            console.error("Error al dar de baja. Detalles del backend:", error.response?.data || error.message);
-        }
-
-    };
-
-    const handleReactivateWorker = async () => {
-
-        if (!workerToManage) return;
-
-        try {
-
-            const updated = await toggleEstado(workerToManage.id);
-
-            setTrabajadoresData(prev =>
-                prev.map(t =>
-                    t.id === workerToManage.id
-                        ? { ...t, estado: updated.estado }
-                        : t
-                )
-            );
-
-            setIsReactivateModalOpen(false);
-            setWorkerToManage(null);
-
-        } catch (error) {
-
-            console.error("Error reactivando trabajador", error);
-
-        }
+        setTrabajadoresData([...trabajadoresData, newWorker]);
 
         // Reset y cerrar
         setNewWorkerName("");
@@ -297,11 +224,7 @@ const ListaTrabajadores: React.FC = () => {
                                     <HiOutlineUser size={30} color="#333" />
                                 </div>
                                 <div className={styles.cardInfo}>
-                                    <span className={styles.cardDate}>
-                                        {worker.created_at
-                                            ? new Date(worker.created_at).toLocaleDateString("es-MX")
-                                            : "Sin fecha"}
-                                    </span>
+                                    <span className={styles.cardDate}>{worker.fecha}</span>
                                     <h3>{worker.nombre}</h3>
                                     <p style={{ color: '#666', fontSize: '14px', margin: '2px 0' }}>{worker.puesto}</p>
                                     <p style={{ fontWeight: 'bold', color: worker.estado === 'Activo' ? '#4CAF50' : '#F44336' }}>

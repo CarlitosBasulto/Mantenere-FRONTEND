@@ -3,8 +3,6 @@ import { AuthProvider } from "./context/AuthContext";
 import AdminLayout from "./layouts/AdminLayout";
 import ClienteLayout from "./layouts/ClienteLayout";
 import TecnicoLayout from "./layouts/TecnicoLayout";
-import ProtectedRoute from "./components/ProtectedRoute";
-
 
 // PUBLIC
 import Home from "./pages/public/Home";
@@ -40,14 +38,7 @@ function App() {
                     <Route path="/registro-sesion" element={<AuthPage />} />
 
                     {/* ADMIN ROUTES */}
-                    <Route
-                        path="/menu"
-                        element={
-                            <ProtectedRoute allowedRoles={["admin"]}>
-                                <AdminLayout />
-                            </ProtectedRoute>
-                        }
-                    >
+                    <Route path="/menu" element={<AdminLayout />}>
                         <Route index element={<ListaNegocios />} />
                         <Route path="trabajadores" element={<ListaTrabajadores />} />
                         <Route path="trabajos-realizados" element={<AdminHistorial />} />

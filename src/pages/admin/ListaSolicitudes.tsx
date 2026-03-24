@@ -109,6 +109,7 @@ const ListaSolicitudes: React.FC = () => {
         <div className={styles.dashboardLayout}>
             {/* COLUMNA IZQUIERDA - LISTA */}
             <div className={styles.leftColumn}>
+
                 {/* BUSCADOR Y FILTRO */}
                 <div className={styles.searchSection}>
                     <div className={menuStyles.searchCard}>
@@ -152,9 +153,9 @@ const ListaSolicitudes: React.FC = () => {
                                 </div>
                             )}
                             <div className={styles.cardContent}>
-                                {/* ICONO */}
+                                {/* ICONO (Placeholder de imagen) */}
                                 <div className={styles.cardIcon}>
-                                    📋
+                                    🖼️
                                 </div>
                                 <div className={styles.cardInfo}>
                                     {(req.fechaAsignada || req.fecha) && (
@@ -211,50 +212,20 @@ const ListaSolicitudes: React.FC = () => {
                                     <input
                                         type="radio"
                                         name="status"
-                                        checked={tempFilter === "Todos"}
-                                        onChange={() => setTempFilter("Todos")}
+                                        checked={tempFilter === "Dueño"}
+                                        onChange={() => setTempFilter("Dueño")}
                                     />
-                                    <span>Todos</span>
+                                    <span>Dueño</span>
                                 </label>
 
                                 <label className={menuStyles.radioLabel}>
                                     <input
                                         type="radio"
                                         name="status"
-                                        checked={tempFilter === "Pendiente"}
-                                        onChange={() => setTempFilter("Pendiente")}
+                                        checked={tempFilter === "Técnico"}
+                                        onChange={() => setTempFilter("Técnico")}
                                     />
-                                    <span>Pendiente</span>
-                                </label>
-
-                                <label className={menuStyles.radioLabel}>
-                                    <input
-                                        type="radio"
-                                        name="status"
-                                        checked={tempFilter === "En proceso"}
-                                        onChange={() => setTempFilter("En proceso")}
-                                    />
-                                    <span>En proceso</span>
-                                </label>
-
-                                <label className={menuStyles.radioLabel}>
-                                    <input
-                                        type="radio"
-                                        name="status"
-                                        checked={tempFilter === "Completado"}
-                                        onChange={() => setTempFilter("Completado")}
-                                    />
-                                    <span>Para revisión (Admin)</span>
-                                </label>
-
-                                <label className={menuStyles.radioLabel}>
-                                    <input
-                                        type="radio"
-                                        name="status"
-                                        checked={tempFilter === "Finalizado"}
-                                        onChange={() => setTempFilter("Finalizado")}
-                                    />
-                                    <span>Finalizado</span>
+                                    <span>Técnico</span>
                                 </label>
 
                                 <label className={menuStyles.radioLabel}>

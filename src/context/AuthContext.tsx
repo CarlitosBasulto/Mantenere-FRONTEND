@@ -5,16 +5,14 @@ import type { ReactNode } from 'react';
 export type UserRole = 'admin' | 'cliente' | 'tecnico' | null;
 
 interface User {
-    id: number;
     name: string;
-    email: string;
     role: UserRole;
     avatar?: string;
 }
 
 interface AuthContextType {
     user: User | null;
-    login: (userData: User) => void;
+    login: (role: UserRole) => void;
     logout: () => void;
 }
 
@@ -23,9 +21,9 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     // Por defecto iniciamos como ADMIN para facilitar el desarrollo,
     // pero en producción iniciaría en null (sin sesión).
-    const [user, setUser] = useState<User | null>(() => {
-        const storedUser = localStorage.getItem("user");
-        return storedUser ? JSON.parse(storedUser) : null;
+    const [user, setUser] = useState<User | null>({
+        name: "Administrador",
+        role: "admin"
     });
 
     const login = (role: UserRole) => {
@@ -46,15 +44,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             default:
                 return;
         }
-        
-        setUser(normalizedUser);
-        localStorage.setItem("user", JSON.stringify(normalizedUser));
+        setUser(userData);
     };
 
     const logout = () => {
         setUser(null);
-        localStorage.removeItem("user");
     };
+
     return (
         <AuthContext.Provider value={{ user, login, logout }}>
             {children}

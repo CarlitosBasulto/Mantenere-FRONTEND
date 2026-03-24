@@ -258,6 +258,9 @@ const AdminDetalleTrabajo: React.FC = () => {
         }
     };
 
+    const filteredTechnicians = tecnicosData.filter(t =>
+        t.nombre.toLowerCase().includes(technicianSearch.toLowerCase())
+    );
 
     const handleConfirmAssignment = () => {
         if (trabajo && selectedTechnicians.length > 0) {
