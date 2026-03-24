@@ -1,8 +1,7 @@
 import React, { useState, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import styles from "./AdminCotizacion.module.css";
-import { HiOutlineArrowLeft, HiOutlineDocumentAdd } from "react-icons/hi";
-import { saveCotizacion } from "../../services/cotizacionesService";
+import { HiOutlineDocumentAdd } from "react-icons/hi";
 
 const AdminCotizacion: React.FC = () => {
     const { id } = useParams();
@@ -27,26 +26,50 @@ const AdminCotizacion: React.FC = () => {
         }
     };
 
-    const handleEnviar = async () => {
-        if (!costo || Number(costo) <= 0) {
-            alert("Por favor, ingresa el costo de la cotización.");
+    const handleEnviar = () => {
+        if (!costo || !archivo) {
+            alert("Por favor, ingresa el costo y sube un documento de cotización.");
             return;
         }
 
-        try {
-            await saveCotizacion({
-                trabajo_id: Number(id),
-                monto: Number(costo),
-                descripcion: notas,
-                estado: "Pendiente"
-            });
+        // Cargar trabajos actuales
+        const storedJobs = localStorage.getItem('trabajos_list');
+        const jobs = storedJobs ? JSON.parse(storedJobs) : [];
 
-            alert("Cotización enviada exitosamente al cliente (Base de Datos).");
-            navigate(`/menu/trabajo-detalle/${id}`);
-        } catch (error) {
-            console.error("Error al enviar la cotización", error);
-            alert("Ocurrió un error al enviar la cotización.");
-        }
+        // Modificar el estado y añadir la cotización al trabajo
+        const updatedJobs = jobs.map((job: any) => {
+            if (job.id.toString() === id) {
+                return {
+                    ...job,
+                    estado: "Cotización Enviada",
+                    cotizacion: {
+                        costo,
+                        notas,
+                        archivo,
+                        fecha: new Date().toLocaleDateString('es-MX')
+                    }
+                };
+            }
+            return job;
+        });
+
+        localStorage.setItem('trabajos_list', JSON.stringify(updatedJobs));
+
+        // GENERAR NOTIFICACIÓN PARA EL CLIENTE (Cotización)
+        const clientNotifs = JSON.parse(localStorage.getItem('client_notifications') || '[]');
+        clientNotifs.unshift({
+            id: Date.now(),
+            titulo: 'Cotización Recibida',
+            mensaje: `Ya tienes una nueva cotización lista para revisión (Trabajo #${id}).`,
+            fecha: new Date().toLocaleDateString('es-MX', { hour: '2-digit', minute: '2-digit' }),
+            leida: false,
+            jobId: id
+        });
+        localStorage.setItem('client_notifications', JSON.stringify(clientNotifs));
+        window.dispatchEvent(new Event('storage'));
+
+        alert("Cotización enviada exitosamente al cliente.");
+        navigate(`/menu/trabajo-detalle/${id}`);
     };
 
     return (
@@ -58,9 +81,6 @@ const AdminCotizacion: React.FC = () => {
                 <div className={styles.contentWrapper}>
                     {/* ENCABEZADO */}
                     <div className={styles.header}>
-                        <button onClick={() => navigate(-1)} className={styles.backButton}>
-                            <HiOutlineArrowLeft size={24} />
-                        </button>
                         <div>
                             <h1 className={styles.pageTitle}>Generar Cotización</h1>
                             <p className={styles.subtitle}>Trabajo #{id}</p>

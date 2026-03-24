@@ -5,8 +5,6 @@ import menuStyles from "../../components/Menu.module.css";
 import { useAuth } from "../../context/AuthContext";
 import { HiOutlinePencil } from "react-icons/hi2";
 import { FaImage } from "react-icons/fa6";
-import { getNegocios } from "../../services/negociosService";
-import { getTrabajos } from "../../services/trabajosService";
 
 interface Negocio {
     id: number;
@@ -24,53 +22,50 @@ const ListaNegocios: React.FC = () => {
     const [negocios, setNegocios] = useState<Negocio[]>([]);
     const [searchText, setSearchText] = useState("");
 
-    const [techBusinessIds, setTechBusinessIds] = useState<Set<number>>(new Set());
-
     useEffect(() => {
-        const fetchAll = async () => {
-            try {
-                // Si es técnico, trae los trabajos para sacar a qué negocios tiene que ir
-                if (user?.role === 'tecnico') {
-                    const jobs = await getTrabajos();
-                    // Buscar los trabajos donde el técnico actual está asignado.
-                    // Podemos validar por user_id directo o también por el nombre.
-                    const myJobs = jobs.filter((j: any) => j.trabajador?.nombre === user.name || j.trabajador_id === user.id);
-                    const businessIds = new Set(myJobs.map((j: any) => j.negocio_id));
-                    setTechBusinessIds(businessIds as Set<number>);
-                }
+        const stored = localStorage.getItem('negocios_list');
+        const mockData: Negocio[] = [];
 
-                const data = await getNegocios();
-                const mappedData = data.map((n: any) => ({
-                    id: n.id,
-                    nombre: n.nombre,
-                    ubicacion: n.tipo === "W/M" ? `${n.calleAv || ''} Mza ${n.manzana || ''}` : (n.nombrePlaza || n.colonia || "Mérida"),
-                    dueno: n.encargado || "Cliente",
-                    fecha: n.created_at ? new Date(n.created_at).toLocaleDateString('es-MX') : new Date().toLocaleDateString('es-MX'),
-                    estado: n.estado_aprobacion || "En Espera",
-                    imagenPerfil: n.imagenPerfil,
-                    user_id: n.user_id
-                }));
-                // Ordenar los mas nuevos primero
-                setNegocios(mappedData.reverse());
-            } catch (error) {
-                console.error("Error al obtener negocios y trabajos:", error);
-            }
-        };
-
-        fetchAll();
-    }, [user]);
+        if (stored) {
+            const list = JSON.parse(stored);
+            // Evitar duplicados del mock inicial si ya están en storage
+            const filteredMock = mockData.filter(m => !list.some((l: any) => l.id === m.id));
+            setNegocios([...list, ...filteredMock]);
+        } else {
+            setNegocios(mockData);
+            localStorage.setItem('negocios_list', JSON.stringify(mockData));
+        }
+    }, []);
 
     const filteredNegocios = negocios.filter((negocio) => {
         const matchesSearch = negocio.nombre.toLowerCase().includes(searchText.toLowerCase());
 
         // FILTRO POR ROL: El cliente solo ve lo suyo, el admin ve todo
         if (user?.role === 'cliente') {
-            return matchesSearch && ((negocio as any).user_id === user.id || negocio.dueno === user.name);
+            return matchesSearch && negocio.dueno === user.name;
         }
 
-        // FILTRO POR ROL: El técnico solo ve los negocios donde tiene trabajos asignados según la DB
+        // FILTRO POR ROL: El técnico solo ve los negocios donde tiene trabajos asignados
         if (user?.role === 'tecnico') {
-            return matchesSearch && techBusinessIds.has(negocio.id);
+            // Buscamos dinámicamente en qué negocios tiene trabajos el técnico
+            let hasJobsInThisBusiness = false;
+
+            // 1. Verificar en datos persistidos
+            const storedJobs = localStorage.getItem(`trabajos_business_${negocio.id}`);
+            if (storedJobs) {
+                const jobs = JSON.parse(storedJobs);
+                if (jobs.some((j: any) => j.tecnico === user.name)) {
+                    hasJobsInThisBusiness = true;
+                }
+            }
+
+            // 2. Si no hay persistidos, verificar en los IDs de demo por defecto (para que no salga vacio al inicio)
+            const defaultDemoIds = [1, 3];
+            if (!hasJobsInThisBusiness && defaultDemoIds.includes(negocio.id)) {
+                hasJobsInThisBusiness = true;
+            }
+
+            return matchesSearch && hasJobsInThisBusiness;
         }
 
         return matchesSearch;
@@ -101,7 +96,7 @@ const ListaNegocios: React.FC = () => {
                             onChange={(e) => setSearchText(e.target.value)}
                         />
                     </div>
-                    <div style={{ display: 'flex', gap: '10px' }}>
+                    <div className={styles.actionButtons}>
                         {user?.role === 'cliente' && (
                             <button
                                 className={styles.registrarBtn}
@@ -126,47 +121,65 @@ const ListaNegocios: React.FC = () => {
                 </div>
 
                 <div className={styles.jobsSection}>
-                    {filteredNegocios.map((negocio) => (
-                        <div
-                            key={negocio.id}
-                            className={styles.jobCard}
-                            onClick={() => handleCardClick(negocio.id)}
-                        >
-                            <div className={styles.cardContent}>
-                                <div className={styles.cardIcon}>
-                                    {negocio.imagenPerfil ? (
-                                        <img
-                                            src={negocio.imagenPerfil}
-                                            alt={negocio.nombre}
-                                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                        />
-                                    ) : (
-                                        <FaImage />
-                                    )}
-                                </div>
-                                <div className={styles.cardInfo}>
-                                    <span className={styles.cardDate}>{negocio.fecha}</span>
-                                    <h3>{negocio.nombre}</h3>
-                                    <p>Dueño: {negocio.dueno}</p>
-                                    <p className={negocio.estado === 'Finalizado' ? styles.estadoFinalizado : styles.estadoPendiente}>
-                                        Estado: {negocio.estado}
-                                    </p>
-                                </div>
+                    {filteredNegocios.map((negocio) => {
+                        let hasSOS = false;
+                        if (user?.role === 'admin') {
+                            const storedJobs = localStorage.getItem(`trabajos_business_${negocio.id}`);
+                            if (storedJobs) {
+                                const jobs = JSON.parse(storedJobs);
+                                hasSOS = jobs.some((j: any) => j.tipo === 'SOS' && j.estado === 'Solicitud');
+                            }
+                        }
 
-                                {user?.role === 'cliente' && (
-                                    <button
-                                        className={styles.editBtn}
-                                        onClick={(e) => handleEditClick(e, negocio.id)}
-                                        title="Editar Registro"
-                                    >
-                                        <HiOutlinePencil size={20} />
-                                    </button>
+                        return (
+                            <div style={{ position: 'relative' }} key={negocio.id}>
+                                {hasSOS && (
+                                    <div style={{ position: 'absolute', right: '-10px', background: '#f44336', color: 'white', fontWeight: 'bold', padding: '5px 15px', borderRadius: '20px', zIndex: 10, boxShadow: '0 4px 8px rgba(244, 67, 54, 0.4)' }}>
+                                        EMERGENCIA SOS
+                                    </div>
                                 )}
+                                <div
+                                    className={styles.jobCard}
+                                    onClick={() => handleCardClick(negocio.id)}
+                                    style={hasSOS ? { border: '2px solid #f44336', backgroundColor: '#fffafa' } : {}}
+                                >
+                                    <div className={styles.cardContent}>
+                                        <div className={styles.cardIcon}>
+                                            {negocio.imagenPerfil ? (
+                                                <img
+                                                    src={negocio.imagenPerfil}
+                                                    alt={negocio.nombre}
+                                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                />
+                                            ) : (
+                                                <FaImage />
+                                            )}
+                                        </div>
+                                        <div className={styles.cardInfo}>
+                                            <span className={styles.cardDate}>{negocio.fecha}</span>
+                                            <h3>{negocio.nombre}</h3>
+                                            <p>Dueño: {negocio.dueno}</p>
+                                            <p className={negocio.estado === 'Finalizado' ? styles.estadoFinalizado : styles.estadoPendiente}>
+                                                Estado: {negocio.estado}
+                                            </p>
+                                        </div>
 
-                                <div className={`${styles.cardIndicator} ${negocio.estado === 'Finalizado' ? styles.blue : ''}`}></div>
+                                        {user?.role === 'cliente' && (
+                                            <button
+                                                className={styles.editBtn}
+                                                onClick={(e) => handleEditClick(e, negocio.id)}
+                                                title="Editar Registro"
+                                            >
+                                                <HiOutlinePencil size={20} />
+                                            </button>
+                                        )}
+
+                                        <div className={`${styles.cardIndicator} ${negocio.estado === 'Finalizado' ? styles.blue : ''}`}></div>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             </div>
             <div className={styles.rightColumn}></div>

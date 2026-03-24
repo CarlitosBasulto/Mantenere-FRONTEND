@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import styles from "./PerfilEmpresa.module.css";
 import { useAuth } from "../../context/AuthContext";
-import { getNegocio, createNegocio, updateNegocio } from "../../services/negociosService";
+
 type BusinessType = "FC" | "FS" | "MALL" | "W/M";
 
 interface BusinessData {
@@ -42,19 +42,17 @@ const PerfilEmpresa: React.FC = () => {
     const editId = searchParams.get('id');
 
     React.useEffect(() => {
-        const fetchNegocio = async () => {
-            if (editId) {
-                try {
-                    const existing = await getNegocio(Number(editId));
-                    if (existing) {
-                        setFormData(prev => ({ ...prev, ...existing, nombreSucursal: existing.nombre }));
-                    }
-                } catch (error) {
-                    console.error("Error al obtener negocio", error);
+        if (editId) {
+            const stored = localStorage.getItem('negocios_list');
+            if (stored) {
+                const list = JSON.parse(stored);
+                // Buscar el negocio con ese ID
+                const existing = list.find((item: any) => item.id.toString() === editId);
+                if (existing) {
+                    setFormData(prev => ({ ...prev, ...existing, nombreSucursal: existing.nombre }));
                 }
             }
-        };
-        fetchNegocio();
+        }
     }, [editId]);
 
     const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -75,47 +73,67 @@ const PerfilEmpresa: React.FC = () => {
         }
     };
 
-    const handleSave = async () => {
+    const handleSave = () => {
         // Validación básica
-        if (!formData.nombreSucursal) {
-            alert("Por favor ingresa el nombre de la sucursal");
-            return;
+        if (!formData.nombreSucursal) return alert("Por favor ingresa el nombre de la sucursal");
+        if (!formData.encargado) return alert(`Por favor ingresa el ${formData.tipo === 'FC' ? 'encargado' : 'dueño'} de la empresa`);
+
+        if (formData.tipo !== 'W/M') {
+            if (formData.tipo === 'FS' && !formData.calle) return alert("Por favor ingresa la calle principal");
+            if (formData.tipo !== 'FS' && !formData.nombrePlaza) return alert("Por favor ingresa el nombre de la plaza");
+            if (!formData.estado) return alert("Por favor ingresa el estado");
+            if (!formData.ciudad) return alert("Por favor ingresa la ciudad");
+            if (!formData.calle) return alert("Por favor ingresa la calle");
+            if (!formData.numero) return alert("Por favor ingresa el número");
+            if (!formData.colonia) return alert("Por favor ingresa la colonia");
+            if (formData.tipo === 'FS' && !formData.referencia) return alert("Por favor ingresa la referencia");
+        } else {
+            if (!formData.calleAv) return alert("Por favor ingresa la calle/Av");
+            if (!formData.manzana) return alert("Por favor ingresa la manzana");
+            if (!formData.lote) return alert("Por favor ingresa el lote");
+        }
+        if (!formData.cp) return alert("Por favor ingresa el código postal");
+
+        // Obtener lista actual de negocios
+        const stored = localStorage.getItem('negocios_list');
+        const list = stored ? JSON.parse(stored) : [];
+
+        // Crear nuevo objeto de negocio formateado para ListaNegocios.tsx
+        const newBusiness = {
+            id: Date.now(),
+            nombre: formData.nombreSucursal,
+            ubicacion: formData.tipo === "W/M" ? `${formData.calleAv || ''} Mza ${formData.manzana || ''}` : (formData.nombrePlaza || formData.colonia || "Mérida"),
+            dueno: user?.name || "Cliente",
+            fecha: new Date().toLocaleDateString('es-MX'),
+            estado: "En Espera", // Status inicial para el Admin
+            ...formData // Guardamos el resto de la info detallada
+        };
+
+        const updatedList = editId
+            // Si estamos editando, mapeamos y reemplazamos el existente conservando el ID antiguo
+            ? list.map((item: any) => item.id.toString() === editId ? { ...newBusiness, id: item.id } : item)
+            // Si es nuevo, lo añadimos al final
+            : [...list, newBusiness];
+
+        localStorage.setItem('negocios_list', JSON.stringify(updatedList));
+
+        // Notificación para el Administrador si es un nuevo negocio
+        if (!editId) {
+            const adminNotifs = JSON.parse(localStorage.getItem('admin_notifications') || '[]');
+            adminNotifs.unshift({
+                id: Date.now() + Math.random(),
+                titulo: "Nueva Empresa Registrada",
+                mensaje: `El cliente ${user?.name || "Cliente"} ha registrado una nueva empresa: ${formData.nombreSucursal}.`,
+                fecha: new Date().toLocaleDateString('es-MX', { hour: '2-digit', minute: '2-digit' }),
+                leida: false,
+                type: 'new_business'
+            });
+            localStorage.setItem('admin_notifications', JSON.stringify(adminNotifs));
+            window.dispatchEvent(new Event('storage'));
         }
 
-        try {
-            const apiData = {
-                ...formData,
-                nombre: formData.nombreSucursal,
-                user_id: user?.id,
-                encargado: formData.encargado || user?.name
-            };
-
-            if (editId) {
-                await updateNegocio(Number(editId), apiData);
-                alert("Información actualizada correctamente");
-            } else {
-                await createNegocio(apiData);
-
-                // Notificación para el Administrador si es un nuevo negocio
-                const adminNotifs = JSON.parse(localStorage.getItem('admin_notifications') || '[]');
-                adminNotifs.unshift({
-                    id: Date.now() + Math.random(),
-                    titulo: "Nueva Empresa Registrada",
-                    mensaje: `El cliente ${user?.name || "Cliente"} ha registrado una nueva empresa: ${formData.nombreSucursal}.`,
-                    fecha: new Date().toLocaleDateString('es-MX', { hour: '2-digit', minute: '2-digit' }),
-                    leida: false,
-                    type: 'new_business'
-                });
-                localStorage.setItem('admin_notifications', JSON.stringify(adminNotifs));
-                window.dispatchEvent(new Event('storage'));
-
-                alert("Información guardada correctamente");
-            }
-            navigate('/cliente');
-        } catch (error) {
-            console.error("Error al guardar el negocio", error);
-            alert("Ocurrió un error al guardar la información de la sucursal.");
-        }
+        alert(editId ? "Información actualizada correctamente" : "Información guardada correctamente");
+        navigate('/cliente');
     };
 
     return (
@@ -126,32 +144,31 @@ const PerfilEmpresa: React.FC = () => {
 
                 <div className={styles.contentWrapper}>
                     {/* HEADER */}
-                    <div className={styles.headerContainer}>
-                        <button onClick={() => navigate(-1)} className={styles.backButton}>
-                            ←
-                        </button>
+                    <div style={{ position: 'relative', marginBottom: '40px' }}>
 
-                        {/* Hidden Input File */}
-                        <input
-                            type="file"
-                            accept="image/*"
-                            ref={fileInputRef}
-                            style={{ display: 'none' }}
-                            onChange={handleImageChange}
-                        />
+                        <div className={styles.headerContainer}>
+                            <h1 className={styles.pageTitle}>
+                                {editId ? "Editar Sucursal/Negocio" : "Registrar Sucursal/Negocio"}
+                            </h1>
 
-                        <div className={styles.profileIcon} title="El logo/imagen añadido será visible en las tarjetas de la lista.">
-                            {formData.imagenPerfil ? (
-                                <img src={formData.imagenPerfil} alt="Perfil" className={styles.profileImg} />
-                            ) : (
-                                "🏢"
-                            )}
-                            <div className={styles.editOverlay} onClick={() => fileInputRef.current?.click()}>Editar</div>
+                            {/* Hidden Input File */}
+                            <input
+                                type="file"
+                                accept="image/*"
+                                ref={fileInputRef}
+                                style={{ display: 'none' }}
+                                onChange={handleImageChange}
+                            />
+
+                            <div className={styles.profileIcon} title="El logo/imagen añadido será visible en las tarjetas de la lista.">
+                                {formData.imagenPerfil ? (
+                                    <img src={formData.imagenPerfil} alt="Perfil" className={styles.profileImg} />
+                                ) : (
+                                    "🏢"
+                                )}
+                                <div className={styles.editOverlay} onClick={() => fileInputRef.current?.click()}>Editar</div>
+                            </div>
                         </div>
-
-                        <h1 className={styles.pageTitle}>
-                            {editId ? "Editar Sucursal/Negocio" : "Registrar Sucursal/Negocio"}
-                        </h1>
                     </div>
 
                     {/* INFORMACION GENERAL */}
@@ -235,33 +252,15 @@ const PerfilEmpresa: React.FC = () => {
                                 <div className={styles.formGrid}>
                                     <div className={styles.inputGroup}>
                                         <label className={styles.label}>Calle</label>
-                                        <input
-                                            type="text"
-                                            name="calle"
-                                            className={styles.input}
-                                            value={formData.calle || ""}
-                                            onChange={handleChange}
-                                        />
+                                        <input type="text" name="calle" className={styles.input} onChange={handleChange} />
                                     </div>
                                     <div className={styles.inputGroup}>
                                         <label className={styles.label}>Numero</label>
-                                        <input
-                                            type="text"
-                                            name="numero"
-                                            className={styles.input}
-                                            value={formData.numero || ""}
-                                            onChange={handleChange}
-                                        />
+                                        <input type="text" name="numero" className={styles.input} onChange={handleChange} />
                                     </div>
                                     <div className={styles.inputGroup}>
                                         <label className={styles.label}>Colonia</label>
-                                        <input
-                                            type="text"
-                                            name="colonia"
-                                            className={styles.input}
-                                            value={formData.colonia || ""}
-                                            onChange={handleChange}
-                                        />
+                                        <input type="text" name="colonia" className={styles.input} onChange={handleChange} />
                                     </div>
                                 </div>
 
@@ -297,14 +296,7 @@ const PerfilEmpresa: React.FC = () => {
                         <div className={styles.formGrid}>
                             <div className={styles.inputGroup} style={{ maxWidth: '200px' }}>
                                 <label className={styles.label}>Codigo postal</label>
-                                <input
-                                    type="text"
-                                    name="cp"
-                                    className={styles.input}
-                                    placeholder="97000"
-                                    value={formData.cp || ""}
-                                    onChange={handleChange}
-                                />
+                                <input type="text" name="cp" className={styles.input} placeholder="97000" onChange={handleChange} />
                             </div>
                         </div>
                     </div>

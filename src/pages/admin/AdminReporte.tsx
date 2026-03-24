@@ -2,7 +2,42 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import styles from './AdminReporte.module.css';
-import { getReporteByTrabajoId, createReporte } from '../../services/reportesService';
+
+const compressImage = (file: File, callback: (compressedBase64: string) => void) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const MAX_WIDTH = 800;
+            const MAX_HEIGHT = 800;
+            let width = img.width;
+            let height = img.height;
+
+            if (width > height) {
+                if (width > MAX_WIDTH) {
+                    height *= MAX_WIDTH / width;
+                    width = MAX_WIDTH;
+                }
+            } else {
+                if (height > MAX_HEIGHT) {
+                    width *= MAX_HEIGHT / height;
+                    height = MAX_HEIGHT;
+                }
+            }
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx?.drawImage(img, 0, 0, width, height);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+            callback(dataUrl);
+        };
+        if (e.target?.result) {
+            img.src = e.target.result as string;
+        }
+    };
+    reader.readAsDataURL(file);
+};
 
 const AdminReporte: React.FC = () => {
     const navigate = useNavigate();
@@ -20,49 +55,42 @@ const AdminReporte: React.FC = () => {
         durante: null as string | null,
         despues: null as string | null
     });
+    const [imagenObservacion, setImagenObservacion] = useState<string | null>(null);
 
     const [firmaEmpresa, setFirmaEmpresa] = useState<string | null>(null);
 
-    React.useEffect(() => {
-        const fetchReporte = async () => {
-            if (id) {
-                try {
-                    const data = await getReporteByTrabajoId(Number(id));
-                    if (data) {
-                        // Mapear los datos de BD a nuestros campos locales
-                        // Como el backend solo tiene "descripcion" y "solucion", se parsea
-                        setDescripcion(data.descripcion || '');
-                        setMateriales(data.solucion || '');
-                        
-                        // Si hay imágenes, mapearlas
-                        if (data.imagenes && data.imagenes.length > 0) {
-                             const imgDict = { antes: null, durante: null, despues: null };
-                             // lógica simplificada para asignar imagenes por indice
-                             if(data.imagenes[0]) imgDict.antes = data.imagenes[0].ruta as any;
-                             if(data.imagenes[1]) imgDict.durante = data.imagenes[1].ruta as any;
-                             if(data.imagenes[2]) imgDict.despues = data.imagenes[2].ruta as any;
-                             setImagenes(imgDict as any);
-                        }
-                    } else {
-                        // Fallback a localStorage temporal si no hay en BD
-                        const savedData = localStorage.getItem(`report_data_temporal_${id}`);
-                        if (savedData) {
-                            const parsed = JSON.parse(savedData);
-                            if (parsed.reporteTienda) setReporteTienda(parsed.reporteTienda);
-                            if (parsed.descripcion) setDescripcion(parsed.descripcion);
-                            if (parsed.materiales) setMateriales(parsed.materiales);
-                            if (parsed.observaciones) setObservaciones(parsed.observaciones);
-                            if (parsed.imagenes) setImagenes(parsed.imagenes);
-                            if (parsed.firmaEmpresa) setFirmaEmpresa(parsed.firmaEmpresa);
-                        }
-                    }
-                } catch (error) {
-                    console.error("Error al obtener reporte:", error);
-                }
-            }
-        };
+    // Modal Confirmation State
+    const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+    const [timerCount, setTimerCount] = useState(3);
 
-        fetchReporte();
+    React.useEffect(() => {
+        let timer: ReturnType<typeof setTimeout>;
+        if (isConfirmModalOpen && timerCount > 0) {
+            timer = setTimeout(() => {
+                setTimerCount(prev => prev - 1);
+            }, 1000);
+        }
+        return () => clearTimeout(timer);
+    }, [isConfirmModalOpen, timerCount]);
+
+    React.useEffect(() => {
+        // Try to load an already finalized report first for editing
+        const finalData = localStorage.getItem(`report_data_${id}`);
+        // Fallback to temporal data if the report is not yet finalized
+        const temporalData = localStorage.getItem(`report_data_temporal_${id}`);
+
+        const savedData = finalData || temporalData;
+
+        if (savedData) {
+            const parsed = JSON.parse(savedData);
+            if (parsed.reporteTienda) setReporteTienda(parsed.reporteTienda);
+            if (parsed.descripcion) setDescripcion(parsed.descripcion);
+            if (parsed.materiales) setMateriales(parsed.materiales);
+            if (parsed.observaciones) setObservaciones(parsed.observaciones);
+            if (parsed.imagenes) setImagenes(parsed.imagenes);
+            if (parsed.imagenObservacion) setImagenObservacion(parsed.imagenObservacion);
+            if (parsed.firmaEmpresa) setFirmaEmpresa(parsed.firmaEmpresa);
+        }
     }, [id]);
 
 
@@ -71,28 +99,34 @@ const AdminReporte: React.FC = () => {
     const antesInputRef = useRef<HTMLInputElement>(null);
     const duranteInputRef = useRef<HTMLInputElement>(null);
     const despuesInputRef = useRef<HTMLInputElement>(null);
+    const observacionInputRef = useRef<HTMLInputElement>(null);
     const firmaInputRef = useRef<HTMLInputElement>(null);
 
 
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'antes' | 'durante' | 'despues') => {
         const file = e.target.files?.[0];
         if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setImagenes(prev => ({ ...prev, [type]: reader.result as string }));
-            };
-            reader.readAsDataURL(file);
+            compressImage(file, (base64) => {
+                setImagenes(prev => ({ ...prev, [type]: base64 }));
+            });
+        }
+    };
+
+    const handleImagenObservacionChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            compressImage(file, (base64) => {
+                setImagenObservacion(base64);
+            });
         }
     };
 
     const handleFirmaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setFirmaEmpresa(reader.result as string);
-            };
-            reader.readAsDataURL(file);
+            compressImage(file, (base64) => {
+                setFirmaEmpresa(base64);
+            });
         }
     };
 
@@ -104,6 +138,7 @@ const AdminReporte: React.FC = () => {
             materiales,
             observaciones,
             imagenes,
+            imagenObservacion,
             firmaEmpresa,
             fecha: new Date().toLocaleDateString()
         };
@@ -115,11 +150,19 @@ const AdminReporte: React.FC = () => {
         alert("Generación de PDF en progreso (Simulación). El backend se encargará del documento real.");
     };
 
-    const handleSave = () => {
+    const handleOpenConfirm = () => {
         if (!reporteTienda || !descripcion || !firmaEmpresa) {
             alert("Por favor completa los campos principales y asegúrate de agregar la foto de la firma de la empresa.");
             return;
         }
+        setTimerCount(3);
+        setIsConfirmModalOpen(true);
+    };
+
+    const handleSave = () => {
+
+        // Check if report is already finalized (editing mode)
+        const isEditing = !!localStorage.getItem(`report_data_${id}`);
 
         // Find the task in localStorage and update it
         let jobFoundId: string | null = null;
@@ -143,7 +186,7 @@ const AdminReporte: React.FC = () => {
                         const storedJobs = localStorage.getItem('negocios_list');
                         if (storedJobs) {
                             const list = JSON.parse(storedJobs);
-                            const jobIndex = list.findIndex((j: any) => j.id == originalJob.businessId); // NOTA: esto sigue estando mal (jobId vs businessId) pero lo restauramos para no romper el flujo existente mientras enfocamos
+                            const jobIndex = list.findIndex((j: any) => j.id == jobFoundId); // NOTA: esto sigue estando mal (jobId vs businessId) pero lo restauramos para no romper el flujo existente mientras enfocamos
                             if (jobIndex !== -1) {
                                 list[jobIndex].estado = 'Finalizado';
                                 localStorage.setItem('negocios_list', JSON.stringify(list));
@@ -176,52 +219,38 @@ const AdminReporte: React.FC = () => {
             }
         }
 
-        // Save full report data in backend via API
-        const createAndSave = async () => {
-             try {
-                 // Construimos los datos compaginando UI local con Schema SQL
-                 // "descripcion" alojará Reporte General
-                 // "solucion" alojará Materiales + Observaciones
-                 const payload = {
-                     trabajo_id: Number(id),
-                     descripcion: `Tienda: ${reporteTienda} \nProblema: ${descripcion}`,
-                     solucion: `Materiales: ${materiales} \nObs: ${observaciones}`,
-                     fecha: new Date().toISOString(),
-                     // Mandar las imágenes en Base64 al backend
-                     imagenesBase64: {
-                         antes: imagenes.antes,
-                         durante: imagenes.durante,
-                         despues: imagenes.despues,
-                         firma: firmaEmpresa
-                     }
-                 };
-
-                 // Despachar a Backend Laravel
-                 await createReporte(payload as any);
-                 alert("Reporte guardado exitosamente en el Backend y tarea completada.");
-                 
-             } catch (error) {
-                 console.error("Error al guardar reporte en API", error);
-                 alert("Informacion guardada localmente debido a un error de red o API no lista todavía.");
-             }
+        // Save full report data
+        const reportData = {
+            id,
+            jobFoundId,
+            reporteTienda,
+            descripcion,
+            materiales,
+            observaciones,
+            imagenes,
+            imagenObservacion,
+            firmaEmpresa,
+            fecha: new Date().toLocaleDateString()
         };
-        createAndSave();
+        localStorage.setItem(`report_data_${id}`, JSON.stringify(reportData));
 
-        // GENERAR NOTIFICACIÓN PARA EL ADMINISTRADOR
-        const notificaciones = JSON.parse(localStorage.getItem('admin_notifications') || '[]');
-        const nuevaNotificacion = {
-            id: Date.now(),
-            titulo: 'Trabajo Finalizado',
-            mensaje: `El técnico ha completado el reporte para: ${jobTitle}.`,
-            fecha: new Date().toLocaleDateString('es-MX', { hour: '2-digit', minute: '2-digit' }),
-            leida: false,
-            jobId: jobFoundId
-        };
-        notificaciones.unshift(nuevaNotificacion);
-        localStorage.setItem('admin_notifications', JSON.stringify(notificaciones));
+        // GENERAR NOTIFICACIÓN PARA EL ADMINISTRADOR (Solo si no es edición)
+        if (!isEditing) {
+            const notificaciones = JSON.parse(localStorage.getItem('admin_notifications') || '[]');
+            const nuevaNotificacion = {
+                id: Date.now(),
+                titulo: 'Trabajo Finalizado',
+                mensaje: `El técnico ha completado el reporte para: ${jobTitle}.`,
+                fecha: new Date().toLocaleDateString('es-MX', { hour: '2-digit', minute: '2-digit' }),
+                leida: false,
+                jobId: jobFoundId
+            };
+            notificaciones.unshift(nuevaNotificacion);
+            localStorage.setItem('admin_notifications', JSON.stringify(notificaciones));
+        }
 
-        // GENERAR NOTIFICACIÓN PARA EL CLIENTE (Trabajo / Visita Terminada)
-        if (jobFoundId && originalJob) {
+        // GENERAR NOTIFICACIÓN PARA EL CLIENTE (Solo si no es edición)
+        if (jobFoundId && originalJob && !isEditing) {
             const clientNotifs = JSON.parse(localStorage.getItem('client_notifications') || '[]');
             const esVisita = originalJob.tipo && originalJob.tipo.toLowerCase().includes('visita');
 
@@ -240,8 +269,8 @@ const AdminReporte: React.FC = () => {
 
         window.dispatchEvent(new Event('storage'));
 
-        // Create new request from observations if they exist
-        if (observaciones.trim() !== "") {
+        // Create new request from observations if they exist (Solo si no es edición)
+        if (observaciones.trim() !== "" && !isEditing) {
             if (foundBusinessKey && originalJob) {
                 const targetList = JSON.parse(localStorage.getItem(foundBusinessKey) || '[]');
                 const newRecursiveJob = {
@@ -280,7 +309,12 @@ const AdminReporte: React.FC = () => {
             }
         }
 
-        // alert("Reporte guardado con éxito y tarea completada."); Ya está arriba
+        // Final edit save success message
+        if (isEditing) {
+            alert("Reporte actualizado con éxito.");
+        } else {
+            alert("Reporte guardado con éxito y tarea completada.");
+        }
         if (jobFoundId) {
             navigate(`/menu/trabajo-detalle/${jobFoundId}`);
         } else {
@@ -295,6 +329,7 @@ const AdminReporte: React.FC = () => {
             <input type="file" ref={antesInputRef} style={{ display: 'none' }} onChange={(e) => handleImageChange(e, 'antes')} accept="image/*" />
             <input type="file" ref={duranteInputRef} style={{ display: 'none' }} onChange={(e) => handleImageChange(e, 'durante')} accept="image/*" />
             <input type="file" ref={despuesInputRef} style={{ display: 'none' }} onChange={(e) => handleImageChange(e, 'despues')} accept="image/*" />
+            <input type="file" ref={observacionInputRef} style={{ display: 'none' }} onChange={handleImagenObservacionChange} accept="image/*" />
             <input type="file" ref={firmaInputRef} style={{ display: 'none' }} onChange={handleFirmaChange} accept="image/*" />
 
             {/* Main Content Card */}
@@ -385,6 +420,37 @@ const AdminReporte: React.FC = () => {
                                     value={observaciones}
                                     onChange={(e) => setObservaciones(e.target.value)}
                                 ></textarea>
+                                <div style={{ marginTop: '15px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                    <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#555', display: 'block', marginBottom: '15px', width: '100%', textAlign: 'left' }}>Evidencia Fotográfica:</span>
+                                    <div className={styles.evidenceItem} onClick={() => observacionInputRef.current?.click()}>
+                                        <div
+                                            className={styles.squareBox}
+                                            style={{
+                                                width: '120px',
+                                                height: '120px',
+                                                cursor: 'pointer',
+                                                overflow: 'hidden',
+                                                flexDirection: 'column'
+                                            }}
+                                        >
+                                            {imagenObservacion ? (
+                                                <img src={imagenObservacion} alt="Evidencia Observación" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                            ) : (
+                                                <>
+                                                    <span style={{ fontSize: '28px', marginBottom: '5px' }}>📸</span>
+                                                    <span style={{ fontSize: '13px', textAlign: 'center', fontWeight: 'normal', color: 'inherit' }}>Añadir Foto</span>
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+                                    {imagenObservacion && (
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); setImagenObservacion(null); }}
+                                            style={{ marginTop: '12px', background: 'none', border: 'none', color: '#d32f2f', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}>
+                                            Eliminar Foto
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         </div>
 
@@ -418,7 +484,7 @@ const AdminReporte: React.FC = () => {
                                 Generar PDF
                             </button>
                             <button
-                                onClick={handleSave}
+                                onClick={handleOpenConfirm}
                                 className={styles.saveButton}
                             >
                                 Guardar y Enviar
@@ -428,6 +494,53 @@ const AdminReporte: React.FC = () => {
 
                 </div>
             </div>
+
+            {/* Confirmacion Modal */}
+            {isConfirmModalOpen && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    background: 'rgba(0, 0, 0, 0.5)', display: 'flex', justifyContent: 'center',
+                    alignItems: 'center', zIndex: 1000, backdropFilter: 'blur(2px)'
+                }}>
+                    <div style={{
+                        background: 'white', padding: '30px', borderRadius: '20px',
+                        width: '350px', textAlign: 'center', boxShadow: '0 10px 25px rgba(0,0,0,0.2)'
+                    }}>
+                        <h3 style={{ marginBottom: '15px', color: '#333' }}>¿Estás seguro de enviar?</h3>
+                        <p style={{ marginBottom: '20px', color: '#666', fontSize: '14px' }}>
+                            Una vez enviado, el reporte no podrá ser editado y se marcará como finalizado.
+                        </p>
+                        <div style={{ display: 'flex', gap: '15px', justifyContent: 'center' }}>
+                            <button
+                                onClick={() => setIsConfirmModalOpen(false)}
+                                style={{ flex: 1, background: '#f44336', color: 'white', border: 'none', padding: '12px', borderRadius: '25px', cursor: 'pointer', fontWeight: 'bold' }}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setIsConfirmModalOpen(false);
+                                    handleSave();
+                                }}
+                                disabled={timerCount > 0}
+                                style={{
+                                    flex: 1,
+                                    background: timerCount > 0 ? '#cccccc' : '#4caf50',
+                                    color: timerCount > 0 ? '#666666' : 'white',
+                                    border: 'none',
+                                    padding: '12px',
+                                    borderRadius: '25px',
+                                    cursor: timerCount > 0 ? 'not-allowed' : 'pointer',
+                                    fontWeight: 'bold',
+                                    transition: 'background 0.3s'
+                                }}
+                            >
+                                {timerCount > 0 ? `Confirmar (${timerCount}s)` : 'Confirmar'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

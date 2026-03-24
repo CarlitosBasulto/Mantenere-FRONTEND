@@ -1,25 +1,22 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import styles from "./ListaSolicitudes.module.css";
 import menuStyles from "../../components/Menu.module.css";
 import { useAuth } from "../../context/AuthContext";
-import { getTrabajos } from "../../services/trabajosService";
 
 interface Trabajo {
     id: number;
     titulo: string;
+    ubicacion: string;
+    tecnico: string;
+    fecha: string;
+    estado: string;
+    tipo?: "Visita" | "Trabajo" | "Nueva Solicitud" | "SOS";
+    visitado?: boolean;
     descripcion?: string;
-    prioridad: "Alta" | "Media" | "Baja";
-    estado: "Pendiente" | "En proceso" | "Completado" | "Finalizado";
-    fecha_programada?: string;
-    created_at: string;
-    trabajador?: {
-        nombre: string;
-    };
-    negocio: {
-        nombre: string;
-        ubicacion: string;
-    };
+    sucursal?: string;
+    fechaAsignada?: string;
+    horaAsignada?: string;
 }
 
 const ListaSolicitudes: React.FC = () => {
@@ -27,7 +24,6 @@ const ListaSolicitudes: React.FC = () => {
     const [filterStatus, setFilterStatus] = useState<string>("Todos");
     const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
     const [tempFilter, setTempFilter] = useState("Todos");
-    const [loading, setLoading] = useState(true);
 
     const navigate = useNavigate();
     const { user } = useAuth();
@@ -35,43 +31,70 @@ const ListaSolicitudes: React.FC = () => {
     // DATA LOADING
     const [solicitudes, setSolicitudes] = useState<Trabajo[]>([]);
 
-    useEffect(() => {
-        const fetchSolicitudes = async () => {
-            try {
-                const data = await getTrabajos();
-                setSolicitudes(data);
-            } catch (error) {
-                console.error("Error cargando solicitudes", error);
-            } finally {
-                setLoading(false);
+    React.useEffect(() => {
+        const allJobs: Trabajo[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key?.startsWith('trabajos_business_')) {
+                const stored = localStorage.getItem(key);
+                if (stored) {
+                    const list: Trabajo[] = JSON.parse(stored);
+                    allJobs.push(...list.filter(j => j.estado === 'Solicitud' || j.estado === 'En Espera' || (j.estado === 'Asignado' && j.tipo === 'Visita') || j.estado === 'Cotización Aceptada'));
+                }
             }
-        };
+        }
 
-        fetchSolicitudes();
+        // Also get old new_solicitudes if any
+        const savedSolicitudes = JSON.parse(localStorage.getItem('new_solicitudes') || '[]');
+        const mappedSaved = savedSolicitudes.map((s: any) => ({
+            id: s.id || Date.now() + Math.random(),
+            titulo: s.nombre,
+            ubicacion: "",
+            tecnico: s.tipo === 'Técnico' ? s.subtitulo.replace('Técnico: ', '') : 'Sin asignar',
+            fecha: s.fecha,
+            estado: 'Solicitud',
+            tipo: s.tipo === 'Técnico' ? 'Visita' : 'Trabajo',
+            sucursal: s.nombre
+        }));
+
+        const mockData: Trabajo[] = [
+            {
+                id: 1,
+                titulo: "Mantenimiento General (Mock)",
+                ubicacion: "Centro",
+                tecnico: "Sin asignar",
+                fecha: "25/08/2026",
+                estado: "Solicitud",
+                tipo: "Trabajo",
+                sucursal: "Mc Donals (Centro)",
+                visitado: false
+            }
+        ];
+
+        if (allJobs.length > 0) {
+            setSolicitudes([...allJobs, ...mappedSaved]);
+        } else {
+            setSolicitudes([...mockData, ...mappedSaved]);
+        }
     }, []);
 
     // FILTRADO
     const filteredRequests = solicitudes.filter((req) => {
         const searchTextLower = searchText.toLowerCase();
-        
-        const negocioNombre = req.negocio?.nombre || "";
-        const trabajadorNombre = req.trabajador?.nombre || "Sin asignar";
-
         const matchesText = req.titulo.toLowerCase().includes(searchTextLower) ||
-            negocioNombre.toLowerCase().includes(searchTextLower) ||
-            trabajadorNombre.toLowerCase().includes(searchTextLower);
+            (req.sucursal || "").toLowerCase().includes(searchTextLower) ||
+            req.tecnico.toLowerCase().includes(searchTextLower);
 
-        // Si es técnico, solo ve las de él que NO esten Finalizadas ni Completadas
         if (user?.role === 'tecnico') {
-            return matchesText && req.trabajador && req.trabajador.nombre === user.name && req.estado !== "Finalizado" && req.estado !== "Completado";
+            return matchesText && req.tecnico === user.name;
         }
 
         let matchesStatus = true;
         if (filterStatus !== "Todos") {
-            if (filterStatus === "Pendiente" && req.estado !== "Pendiente") matchesStatus = false;
-            if (filterStatus === "En proceso" && req.estado !== "En proceso") matchesStatus = false;
-            if (filterStatus === "Completado" && req.estado !== "Completado") matchesStatus = false;
-            if (filterStatus === "Finalizado" && req.estado !== "Finalizado") matchesStatus = false;
+            const isDueño = req.tecnico === "Sin asignar" || !req.tecnico;
+            if (filterStatus === "Dueño" && (!isDueño || req.estado === "Cotización Aceptada")) matchesStatus = false;
+            if (filterStatus === "Técnico" && (isDueño || req.estado === "Cotización Aceptada")) matchesStatus = false;
+            if (filterStatus === "Pagados" && req.estado !== "Cotización Aceptada") matchesStatus = false;
         }
 
         return matchesText && matchesStatus;
@@ -92,7 +115,7 @@ const ListaSolicitudes: React.FC = () => {
                         {/* INPUT BUSQUEDA */}
                         <input
                             type="text"
-                            placeholder="Buscar titulo, negocio o técnico..."
+                            placeholder="Buscar..."
                             className={menuStyles.searchInput}
                             value={searchText}
                             onChange={(e) => setSearchText(e.target.value)}
@@ -110,53 +133,51 @@ const ListaSolicitudes: React.FC = () => {
 
                 {/* LISTA DE SOLICITUDES */}
                 <div className={styles.jobsSection}>
-                    {loading && (
-                        <div style={{ padding: "20px", color: "#666" }}>
-                            Cargando solicitudes...
-                        </div>
-                    )}
-
-                    {!loading && filteredRequests.length === 0 && (
-                        <div style={{ padding: "20px", color: "#888" }}>
-                            No hay solicitudes registradas
-                        </div>
-                    )}
-
-                    {!loading && filteredRequests.map((req) => (
+                    {filteredRequests.map((req) => (
                         <div
                             key={req.id}
                             className={styles.jobCard}
                             onClick={() => navigate(user?.role === 'tecnico' ? `/tecnico/trabajo-detalle/${req.id}` : `/menu/trabajo-detalle/${req.id}`)}
                             style={{ cursor: 'pointer', flexDirection: 'column', alignItems: 'stretch' }}
                         >
+                            {req.tipo === 'SOS' && req.estado === 'Solicitud' && (
+                                <div style={{ background: '#ffebee', color: '#c62828', padding: '10px 15px', borderRadius: '10px', marginBottom: '15px', fontWeight: 'bold', border: '1px solid #ffcdd2' }}>
+                                    🚨 EMERGENCIA SOS: EL CLIENTE SOLICITA ATENCIÓN INMEDIATA
+                                </div>
+                            )}
+                            {req.visitado && req.estado === 'Solicitud' && (
+                                <div style={{ border: '1px solid #ff9800', background: '#fff3e0', color: '#e65100', padding: '10px 15px', borderRadius: '10px', marginBottom: '15px', fontWeight: 'bold' }}>
+                                    🛡️ AVISO DE DIAGNÓSTICO<br />
+                                    <span style={{ fontWeight: 'normal', fontSize: '14px', color: '#333' }}>Esta sucursal ya fue visitada y tiene un diagnóstico listo para ser revisado.</span>
+                                </div>
+                            )}
                             <div className={styles.cardContent}>
                                 {/* ICONO */}
                                 <div className={styles.cardIcon}>
                                     📋
                                 </div>
                                 <div className={styles.cardInfo}>
-                                    <div style={{
-                                        background: (req.estado === 'Finalizado' || req.estado === 'Completado') ? '#eef8f1' : req.estado === 'En proceso' ? '#fff8e1' : '#ffebee', 
-                                        padding: '6px 14px', 
-                                        borderRadius: '15px', 
-                                        marginBottom: '10px', 
-                                        display: 'inline-flex', 
-                                        alignItems: 'center', 
-                                        gap: '8px', 
-                                        border: (req.estado === 'Finalizado' || req.estado === 'Completado') ? '1px solid #c8e6c9' : req.estado === 'En proceso' ? '1px solid #ffecb3' : '1px solid #ffcdd2', 
-                                        width: 'fit-content' 
-                                    }}>
-                                        <span style={{ color: (req.estado === 'Finalizado' || req.estado === 'Completado') ? '#137333' : req.estado === 'En proceso' ? '#f57f17' : '#c62828', fontWeight: 'bold', fontSize: '13px' }}>
-                                            {req.estado === 'Completado' ? 'En revisión' : req.estado}
-                                        </span>
-                                    </div>
+                                    {(req.fechaAsignada || req.fecha) && (
+                                        <div style={{ background: '#eef8f1', padding: '6px 14px', borderRadius: '15px', marginBottom: '10px', display: 'inline-flex', alignItems: 'center', gap: '8px', border: '1px solid #c8e6c9', width: 'fit-content' }}>
+                                            <span style={{ color: '#137333', fontWeight: 'bold', fontSize: '13px' }}>
+                                                📅 {req.fechaAsignada || req.fecha}
+                                            </span>
+                                            {req.horaAsignada && (
+                                                <>
+                                                    <span style={{ color: '#137333', fontWeight: 'bold', fontSize: '13px' }}>-</span>
+                                                    <span style={{ color: '#137333', fontWeight: 'bold', fontSize: '13px' }}>
+                                                        ⏰ {req.horaAsignada}
+                                                    </span>
+                                                </>
+                                            )}
+                                        </div>
+                                    )}
                                     <h3>{req.titulo}</h3>
-                                    <p>🛡️ Prioridad: <b>{req.prioridad}</b></p>
-                                    <p>🏢 Negocio: {req.negocio?.nombre}</p>
-                                    <p>👨‍🔧 Técnico: {req.trabajador ? req.trabajador.nombre : <span style={{color: '#ff9800', fontWeight: 'bold'}}>Sin asignar</span>}</p>
+                                    <p>{req.tecnico !== "Sin asignar" ? `Técnico: ${req.tecnico}` : `Dueño: ${req.sucursal || "No registrado"}`}</p>
+                                    {req.descripcion && <p style={{ fontSize: '12px', color: '#888', fontStyle: 'italic', marginTop: '5px' }}>Obs: {req.descripcion.substring(0, 50)}...</p>}
                                 </div>
-                                {/* Indicador lateral dependiendo del estado */}
-                                <div className={`${styles.cardIndicator} ${req.estado === 'Finalizado' ? styles.green : req.estado === 'En proceso' ? styles.blue : styles.yellow}`}></div>
+                                {/* Indicador lateral AMARILLO o ROJO */}
+                                <div className={`${styles.cardIndicator} ${req.tipo === 'SOS' && req.estado === 'Solicitud' ? '' : styles.yellow}`} style={req.tipo === 'SOS' && req.estado === 'Solicitud' ? { background: '#f44336' } : {}}></div>
                             </div>
                         </div>
                     ))}
@@ -176,6 +197,16 @@ const ListaSolicitudes: React.FC = () => {
                         <div className={menuStyles.filterSection}>
                             <span className={menuStyles.filterSubtitle}>Estatus</span>
                             <div className={menuStyles.radioGroup}>
+                                <label className={menuStyles.radioLabel}>
+                                    <input
+                                        type="radio"
+                                        name="status"
+                                        checked={tempFilter === "Todos"}
+                                        onChange={() => setTempFilter("Todos")}
+                                    />
+                                    <span>Todos</span>
+                                </label>
+
                                 <label className={menuStyles.radioLabel}>
                                     <input
                                         type="radio"
@@ -224,6 +255,16 @@ const ListaSolicitudes: React.FC = () => {
                                         onChange={() => setTempFilter("Finalizado")}
                                     />
                                     <span>Finalizado</span>
+                                </label>
+
+                                <label className={menuStyles.radioLabel}>
+                                    <input
+                                        type="radio"
+                                        name="status"
+                                        checked={tempFilter === "Pagados"}
+                                        onChange={() => setTempFilter("Pagados")}
+                                    />
+                                    <span>Pagados</span>
                                 </label>
                             </div>
                         </div>

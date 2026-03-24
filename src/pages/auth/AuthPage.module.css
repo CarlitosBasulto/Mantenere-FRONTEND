@@ -2,7 +2,9 @@
 
 
 .body {
-    background: #f6f5f7;
+    background-image: url('../../assets/imagenes/fondosesion.png');
+    background-size: cover;
+    background-position: center;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -112,7 +114,7 @@
 }
 
 .overlay {
-    background: #FF416C;
+    background: #ffffff;
     background-image: url('../../assets/imagenes/imagen.png');
     background-repeat: no-repeat;
     background-size: cover;
@@ -202,7 +204,7 @@
     font-weight: bold;
     margin: 0;
     font-size: 2rem;
-    color: #333;
+    color: #000000;
 }
 
 .button {

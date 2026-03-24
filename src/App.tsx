@@ -23,6 +23,8 @@ import AdminPerfilTrabajador from "./pages/admin/AdminPerfilTrabajador";
 import PerfilEmpresa from "./pages/cliente/PerfilEmpresa";
 import MiPerfil from "./pages/cliente/MiPerfil";
 import Cotizaciones from "./pages/cliente/Cotizaciones";
+import Historial from "./pages/cliente/Historial";
+import AdminHistorial from "./pages/admin/AdminHistorial";
 
 
 function App() {
@@ -48,6 +50,7 @@ function App() {
                     >
                         <Route index element={<ListaNegocios />} />
                         <Route path="trabajadores" element={<ListaTrabajadores />} />
+                        <Route path="trabajos-realizados" element={<AdminHistorial />} />
                         <Route path="trabajador/:id" element={<AdminPerfilTrabajador />} />
                         <Route path="solicitudes" element={<ListaSolicitudes />} />
                         <Route path="trabajo/:id" element={<TrabajoDetalle />} />
@@ -59,39 +62,23 @@ function App() {
                     </Route>
 
                     {/* CLIENTE ROUTES */}
-                    <Route
-                        path="/cliente"
-                        element={
-                            <ProtectedRoute allowedRoles={["cliente"]}>
-                                <ClienteLayout />
-                            </ProtectedRoute>
-                        }
-                    >
+                    <Route path="/cliente" element={<ClienteLayout />}>
                         <Route index element={<ListaNegocios />} />
                         <Route path="perfil-empresa" element={<PerfilEmpresa />} />
                         <Route path="mi-perfil" element={<MiPerfil />} />
                         <Route path="cotizaciones" element={<Cotizaciones />} />
+                        <Route path="historial" element={<Historial />} />
                         <Route path="trabajo/:id" element={<TrabajoDetalle />} />
                         <Route path="trabajo-detalle/:id" element={<AdminDetalleTrabajo />} />
                     </Route>
 
                     {/* TECNICO ROUTES */}
-                    <Route
-                        path="/tecnico"
-                        element={
-                            <ProtectedRoute allowedRoles={["tecnico"]}>
-                                <TecnicoLayout />
-                            </ProtectedRoute>
-                        }
-                    >
+                    <Route path="/tecnico" element={<TecnicoLayout />}>
                         <Route index element={<ListaNegocios />} />
                         <Route path="solicitudes" element={<ListaSolicitudes />} />
-                        <Route path="troubleshooting" element={<ListaSolicitudes />} />
                         <Route path="mi-perfil" element={<MiPerfil />} />
                         <Route path="trabajo/:id" element={<TrabajoDetalle />} />
                         <Route path="trabajo-detalle/:id" element={<AdminDetalleTrabajo />} />
-                        <Route path="verificacion-tarea/:id" element={<AdminVerificacionEquipo />} />
-                        <Route path="reporte-tarea/:id" element={<AdminReporte />} />
                     </Route>
 
                     {/* FALLBACK */}

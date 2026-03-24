@@ -3,8 +3,6 @@ import styles from "./Cotizaciones.module.css";
 import { HiOutlineDocumentText, HiOutlineCheckCircle, HiOutlineXCircle } from "react-icons/hi2";
 import { useAuth } from "../../context/AuthContext";
 import menuStyles from "../../components/Menu.module.css";
-import { getTrabajos } from "../../services/trabajosService";
-import { getCotizacionByTrabajoId } from "../../services/cotizacionesService";
 
 // Interfaz para el Trabajo con Cotización
 interface TrabajoCotizado {
@@ -22,7 +20,18 @@ interface TrabajoCotizado {
     };
 }
 
-const Cotizaciones: React.FC = () => {
+interface SubTarea {
+    id: number;
+    titulo: string;
+    descripcion: string;
+    estado: string;
+}
+
+interface CotizacionesProps {
+    businessId?: number;
+}
+
+const Cotizaciones: React.FC<CotizacionesProps> = ({ businessId }) => {
     const { user } = useAuth();
     const [rawCotizaciones, setRawCotizaciones] = useState<TrabajoCotizado[]>([]);
 
@@ -31,84 +40,77 @@ const Cotizaciones: React.FC = () => {
     const [filterStatus, setFilterStatus] = useState<string>("Todas");
     const [tempFilter, setTempFilter] = useState("Todas");
 
+    const [selectedCotizacion, setSelectedCotizacion] = useState<TrabajoCotizado | null>(null);
+    const [cotizacionTasks, setCotizacionTasks] = useState<SubTarea[]>([]);
+    const [selectedZoomImage, setSelectedZoomImage] = useState<string | null>(null);
+
+    const openCotizacionModal = (cotizacion: TrabajoCotizado) => {
+        setSelectedCotizacion(cotizacion);
+        const storedTasks = localStorage.getItem(`tasks_${cotizacion.id}`);
+        if (storedTasks) {
+            setCotizacionTasks(JSON.parse(storedTasks));
+        } else {
+            setCotizacionTasks([]);
+        }
+    };
+
     useEffect(() => {
         if (!user) return;
 
-        const fetchData = async () => {
-            try {
-                // 1. Obtener todos los trabajos
-                const allJobs = await getTrabajos();
-                
-                // 2. Extraer los trabajos que tengan una cotización (estado avanzado)
-                const jobsWithCoti = allJobs.filter((job: any) => 
-                     ['Cotización Enviada', 'Cotización Aceptada', 'Cotización Rechazada', 'Asignado', 'En Proceso', 'Finalizado'].includes(job.estado)
-                );
-                
-                // 3. Si el usuario es cliente, filtrar solo sus negocios
-                let filteredJobs = jobsWithCoti;
-                if (user.role === 'cliente') {
-                    // La asociación 'negocio' debería tener 'dueno' igual al nombre o al user asociado.
-                    // Si el backend no tiene 'dueno', usamos la lógica de autenticación o la comparamos con user.name por ahora
-                    // Asumimos que negocio.user_id = auth.user.id en el futuro, o comparamos strings
-                    // Como parche intermedio de compatibilidad:
-                    filteredJobs = jobsWithCoti.filter((j: any) => 
-                        (j.negocio?.dueno === user.name) || 
-                        (j.negocio?.user_id === user.id)
-                    );
+        // 1. Obtener los negocios del cliente actual
+        const storedNegocios = localStorage.getItem('negocios_list');
+        const negociosIds = new Set<number>();
+
+        if (storedNegocios) {
+            const negocios = JSON.parse(storedNegocios);
+            negocios.forEach((n: any) => {
+                // Filtramos negocios donde el dueño sea el usuario actual
+                if (n.dueno === user.name) {
+                    negociosIds.add(n.id);
                 }
+            });
+        }
 
-                // 4. Buscar la info de cotizacion para mapearla
-                const mapped = await Promise.all(filteredJobs.map(async (j: any) => {
-                     let coti: any = null;
-                     try {
-                         coti = await getCotizacionByTrabajoId(j.id);
-                     } catch(e) {}
+        // 2. Extraer los trabajos de esos negocios que tengan una cotización
+        const todasCotizaciones: TrabajoCotizado[] = [];
 
-                     // Parse date para el fallback
-                     const jobFallbackDate = j.fecha_programada ? new Date(j.fecha_programada) : new Date(j.created_at);
+        // Iterar sobre localStorage para buscar las listas de trabajos
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key?.startsWith('trabajos_business_')) {
+                // Extraer el ID del negocio de la llave
+                // Extraer el ID del negocio de la llave
+                const localBusinessId = Number(key.replace('trabajos_business_', ''));
 
-                     return {
-                         id: j.id,
-                         titulo: j.titulo,
-                         ubicacion: j.negocio?.nombre || 'Negocio',
-                         fecha: jobFallbackDate.toISOString(), 
-                         estado: j.estado,
-                         descripcion: j.descripcion,
-                         cotizacion: coti ? {
-                             costo: coti.monto,
-                             notas: coti.descripcion,
-                             archivo: coti.archivo || "",
-                             fecha: new Date(coti.created_at).toISOString()
-                         } : undefined
-                     };
-                }));
+                if (businessId && localBusinessId !== businessId) continue;
 
-                // 5. Ordenar por fecha (ISO strings hacen que sea fail-safe new Date(str).getTime())
-                mapped.sort((a, b) => {
-                    const dateA = a.cotizacion?.fecha || a.fecha;
-                    const dateB = b.cotizacion?.fecha || b.fecha;
-                    return new Date(dateB).getTime() - new Date(dateA).getTime();
-                });
-
-                // Convertir ISO string de nuevo a Formato legible "DD/MM/YYYY" para la UI de React
-                const finalFormat = mapped.map(item => ({
-                     ...item,
-                     fecha: new Date(item.fecha).toLocaleDateString('es-MX'),
-                     cotizacion: item.cotizacion ? {
-                         ...item.cotizacion,
-                         fecha: new Date(item.cotizacion.fecha).toLocaleDateString('es-MX')
-                     } : undefined
-                }));
-
-                setRawCotizaciones(finalFormat as TrabajoCotizado[]);
-
-            } catch(e) { 
-                console.error("Error trayendo cotizaciones:", e); 
+                // Si el negocio pertenece al usuario (o si por ahora queremos mostrar para debug, omitir este if)
+                if (negociosIds.has(localBusinessId) || user.role === 'admin') {
+                    const storedJobs = localStorage.getItem(key);
+                    if (storedJobs) {
+                        const jobs: TrabajoCotizado[] = JSON.parse(storedJobs);
+                        jobs.forEach(job => {
+                            // Si el trabajo tiene cotización (enviada o ya respondida o en curso/finalizada)
+                            if (job.cotizacion && (job.estado === 'Cotización Enviada' || job.estado === 'Cotización Aceptada' || job.estado === 'Cotización Rechazada' || job.estado === 'Asignado' || job.estado === 'En Proceso' || job.estado === 'Finalizado')) {
+                                todasCotizaciones.push(job);
+                            }
+                        });
+                    }
+                }
             }
-        };
+        }
 
-        fetchData();
-    }, [user]);
+        // Ordenar por fecha (más recientes primero, asumiendo formato DD/MM/YYYY)
+        todasCotizaciones.sort((a, b) => {
+            const dateA = a.cotizacion?.fecha || a.fecha;
+            const dateB = b.cotizacion?.fecha || b.fecha;
+            const [da, ma, ya] = (dateA).split('/').map(Number);
+            const [db, mb, yb] = (dateB).split('/').map(Number);
+            return new Date(yb, mb - 1, db).getTime() - new Date(ya, ma - 1, da).getTime();
+        });
+
+        setRawCotizaciones(todasCotizaciones);
+    }, [user, businessId]);
 
     // Lógica de Filtrado Reactiva (en vivo)
     const filtradas = rawCotizaciones.filter(coti => {
@@ -186,7 +188,7 @@ const Cotizaciones: React.FC = () => {
                                     const estatusInfo = getEstatusInfo(cotizacion.estado);
 
                                     return (
-                                        <div key={cotizacion.id} className={styles.card}>
+                                        <div key={cotizacion.id} className={styles.card} onClick={() => openCotizacionModal(cotizacion)} style={{ cursor: 'pointer' }}>
                                             <div className={styles.cardContent}>
                                                 <div className={styles.cardIcon}>
                                                     <HiOutlineDocumentText className={styles.iconDoc} />
@@ -248,6 +250,234 @@ const Cotizaciones: React.FC = () => {
                     </div>
                 )}
             </div>
+
+            {/* MODAL DETALLE DE COTIZACION Y REPORTE */}
+            {selectedCotizacion && (
+                <div className={menuStyles.modalOverlay} onClick={(e) => {
+                    if (e.target === e.currentTarget) setSelectedCotizacion(null);
+                }}>
+                    <div className={menuStyles.modalContent} style={{ maxWidth: '700px', width: '90%', padding: '30px', maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '2px solid #eee', paddingBottom: '15px' }}>
+                            <h2 style={{ margin: 0, color: '#333' }}>Detalles de Cotización</h2>
+                            <button
+                                onClick={() => setSelectedCotizacion(null)}
+                                style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#999' }}
+                            >
+                                ×
+                            </button>
+                        </div>
+
+                        <div style={{ display: 'grid', gap: '20px' }}>
+                            <div style={{ background: '#f8f9fa', padding: '20px', borderRadius: '15px', borderLeft: '4px solid #FFB800' }}>
+                                <h3 style={{ margin: '0 0 10px 0', color: '#d49a00', fontSize: '18px' }}>{selectedCotizacion.titulo}</h3>
+                                <p style={{ margin: 0, color: '#555', fontSize: '15px', lineHeight: '1.5' }}>{selectedCotizacion.descripcion || 'Sin descripción.'}</p>
+                                <div style={{ marginTop: '15px', display: 'flex', gap: '10px' }}>
+                                    <span style={{ background: '#fff9e6', color: '#d49a00', padding: '5px 10px', borderRadius: '15px', fontSize: '12px', fontWeight: 'bold' }}>
+                                        Estado: {selectedCotizacion.estado}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {selectedCotizacion.cotizacion && (
+                                <div style={{ background: '#fff', padding: '20px', borderRadius: '15px', border: '1px solid #eee' }}>
+                                    <h4 style={{ margin: '0 0 15px 0', color: '#333', fontSize: '16px' }}>💰 Información de Cotización</h4>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                            <span style={{ color: '#777', fontSize: '14px' }}>Costo:</span>
+                                            <span style={{ fontWeight: 'bold', color: '#333', fontSize: '14px' }}>${selectedCotizacion.cotizacion.costo}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                            <span style={{ color: '#777', fontSize: '14px' }}>Fecha:</span>
+                                            <span style={{ fontWeight: 'bold', color: '#333', fontSize: '14px' }}>{selectedCotizacion.cotizacion.fecha}</span>
+                                        </div>
+                                        <div>
+                                            <span style={{ color: '#777', fontSize: '14px', display: 'block', marginBottom: '5px' }}>Notas:</span>
+                                            <p style={{ margin: 0, color: '#555', fontSize: '14px', fontStyle: 'italic', background: '#fafafa', padding: '10px', borderRadius: '8px' }}>
+                                                "{selectedCotizacion.cotizacion.notas || "Sin notas adicionales."}"
+                                            </p>
+                                        </div>
+                                        {selectedCotizacion.cotizacion.archivo && (
+                                            <div style={{ marginTop: '10px' }}>
+                                                <a
+                                                    href={selectedCotizacion.cotizacion.archivo}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    style={{ display: 'inline-flex', padding: '8px 15px', background: '#007bff', color: 'white', textDecoration: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: 'bold' }}
+                                                >
+                                                    📎 Ver Documento PDF
+                                                </a>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {cotizacionTasks.length > 0 && (
+                                <div>
+                                    <h3 style={{ borderBottom: '2px solid #eaeaea', paddingBottom: '10px', marginBottom: '15px', marginTop: '10px' }}>Reportes de Tareas</h3>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                        {cotizacionTasks.map(tarea => {
+                                            const reportDataRaw = localStorage.getItem(`report_data_${tarea.id}`);
+                                            const reportData = reportDataRaw ? JSON.parse(reportDataRaw) : null;
+
+                                            // Solo mostramos las tareas que ya tienen reporte finalizado o al menos son parte del trabajo
+                                            if (!reportData) return null;
+
+                                            return (
+                                                <div key={tarea.id} style={{ background: '#fff', padding: '20px', borderRadius: '15px', border: '1px solid #ddd' }}>
+                                                    <h4 style={{ margin: '0 0 15px 0', color: '#2e7d32', fontSize: '16px' }}>✔️ {tarea.titulo}</h4>
+
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                                                        {reportData.reporteTienda && (
+                                                            <div>
+                                                                <span style={{ color: '#777', fontSize: '13px', display: 'block', marginBottom: '4px' }}>Reporte de tienda:</span>
+                                                                <div style={{ background: '#fafafa', padding: '10px', borderRadius: '8px', fontSize: '14px', color: '#333' }}>
+                                                                    {reportData.reporteTienda}
+                                                                </div>
+                                                            </div>
+                                                        )}
+
+                                                        {reportData.descripcion && (
+                                                            <div>
+                                                                <span style={{ color: '#777', fontSize: '13px', display: 'block', marginBottom: '4px' }}>Descripción del reporte:</span>
+                                                                <div style={{ background: '#fafafa', padding: '10px', borderRadius: '8px', fontSize: '14px', color: '#333' }}>
+                                                                    {reportData.descripcion}
+                                                                </div>
+                                                            </div>
+                                                        )}
+
+                                                        {reportData.observaciones && (
+                                                            <div>
+                                                                <span style={{ color: '#777', fontSize: '13px', display: 'block', marginBottom: '4px' }}>Observaciones:</span>
+                                                                <div style={{ background: '#fafafa', padding: '10px', borderRadius: '8px', fontSize: '14px', color: '#333' }}>
+                                                                    {reportData.observaciones}
+                                                                </div>
+                                                            </div>
+                                                        )}
+
+                                                        {/* Evidencia Fotográfica */}
+                                                        {reportData.imagenes && (reportData.imagenes.antes || reportData.imagenes.durante || reportData.imagenes.despues || reportData.imagenObservacion) && (
+                                                            <div>
+                                                                <span style={{ color: '#777', fontSize: '13px', display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Evidencia Fotográfica:</span>
+                                                                <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
+                                                                    {reportData.imagenes.antes && (
+                                                                        <div style={{ textAlign: 'center' }}>
+                                                                            <span style={{ fontSize: '12px', color: '#666', marginBottom: '4px', display: 'block' }}>Antes</span>
+                                                                            <img
+                                                                                src={reportData.imagenes.antes}
+                                                                                alt="Antes"
+                                                                                onClick={(e) => { e.stopPropagation(); setSelectedZoomImage(reportData.imagenes.antes); }}
+                                                                                style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #ddd', cursor: 'pointer', transition: 'transform 0.2s' }}
+                                                                                onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                                                                                onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                                                                            />
+                                                                        </div>
+                                                                    )}
+                                                                    {reportData.imagenes.durante && (
+                                                                        <div style={{ textAlign: 'center' }}>
+                                                                            <span style={{ fontSize: '12px', color: '#666', marginBottom: '4px', display: 'block' }}>Durante</span>
+                                                                            <img
+                                                                                src={reportData.imagenes.durante}
+                                                                                alt="Durante"
+                                                                                onClick={(e) => { e.stopPropagation(); setSelectedZoomImage(reportData.imagenes.durante); }}
+                                                                                style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #ddd', cursor: 'pointer', transition: 'transform 0.2s' }}
+                                                                                onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                                                                                onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                                                                            />
+                                                                        </div>
+                                                                    )}
+                                                                    {reportData.imagenes.despues && (
+                                                                        <div style={{ textAlign: 'center' }}>
+                                                                            <span style={{ fontSize: '12px', color: '#666', marginBottom: '4px', display: 'block' }}>Después</span>
+                                                                            <img
+                                                                                src={reportData.imagenes.despues}
+                                                                                alt="Después"
+                                                                                onClick={(e) => { e.stopPropagation(); setSelectedZoomImage(reportData.imagenes.despues); }}
+                                                                                style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #ddd', cursor: 'pointer', transition: 'transform 0.2s' }}
+                                                                                onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                                                                                onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                                                                            />
+                                                                        </div>
+                                                                    )}
+                                                                    {reportData.imagenObservacion && (
+                                                                        <div style={{ textAlign: 'center' }}>
+                                                                            <span style={{ fontSize: '12px', color: '#666', marginBottom: '4px', display: 'block' }}>Observación</span>
+                                                                            <img
+                                                                                src={reportData.imagenObservacion}
+                                                                                alt="Observación"
+                                                                                onClick={(e) => { e.stopPropagation(); setSelectedZoomImage(reportData.imagenObservacion); }}
+                                                                                style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #ddd', cursor: 'pointer', transition: 'transform 0.2s' }}
+                                                                                onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                                                                                onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                                                                            />
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        )}
+
+                                                        {/* Firma de la Empresa */}
+                                                        {reportData.firmaEmpresa && (
+                                                            <div style={{ marginTop: '10px' }}>
+                                                                <span style={{ color: '#777', fontSize: '13px', display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Firma de Validación:</span>
+                                                                <div style={{ background: '#f5f5f5', padding: '10px', borderRadius: '8px', display: 'inline-block' }}>
+                                                                    <img
+                                                                        src={reportData.firmaEmpresa}
+                                                                        alt="Firma"
+                                                                        onClick={(e) => { e.stopPropagation(); setSelectedZoomImage(reportData.firmaEmpresa); }}
+                                                                        style={{ height: '60px', objectFit: 'contain', cursor: 'pointer', transition: 'transform 0.2s' }}
+                                                                        onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                                                                        onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        )}
+
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                        {cotizacionTasks.filter(t => localStorage.getItem(`report_data_${t.id}`)).length === 0 && (
+                                            <p style={{ color: '#666', fontStyle: 'italic', fontSize: '14px', textAlign: 'center', padding: '20px' }}>
+                                                Aún no hay reportes finalizados para las tareas de este trabajo.
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* IMAGE ZOOM MODAL */}
+            {selectedZoomImage && (
+                <div
+                    style={{
+                        position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+                        background: 'rgba(0, 0, 0, 0.85)', zIndex: 9999, display: 'flex',
+                        alignItems: 'center', justifyContent: 'center', padding: '20px',
+                        backdropFilter: 'blur(5px)'
+                    }}
+                    onClick={(e) => { e.stopPropagation(); setSelectedZoomImage(null); }}
+                >
+                    <div style={{ position: 'relative', maxWidth: '95%', maxHeight: '95%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                        <button
+                            onClick={(e) => { e.stopPropagation(); setSelectedZoomImage(null); }}
+                            style={{ position: 'absolute', top: '-40px', right: '0', background: 'none', border: 'none', color: '#fff', fontSize: '30px', cursor: 'pointer', fontWeight: 'bold' }}
+                        >
+                            ×
+                        </button>
+                        <img
+                            src={selectedZoomImage}
+                            alt="Zoomed Evidence"
+                            style={{ maxWidth: '100%', maxHeight: '90vh', objectFit: 'contain', borderRadius: '15px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}
+                            onClick={(e) => e.stopPropagation()}
+                        />
+                    </div>
+                </div>
+            )}
 
             {/* MODAL DE FILTRO */}
             {isFilterModalOpen && (

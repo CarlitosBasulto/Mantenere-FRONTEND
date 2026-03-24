@@ -185,3 +185,120 @@
     background: rgba(0, 0, 0, 0.05);
     color: #111;
 }
+
+.actionButtons {
+    display: flex;
+    gap: 10px;
+}
+
+/* ===========================
+   RESPONISVE / MOBILE
+=========================== */
+
+@media (max-width: 768px) {
+    .dashboardLayout {
+        flex-direction: column;
+        gap: 0;
+    }
+    
+    .rightColumn { display: none; }
+    
+    .searchSection {
+        flex-direction: column;
+        align-items: stretch;
+        margin: 10px 15px;
+    }
+    
+    .searchCard { width: 100%; margin-bottom: 10px; }
+    
+    .actionButtons {
+        flex-direction: row;
+        width: 100%;
+        gap: 10px;
+    }
+    
+    .registrarBtn {
+        flex: 1;
+        padding: 10px;
+        border-radius: 20px;
+        font-size: 14px;
+    }
+    
+    .jobsSection {
+        padding: 0;
+        gap: 0;
+    }
+    
+    /* WhatsApp Chat Item Style */
+    .jobCard {
+        padding: 12px 15px;
+        border-radius: 0;
+        border: none;
+        border-bottom: 1px solid #f0f0f0;
+        background: white;
+        margin: 0;
+        box-shadow: none;
+    }
+    
+    .cardContent {
+        flex-direction: row;
+        align-items: center;
+        gap: 15px;
+        padding: 0;
+        word-break: break-word;
+    }
+    
+    .cardIcon {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        background: #e0e0e0;
+        flex-shrink: 0;
+    }
+    
+    .cardInfo {
+        flex: 1;
+        position: relative;
+    }
+    
+    .cardInfo h3 {
+        font-size: 16px;
+        font-weight: 600;
+        color: #111;
+        margin-bottom: 2px;
+        display: inline-block;
+        max-width: 75%;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .cardDate {
+        position: absolute;
+        top: 2px;
+        right: 0;
+        font-size: 11px;
+        color: #00a884; /* WhatsApp green for dates/time or gray #888 */
+    }
+    
+    .cardInfo p {
+        font-size: 13px;
+        color: #666;
+        margin: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .editBtn {
+        position: static;
+        padding: 5px;
+        width: auto;
+        height: auto;
+        color: #999;
+    }
+    
+    .cardIndicator {
+        display: none;
+    }
+}

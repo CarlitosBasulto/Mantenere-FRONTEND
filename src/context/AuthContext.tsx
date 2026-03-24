@@ -28,11 +28,23 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return storedUser ? JSON.parse(storedUser) : null;
     });
 
-    const login = (userData: User) => {
-        // Garantizar que el rol siempre se guarde en minúsculas en todo el sistema
-        const normalizedUser = { ...userData };
-        if (normalizedUser.role) {
-            normalizedUser.role = (normalizedUser.role as string).toLowerCase() as UserRole;
+    const login = (role: UserRole) => {
+        // En una app real, aquí harías la petición al backend.
+        // Simulamos usuarios según el rol elegido.
+        let userData: User;
+
+        switch (role) {
+            case 'admin':
+                userData = { name: "Juan Admin", role: 'admin' };
+                break;
+            case 'cliente':
+                userData = { name: "Cliente Mc Donalds", role: 'cliente' };
+                break;
+            case 'tecnico':
+                userData = { name: "Pedro Javier", role: 'tecnico' };
+                break;
+            default:
+                return;
         }
         
         setUser(normalizedUser);
