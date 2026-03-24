@@ -3,6 +3,7 @@ import { AuthProvider } from "./context/AuthContext";
 import AdminLayout from "./layouts/AdminLayout";
 import ClienteLayout from "./layouts/ClienteLayout";
 import TecnicoLayout from "./layouts/TecnicoLayout";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 
 // PUBLIC
@@ -37,7 +38,14 @@ function App() {
                     <Route path="/registro-sesion" element={<AuthPage />} />
 
                     {/* ADMIN ROUTES */}
-                    <Route path="/menu" element={<AdminLayout />}>
+                    <Route
+                        path="/menu"
+                        element={
+                            <ProtectedRoute allowedRoles={["admin"]}>
+                                <AdminLayout />
+                            </ProtectedRoute>
+                        }
+                    >
                         <Route index element={<ListaNegocios />} />
                         <Route path="trabajadores" element={<ListaTrabajadores />} />
                         <Route path="trabajador/:id" element={<AdminPerfilTrabajador />} />
@@ -51,7 +59,14 @@ function App() {
                     </Route>
 
                     {/* CLIENTE ROUTES */}
-                    <Route path="/cliente" element={<ClienteLayout />}>
+                    <Route
+                        path="/cliente"
+                        element={
+                            <ProtectedRoute allowedRoles={["cliente"]}>
+                                <ClienteLayout />
+                            </ProtectedRoute>
+                        }
+                    >
                         <Route index element={<ListaNegocios />} />
                         <Route path="perfil-empresa" element={<PerfilEmpresa />} />
                         <Route path="mi-perfil" element={<MiPerfil />} />
@@ -61,12 +76,22 @@ function App() {
                     </Route>
 
                     {/* TECNICO ROUTES */}
-                    <Route path="/tecnico" element={<TecnicoLayout />}>
+                    <Route
+                        path="/tecnico"
+                        element={
+                            <ProtectedRoute allowedRoles={["tecnico"]}>
+                                <TecnicoLayout />
+                            </ProtectedRoute>
+                        }
+                    >
                         <Route index element={<ListaNegocios />} />
                         <Route path="solicitudes" element={<ListaSolicitudes />} />
+                        <Route path="troubleshooting" element={<ListaSolicitudes />} />
                         <Route path="mi-perfil" element={<MiPerfil />} />
                         <Route path="trabajo/:id" element={<TrabajoDetalle />} />
                         <Route path="trabajo-detalle/:id" element={<AdminDetalleTrabajo />} />
+                        <Route path="verificacion-tarea/:id" element={<AdminVerificacionEquipo />} />
+                        <Route path="reporte-tarea/:id" element={<AdminReporte />} />
                     </Route>
 
                     {/* FALLBACK */}

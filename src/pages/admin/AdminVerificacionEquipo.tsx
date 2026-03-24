@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import styles from './AdminVerificacionEquipo.module.css';
+import { getChecklistByTrabajoId, saveChecklist } from '../../services/checklistService';
 
 const AdminVerificacionEquipo: React.FC = () => {
     const navigate = useNavigate();
@@ -27,6 +28,32 @@ const AdminVerificacionEquipo: React.FC = () => {
         { id: 6, name: 'Chaleco reflejante', checked: false },
     ]);
 
+    // Obtener desde backend o localStorage si ya fue manipulado
+    React.useEffect(() => {
+        const fetchChecklist = async () => {
+            if (!id) return;
+            try {
+                const data = await getChecklistByTrabajoId(Number(id));
+                // Verificamos si hay data guardada en SQL
+                if (data && data.herramientas.length > 0 && data.seguridad.length > 0) {
+                    setHandTools(data.herramientas.map((h, i) => ({ id: i + 1, name: h.nombre || h.name || '', checked: !!Number(h.checked) })));
+                    setSafetyEquipment(data.seguridad.map((s, i) => ({ id: i + 1, name: s.nombre || s.name || '', checked: !!Number(s.checked) })));
+                } else {
+                    // Fallback a memoria temporal
+                    const stored = localStorage.getItem(`checklist_${id}`);
+                    if (stored) {
+                        const parsed = JSON.parse(stored);
+                        if(parsed.handTools) setHandTools(parsed.handTools);
+                        if(parsed.safetyEquipment) setSafetyEquipment(parsed.safetyEquipment);
+                    }
+                }
+            } catch (error) {
+                console.error("Error obteniendo checklist", error);
+            }
+        };
+        fetchChecklist();
+    }, [id]);
+
     const toggleHandTool = (toolId: number) => {
         setHandTools(tools => tools.map(t => t.id === toolId ? { ...t, checked: !t.checked } : t));
     };
@@ -37,12 +64,34 @@ const AdminVerificacionEquipo: React.FC = () => {
 
     const allChecked = handTools.every(t => t.checked) && safetyEquipment.every(e => e.checked);
 
-    const handleNext = () => {
+    const handleNext = async () => {
+
         if (!allChecked) {
-            alert("Por favor, marca todas las herramientas y el equipo de seguridad antes de continuar al reporte.");
+            alert("Por favor, marca todas las herramientas y el equipo de seguridad antes de continuar.");
             return;
         }
-        // Navigate to the next step (report filling)
+
+        // Guardar en Backend
+        if (id) {
+            try {
+                await saveChecklist({
+                    trabajo_id: Number(id),
+                    herramientas: handTools.map(t => ({ nombre: t.name, checked: t.checked })) as any[],
+                    seguridad: safetyEquipment.map(s => ({ nombre: s.name, checked: s.checked })) as any[]
+                });
+            } catch (error) {
+                console.error("Error guardando checklist en SQL:", error);
+                alert("Error de red al guardar. Se procederá localmente.");
+            }
+        }
+
+        // Guardar respaldo local
+        const checklistData = {
+            handTools,
+            safetyEquipment
+        };
+        localStorage.setItem(`checklist_${id}`, JSON.stringify(checklistData));
+
         navigate(`/menu/reporte-tarea/${id}`);
     };
 

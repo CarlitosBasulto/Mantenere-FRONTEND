@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import styles from './AdminPerfilTrabajador.module.css';
+import { getTrabajador } from '../../services/trabajadoresService';
 
 interface Trabajador {
     id: number;
@@ -8,32 +9,62 @@ interface Trabajador {
     fecha: string;
     puesto: string;
     estado: "Activo" | "Baja";
-    correo: string;
+    correo: string; 
     telefono: string;
     ciudad: string;
     avatar?: string;
+
+    trabajosRealizados?: number;
 }
 
 const AdminPerfilTrabajador: React.FC = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const [worker, setWorker] = useState<Trabajador | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [errorMsg, setErrorMsg] = useState("");
 
     useEffect(() => {
-        const saved = localStorage.getItem('trabajadores_list');
-        if (saved) {
-            const list: Trabajador[] = JSON.parse(saved);
-            const found = list.find(t => t.id === Number(id));
-            setWorker(found || null);
-        }
+        const fetchWorker = async () => {
+            if (!id) return;
+
+            try {
+                // Llamar al backend real
+                const data = await getTrabajador(Number(id));
+                setWorker(data);
+            } catch (error) {
+                console.error("Error cargando trabajador", error);
+                setErrorMsg("No se pudo cargar la información del trabajador.");
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchWorker();
+
     }, [id]);
 
-    if (!worker) {
+    if (loading) {
         return (
             <div className={styles.dashboardLayout}>
                 <div className={styles.mainCard}>
-                    <button onClick={() => navigate(-1)} className={styles.backButton}>← Volver</button>
-                    <p>Trabajador no encontrado.</p>
+                    <button onClick={() => navigate(-1)} className={styles.backButton}>
+                        ← Volver
+                    </button>
+                    <p style={{marginTop: '20px'}}>Cargando trabajador...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (errorMsg || !worker) {
+        return (
+            <div className={styles.dashboardLayout}>
+                <div className={styles.mainCard}>
+                    <button onClick={() => navigate(-1)} className={styles.backButton}>
+                        ← Volver
+                    </button>
+                    <p style={{marginTop: '20px', color: 'red'}}>{errorMsg || "Trabajador no encontrado"}</p>
                 </div>
             </div>
         );
@@ -65,8 +96,8 @@ const AdminPerfilTrabajador: React.FC = () => {
                                 <span className={styles.label}>Teléfono:</span>
                                 <span className={styles.value}>{worker.telefono}</span>
 
-                                <span className={styles.label} style={{ marginLeft: '40px', width: 'auto' }}>Estado:</span>
-                                <span className={styles.value}>{worker.ciudad}</span>
+                                <span className={styles.label} style={{ marginLeft: '40px', width: 'auto' }}>Ciudad:</span>
+                                <span className={styles.value}>{worker.ciudad}</span>    
                             </div>
 
                             <div className={styles.infoRow}>
@@ -79,7 +110,11 @@ const AdminPerfilTrabajador: React.FC = () => {
 
                         <div className={styles.avatarContainer}>
                             <div className={styles.avatarCircle}>
-                                👤
+                                {worker.avatar ? (
+                                    <img src={worker.avatar} alt={worker.nombre} />
+                                ) : (
+                                    "👤"
+                                )}
                                 <span className={styles.editLabel}>EDITAR</span>
                             </div>
                         </div>
@@ -87,7 +122,9 @@ const AdminPerfilTrabajador: React.FC = () => {
 
                     <div className={styles.statsSection}>
                         <div className={styles.statItem}>
-                            <span className={styles.statValue}>15</span>
+                            <span className={styles.statValue}>
+                                {worker.trabajosRealizados ?? 0}
+                            </span>
                             <span className={styles.statLabel}>Trabajos Realizados</span>
                         </div>
                         <div className={styles.statItem}>

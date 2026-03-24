@@ -4,59 +4,54 @@ import menuStyles from "../../components/Menu.module.css";
 import { HiOutlineUser } from 'react-icons/hi';
 import { useNavigate } from "react-router-dom";
 
+import {
+    getTrabajadores,
+    createTrabajador,
+    toggleEstado
+} from "../../services/trabajadoresService";
+
+
 interface Trabajador {
     id: number;
     nombre: string;
-    fecha: string;
-    puesto: string; // Especialidad(es)
     telefono?: string;
     correo?: string;
-    contrasena?: string; // Agregado: contraseña
+    puesto: string;
     estado: "Activo" | "Baja";
+    created_at?: string;
     avatar?: string;
 }
 
 const ListaTrabajadores: React.FC = () => {
     const navigate = useNavigate();
-    // DATOS SIMULADOS
-    const [trabajadoresData, setTrabajadoresData] = useState<Trabajador[]>([
-        {
-            id: 1,
-            nombre: "Javier Antonio Medina Medina",
-            fecha: "25/08/2026",
-            puesto: "Electricista",
-            estado: "Activo"
-        },
-        {
-            id: 2,
-            nombre: "Carlos Daniel Dzul vicente",
-            fecha: "25/08/2026",
-            puesto: "Plomero",
-            estado: "Baja"
-        },
-        {
-            id: 3,
-            nombre: "Ernesto Eduardo Martin Escalante",
-            fecha: "25/08/2026",
-            puesto: "General",
-            estado: "Activo"
-        }
-    ]);
+
+    const [trabajadoresData, setTrabajadoresData] = useState<Trabajador[]>([]);
+
 
     // CARGAR DESDE LOCALSTORAGE AL INICIAR
-    useEffect(() => {
-        const saved = localStorage.getItem('trabajadores_list');
-        if (saved) {
-            setTrabajadoresData(JSON.parse(saved));
-        } else {
-            localStorage.setItem('trabajadores_list', JSON.stringify(trabajadoresData));
-        }
-    }, []);
+
 
     // GUARDAR EN LOCALSTORAGE CUANDO CAMBIE
     useEffect(() => {
-        localStorage.setItem('trabajadores_list', JSON.stringify(trabajadoresData));
-    }, [trabajadoresData]);
+
+        const fetchTrabajadores = async () => {
+
+            try {
+
+                const data = await getTrabajadores();
+                setTrabajadoresData(data);
+
+            } catch (error) {
+
+                console.error("Error cargando trabajadores", error);
+
+            }
+
+        };
+
+        fetchTrabajadores();
+
+    }, []);
 
     const [searchText, setSearchText] = useState("");
     const [filterStatus, setFilterStatus] = useState<string[]>(["Activo", "Baja"]);
@@ -105,7 +100,8 @@ const ListaTrabajadores: React.FC = () => {
         setIsFilterModalOpen(false);
     };
 
-    const handleAddWorker = (e: React.FormEvent) => {
+    const handleAddWorker = async (e: React.FormEvent) => {
+
         e.preventDefault();
 
         if (newWorkerRoles.length === 0) {
@@ -113,60 +109,96 @@ const ListaTrabajadores: React.FC = () => {
             return;
         }
 
-        const newId = trabajadoresData.length + 1;
-        const today = new Date().toLocaleDateString("es-ES"); // Fecha de hoy
-
-        // Construir string de puestos
         let finalRoles = newWorkerRoles.filter(r => r !== "Otros");
+
         if (newWorkerRoles.includes("Otros") && customRole.trim() !== "") {
             finalRoles.push(customRole.trim());
         }
 
         const puestoString = finalRoles.join(", ");
 
-        const newWorker: Trabajador = {
-            id: newId,
-            nombre: newWorkerName || "Nuevo Trabajador",
-            puesto: puestoString || "General",
+        const newWorker = {
+            nombre: newWorkerName,
             telefono: newWorkerPhone,
             correo: newWorkerEmail,
-            contrasena: newWorkerPassword,
-            fecha: today,
-            estado: "Activo"
+            password: newWorkerPassword,
+            puesto: puestoString
         };
 
-        setTrabajadoresData([...trabajadoresData, newWorker]);
+        try {
 
-        // Reset y cerrar
-        setNewWorkerName("");
-        setNewWorkerRoles([]);
-        setCustomRole("");
-        setNewWorkerPhone("");
-        setNewWorkerEmail("");
-        setNewWorkerPassword("");
-        setIsAddModalOpen(false);
+            const created = await createTrabajador(newWorker);
+
+            setTrabajadoresData(prev => [...prev, created]);
+
+            setIsAddModalOpen(false);
+
+            setNewWorkerName("");
+            setNewWorkerPhone("");
+            setNewWorkerEmail("");
+            setNewWorkerPassword("");
+            setNewWorkerRoles([]);
+            setCustomRole("");
+
+        } catch (error) {
+
+            console.error("Error creando trabajador", error);
+
+        }
+
     };
 
-    const handleDeactivateWorker = () => {
-        if (workerToManage) {
-            const updatedList = trabajadoresData.map(t =>
-                t.id === workerToManage.id ? { ...t, estado: "Baja" as const } : t
+    const handleDeactivateWorker = async () => {
+
+        if (!workerToManage) return;
+
+        try {
+
+            const updated = await toggleEstado(workerToManage.id);
+            console.log("Respuesta de la API al DAR DE BAJA:", updated);
+
+            setTrabajadoresData(prev =>
+                prev.map(t =>
+                    t.id === workerToManage.id
+                        ? { ...t, estado: updated.estado }
+                        : t
+                )
             );
-            setTrabajadoresData(updatedList);
+
             setIsDeactivateModalOpen(false);
             setWorkerToManage(null);
+
+        } catch (error: any) {
+            console.error("Error al dar de baja. Detalles del backend:", error.response?.data || error.message);
         }
+
     };
 
-    const handleReactivateWorker = () => {
-        if (workerToManage) {
-            const updatedList = trabajadoresData.map(t =>
-                t.id === workerToManage.id ? { ...t, estado: "Activo" as const } : t
+    const handleReactivateWorker = async () => {
+
+        if (!workerToManage) return;
+
+        try {
+
+            const updated = await toggleEstado(workerToManage.id);
+
+            setTrabajadoresData(prev =>
+                prev.map(t =>
+                    t.id === workerToManage.id
+                        ? { ...t, estado: updated.estado }
+                        : t
+                )
             );
-            setTrabajadoresData(updatedList);
+
             setIsReactivateModalOpen(false);
             setWorkerToManage(null);
+
+        } catch (error) {
+
+            console.error("Error reactivando trabajador", error);
+
         }
+
     };
 
     return (
@@ -224,7 +256,11 @@ const ListaTrabajadores: React.FC = () => {
                                     <HiOutlineUser size={30} color="#333" />
                                 </div>
                                 <div className={styles.cardInfo}>
-                                    <span className={styles.cardDate}>{worker.fecha}</span>
+                                    <span className={styles.cardDate}>
+                                        {worker.created_at
+                                            ? new Date(worker.created_at).toLocaleDateString("es-MX")
+                                            : "Sin fecha"}
+                                    </span>
                                     <h3>{worker.nombre}</h3>
                                     <p style={{ color: '#666', fontSize: '14px', margin: '2px 0' }}>{worker.puesto}</p>
                                     <p style={{ fontWeight: 'bold', color: worker.estado === 'Activo' ? '#4CAF50' : '#F44336' }}>

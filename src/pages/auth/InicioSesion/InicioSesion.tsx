@@ -3,17 +3,25 @@ import styles from './InicioSesion.module.css';
 import logo from '../../../assets/imagenes/Logo.png';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../../../services/api';
+import { useAuth } from '../../../context/AuthContext';
 
 const InicioSesion: React.FC = () => {
     const navigate = useNavigate();
+    const { login } = useAuth(); // 👈 Usar contexto global de autenticación
 
     const [correo, setCorreo] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
 
+    console.log("COMPONENTE LOGIN CARGADO");
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
+
+        // 🧹 LIMPIEZA PREVIA: Borrar cualquier sesión vieja antes de intentar este nuevo login
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
 
         console.log("Enviando:", {
             email: correo,
@@ -26,19 +34,34 @@ const InicioSesion: React.FC = () => {
                 email: correo, // 👈 ahora sí se llama email
                 password: password,
             });
+            
 
             const token = response.data.token;
             const user = response.data.user;
 
-            // Guardar token
+            // Mapear el `role_id` numérico al `role` en texto para que el frontend (Context, ProtectedRoute, Menu) funcione correctamente.
+            // O si el backend ya envía un texto en user.role, lo forzamos a minúsculas.
+            if (user.role) {
+                user.role = user.role.toLowerCase();
+            } else if (user.role_id === 1) {
+                user.role = 'admin';
+            } else if (user.role_id === 2) {
+                user.role = 'cliente';
+            } else if (user.role_id === 3) {
+                user.role = 'tecnico';
+            }
+
+            // Actualizar contexto global y localStorage
+            login(user); // 👈 Dispara la actualización global en React
             localStorage.setItem('token', token);
 
-            // Redirigir según rol
-            if (user.role.name === 'admin') {
+
+            // Redirigir según el rol textual (admin, cliente, tecnico)
+            if (user.role === 'admin') { 
                 navigate('/menu');
-            } else if (user.role.name === 'cliente') {
+            } else if (user.role === 'cliente') { 
                 navigate('/cliente');
-            } else if (user.role.name === 'tecnico') {
+            } else if (user.role === 'tecnico') { 
                 navigate('/tecnico');
             } else {
                 navigate('/');
@@ -55,7 +78,13 @@ const InicioSesion: React.FC = () => {
             <div className={styles.card}>
                 <img src={logo} alt="Logo" className={styles.logo} />
 
-                <form className={styles.form} onSubmit={handleSubmit}>
+                <form
+                    className={styles.form}
+                    onSubmit={(e) => {
+                        console.log("FORMULARIO ENVIADO");
+                        handleSubmit(e);
+                    }}
+                >
                     <h2 className={styles.title}>¡Bienvenido!</h2>
 
                     <div className={styles.formGroup}>

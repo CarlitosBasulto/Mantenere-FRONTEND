@@ -5,6 +5,8 @@ import menuStyles from "../../components/Menu.module.css";
 import { useAuth } from "../../context/AuthContext";
 import { HiOutlinePencil } from "react-icons/hi2";
 import { FaImage } from "react-icons/fa6";
+import { getNegocios } from "../../services/negociosService";
+import { getTrabajos } from "../../services/trabajosService";
 
 interface Negocio {
     id: number;
@@ -22,59 +24,53 @@ const ListaNegocios: React.FC = () => {
     const [negocios, setNegocios] = useState<Negocio[]>([]);
     const [searchText, setSearchText] = useState("");
 
-    useEffect(() => {
-        const stored = localStorage.getItem('negocios_list');
-        const mockData: Negocio[] = [
-            {
-                id: 3,
-                nombre: "Oxxo (Centro)",
-                ubicacion: "Centro",
-                dueno: "Otro Dueño",
-                fecha: "15/02/2025",
-                estado: "Finalizado"
-            },
-        ];
+    const [techBusinessIds, setTechBusinessIds] = useState<Set<number>>(new Set());
 
-        if (stored) {
-            const list = JSON.parse(stored);
-            // Evitar duplicados del mock inicial si ya están en storage
-            const filteredMock = mockData.filter(m => !list.some((l: any) => l.id === m.id));
-            setNegocios([...list, ...filteredMock]);
-        } else {
-            setNegocios(mockData);
-            localStorage.setItem('negocios_list', JSON.stringify(mockData));
-        }
-    }, []);
+    useEffect(() => {
+        const fetchAll = async () => {
+            try {
+                // Si es técnico, trae los trabajos para sacar a qué negocios tiene que ir
+                if (user?.role === 'tecnico') {
+                    const jobs = await getTrabajos();
+                    // Buscar los trabajos donde el técnico actual está asignado.
+                    // Podemos validar por user_id directo o también por el nombre.
+                    const myJobs = jobs.filter((j: any) => j.trabajador?.nombre === user.name || j.trabajador_id === user.id);
+                    const businessIds = new Set(myJobs.map((j: any) => j.negocio_id));
+                    setTechBusinessIds(businessIds as Set<number>);
+                }
+
+                const data = await getNegocios();
+                const mappedData = data.map((n: any) => ({
+                    id: n.id,
+                    nombre: n.nombre,
+                    ubicacion: n.tipo === "W/M" ? `${n.calleAv || ''} Mza ${n.manzana || ''}` : (n.nombrePlaza || n.colonia || "Mérida"),
+                    dueno: n.encargado || "Cliente",
+                    fecha: n.created_at ? new Date(n.created_at).toLocaleDateString('es-MX') : new Date().toLocaleDateString('es-MX'),
+                    estado: n.estado_aprobacion || "En Espera",
+                    imagenPerfil: n.imagenPerfil,
+                    user_id: n.user_id
+                }));
+                // Ordenar los mas nuevos primero
+                setNegocios(mappedData.reverse());
+            } catch (error) {
+                console.error("Error al obtener negocios y trabajos:", error);
+            }
+        };
+
+        fetchAll();
+    }, [user]);
 
     const filteredNegocios = negocios.filter((negocio) => {
         const matchesSearch = negocio.nombre.toLowerCase().includes(searchText.toLowerCase());
 
         // FILTRO POR ROL: El cliente solo ve lo suyo, el admin ve todo
         if (user?.role === 'cliente') {
-            return matchesSearch && negocio.dueno === user.name;
+            return matchesSearch && ((negocio as any).user_id === user.id || negocio.dueno === user.name);
         }
 
-        // FILTRO POR ROL: El técnico solo ve los negocios donde tiene trabajos asignados
+        // FILTRO POR ROL: El técnico solo ve los negocios donde tiene trabajos asignados según la DB
         if (user?.role === 'tecnico') {
-            // Buscamos dinámicamente en qué negocios tiene trabajos el técnico
-            let hasJobsInThisBusiness = false;
-
-            // 1. Verificar en datos persistidos
-            const storedJobs = localStorage.getItem(`trabajos_business_${negocio.id}`);
-            if (storedJobs) {
-                const jobs = JSON.parse(storedJobs);
-                if (jobs.some((j: any) => j.tecnico === user.name)) {
-                    hasJobsInThisBusiness = true;
-                }
-            }
-
-            // 2. Si no hay persistidos, verificar en los IDs de demo por defecto (para que no salga vacio al inicio)
-            const defaultDemoIds = [1, 3];
-            if (!hasJobsInThisBusiness && defaultDemoIds.includes(negocio.id)) {
-                hasJobsInThisBusiness = true;
-            }
-
-            return matchesSearch && hasJobsInThisBusiness;
+            return matchesSearch && techBusinessIds.has(negocio.id);
         }
 
         return matchesSearch;

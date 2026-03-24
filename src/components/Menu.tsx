@@ -5,6 +5,8 @@ import styles from "./Menu.module.css";
 import logo from "../assets/imagenes/Logo.png";
 import { useAuth } from "../context/AuthContext";
 import { HiOutlineUser, HiOutlineBell } from "react-icons/hi2";
+import { getNotificacionesUsuario, markAllNotificacionesAsRead } from "../services/notificacionesService";
+import type { Notificacion } from "../services/notificacionesService";
 
 
 const MenuLayout: React.FC = () => {
@@ -13,25 +15,63 @@ const MenuLayout: React.FC = () => {
     const { user, login } = useAuth(); // Usamos el contexto
     const [sidebarOptions, setSidebarOptions] = useState<string[]>([]);
     const [activeOption, setActiveOption] = useState("Negocios");
-    const [notificaciones, setNotificaciones] = useState<any[]>([]);
+    const [notificaciones, setNotificaciones] = useState<Notificacion[]>([]);
     const [mostrarNotificaciones, setMostrarNotificaciones] = useState(false);
     const notificacionesRef = useRef<HTMLDivElement>(null);
 
-    // Cargar notificaciones
-    const cargarNotificaciones = () => {
-        if (user?.role === 'admin') {
-            const stored = JSON.parse(localStorage.getItem('admin_notifications') || '[]');
-            setNotificaciones(stored);
-        } else if (user?.role === 'cliente') {
-            const storedClient = JSON.parse(localStorage.getItem('client_notifications') || '[]');
-            setNotificaciones(storedClient);
+    // Cargar usuario desde localStorage si el contexto está vacío
+    useEffect(() => {
+        if (!user) {
+            const storedUser = localStorage.getItem("user");
+            if (storedUser) {
+                login(JSON.parse(storedUser));
+            }
+        }
+    }, []);
+
+
+    // Redirigir al panel correcto según el rol
+    useEffect(() => {
+        console.log("🧭 [Menu.tsx] Verificando redirección inicial. User es:", user?.role, "Ruta actual:", location.pathname);
+
+        if (!user) {
+            console.log("🧭 [Menu.tsx] No hay user en context. Saliendo de useEffect.");
+            return;
+        }
+
+        if (user.role === "admin" && location.pathname === "/") {
+            console.log("🧭 [Menu.tsx] Redirigiendo a /menu porque es admin y está en la raíz");
+            navigate("/menu");
+        }
+
+        if (user.role === "cliente" && location.pathname === "/") {
+            console.log("🧭 [Menu.tsx] Redirigiendo a /cliente");
+            navigate("/cliente");
+        }
+
+        if (user.role === "tecnico" && location.pathname === "/") {
+            console.log("🧭 [Menu.tsx] Redirigiendo a /tecnico");
+            navigate("/tecnico");
+        }
+
+    }, [user]);
+
+    // Cargar notificaciones desde la API
+    const cargarNotificaciones = async () => {
+        if (!user || user.id === undefined) return;
+        try {
+            const data = await getNotificacionesUsuario(user.id);
+            setNotificaciones(data);
+        } catch (error) {
+            console.error("Error al obtener notificaciones:", error);
         }
     };
 
     useEffect(() => {
         cargarNotificaciones();
-        window.addEventListener('storage', cargarNotificaciones);
-        return () => window.removeEventListener('storage', cargarNotificaciones);
+        // Polling para mantenerlas actualizadas
+        const intervalId = setInterval(cargarNotificaciones, 15000); 
+        return () => clearInterval(intervalId);
     }, [user]);
 
     // Cerrar click outside
@@ -45,17 +85,17 @@ const MenuLayout: React.FC = () => {
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
-    const marcarComoLeidas = () => {
-        const actualizadas = notificaciones.map(n => ({ ...n, leida: true }));
-        setNotificaciones(actualizadas);
-        if (user?.role === 'admin') {
-            localStorage.setItem('admin_notifications', JSON.stringify(actualizadas));
-        } else if (user?.role === 'cliente') {
-            localStorage.setItem('client_notifications', JSON.stringify(actualizadas));
+    const marcarComoLeidas = async () => {
+        if (!user || user.id === undefined) return;
+        try {
+            await markAllNotificacionesAsRead(user.id);
+            setNotificaciones(prev => prev.map(n => ({ ...n, leido: true })));
+        } catch (error) {
+            console.error("Error al marcar como leídas:", error);
         }
     };
 
-    const unreadCount = notificaciones.filter(n => !n.leida).length;
+    const unreadCount = notificaciones.filter(n => !n.leido).length;
 
     // Determinar opciones del sidebar basado en el ROL y la RUTA
     useEffect(() => {
@@ -152,7 +192,7 @@ const MenuLayout: React.FC = () => {
                         </h2>
 
                         <div className={styles.headerActions}>
-                            {/* El botón Agregar fue removido a petición del usuario */}
+                            
                             <div className={styles.notificationWrapper} ref={notificacionesRef}>
                                 <button
                                     className={styles.iconBtn}
@@ -173,25 +213,19 @@ const MenuLayout: React.FC = () => {
                                         <div className={styles.dropdownBody}>
                                             {notificaciones.length > 0 ? (
                                                 notificaciones.map(noti => (
-                                                    <div key={noti.id} className={`${styles.notificationItem} ${!noti.leida ? styles.notificationUnread : ''}`} onClick={() => {
-                                                        if (noti.jobId) {
-                                                            if (user?.role === 'admin') navigate(`/menu/trabajo-detalle/${noti.jobId}`);
-                                                            else if (user?.role === 'cliente') {
-                                                                if ((noti.titulo || noti.title || '').includes('Cotización')) navigate(`/cliente/cotizaciones`);
-                                                                else navigate(`/cliente`);
-                                                            }
-                                                        }
+                                                    <div key={noti.id} className={`${styles.notificationItem} ${!noti.leido ? styles.notificationUnread : ''}`} onClick={() => {
+                                                        // En un futuro, si la notificacion trajera una URL o un entity_id, navegaríamos allí.
                                                         setMostrarNotificaciones(false);
                                                     }}>
                                                         <div className={styles.notificationIcon}>
-                                                            {(noti.titulo || noti.title || '').includes('Cotización') ? '📄' : '✅'}
+                                                            {noti.mensaje.includes('Cotización') ? '📄' : '✅'}
                                                         </div>
                                                         <div className={styles.notificationContent}>
-                                                            <div className={styles.notificationTitle}>{noti.titulo || noti.title || 'Alerta'}</div>
-                                                            <div className={styles.notificationMessage}>{noti.mensaje || noti.message || ''}</div>
-                                                            <div className={styles.notificationTime}>{noti.fecha || noti.date || ''}</div>
+                                                            <div className={styles.notificationTitle}>Aviso del Sistema</div>
+                                                            <div className={styles.notificationMessage}>{noti.mensaje}</div>
+                                                            <div className={styles.notificationTime}>{new Date(noti.created_at).toLocaleString()}</div>
                                                         </div>
-                                                        {!noti.leida && <div className={styles.notificationDot}></div>}
+                                                        {!noti.leido && <div className={styles.notificationDot}></div>}
                                                     </div>
                                                 ))
                                             ) : (<div className={styles.noNotifications}>No hay notificaciones recientes.</div>
@@ -210,6 +244,17 @@ const MenuLayout: React.FC = () => {
                                 }}
                             >
                                 <HiOutlineUser size={24} />
+                            </button>
+                            <button
+                            
+                                className={styles.iconBtn}
+                                onClick={() => {
+                                    localStorage.removeItem("token");
+                                    localStorage.removeItem("user");
+                                    navigate("/inicio-sesion");
+                                }}
+                            >
+                                Salir
                             </button>
                         </div>
                     </header>

@@ -3,6 +3,8 @@ import styles from "./Cotizaciones.module.css";
 import { HiOutlineDocumentText, HiOutlineCheckCircle, HiOutlineXCircle } from "react-icons/hi2";
 import { useAuth } from "../../context/AuthContext";
 import menuStyles from "../../components/Menu.module.css";
+import { getTrabajos } from "../../services/trabajosService";
+import { getCotizacionByTrabajoId } from "../../services/cotizacionesService";
 
 // Interfaz para el Trabajo con Cotización
 interface TrabajoCotizado {
@@ -32,56 +34,80 @@ const Cotizaciones: React.FC = () => {
     useEffect(() => {
         if (!user) return;
 
-        // 1. Obtener los negocios del cliente actual
-        const storedNegocios = localStorage.getItem('negocios_list');
-        const negociosIds = new Set<number>();
-
-        if (storedNegocios) {
-            const negocios = JSON.parse(storedNegocios);
-            negocios.forEach((n: any) => {
-                // Filtramos negocios donde el dueño sea el usuario actual
-                if (n.dueno === user.name) {
-                    negociosIds.add(n.id);
+        const fetchData = async () => {
+            try {
+                // 1. Obtener todos los trabajos
+                const allJobs = await getTrabajos();
+                
+                // 2. Extraer los trabajos que tengan una cotización (estado avanzado)
+                const jobsWithCoti = allJobs.filter((job: any) => 
+                     ['Cotización Enviada', 'Cotización Aceptada', 'Cotización Rechazada', 'Asignado', 'En Proceso', 'Finalizado'].includes(job.estado)
+                );
+                
+                // 3. Si el usuario es cliente, filtrar solo sus negocios
+                let filteredJobs = jobsWithCoti;
+                if (user.role === 'cliente') {
+                    // La asociación 'negocio' debería tener 'dueno' igual al nombre o al user asociado.
+                    // Si el backend no tiene 'dueno', usamos la lógica de autenticación o la comparamos con user.name por ahora
+                    // Asumimos que negocio.user_id = auth.user.id en el futuro, o comparamos strings
+                    // Como parche intermedio de compatibilidad:
+                    filteredJobs = jobsWithCoti.filter((j: any) => 
+                        (j.negocio?.dueno === user.name) || 
+                        (j.negocio?.user_id === user.id)
+                    );
                 }
-            });
-        }
 
-        // 2. Extraer los trabajos de esos negocios que tengan una cotización
-        const todasCotizaciones: TrabajoCotizado[] = [];
+                // 4. Buscar la info de cotizacion para mapearla
+                const mapped = await Promise.all(filteredJobs.map(async (j: any) => {
+                     let coti: any = null;
+                     try {
+                         coti = await getCotizacionByTrabajoId(j.id);
+                     } catch(e) {}
 
-        // Iterar sobre localStorage para buscar las listas de trabajos
-        for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key?.startsWith('trabajos_business_')) {
-                // Extraer el ID del negocio de la llave
-                const businessId = Number(key.replace('trabajos_business_', ''));
+                     // Parse date para el fallback
+                     const jobFallbackDate = j.fecha_programada ? new Date(j.fecha_programada) : new Date(j.created_at);
 
-                // Si el negocio pertenece al usuario (o si por ahora queremos mostrar para debug, omitir este if)
-                if (negociosIds.has(businessId) || user.role === 'admin') {
-                    const storedJobs = localStorage.getItem(key);
-                    if (storedJobs) {
-                        const jobs: TrabajoCotizado[] = JSON.parse(storedJobs);
-                        jobs.forEach(job => {
-                            // Si el trabajo tiene cotización (enviada o ya respondida o en curso/finalizada)
-                            if (job.cotizacion && (job.estado === 'Cotización Enviada' || job.estado === 'Cotización Aceptada' || job.estado === 'Cotización Rechazada' || job.estado === 'Asignado' || job.estado === 'En Proceso' || job.estado === 'Finalizado')) {
-                                todasCotizaciones.push(job);
-                            }
-                        });
-                    }
-                }
+                     return {
+                         id: j.id,
+                         titulo: j.titulo,
+                         ubicacion: j.negocio?.nombre || 'Negocio',
+                         fecha: jobFallbackDate.toISOString(), 
+                         estado: j.estado,
+                         descripcion: j.descripcion,
+                         cotizacion: coti ? {
+                             costo: coti.monto,
+                             notas: coti.descripcion,
+                             archivo: coti.archivo || "",
+                             fecha: new Date(coti.created_at).toISOString()
+                         } : undefined
+                     };
+                }));
+
+                // 5. Ordenar por fecha (ISO strings hacen que sea fail-safe new Date(str).getTime())
+                mapped.sort((a, b) => {
+                    const dateA = a.cotizacion?.fecha || a.fecha;
+                    const dateB = b.cotizacion?.fecha || b.fecha;
+                    return new Date(dateB).getTime() - new Date(dateA).getTime();
+                });
+
+                // Convertir ISO string de nuevo a Formato legible "DD/MM/YYYY" para la UI de React
+                const finalFormat = mapped.map(item => ({
+                     ...item,
+                     fecha: new Date(item.fecha).toLocaleDateString('es-MX'),
+                     cotizacion: item.cotizacion ? {
+                         ...item.cotizacion,
+                         fecha: new Date(item.cotizacion.fecha).toLocaleDateString('es-MX')
+                     } : undefined
+                }));
+
+                setRawCotizaciones(finalFormat as TrabajoCotizado[]);
+
+            } catch(e) { 
+                console.error("Error trayendo cotizaciones:", e); 
             }
-        }
+        };
 
-        // Ordenar por fecha (más recientes primero, asumiendo formato DD/MM/YYYY)
-        todasCotizaciones.sort((a, b) => {
-            const dateA = a.cotizacion?.fecha || a.fecha;
-            const dateB = b.cotizacion?.fecha || b.fecha;
-            const [da, ma, ya] = (dateA).split('/').map(Number);
-            const [db, mb, yb] = (dateB).split('/').map(Number);
-            return new Date(yb, mb - 1, db).getTime() - new Date(ya, ma - 1, da).getTime();
-        });
-
-        setRawCotizaciones(todasCotizaciones);
+        fetchData();
     }, [user]);
 
     // Lógica de Filtrado Reactiva (en vivo)

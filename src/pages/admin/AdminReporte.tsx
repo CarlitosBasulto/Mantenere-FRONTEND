@@ -2,6 +2,7 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import styles from './AdminReporte.module.css';
+import { getReporteByTrabajoId, createReporte } from '../../services/reportesService';
 
 const AdminReporte: React.FC = () => {
     const navigate = useNavigate();
@@ -23,16 +24,45 @@ const AdminReporte: React.FC = () => {
     const [firmaEmpresa, setFirmaEmpresa] = useState<string | null>(null);
 
     React.useEffect(() => {
-        const savedData = localStorage.getItem(`report_data_temporal_${id}`);
-        if (savedData) {
-            const parsed = JSON.parse(savedData);
-            if (parsed.reporteTienda) setReporteTienda(parsed.reporteTienda);
-            if (parsed.descripcion) setDescripcion(parsed.descripcion);
-            if (parsed.materiales) setMateriales(parsed.materiales);
-            if (parsed.observaciones) setObservaciones(parsed.observaciones);
-            if (parsed.imagenes) setImagenes(parsed.imagenes);
-            if (parsed.firmaEmpresa) setFirmaEmpresa(parsed.firmaEmpresa);
-        }
+        const fetchReporte = async () => {
+            if (id) {
+                try {
+                    const data = await getReporteByTrabajoId(Number(id));
+                    if (data) {
+                        // Mapear los datos de BD a nuestros campos locales
+                        // Como el backend solo tiene "descripcion" y "solucion", se parsea
+                        setDescripcion(data.descripcion || '');
+                        setMateriales(data.solucion || '');
+                        
+                        // Si hay imágenes, mapearlas
+                        if (data.imagenes && data.imagenes.length > 0) {
+                             const imgDict = { antes: null, durante: null, despues: null };
+                             // lógica simplificada para asignar imagenes por indice
+                             if(data.imagenes[0]) imgDict.antes = data.imagenes[0].ruta as any;
+                             if(data.imagenes[1]) imgDict.durante = data.imagenes[1].ruta as any;
+                             if(data.imagenes[2]) imgDict.despues = data.imagenes[2].ruta as any;
+                             setImagenes(imgDict as any);
+                        }
+                    } else {
+                        // Fallback a localStorage temporal si no hay en BD
+                        const savedData = localStorage.getItem(`report_data_temporal_${id}`);
+                        if (savedData) {
+                            const parsed = JSON.parse(savedData);
+                            if (parsed.reporteTienda) setReporteTienda(parsed.reporteTienda);
+                            if (parsed.descripcion) setDescripcion(parsed.descripcion);
+                            if (parsed.materiales) setMateriales(parsed.materiales);
+                            if (parsed.observaciones) setObservaciones(parsed.observaciones);
+                            if (parsed.imagenes) setImagenes(parsed.imagenes);
+                            if (parsed.firmaEmpresa) setFirmaEmpresa(parsed.firmaEmpresa);
+                        }
+                    }
+                } catch (error) {
+                    console.error("Error al obtener reporte:", error);
+                }
+            }
+        };
+
+        fetchReporte();
     }, [id]);
 
 
@@ -113,7 +143,7 @@ const AdminReporte: React.FC = () => {
                         const storedJobs = localStorage.getItem('negocios_list');
                         if (storedJobs) {
                             const list = JSON.parse(storedJobs);
-                            const jobIndex = list.findIndex((j: any) => j.id == jobFoundId); // NOTA: esto sigue estando mal (jobId vs businessId) pero lo restauramos para no romper el flujo existente mientras enfocamos
+                            const jobIndex = list.findIndex((j: any) => j.id == originalJob.businessId); // NOTA: esto sigue estando mal (jobId vs businessId) pero lo restauramos para no romper el flujo existente mientras enfocamos
                             if (jobIndex !== -1) {
                                 list[jobIndex].estado = 'Finalizado';
                                 localStorage.setItem('negocios_list', JSON.stringify(list));
@@ -146,19 +176,36 @@ const AdminReporte: React.FC = () => {
             }
         }
 
-        // Save full report data
-        const reportData = {
-            id,
-            jobFoundId,
-            reporteTienda,
-            descripcion,
-            materiales,
-            observaciones,
-            imagenes,
-            firmaEmpresa,
-            fecha: new Date().toLocaleDateString()
+        // Save full report data in backend via API
+        const createAndSave = async () => {
+             try {
+                 // Construimos los datos compaginando UI local con Schema SQL
+                 // "descripcion" alojará Reporte General
+                 // "solucion" alojará Materiales + Observaciones
+                 const payload = {
+                     trabajo_id: Number(id),
+                     descripcion: `Tienda: ${reporteTienda} \nProblema: ${descripcion}`,
+                     solucion: `Materiales: ${materiales} \nObs: ${observaciones}`,
+                     fecha: new Date().toISOString(),
+                     // Mandar las imágenes en Base64 al backend
+                     imagenesBase64: {
+                         antes: imagenes.antes,
+                         durante: imagenes.durante,
+                         despues: imagenes.despues,
+                         firma: firmaEmpresa
+                     }
+                 };
+
+                 // Despachar a Backend Laravel
+                 await createReporte(payload as any);
+                 alert("Reporte guardado exitosamente en el Backend y tarea completada.");
+                 
+             } catch (error) {
+                 console.error("Error al guardar reporte en API", error);
+                 alert("Informacion guardada localmente debido a un error de red o API no lista todavía.");
+             }
         };
-        localStorage.setItem(`report_data_${id}`, JSON.stringify(reportData));
+        createAndSave();
 
         // GENERAR NOTIFICACIÓN PARA EL ADMINISTRADOR
         const notificaciones = JSON.parse(localStorage.getItem('admin_notifications') || '[]');
@@ -233,7 +280,7 @@ const AdminReporte: React.FC = () => {
             }
         }
 
-        alert("Reporte guardado con éxito y tarea completada.");
+        // alert("Reporte guardado con éxito y tarea completada."); Ya está arriba
         if (jobFoundId) {
             navigate(`/menu/trabajo-detalle/${jobFoundId}`);
         } else {

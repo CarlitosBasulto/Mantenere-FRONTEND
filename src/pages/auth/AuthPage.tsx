@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import styles from './AuthPage.module.css';
 import { useAuth } from '../../context/AuthContext';
+import api from '../../services/api';   
 
 const AuthPage: React.FC = () => {
     const [isRightPanelActive, setIsRightPanelActive] = useState(false);
@@ -9,6 +10,7 @@ const AuthPage: React.FC = () => {
     const navigate = useNavigate();
     const { login } = useAuth();
     const [loginEmail, setLoginEmail] = useState("");
+    const [loginPassword, setLoginPassword] = useState("");
 
     useEffect(() => {
         if (location.pathname === '/registro-sesion') {
@@ -28,25 +30,55 @@ const AuthPage: React.FC = () => {
         navigate('/inicio-sesion');
     };
 
-    const handleLoginSubmit = (e: React.FormEvent) => {
+    const handleLoginSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        let role: 'admin' | 'cliente' | 'tecnico' = 'cliente';
-        if (loginEmail.toLowerCase().includes('admin')) {
-            role = 'admin';
-        } else if (loginEmail.toLowerCase().includes('tecnico')) {
-            role = 'tecnico';
+
+        try {
+            const response = await api.post("/login", {
+                email: loginEmail,
+                password: loginPassword
+            });
+
+            const { token, user } = response.data;
+
+            // Guardar token
+            localStorage.setItem("token", token);
+
+            // (El propio login ya se encarga de forzar el rol a minúsculas,
+            // pero por si acaso, lo leemos normalizado para la redirección)
+            let normalizedRole = user.role ? user.role.toLowerCase() : '';
+
+            // ⚠️ FIX MUY IMPORTANTE: Traducimos "trabajador" del backend a "tecnico" para que React sea feliz
+            if (normalizedRole === 'trabajador') {
+                normalizedRole = 'tecnico';
+            }
+
+            const processedUser = { ...user, role: normalizedRole };
+
+            // Guardar usuario modificado (con el rol traducido)
+            localStorage.setItem("user", JSON.stringify(processedUser));
+
+            // GUARDAR EN CONTEXTO (MUY IMPORTANTE)
+            login(processedUser);
+
+            // Redirigir según rol textual en minúsculas
+            if (normalizedRole === "admin" || user.role_id === 1) {
+                navigate("/menu");
+            }
+            else if (normalizedRole === "tecnico" || user.role_id === 3) {
+                navigate("/tecnico");
+            }
+            else { // cliente o por defecto
+                navigate("/cliente");
+            }
+
+        } catch (error: any) {
+            console.error("ERROR LOGIN:", error.response?.data);
+            alert("Credenciales incorrectas");
         }
-        login(role);
-        if (role === 'admin') navigate('/menu');
-        else if (role === 'tecnico') navigate('/tecnico');
-        else navigate('/cliente');
     };
 
-    const handleRegisterSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        login('cliente');
-        navigate('/cliente');
-    };
+
 
     return (
         <div className={styles.body}>
@@ -60,15 +92,28 @@ const AuthPage: React.FC = () => {
 
                 {/* SIGN UP FORM */}
                 <div className={`${styles.formContainer} ${styles.signUpContainer}`}>
-                    <form className={styles.form} onSubmit={handleRegisterSubmit}>
-                        <h1 className={styles.title}>Crear Cuenta</h1>
-                        <div className={styles.socialContainer}></div>
-                        <span className={styles.span}>Crea una cuenta para tu empresa hoy mismo</span>
-                        <input type="text" placeholder="Nombre completo" className={styles.input} />
-                        <input type="email" placeholder="Correo" className={styles.input} />
-                        <input type="password" placeholder="Contraseña" className={styles.input} />
-                        <input type="password" placeholder="Confirmar Contraseña" className={styles.input} />
-                        <button className={styles.button}>Registrarse</button>
+                    <form className={styles.form} onSubmit={handleLoginSubmit}>
+                        <h1 className={styles.title}>Iniciar Sesión</h1>
+
+                        <span className={styles.span}>o usa tu cuenta existente</span>
+
+                        <input
+                            type="email"
+                            placeholder="Correo"
+                            className={styles.input}
+                            value={loginEmail}
+                            onChange={(e) => setLoginEmail(e.target.value)}
+                        />
+
+                        <input
+                            type="password"
+                            placeholder="Contraseña"
+                            className={styles.input}
+                            value={loginPassword}
+                            onChange={(e) => setLoginPassword(e.target.value)}
+                        />
+
+                        <button className={styles.button}>Ingresar</button>
                     </form>
                 </div>
 
@@ -85,7 +130,13 @@ const AuthPage: React.FC = () => {
                             value={loginEmail}
                             onChange={(e) => setLoginEmail(e.target.value)}
                         />
-                        <input type="password" placeholder="Contraseña" className={styles.input} />
+                        <input
+                            type="password"
+                            placeholder="Contraseña"
+                            className={styles.input}
+                            value={loginPassword}
+                            onChange={(e) => setLoginPassword(e.target.value)}
+                        />
                         <a href="#" className={styles.link}>¿Olvidaste tu contraseña?</a>
                         <button className={styles.button}>Ingresar</button>
                         <div style={{ marginTop: '10px', fontSize: '11px', color: '#666', background: '#f0f0f0', padding: '10px', borderRadius: '10px', textAlign: 'center' }}>

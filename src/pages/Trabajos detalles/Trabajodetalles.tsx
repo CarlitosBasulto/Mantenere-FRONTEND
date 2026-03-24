@@ -3,6 +3,10 @@ import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import menuStyles from "../../components/Menu.module.css";
 import styles from "./Trabajodetalles.module.css";
 import { useAuth } from "../../context/AuthContext";
+import { getCotizacionByTrabajoId, updateCotizacionStatus } from "../../services/cotizacionesService";
+import { getTrabajos, createTrabajo, assignTrabajador } from "../../services/trabajosService";
+import { getTrabajadores } from "../../services/trabajadoresService";
+import { getNegocio } from "../../services/negociosService";
 
 interface Trabajo {
     id: number;
@@ -10,7 +14,7 @@ interface Trabajo {
     ubicacion: string;
     tecnico: string;
     fecha: string; // Formato DD/MM/YYYY
-    estado: "En Espera" | "Finalizado" | "En Proceso" | "Asignado" | "Solicitud" | "Cotización Enviada" | "Cotización Aceptada" | "Cotización Rechazada";
+    estado: "En Espera" | "Finalizado" | "En Proceso" | "Asignado" | "Solicitud" | "Cotización Enviada" | "Cotización Aceptada" | "Cotización Rechazada" | "Completado";
     tipo?: "Visita" | "Trabajo" | "Nueva Solicitud";
     visitado?: boolean;
     descripcion?: string;
@@ -24,11 +28,6 @@ interface Trabajo {
     };
 }
 
-interface Tecnico {
-    id: number;
-    nombre: string;
-    avatar?: string;
-}
 
 const TrabajoDetalle: React.FC = () => {
     const { id } = useParams();
@@ -41,56 +40,75 @@ const TrabajoDetalle: React.FC = () => {
     const [businessName, setBusinessName] = useState("Cargando...");
 
     React.useEffect(() => {
-        const stored = localStorage.getItem('negocios_list');
-        if (stored) {
-            const negocios = JSON.parse(stored);
-            const current = negocios.find((n: any) => n.id === Number(id));
-            if (current) {
-                setBusinessName(current.nombre);
-                setNewRequestData(prev => ({ ...prev, cliente: current.nombre }));
-            }
-        }
+        const fetchNegocio = async () => {
+            try {
+                const n = await getNegocio(Number(id));
+                if (n) {
+                    setBusinessName(n.nombre);
+                    setNewRequestData(prev => ({ ...prev, cliente: n.nombre }));
+                }
+            } catch(e) { console.error("Error al obtener nombre del negocio", e); }
+        };
+        fetchNegocio();
     }, [id]);
-
-    // DATOS SIMULADOS INICIALES
-    const initialJobs: Trabajo[] = [
-        {
-            id: 200,
-            titulo: "Visita de Diagnóstico - Ejemplo",
-            ubicacion: "Mc Donals (Centro)",
-            tecnico: "Pedro Javier",
-            fecha: "27/08/2026",
-            estado: "Solicitud",
-            tipo: "Visita",
-            visitado: true,
-            descripcion: "Revisión general de instalaciones eléctricas por parpadeo de luces."
-        }
-    ];
 
     const [trabajosData, setTrabajosData] = useState<Trabajo[]>([]);
+    const [tecnicosData, setTecnicosData] = useState<any[]>([]);
 
-    React.useEffect(() => {
-        const stored = localStorage.getItem(`trabajos_business_${id}`);
-        if (stored) {
-            setTrabajosData(JSON.parse(stored));
-        } else {
-            // Mostramos los datos iniciales de ejemplo para cualquier negocio si está vacío
-            setTrabajosData(initialJobs);
+    const fetchAllData = async () => {
+        try {
+            // 1. Traer Trabajos
+            const tData = await getTrabajos();
+            // Filtrar solo los de la sucursal actual
+            const filtered = tData.filter((t: any) => t.negocio_id === Number(id));
+            
+            // Tratamos de resolver las cotizaciones para cada trabajo de manera asíncrona si amerita
+            const mapped = await Promise.all(filtered.map(async (t: any) => {
+                let coti = undefined;
+                if (['Cotización Enviada', 'Cotización Aceptada', 'Cotización Rechazada'].includes(t.estado)) {
+                    try { coti = await getCotizacionByTrabajoId(t.id); } catch(e) {}
+                }
+
+                return {
+                    id: t.id,
+                    titulo: t.titulo,
+                    ubicacion: t.negocio?.direccion || t.negocio?.nombre || businessName,
+                    tecnico: t.trabajador ? t.trabajador.nombre : "Sin asignar",
+                    fecha: t.fecha_programada || new Date(t.created_at).toLocaleDateString('es-MX'),
+                    estado: t.estado,
+                    tipo: t.tipo || "Trabajo",
+                    visitado: t.visitado || false,
+                    descripcion: t.descripcion,
+                    fechaAsignada: t.fechaAsignada,
+                    horaAsignada: t.horaAsignada,
+                    cotizacion: coti ? {
+                        costo: coti.monto,
+                        notas: coti.descripcion,
+                        archivo: coti.archivo || "",
+                        fecha: coti.created_at
+                    } : undefined
+                };
+            }));
+            
+            setTrabajosData(mapped as Trabajo[]);
+
+            // 2. Traer Técnicos activos
+            const wData = await getTrabajadores();
+            setTecnicosData(wData.filter((w: any) => w.estado === "Activo"));
+
+        } catch (error) {
+            console.error("Error al obtener datos de DB:", error);
         }
-    }, [id]);
-
-    const saveJobs = (data: Trabajo[]) => {
-        setTrabajosData(data);
-        localStorage.setItem(`trabajos_business_${id}`, JSON.stringify(data));
     };
 
-    // DATOS SIMULADOS - TECNICOS
-    const tecnicosData: Tecnico[] = [
-        { id: 1, nombre: "Javier Antonio Medina Medina" },
-        { id: 2, nombre: "Carlos Daniel Dzul Vicente" },
-        { id: 3, nombre: "Ernesto Eduardo Martin Escalante" },
-        { id: 4, nombre: "Pedro Javier" },
-    ];
+    React.useEffect(() => {
+        fetchAllData();
+    }, [id, businessName]);
+
+    // Función que muta estado localmente mientras se refresca (para agilidad)
+    const saveJobs = (data: Trabajo[]) => {
+        setTrabajosData(data);
+    };
 
     // ESTADOS
     const [searchText, setSearchText] = useState("");
@@ -153,15 +171,18 @@ const TrabajoDetalle: React.FC = () => {
             // Filtrado adicional si estamos en la pestaña de cotizaciones
             let matchesCotizacion = true;
             if (isCotizacionesTab) {
-                matchesCotizacion = !!job.cotizacion && (job.estado === 'Cotización Enviada' || job.estado === 'Cotización Aceptada' || job.estado === 'Cotización Rechazada');
+                matchesCotizacion =
+                    job.estado === 'Cotización Enviada' ||
+                    job.estado === 'Cotización Aceptada' ||
+                    job.estado === 'Cotización Rechazada';
             }
 
             return matchesSearch && matchesStatus && matchesCotizacion;
         });
 
-        // 2. FILTRO ADICIONAL: Solo mostrar trabajos del técnico si el rol es 'tecnico' y NO están finalizados
+        // 2. FILTRO ADICIONAL: Solo mostrar trabajos del técnico si el rol es 'tecnico' y NO están finalizados ni completados
         if (user?.role === 'tecnico') {
-            filteredJobs = filteredJobs.filter(job => job.tecnico === user.name && job.estado !== "Finalizado");
+            filteredJobs = filteredJobs.filter(job => job.tecnico === user.name && job.estado !== "Finalizado" && job.estado !== "Completado");
         }
 
         // Agrupar por fecha
@@ -201,49 +222,42 @@ const TrabajoDetalle: React.FC = () => {
         setIsModalOpen(true);
     };
 
-    const handleConfirmAssignment = () => {
+    const handleConfirmAssignment = async () => {
         if (selectedJobId && selectedTechnicians.length > 0) {
-            const assignedNames = selectedTechnicians
-                .map(id => tecnicosData.find(t => t.id === id)?.nombre)
-                .filter(Boolean)
-                .join(", ");
+            // El backend acepta 'trabajador_id'. Asumimos asignación de un solo técnico
+            const authWorkerId = selectedTechnicians[0];
 
-            if (assignedNames) {
-                const updated = trabajosData.map(job => {
-                    if (job.id === selectedJobId) {
-                        return {
-                            ...job,
-                            tecnico: assignedNames,
-                            estado: job.estado === "Solicitud" ? "Asignado" : job.estado,
-                            tipo: selectedType,
-                            visitado: job.visitado,
-                            fechaAsignada: asignarFecha,
-                            horaAsignada: asignarHora
-                        };
-                    }
-                    return job;
-                });
-                saveJobs(updated);
+            try {
+                // Notificar a API de la asignación
+                await assignTrabajador(selectedJobId, authWorkerId);
+                // Opcional: Podríamos hacer un fetchAllData() de nuevo para refrescar
+                fetchAllData();
+            } catch (error) {
+                console.error("Error asignando técnico en Backend:", error);
+                alert("Ocurrió un error al asignar técnico en la base de datos.");
             }
         }
         setIsModalOpen(false);
     };
 
-    const handleConfirmRequest = () => {
-        const newJob: Trabajo = {
-            id: Date.now(),
+    const handleConfirmRequest = async () => {
+        const newJobPayload = {
             titulo: `${newRequestData.categoria} - ${newRequestData.cliente || businessName}`,
-            ubicacion: newRequestData.cliente || businessName,
-            tecnico: "Sin asignar",
-            fecha: newRequestData.fecha || new Date().toLocaleDateString('es-MX'),
-            estado: "Solicitud",
-            tipo: "Nueva Solicitud",
-            descripcion: newRequestData.descripcion
+            descripcion: newRequestData.descripcion,
+            prioridad: "Media",
+            negocio_id: Number(id),
+            fecha_programada: newRequestData.fecha || new Date().toISOString().split('T')[0],
         };
-        const updated = [...trabajosData, newJob];
-        saveJobs(updated);
+
+        try {
+            await createTrabajo(newJobPayload);
+            fetchAllData(); 
+        } catch (error) {
+            console.error("Error subiendo solicitud al backend", error);
+            alert("Hubo un error al crear la solicitud.");
+        }
+
         setIsRequestModalOpen(false);
-        // Reset form
         setNewRequestData({
             categoria: "Electricidad",
             cliente: businessName,
@@ -252,19 +266,37 @@ const TrabajoDetalle: React.FC = () => {
         });
     };
 
-    const handleAceptarCotizacion = (jobId: number) => {
-        const updated = trabajosData.map(job => {
-            if (job.id === jobId) {
-                return { ...job, estado: "Cotización Aceptada" as const };
+    const handleAceptarCotizacion = async (jobId: number) => {
+        if (window.confirm("¿Seguro que deseas ACEPTAR la cotización?")) {
+            try {
+                const coti = await getCotizacionByTrabajoId(jobId);
+                if (coti && coti.id) {
+                    await updateCotizacionStatus(coti.id, "Aprobada");
+                }
+            } catch (error) {
+                console.error("No se pudo actualizar la cotización en Backend", error);
             }
-            return job;
-        });
-        saveJobs(updated);
-        alert("Cotización aceptada. El administrador procederá a asignar a un técnico.");
+            const updated = trabajosData.map(job => {
+                if (job.id === jobId) {
+                    return { ...job, estado: "Cotización Aceptada" as const };
+                }
+                return job;
+            });
+            saveJobs(updated);
+            alert("Cotización aceptada en el sistema. El administrador procederá a asignar a un técnico.");
+        }
     };
 
-    const handleRechazarCotizacion = (jobId: number) => {
-        if (window.confirm("¿Seguro que deseas rechazar la cotización?")) {
+    const handleRechazarCotizacion = async (jobId: number) => {
+        if (window.confirm("¿Seguro que deseas RECHAZAR la cotización?")) {
+            try {
+                const coti = await getCotizacionByTrabajoId(jobId);
+                if (coti && coti.id) {
+                    await updateCotizacionStatus(coti.id, "Rechazada");
+                }
+            } catch (error) {
+                console.error("No se pudo actualizar la cotización en Backend", error);
+            }
             const updated = trabajosData.map(job => {
                 if (job.id === jobId) {
                     return { ...job, estado: "Cotización Rechazada" as const };
@@ -320,6 +352,11 @@ const TrabajoDetalle: React.FC = () => {
 
                 {/* LISTA DE TRABAJOS */}
                 <div className={styles.jobsSection}>
+                    {trabajosData.length === 0 && (
+                        <div style={{ padding: "20px", textAlign: "center", color: "#888" }}>
+                            No hay trabajos registrados aún.
+                        </div>
+                    )}
                     {sortedDates.map(date => (
                         <div key={date}>
                             {groupedJobs[date].map(trabajo => (
