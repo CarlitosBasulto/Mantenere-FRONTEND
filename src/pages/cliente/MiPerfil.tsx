@@ -114,9 +114,6 @@ const MiPerfil: React.FC = () => {
                 <div className={styles.contentWrapper}>
                     {/* HEADER */}
                     <div className={styles.headerContainer}>
-                        <button onClick={() => navigate(-1)} className={styles.backButton}>
-                            ←
-                        </button>
 
                         {/* Hidden Input File */}
                         <input

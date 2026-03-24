@@ -24,16 +24,7 @@ const ListaNegocios: React.FC = () => {
 
     useEffect(() => {
         const stored = localStorage.getItem('negocios_list');
-        const mockData: Negocio[] = [
-            {
-                id: 3,
-                nombre: "Oxxo (Centro)",
-                ubicacion: "Centro",
-                dueno: "Otro Dueño",
-                fecha: "15/02/2025",
-                estado: "Finalizado"
-            },
-        ];
+        const mockData: Negocio[] = [];
 
         if (stored) {
             const list = JSON.parse(stored);
@@ -105,7 +96,7 @@ const ListaNegocios: React.FC = () => {
                             onChange={(e) => setSearchText(e.target.value)}
                         />
                     </div>
-                    <div style={{ display: 'flex', gap: '10px' }}>
+                    <div className={styles.actionButtons}>
                         {user?.role === 'cliente' && (
                             <button
                                 className={styles.registrarBtn}
@@ -130,47 +121,65 @@ const ListaNegocios: React.FC = () => {
                 </div>
 
                 <div className={styles.jobsSection}>
-                    {filteredNegocios.map((negocio) => (
-                        <div
-                            key={negocio.id}
-                            className={styles.jobCard}
-                            onClick={() => handleCardClick(negocio.id)}
-                        >
-                            <div className={styles.cardContent}>
-                                <div className={styles.cardIcon}>
-                                    {negocio.imagenPerfil ? (
-                                        <img
-                                            src={negocio.imagenPerfil}
-                                            alt={negocio.nombre}
-                                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                        />
-                                    ) : (
-                                        <FaImage />
-                                    )}
-                                </div>
-                                <div className={styles.cardInfo}>
-                                    <span className={styles.cardDate}>{negocio.fecha}</span>
-                                    <h3>{negocio.nombre}</h3>
-                                    <p>Dueño: {negocio.dueno}</p>
-                                    <p className={negocio.estado === 'Finalizado' ? styles.estadoFinalizado : styles.estadoPendiente}>
-                                        Estado: {negocio.estado}
-                                    </p>
-                                </div>
+                    {filteredNegocios.map((negocio) => {
+                        let hasSOS = false;
+                        if (user?.role === 'admin') {
+                            const storedJobs = localStorage.getItem(`trabajos_business_${negocio.id}`);
+                            if (storedJobs) {
+                                const jobs = JSON.parse(storedJobs);
+                                hasSOS = jobs.some((j: any) => j.tipo === 'SOS' && j.estado === 'Solicitud');
+                            }
+                        }
 
-                                {user?.role === 'cliente' && (
-                                    <button
-                                        className={styles.editBtn}
-                                        onClick={(e) => handleEditClick(e, negocio.id)}
-                                        title="Editar Registro"
-                                    >
-                                        <HiOutlinePencil size={20} />
-                                    </button>
+                        return (
+                            <div style={{ position: 'relative' }} key={negocio.id}>
+                                {hasSOS && (
+                                    <div style={{ position: 'absolute', right: '-10px', background: '#f44336', color: 'white', fontWeight: 'bold', padding: '5px 15px', borderRadius: '20px', zIndex: 10, boxShadow: '0 4px 8px rgba(244, 67, 54, 0.4)' }}>
+                                        EMERGENCIA SOS
+                                    </div>
                                 )}
+                                <div
+                                    className={styles.jobCard}
+                                    onClick={() => handleCardClick(negocio.id)}
+                                    style={hasSOS ? { border: '2px solid #f44336', backgroundColor: '#fffafa' } : {}}
+                                >
+                                    <div className={styles.cardContent}>
+                                        <div className={styles.cardIcon}>
+                                            {negocio.imagenPerfil ? (
+                                                <img
+                                                    src={negocio.imagenPerfil}
+                                                    alt={negocio.nombre}
+                                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                />
+                                            ) : (
+                                                <FaImage />
+                                            )}
+                                        </div>
+                                        <div className={styles.cardInfo}>
+                                            <span className={styles.cardDate}>{negocio.fecha}</span>
+                                            <h3>{negocio.nombre}</h3>
+                                            <p>Dueño: {negocio.dueno}</p>
+                                            <p className={negocio.estado === 'Finalizado' ? styles.estadoFinalizado : styles.estadoPendiente}>
+                                                Estado: {negocio.estado}
+                                            </p>
+                                        </div>
 
-                                <div className={`${styles.cardIndicator} ${negocio.estado === 'Finalizado' ? styles.blue : ''}`}></div>
+                                        {user?.role === 'cliente' && (
+                                            <button
+                                                className={styles.editBtn}
+                                                onClick={(e) => handleEditClick(e, negocio.id)}
+                                                title="Editar Registro"
+                                            >
+                                                <HiOutlinePencil size={20} />
+                                            </button>
+                                        )}
+
+                                        <div className={`${styles.cardIndicator} ${negocio.estado === 'Finalizado' ? styles.blue : ''}`}></div>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             </div>
             <div className={styles.rightColumn}></div>

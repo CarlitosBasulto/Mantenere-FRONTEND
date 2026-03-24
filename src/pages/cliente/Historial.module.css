@@ -1,0 +1,77 @@
+.container {
+    padding: 20px;
+    max-width: 1000px;
+    margin: 0 auto;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+.header {
+    margin-bottom: 30px;
+}
+
+.title {
+    font-size: 28px;
+    font-weight: bold;
+    color: #000;
+    margin: 0 0 8px 0;
+}
+
+.subtitle {
+    color: #666;
+    font-size: 14px;
+    margin: 0;
+}
+
+.searchSection {
+    margin-bottom: 30px;
+}
+
+.list {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* Estilos de Tarjeta Completada (copiados de AdminDetalleTrabajo) */
+.completedTaskCard {
+    background: white;
+    border: none;
+    border-left: 6px solid #ccffcc;
+    border-radius: 30px;
+    padding: 25px 30px;
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    margin-bottom: 20px;
+}
+
+.completedTaskCard:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+}
+
+.completedTaskTitle {
+    font-size: 20px;
+    font-weight: bold;
+    margin-bottom: 5px;
+    color: #006600;
+}
+
+.completedTaskDesc {
+    font-size: 16px;
+    color: #555;
+    margin: 0;
+}
+
+.completedBadge {
+    padding: 8px 20px;
+    border-radius: 20px;
+    background: #ccffcc;
+    color: #006600;
+    font-weight: bold;
+    font-size: 14px;
+}

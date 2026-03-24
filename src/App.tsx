@@ -21,6 +21,8 @@ import AdminPerfilTrabajador from "./pages/admin/AdminPerfilTrabajador";
 import PerfilEmpresa from "./pages/cliente/PerfilEmpresa";
 import MiPerfil from "./pages/cliente/MiPerfil";
 import Cotizaciones from "./pages/cliente/Cotizaciones";
+import Historial from "./pages/cliente/Historial";
+import AdminHistorial from "./pages/admin/AdminHistorial";
 
 
 function App() {
@@ -39,6 +41,7 @@ function App() {
                     <Route path="/menu" element={<AdminLayout />}>
                         <Route index element={<ListaNegocios />} />
                         <Route path="trabajadores" element={<ListaTrabajadores />} />
+                        <Route path="trabajos-realizados" element={<AdminHistorial />} />
                         <Route path="trabajador/:id" element={<AdminPerfilTrabajador />} />
                         <Route path="solicitudes" element={<ListaSolicitudes />} />
                         <Route path="trabajo/:id" element={<TrabajoDetalle />} />
@@ -55,6 +58,7 @@ function App() {
                         <Route path="perfil-empresa" element={<PerfilEmpresa />} />
                         <Route path="mi-perfil" element={<MiPerfil />} />
                         <Route path="cotizaciones" element={<Cotizaciones />} />
+                        <Route path="historial" element={<Historial />} />
                         <Route path="trabajo/:id" element={<TrabajoDetalle />} />
                         <Route path="trabajo-detalle/:id" element={<AdminDetalleTrabajo />} />
                     </Route>

@@ -11,7 +11,7 @@ interface Trabajo {
     tecnico: string;
     fecha: string;
     estado: string;
-    tipo?: "Visita" | "Trabajo" | "Nueva Solicitud";
+    tipo?: "Visita" | "Trabajo" | "Nueva Solicitud" | "SOS";
     visitado?: boolean;
     descripcion?: string;
     sucursal?: string;
@@ -141,6 +141,11 @@ const ListaSolicitudes: React.FC = () => {
                             onClick={() => navigate(user?.role === 'tecnico' ? `/tecnico/trabajo-detalle/${req.id}` : `/menu/trabajo-detalle/${req.id}`)}
                             style={{ cursor: 'pointer', flexDirection: 'column', alignItems: 'stretch' }}
                         >
+                            {req.tipo === 'SOS' && req.estado === 'Solicitud' && (
+                                <div style={{ background: '#ffebee', color: '#c62828', padding: '10px 15px', borderRadius: '10px', marginBottom: '15px', fontWeight: 'bold', border: '1px solid #ffcdd2' }}>
+                                    🚨 EMERGENCIA SOS: EL CLIENTE SOLICITA ATENCIÓN INMEDIATA
+                                </div>
+                            )}
                             {req.visitado && req.estado === 'Solicitud' && (
                                 <div style={{ border: '1px solid #ff9800', background: '#fff3e0', color: '#e65100', padding: '10px 15px', borderRadius: '10px', marginBottom: '15px', fontWeight: 'bold' }}>
                                     🛡️ AVISO DE DIAGNÓSTICO<br />
@@ -172,8 +177,8 @@ const ListaSolicitudes: React.FC = () => {
                                     <p>{req.tecnico !== "Sin asignar" ? `Técnico: ${req.tecnico}` : `Dueño: ${req.sucursal || "No registrado"}`}</p>
                                     {req.descripcion && <p style={{ fontSize: '12px', color: '#888', fontStyle: 'italic', marginTop: '5px' }}>Obs: {req.descripcion.substring(0, 50)}...</p>}
                                 </div>
-                                {/* Indicador lateral AMARILLO */}
-                                <div className={`${styles.cardIndicator} ${styles.yellow}`}></div>
+                                {/* Indicador lateral AMARILLO o ROJO */}
+                                <div className={`${styles.cardIndicator} ${req.tipo === 'SOS' && req.estado === 'Solicitud' ? '' : styles.yellow}`} style={req.tipo === 'SOS' && req.estado === 'Solicitud' ? { background: '#f44336' } : {}}></div>
                             </div>
                         </div>
                     ))}

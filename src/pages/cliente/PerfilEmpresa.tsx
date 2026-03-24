@@ -75,10 +75,24 @@ const PerfilEmpresa: React.FC = () => {
 
     const handleSave = () => {
         // Validación básica
-        if (!formData.nombreSucursal) {
-            alert("Por favor ingresa el nombre de la sucursal");
-            return;
+        if (!formData.nombreSucursal) return alert("Por favor ingresa el nombre de la sucursal");
+        if (!formData.encargado) return alert(`Por favor ingresa el ${formData.tipo === 'FC' ? 'encargado' : 'dueño'} de la empresa`);
+
+        if (formData.tipo !== 'W/M') {
+            if (formData.tipo === 'FS' && !formData.calle) return alert("Por favor ingresa la calle principal");
+            if (formData.tipo !== 'FS' && !formData.nombrePlaza) return alert("Por favor ingresa el nombre de la plaza");
+            if (!formData.estado) return alert("Por favor ingresa el estado");
+            if (!formData.ciudad) return alert("Por favor ingresa la ciudad");
+            if (!formData.calle) return alert("Por favor ingresa la calle");
+            if (!formData.numero) return alert("Por favor ingresa el número");
+            if (!formData.colonia) return alert("Por favor ingresa la colonia");
+            if (formData.tipo === 'FS' && !formData.referencia) return alert("Por favor ingresa la referencia");
+        } else {
+            if (!formData.calleAv) return alert("Por favor ingresa la calle/Av");
+            if (!formData.manzana) return alert("Por favor ingresa la manzana");
+            if (!formData.lote) return alert("Por favor ingresa el lote");
         }
+        if (!formData.cp) return alert("Por favor ingresa el código postal");
 
         // Obtener lista actual de negocios
         const stored = localStorage.getItem('negocios_list');
@@ -130,32 +144,31 @@ const PerfilEmpresa: React.FC = () => {
 
                 <div className={styles.contentWrapper}>
                     {/* HEADER */}
-                    <div className={styles.headerContainer}>
-                        <button onClick={() => navigate(-1)} className={styles.backButton}>
-                            ←
-                        </button>
+                    <div style={{ position: 'relative', marginBottom: '40px' }}>
 
-                        {/* Hidden Input File */}
-                        <input
-                            type="file"
-                            accept="image/*"
-                            ref={fileInputRef}
-                            style={{ display: 'none' }}
-                            onChange={handleImageChange}
-                        />
+                        <div className={styles.headerContainer}>
+                            <h1 className={styles.pageTitle}>
+                                {editId ? "Editar Sucursal/Negocio" : "Registrar Sucursal/Negocio"}
+                            </h1>
 
-                        <div className={styles.profileIcon} title="El logo/imagen añadido será visible en las tarjetas de la lista.">
-                            {formData.imagenPerfil ? (
-                                <img src={formData.imagenPerfil} alt="Perfil" className={styles.profileImg} />
-                            ) : (
-                                "🏢"
-                            )}
-                            <div className={styles.editOverlay} onClick={() => fileInputRef.current?.click()}>Editar</div>
+                            {/* Hidden Input File */}
+                            <input
+                                type="file"
+                                accept="image/*"
+                                ref={fileInputRef}
+                                style={{ display: 'none' }}
+                                onChange={handleImageChange}
+                            />
+
+                            <div className={styles.profileIcon} title="El logo/imagen añadido será visible en las tarjetas de la lista.">
+                                {formData.imagenPerfil ? (
+                                    <img src={formData.imagenPerfil} alt="Perfil" className={styles.profileImg} />
+                                ) : (
+                                    "🏢"
+                                )}
+                                <div className={styles.editOverlay} onClick={() => fileInputRef.current?.click()}>Editar</div>
+                            </div>
                         </div>
-
-                        <h1 className={styles.pageTitle}>
-                            {editId ? "Editar Sucursal/Negocio" : "Registrar Sucursal/Negocio"}
-                        </h1>
                     </div>
 
                     {/* INFORMACION GENERAL */}

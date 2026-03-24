@@ -2,15 +2,19 @@ import React, { useEffect, useState, useRef } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import styles from "./Menu.module.css";
 // Asegúrate de que la ruta al logo sea correcta
-import logo from "../assets/imagenes/Logo.png";
+import logo from "../assets/imagenes/nuevologo.png";
 import { useAuth } from "../context/AuthContext";
-import { HiOutlineUser, HiOutlineBell } from "react-icons/hi2";
+import { 
+    HiOutlineUser, HiOutlineBell, HiOutlineBriefcase, 
+    HiOutlineUsers, HiOutlineDocumentText, HiOutlineClock,
+    HiOutlineCurrencyDollar, HiOutlineWrench
+} from "react-icons/hi2";
 
 
 const MenuLayout: React.FC = () => {
     const location = useLocation();
     const navigate = useNavigate();
-    const { user, login } = useAuth(); // Usamos el contexto
+    const { user } = useAuth(); // Usamos el contexto
     const [sidebarOptions, setSidebarOptions] = useState<string[]>([]);
     const [activeOption, setActiveOption] = useState("Negocios");
     const [notificaciones, setNotificaciones] = useState<any[]>([]);
@@ -25,6 +29,9 @@ const MenuLayout: React.FC = () => {
         } else if (user?.role === 'cliente') {
             const storedClient = JSON.parse(localStorage.getItem('client_notifications') || '[]');
             setNotificaciones(storedClient);
+        } else if (user?.role === 'tecnico') {
+            const storedTecnico = JSON.parse(localStorage.getItem(`tecnico_notifications_${user.name}`) || '[]');
+            setNotificaciones(storedTecnico);
         }
     };
 
@@ -52,6 +59,8 @@ const MenuLayout: React.FC = () => {
             localStorage.setItem('admin_notifications', JSON.stringify(actualizadas));
         } else if (user?.role === 'cliente') {
             localStorage.setItem('client_notifications', JSON.stringify(actualizadas));
+        } else if (user?.role === 'tecnico') {
+            localStorage.setItem(`tecnico_notifications_${user.name}`, JSON.stringify(actualizadas));
         }
     };
 
@@ -65,17 +74,18 @@ const MenuLayout: React.FC = () => {
         let baseOptions: string[] = [];
 
         if (user.role === 'admin') {
-            baseOptions = ["Negocios", "Trabajadores", "Solicitudes"];
+            baseOptions = ["Negocios", "Trabajadores", "Solicitudes", "Trabajos Realizados"];
         } else if (user.role === 'cliente') {
-            baseOptions = ["Mis Negocios", "Cotizaciones"];
+            baseOptions = ["Mis Negocios", "Cotizaciones", "Historial"];
         } else if (user.role === 'tecnico') {
             baseOptions = ["Mis Trabajos", "Nueva Solicitud"];
         }
 
-        if (user.role === 'admin' && location.pathname.includes("/menu/trabajo")) {
-            setSidebarOptions(["Trabajos", "Cotización"]);
+        if (user.role === 'admin' && location.pathname.includes("/menu/trabajo/")) {
+            setSidebarOptions(["Trabajos", "Cotización", "Historial"]);
             const params = new URLSearchParams(location.search);
-            setActiveOption(params.get('tab') === 'cotizaciones' ? "Cotización" : "Trabajos");
+            const tab = params.get('tab');
+            setActiveOption(tab === 'cotizaciones' ? "Cotización" : (tab === 'historial' ? "Historial" : "Trabajos"));
         } else {
             setSidebarOptions(baseOptions);
 
@@ -86,9 +96,11 @@ const MenuLayout: React.FC = () => {
                 if (path === "/menu" || path === "/menu/") setActiveOption("Negocios");
                 else if (path.includes("trabajadores")) setActiveOption("Trabajadores");
                 else if (path.includes("solicitudes")) setActiveOption("Solicitudes");
+                else if (path.includes("trabajos-realizados")) setActiveOption("Trabajos Realizados");
             } else if (path.startsWith("/cliente")) {
                 if (path === "/cliente" || path === "/cliente/") setActiveOption("Mis Negocios");
                 else if (path.includes("cotizaciones")) setActiveOption("Cotizaciones");
+                else if (path.includes("historial")) setActiveOption("Historial");
             } else if (path.startsWith("/tecnico")) {
                 if (path === "/tecnico" || path === "/tecnico/") setActiveOption("Mis Trabajos");
                 else if (path.includes("solicitudes")) setActiveOption("Nueva Solicitud");
@@ -103,9 +115,16 @@ const MenuLayout: React.FC = () => {
         if (option === "Negocios") navigate("/menu");
         if (option === "Trabajadores") navigate("/menu/trabajadores");
         if (option === "Solicitudes") navigate("/menu/solicitudes");
+        if (option === "Trabajos Realizados") navigate("/menu/trabajos-realizados");
 
         if (option === "Mis Negocios") navigate("/cliente");
         if (option === "Cotizaciones") navigate("/cliente/cotizaciones");
+
+        if (option === "Historial") {
+            if (user?.role === 'tecnico') navigate("/tecnico/historial");
+            else navigate("/cliente/historial");
+        }
+
         if (option === "Mis Trabajos") navigate("/tecnico");
         if (option === "Nueva Solicitud") navigate("/tecnico/solicitudes");
 
@@ -115,6 +134,33 @@ const MenuLayout: React.FC = () => {
         }
         if (option === "Cotización" && location.pathname.includes("/menu/trabajo/")) {
             navigate(location.pathname + "?tab=cotizaciones");
+        }
+        if (option === "Historial" && location.pathname.includes("/menu/trabajo/")) {
+            navigate(location.pathname + "?tab=historial");
+        }
+    };
+
+    const getIconForOption = (option: string) => {
+        switch (option) {
+            case "Negocios":
+            case "Mis Negocios":
+                return <HiOutlineBriefcase size={22} />;
+            case "Trabajadores":
+                return <HiOutlineUsers size={22} />;
+            case "Solicitudes":
+            case "Nueva Solicitud":
+                return <HiOutlineDocumentText size={22} />;
+            case "Trabajos Realizados":
+            case "Historial":
+                return <HiOutlineClock size={22} />;
+            case "Cotizaciones":
+            case "Cotización":
+                return <HiOutlineCurrencyDollar size={22} />;
+            case "Trabajos":
+            case "Mis Trabajos":
+                return <HiOutlineWrench size={22} />;
+            default:
+                return <HiOutlineDocumentText size={22} />;
         }
     };
 
@@ -136,7 +182,8 @@ const MenuLayout: React.FC = () => {
                             className={`${styles.menuItem} ${activeOption === option ? styles.active : ""}`}
                             onClick={() => handleNavigation(option)}
                         >
-                            {option}
+                            <span className={styles.menuIcon}>{getIconForOption(option)}</span>
+                            <span className={styles.menuText}>{option}</span>
                         </button>
                     ))}
                 </nav>
@@ -178,7 +225,10 @@ const MenuLayout: React.FC = () => {
                                                             if (user?.role === 'admin') navigate(`/menu/trabajo-detalle/${noti.jobId}`);
                                                             else if (user?.role === 'cliente') {
                                                                 if ((noti.titulo || noti.title || '').includes('Cotización')) navigate(`/cliente/cotizaciones`);
-                                                                else navigate(`/cliente`);
+                                                                else navigate(`/cliente/trabajo-detalle/${noti.jobId}`);
+                                                            }
+                                                            else if (user?.role === 'tecnico') {
+                                                                navigate(`/tecnico/trabajo-detalle/${noti.jobId}`);
                                                             }
                                                         }
                                                         setMostrarNotificaciones(false);

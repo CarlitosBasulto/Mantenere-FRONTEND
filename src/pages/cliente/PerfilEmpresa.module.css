@@ -50,9 +50,10 @@
 
 .headerContainer {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 20px;
-    margin-bottom: 40px;
+    gap: 30px;
+    margin-bottom: 0;
 }
 
 .backButton {
@@ -64,14 +65,14 @@
 }
 
 .profileIcon {
-    width: 60px;
-    height: 60px;
+    width: 140px;
+    height: 140px;
     background: #f0f0f0;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 30px;
+    font-size: 70px;
     cursor: pointer;
     position: relative;
     overflow: hidden;

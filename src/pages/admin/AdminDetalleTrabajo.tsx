@@ -1,7 +1,14 @@
 import React, { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import styles from "./AdminDetalleTrabajo.module.css";
 import { useAuth } from "../../context/AuthContext";
+import { 
+    HiOutlineInformationCircle, 
+    HiOutlineWrench, 
+    HiOutlineClipboardDocumentList, 
+    HiOutlineClock, 
+    HiOutlineCurrencyDollar 
+} from "react-icons/hi2";
 
 // Interfaces
 interface Trabajo {
@@ -30,6 +37,12 @@ interface Trabajo {
         archivo: string;
         fecha: string;
     };
+    asignaciones?: {
+        tecnicoId: number;
+        tecnicoNombre: string;
+        fechaAsignada: string;
+        horaAsignada: string;
+    }[];
 }
 
 interface SubTarea {
@@ -54,13 +67,25 @@ interface Tecnico {
 const AdminDetalleTrabajo: React.FC = () => {
     const { id } = useParams();
     const navigate = useNavigate();
+    const location = useLocation();
     const { user } = useAuth();
-    const [activeTab, setActiveTab] = useState<"Datos" | "Trabajo" | "Registro" | "Historial" | "Cotización">(user?.role === 'cliente' ? "Historial" : "Datos");
+
+    // Permitir abrir la pestaña de cotización directamente vía URL
+    const searchParams = new URLSearchParams(location.search);
+    const initialTab = searchParams.get('tab') === 'cotizacion' ? 'Cotización' : (user?.role === 'cliente' ? "Historial" : "Datos");
+    const [activeTab, setActiveTab] = useState<"Datos" | "Trabajo" | "Registro" | "Historial" | "Cotización">(initialTab);
+
+    // Modal Imagen Full-Screen
+    const [selectedZoomImage, setSelectedZoomImage] = useState<string | null>(null);
 
     // MOCK DATA
     const [trabajo, setTrabajo] = useState<Trabajo | null>(null);
     const [subTareas, setSubTareas] = useState<SubTarea[]>([]);
     const [isFromNewReq, setIsFromNewReq] = useState(false);
+
+    // MODAL DE SEGURIDAD
+    const [isSecurityModalOpen, setIsSecurityModalOpen] = useState(false);
+    const [selectedTaskForReport, setSelectedTaskForReport] = useState<SubTarea | null>(null);
 
     // ESTADOS COTIZACIÓN
     const [costo, setCosto] = useState("");
@@ -69,28 +94,7 @@ const AdminDetalleTrabajo: React.FC = () => {
     const [nombreArchivo, setNombreArchivo] = useState<string>("");
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-
-    const initialJobs: Trabajo[] = [
-        {
-            id: 101,
-            titulo: "Electricidad - Mc Donals",
-            ubicacion: "Centro",
-            tecnico: "Pedro Javier",
-            fecha: "25/08/2026",
-            estado: "Asignado",
-            tipo: "Trabajo",
-            descripcion: "Revisar cableado en cocina.",
-            sucursal: "MC Donas (centro)",
-            encargado: "Daniel Eduardo",
-            plaza: "Altabrisa",
-            ciudad: "Merida",
-            calle: "37",
-            numero: "Entre 4 y 6",
-            colonia: "Altabrisa",
-            cp: "97158"
-        },
-        // ... (otros trabajos)
-    ];
+    const initialJobs: Trabajo[] = [];
 
     const tecnicosData: Tecnico[] = [
         { id: 1, nombre: "Javier Antonio Medina Medina" },
@@ -196,10 +200,7 @@ const AdminDetalleTrabajo: React.FC = () => {
         if (storedTasks) {
             setSubTareas(JSON.parse(storedTasks));
         } else {
-            const initialTasks: SubTarea[] = [
-                { id: 1, titulo: "Reparación de techo", descripcion: "Grieta", estado: "Completa" },
-                { id: 2, titulo: "Reparación de techo", descripcion: "Grieta", estado: "Pendiente" }
-            ];
+            const initialTasks: SubTarea[] = [];
             setSubTareas(initialTasks);
             localStorage.setItem(`tasks_${id}`, JSON.stringify(initialTasks));
         }
@@ -269,10 +270,11 @@ const AdminDetalleTrabajo: React.FC = () => {
                 .join(", ");
 
             if (assignedNames) {
+                const newEstado = (trabajo.estado === "Solicitud" ? "Asignado" : trabajo.estado) as any;
                 const updatedJob = {
                     ...trabajo,
                     tecnico: assignedNames,
-                    estado: (trabajo.estado === "Solicitud" ? "Asignado" : trabajo.estado) as any,
+                    estado: newEstado,
                     tipo: selectedType,
                     visitado: trabajo.visitado,
                     fechaAsignada: asignarFecha,
@@ -315,6 +317,25 @@ const AdminDetalleTrabajo: React.FC = () => {
                         }
                     }
                 }
+
+                // Generar notificaciones para cada técnico asignado
+                selectedTechnicians.forEach(id => {
+                    const tech = tecnicosData.find(t => t.id === id);
+                    if (tech) {
+                        const techKey = `tecnico_notifications_${tech.nombre}`;
+                        const techNotifs = JSON.parse(localStorage.getItem(techKey) || '[]');
+                        techNotifs.unshift({
+                            id: Date.now() + Math.random(),
+                            titulo: 'Nuevo Trabajo Asignado',
+                            mensaje: `Te han asignado un nuevo trabajo: ${trabajo.titulo} en ${trabajo.sucursal}.`,
+                            fecha: new Date().toLocaleDateString('es-MX', { hour: '2-digit', minute: '2-digit' }),
+                            leida: false,
+                            jobId: trabajo.id
+                        });
+                        localStorage.setItem(techKey, JSON.stringify(techNotifs));
+                    }
+                });
+                window.dispatchEvent(new Event('storage'));
             }
         }
         setIsModalOpen(false);
@@ -445,46 +466,6 @@ const AdminDetalleTrabajo: React.FC = () => {
         alert("Cotización aceptada. El administrador procederá a asignar a un técnico.");
     };
 
-    const handleAprobarCotizacionTecnico = (tarea: SubTarea) => {
-        if (!trabajo) return;
-
-        // Update the task status to Approved
-        const updatedTasks = subTareas.map(t =>
-            t.id === tarea.id ? { ...t, cotizacionEstado: "Aprobada" as any } : t
-        );
-        saveTasks(updatedTasks);
-
-        // Update the Job with this quotation
-        const updatedJob: Trabajo = {
-            ...trabajo,
-            estado: "Cotización Enviada",
-            cotizacion: {
-                costo: tarea.cotizacionMonto?.toString() || "0",
-                notas: tarea.cotizacionDetalles || "Cotización del técnico " + tarea.tecnicoNombre,
-                archivo: tarea.cotizacionArchivo || "",
-                fecha: new Date().toLocaleDateString('es-MX')
-            }
-        };
-        setTrabajo(updatedJob);
-
-        for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key?.startsWith('trabajos_business_')) {
-                const stored = localStorage.getItem(key);
-                if (stored) {
-                    const list: Trabajo[] = JSON.parse(stored);
-                    const jobIndex = list.findIndex(j => j.id === trabajo.id);
-                    if (jobIndex !== -1) {
-                        list[jobIndex] = updatedJob;
-                        localStorage.setItem(key, JSON.stringify(list));
-                        break;
-                    }
-                }
-            }
-        }
-        alert("Cotización de técnico aprobada y enviada como oficial para este trabajo.");
-    };
-
     const handleRechazarCotizacion = () => {
         if (!trabajo) return;
         if (window.confirm("¿Seguro que deseas rechazar la cotización?")) {
@@ -521,11 +502,30 @@ const AdminDetalleTrabajo: React.FC = () => {
             const updatedJob: Trabajo = {
                 ...trabajo,
                 estado: isVisita ? "Solicitud" : "Finalizado",
-                tecnico: isVisita ? "Sin asignar" : trabajo.tecnico, // Si es visita se desasigna para el TRABAJO real. Si es trabajo se queda su nombre en el record.
+                tecnico: isVisita ? "Sin asignar" : trabajo.tecnico, // Si es visita se desasigna para el TRABAJO real.
+                asignaciones: isVisita ? [] : trabajo.asignaciones, // Se resetean las asignaciones para el trabajo real
                 visitado: isVisita ? true : trabajo.visitado
             };
 
             setTrabajo(updatedJob);
+
+            // Generar notificación para el Admin
+            const adminNotifs = JSON.parse(localStorage.getItem('admin_notifications') || '[]');
+            const actionText = isVisita ? 'Diagnóstico Completado' : 'Trabajo Finalizado';
+            const msgText = isVisita
+                ? `El técnico ha completado la visita estructurada para: ${trabajo.titulo} en ${trabajo.sucursal}.`
+                : `El técnico ha finalizado el trabajo: ${trabajo.titulo} en ${trabajo.sucursal}.`;
+
+            adminNotifs.unshift({
+                id: Date.now() + Math.random(),
+                titulo: actionText,
+                mensaje: msgText,
+                fecha: new Date().toLocaleDateString('es-MX', { hour: '2-digit', minute: '2-digit' }),
+                leida: false,
+                jobId: trabajo.id
+            });
+            localStorage.setItem('admin_notifications', JSON.stringify(adminNotifs));
+            window.dispatchEvent(new Event('storage'));
 
             // Persistir en la lista del negocio
             for (let i = 0; i < localStorage.length; i++) {
@@ -610,7 +610,7 @@ const AdminDetalleTrabajo: React.FC = () => {
     if (!trabajo) return <div>Cargando...</div>;
 
     return (
-        <div className={styles.dashboardLayout} style={{ gap: '0', padding: '20px', height: '100%' }}>
+        <div className={styles.dashboardLayout}>
 
             <div className={styles.bgShape1}></div>
             <div className={styles.bgShape2}></div>
@@ -620,9 +620,6 @@ const AdminDetalleTrabajo: React.FC = () => {
                 {/* Shapes removed for cleaner look */}
 
                 <div className={styles.contentWrapper}>
-                    <button onClick={() => navigate(-1)} className={styles.backButton}>
-                        ← Volver
-                    </button>
 
                     <div className={styles.headerContainer}>
                         <div>
@@ -633,6 +630,89 @@ const AdminDetalleTrabajo: React.FC = () => {
                             </h1>
                         </div>
                     </div>
+
+                    {/* STEPS LOGIC */}
+                    {(() => {
+                        const getStepIndex = (estado: string) => {
+                            if (estado === "Finalizado") return 4;
+                            if (["En Proceso"].includes(estado)) return 3;
+                            if (["Cotización Enviada", "Cotización Aceptada", "Cotización Rechazada", "Asignado"].includes(estado)) return 2;
+                            return 1;
+                        };
+                        const currentStep = getStepIndex(trabajo.estado);
+                        return (
+                            <>
+                                <style>{`
+                                    @keyframes pulseTracker {
+                                        0% { box-shadow: 0 0 0 0 rgba(255, 152, 0, 0.4); }
+                                        70% { box-shadow: 0 0 0 15px rgba(255, 152, 0, 0); }
+                                        100% { box-shadow: 0 0 0 0 rgba(255, 152, 0, 0); }
+                                    }
+                                `}</style>
+                                <div style={{ padding: '10px 20px', background: '#fff', borderRadius: '15px', marginBottom: '15px', boxShadow: '0 4px 15px rgba(0,0,0,0.03)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid #f0f0f0' }}>
+                                    {[
+                                        { id: 1, label: "Solicitud Creada", icon: "📝" },
+                                        { id: 2, label: "Asignación / Cotización", icon: "👨‍🔧" },
+                                        { id: 3, label: "Trabajo en Progreso", icon: "🛠️" },
+                                        { id: 4, label: "Finalizado", icon: "✅" }
+                                    ].map((step, index, arr) => {
+                                        const isActive = currentStep === step.id;
+                                        const isCompleted = currentStep > step.id;
+
+                                        return (
+                                            <React.Fragment key={step.id}>
+                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', zIndex: 1, width: '100px' }}>
+                                                    <div style={{
+                                                        width: '35px',
+                                                        height: '35px',
+                                                        borderRadius: '50%',
+                                                        background: isCompleted ? '#4caf50' : (isActive ? '#ffb800' : '#f5f5f5'),
+                                                        color: '#fff',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        fontSize: '16px',
+                                                        transition: 'all 0.5s ease',
+                                                        animation: isActive ? 'pulseTracker 2s infinite' : 'none',
+                                                        transform: isActive ? 'scale(1.1)' : 'scale(1)',
+                                                        boxShadow: isCompleted ? '0 4px 10px rgba(76, 175, 80, 0.3)' : (isActive ? '0 4px 15px rgba(255, 184, 0, 0.4)' : 'none'),
+                                                        border: !isCompleted && !isActive ? '2px solid #e0e0e0' : 'none'
+                                                    }}>
+                                                        {isCompleted ? "✓" : step.icon}
+                                                    </div>
+                                                    <span style={{
+                                                        marginTop: '8px',
+                                                        fontSize: '11px',
+                                                        fontWeight: isActive || isCompleted ? 'bold' : '600',
+                                                        color: isCompleted ? '#2e7d32' : (isActive ? '#d89b00' : '#aaa'),
+                                                        textAlign: 'center',
+                                                        transition: 'color 0.4s ease'
+                                                    }}>
+                                                        {step.label}
+                                                    </span>
+                                                </div>
+
+                                                {index < arr.length - 1 && (
+                                                    <div style={{ flex: 1, height: '4px', background: '#f5f5f5', borderRadius: '3px', position: 'relative', margin: '0 5px', bottom: '10px', overflow: 'hidden' }}>
+                                                        <div style={{
+                                                            position: 'absolute',
+                                                            top: 0,
+                                                            left: 0,
+                                                            height: '100%',
+                                                            background: '#4caf50',
+                                                            borderRadius: '3px',
+                                                            width: isCompleted ? '100%' : '0%',
+                                                            transition: 'width 1s cubic-bezier(0.4, 0, 0.2, 1)'
+                                                        }} />
+                                                    </div>
+                                                )}
+                                            </React.Fragment>
+                                        );
+                                    })}
+                                </div>
+                            </>
+                        );
+                    })()}
 
                     <div className={styles.tabsContainer}>
                         {['Datos', 'Trabajo', 'Registro', 'Historial', 'Cotización']
@@ -657,8 +737,16 @@ const AdminDetalleTrabajo: React.FC = () => {
                                     key={tab}
                                     className={`${styles.tabButton} ${activeTab === tab ? styles.activeTab : styles.inactiveTab}`}
                                     onClick={() => setActiveTab(tab as any)}
+                                    title={tab}
                                 >
-                                    {tab}
+                                    <span className={styles.tabIcon}>
+                                        {tab === 'Datos' ? <HiOutlineInformationCircle size={22} /> :
+                                         tab === 'Trabajo' ? <HiOutlineWrench size={22} /> :
+                                         tab === 'Registro' ? <HiOutlineClipboardDocumentList size={22} /> :
+                                         tab === 'Historial' ? <HiOutlineClock size={22} /> :
+                                         tab === 'Cotización' ? <HiOutlineCurrencyDollar size={22} /> : <HiOutlineInformationCircle size={22} />}
+                                    </span>
+                                    <span className={styles.tabText}>{tab}</span>
                                 </button>
                             ))}
                     </div>
@@ -695,25 +783,6 @@ const AdminDetalleTrabajo: React.FC = () => {
                                     </div>
                                 </div>
 
-                                {(trabajo.fechaAsignada || trabajo.horaAsignada) && (
-                                    <div style={{ display: 'flex', justifyContent: 'center', marginTop: '15px' }}>
-                                        <div style={{ background: '#eef8f1', padding: '6px 14px', borderRadius: '15px', display: 'inline-flex', alignItems: 'center', gap: '8px', border: '1px solid #c8e6c9' }}>
-                                            {trabajo.fechaAsignada && (
-                                                <span style={{ color: '#137333', fontWeight: 'bold', fontSize: '13px' }}>
-                                                    📅 {trabajo.fechaAsignada}
-                                                </span>
-                                            )}
-                                            {trabajo.fechaAsignada && trabajo.horaAsignada && (
-                                                <span style={{ color: '#137333', fontWeight: 'bold', fontSize: '13px' }}>-</span>
-                                            )}
-                                            {trabajo.horaAsignada && (
-                                                <span style={{ color: '#137333', fontWeight: 'bold', fontSize: '13px' }}>
-                                                    ⏰ {trabajo.horaAsignada}
-                                                </span>
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
 
                                 {trabajo.descripcion && (
                                     <div style={{ marginTop: '20px', padding: '20px', background: '#f5f7fa', borderRadius: '15px', borderLeft: '5px solid #333' }}>
@@ -723,6 +792,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                                         </span>
                                     </div>
                                 )}
+
                             </div>
 
                             <div className={styles.infoSectionCard}>
@@ -780,7 +850,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                 </div>
                                             )}
 
-                                            {(trabajo.estado === "Cotización Aceptada" || trabajo.tecnico !== "Sin asignar" || trabajo.estado === "Solicitud") && (
+                                            {(trabajo.estado === "Cotización Aceptada" || (trabajo.estado === "Solicitud" && !trabajo.visitado)) && trabajo.tecnico === "Sin asignar" && (
                                                 <button
                                                     onClick={() => {
                                                         // Pre-seleccionar "Visita" si es una solicitud
@@ -793,7 +863,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                     }}
                                                     className={`${styles.actionButton} ${styles.assignButton}`}
                                                 >
-                                                    {trabajo.tecnico === "Sin asignar" ? "Asignar Técnico" : "Reasignar / Editar"}
+                                                    Asignar Técnico
                                                 </button>
                                             )}
 
@@ -818,9 +888,6 @@ const AdminDetalleTrabajo: React.FC = () => {
                                             )}
                                         </>
                                     )}
-                                    <button className={`${styles.actionButton} ${styles.waitButton}`}>
-                                        Poner en Espera
-                                    </button>
                                 </div>
 
                             )}
@@ -830,7 +897,7 @@ const AdminDetalleTrabajo: React.FC = () => {
 
                     {
                         activeTab === 'Cotización' && (
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px' }}>
+                            <div className={styles.infoGrid2} style={{ gap: '40px' }}>
                                 {/* COLUMNA IZQUIERDA: FORMULARIO O VISTA CLIENTE */}
                                 <div style={{ background: '#fff', borderRadius: '20px', padding: '30px', boxShadow: '0 4px 15px rgba(0,0,0,0.05)', border: '1px solid #eee' }}>
 
@@ -949,7 +1016,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                                 </div>
 
                                 {/* COLUMNA DERECHA: TAREAS Y COTIZACIONES DEL TÉCNICO */}
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '30px', background: '#fff', borderRadius: '20px', padding: '30px', boxShadow: '0 4px 15px rgba(0,0,0,0.05)', border: '1px solid #eee' }}>
 
                                     {/* COTIZACIONES */}
                                     {subTareas.some(t => t.esCotizacion) && (
@@ -987,22 +1054,6 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                                 >
                                                                     📎 Ver Archivo Adjunto
                                                                 </a>
-                                                            </div>
-                                                        )}
-
-                                                        {tarea.cotizacionEstado === 'Pendiente' && (
-                                                            <div style={{ display: 'flex', gap: '10px' }}>
-                                                                <button
-                                                                    onClick={() => handleAprobarCotizacionTecnico(tarea)}
-                                                                    style={{ flex: 1, background: '#4caf50', color: 'white', border: 'none', padding: '10px', borderRadius: '20px', fontWeight: 'bold', cursor: 'pointer' }}
-                                                                >
-                                                                    Aprobar
-                                                                </button>
-                                                            </div>
-                                                        )}
-                                                        {tarea.cotizacionEstado === 'Aprobada' && (
-                                                            <div style={{ padding: '10px', background: '#e8f5e9', color: '#2e7d32', borderRadius: '10px', fontWeight: 'bold', textAlign: 'center', fontSize: '14px' }}>
-                                                                ✓ Cotización Aprobada
                                                             </div>
                                                         )}
                                                     </div>
@@ -1045,6 +1096,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                         activeTab === 'Trabajo' && (
                             <div>
                                 {/* LISTA DE TAREAS / SUBTAREAS */}
+                                {/* DIAGNOSTICO DE LA VISITA (Si aplica) */}
                                 <div className={styles.taskList}>
                                     {subTareas.map(tarea => (
                                         <div
@@ -1054,7 +1106,8 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                     alert("Estás en modo Visita. No puedes realizar los trabajos, solo registrar hallazgos.");
                                                     return;
                                                 }
-                                                navigate(`/menu/verificacion-tarea/${tarea.id}`);
+                                                setSelectedTaskForReport(tarea);
+                                                setIsSecurityModalOpen(true);
                                             }}
                                             className={`${styles.taskCard} ${tarea.estado === 'Nueva' ? styles.newTaskCard : styles.defaultTaskCard}`}
                                             style={{ cursor: (trabajo?.tipo === "Visita" && user?.role === 'tecnico') ? 'not-allowed' : 'pointer', opacity: (trabajo?.tipo === "Visita" && user?.role === 'tecnico') ? 0.7 : 1 }}
@@ -1147,27 +1200,30 @@ const AdminDetalleTrabajo: React.FC = () => {
                             <div>
                                 <h3 className={styles.sectionTitle}>Historial de Trabajos Realizados</h3>
                                 <div className={styles.taskList}>
-                                    {subTareas.filter(t => trabajo.estado === 'Finalizado' || t.estado === 'Completa').length > 0 ? (
-                                        subTareas.filter(t => trabajo.estado === 'Finalizado' || t.estado === 'Completa').map(tarea => (
-                                            <div
-                                                key={tarea.id}
-                                                className={styles.completedTaskCard}
-                                                onClick={() => setSelectedHistoryTask(tarea)}
-                                                style={{ cursor: 'pointer' }}
-                                            >
-                                                <div>
-                                                    <h3 className={styles.completedTaskTitle}>
-                                                        {tarea.titulo}
-                                                    </h3>
-                                                    <p className={styles.completedTaskDesc}>
-                                                        {tarea.descripcion}
-                                                    </p>
+                                    {subTareas.filter(t => trabajo.estado === 'Finalizado' || t.estado === 'Completa' || ((user?.role === 'admin' || user?.role === 'tecnico') && !!localStorage.getItem(`report_data_temporal_${t.id}`))).length > 0 ? (
+                                        subTareas.filter(t => trabajo.estado === 'Finalizado' || t.estado === 'Completa' || ((user?.role === 'admin' || user?.role === 'tecnico') && !!localStorage.getItem(`report_data_temporal_${t.id}`))).map(tarea => {
+                                            const isPreReport = tarea.estado !== 'Completa' && !!localStorage.getItem(`report_data_temporal_${tarea.id}`);
+                                            return (
+                                                <div
+                                                    key={tarea.id}
+                                                    className={styles.completedTaskCard}
+                                                    onClick={() => setSelectedHistoryTask(tarea)}
+                                                    style={{ cursor: 'pointer' }}
+                                                >
+                                                    <div>
+                                                        <h3 className={styles.completedTaskTitle}>
+                                                            {tarea.titulo}
+                                                        </h3>
+                                                        <p className={styles.completedTaskDesc}>
+                                                            {tarea.descripcion}
+                                                        </p>
+                                                    </div>
+                                                    <span className={styles.completedBadge} style={{ background: isPreReport ? '#fff3e0' : undefined, color: isPreReport ? '#e65100' : undefined }}>
+                                                        {isPreReport ? 'Pre-Reporte' : 'Completado'}
+                                                    </span>
                                                 </div>
-                                                <span className={styles.completedBadge}>
-                                                    Completado
-                                                </span>
-                                            </div>
-                                        ))
+                                            )
+                                        })
                                     ) : (
                                         <p style={{ textAlign: 'center', color: '#999', marginTop: '20px' }}>No hay trabajos en el historial.</p>
                                     )}
@@ -1363,83 +1419,292 @@ const AdminDetalleTrabajo: React.FC = () => {
             }
             {/* MODAL HISTORIAL DETALLADO */}
             {
-                selectedHistoryTask && (
-                    <div className={styles.modalOverlay} onClick={(e) => {
-                        if (e.target === e.currentTarget) setSelectedHistoryTask(null);
-                    }}>
-                        <div className={styles.modalContent} style={{ maxWidth: '600px', width: '90%', padding: '30px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '2px solid #eee', paddingBottom: '15px' }}>
-                                <h2 style={{ margin: 0, color: '#333' }}>Detalles del Reporte</h2>
-                                <button
-                                    onClick={() => setSelectedHistoryTask(null)}
-                                    style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#999' }}
-                                >
-                                    ×
-                                </button>
-                            </div>
+                selectedHistoryTask && (() => {
+                    const reportDataRaw = localStorage.getItem(`report_data_${selectedHistoryTask.id}`);
+                    const temporalReportDataRaw = localStorage.getItem(`report_data_temporal_${selectedHistoryTask.id}`);
+                    const reportData = reportDataRaw ? JSON.parse(reportDataRaw) : (temporalReportDataRaw ? JSON.parse(temporalReportDataRaw) : null);
+                    const isPreReport = !reportDataRaw && temporalReportDataRaw;
 
-                            <div style={{ display: 'grid', gap: '20px' }}>
-
-                                <div style={{ background: '#f8f9fa', padding: '20px', borderRadius: '15px', borderLeft: '4px solid #4caf50' }}>
-                                    <h3 style={{ margin: '0 0 10px 0', color: '#2e7d32', fontSize: '18px' }}>{selectedHistoryTask.titulo}</h3>
-                                    <p style={{ margin: 0, color: '#555', fontSize: '15px', lineHeight: '1.5' }}>{selectedHistoryTask.descripcion}</p>
-                                    <div style={{ marginTop: '15px', display: 'flex', gap: '10px' }}>
-                                        <span style={{ background: '#e8f5e9', color: '#2e7d32', padding: '5px 10px', borderRadius: '15px', fontSize: '12px', fontWeight: 'bold' }}>
-                                            Estado: {selectedHistoryTask.estado}
-                                        </span>
+                    return (
+                        <div className={styles.modalOverlay} onClick={(e) => {
+                            if (e.target === e.currentTarget) setSelectedHistoryTask(null);
+                        }}>
+                            <div className={styles.modalContent} style={{ maxWidth: '600px', width: '90%', padding: '30px', maxHeight: '90vh', overflowY: 'auto' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '2px solid #eee', paddingBottom: '15px' }}>
+                                    <h2 style={{ margin: 0, color: '#333' }}>Detalles del Reporte {isPreReport && <span style={{ color: '#ff9800', fontSize: '14px', marginLeft: '10px' }}>(Pre-Reporte Sin Firma)</span>}</h2>
+                                    <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
+                                        <button
+                                            onClick={() => {
+                                                if (user?.role === 'admin') {
+                                                    navigate(`/menu/reporte-tarea/${selectedHistoryTask.id}`);
+                                                } else if (user?.role === 'tecnico') {
+                                                    navigate(`/tecnico/reporte-tarea/${selectedHistoryTask.id}`); // Ajuste para técnico si existiese, de lo contrario volverá a la home por fallback
+                                                }
+                                            }}
+                                            style={{ background: '#e3f2fd', color: '#1976d2', border: '1px solid #1976d2', padding: '8px 15px', borderRadius: '8px', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '5px' }}
+                                        >
+                                            ✏️ Editar Reporte
+                                        </button>
+                                        <button
+                                            onClick={() => setSelectedHistoryTask(null)}
+                                            style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#999' }}
+                                        >
+                                            ×
+                                        </button>
                                     </div>
                                 </div>
 
-                                <div style={{ background: '#fff', padding: '20px', borderRadius: '15px', border: '1px solid #eee' }}>
-                                    <h4 style={{ margin: '0 0 15px 0', color: '#333', fontSize: '16px' }}>👤 Información Adicional</h4>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                            <span style={{ color: '#777', fontSize: '14px' }}>Técnico Encargado:</span>
-                                            <span style={{ fontWeight: 'bold', color: '#333', fontSize: '14px' }}>{trabajo.tecnico}</span>
-                                        </div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                            <span style={{ color: '#777', fontSize: '14px' }}>Sucursal:</span>
-                                            <span style={{ fontWeight: 'bold', color: '#333', fontSize: '14px' }}>{trabajo.sucursal}</span>
+                                <div style={{ display: 'grid', gap: '20px' }}>
+
+                                    <div style={{ background: '#f8f9fa', padding: '20px', borderRadius: '15px', borderLeft: '4px solid #4caf50' }}>
+                                        <h3 style={{ margin: '0 0 10px 0', color: '#2e7d32', fontSize: '18px' }}>{selectedHistoryTask.titulo}</h3>
+                                        <p style={{ margin: 0, color: '#555', fontSize: '15px', lineHeight: '1.5' }}>{selectedHistoryTask.descripcion}</p>
+                                        <div style={{ marginTop: '15px', display: 'flex', gap: '10px' }}>
+                                            <span style={{ background: '#e8f5e9', color: '#2e7d32', padding: '5px 10px', borderRadius: '15px', fontSize: '12px', fontWeight: 'bold' }}>
+                                                Estado: {selectedHistoryTask.estado}
+                                            </span>
+                                            {reportData && reportData.fecha && (
+                                                <span style={{ background: '#e3f2fd', color: '#1565c0', padding: '5px 10px', borderRadius: '15px', fontSize: '12px', fontWeight: 'bold' }}>
+                                                    Fecha: {reportData.fecha}
+                                                </span>
+                                            )}
+                                            {reportData && (
+                                                <span style={{ background: '#f3e5f5', color: '#7b1fa2', padding: '5px 10px', borderRadius: '15px', fontSize: '12px', fontWeight: 'bold' }}>
+                                                    Folio: {reportData.id}
+                                                </span>
+                                            )}
                                         </div>
                                     </div>
-                                </div>
 
-                                {trabajo.cotizacion && (
-                                    <div style={{ background: '#fff9e6', padding: '20px', borderRadius: '15px', border: '1px solid #ffe0b2' }}>
-                                        <h4 style={{ margin: '0 0 15px 0', color: '#e65100', fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            💰 Cotización Aprobada
-                                        </h4>
+                                    <div style={{ background: '#fff', padding: '20px', borderRadius: '15px', border: '1px solid #eee' }}>
+                                        <h4 style={{ margin: '0 0 15px 0', color: '#333', fontSize: '16px' }}>👤 Información Adicional</h4>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                <span style={{ color: '#777', fontSize: '14px' }}>Costo Final:</span>
-                                                <span style={{ fontWeight: 'bold', color: '#333', fontSize: '16px' }}>${trabajo.cotizacion.costo}</span>
+                                                <span style={{ color: '#777', fontSize: '14px' }}>Técnico Encargado:</span>
+                                                <span style={{ fontWeight: 'bold', color: '#333', fontSize: '14px' }}>{trabajo.tecnico}</span>
                                             </div>
-                                            <div>
-                                                <span style={{ color: '#777', fontSize: '14px', display: 'block', marginBottom: '5px' }}>Notas de Administración:</span>
-                                                <p style={{ margin: 0, color: '#555', fontSize: '14px', fontStyle: 'italic', background: '#fff', padding: '10px', borderRadius: '8px', border: '1px solid #ffd54f' }}>
-                                                    "{trabajo.cotizacion.notas || "Sin notas adicionales."}"
-                                                </p>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                <span style={{ color: '#777', fontSize: '14px' }}>Administrador Asignado:</span>
+                                                <span style={{ fontWeight: 'bold', color: '#333', fontSize: '14px' }}>{trabajo.encargado}</span>
                                             </div>
-                                            <div style={{ marginTop: '10px' }}>
-                                                <a
-                                                    href={trabajo.cotizacion.archivo}
-                                                    target="_blank"
-                                                    rel="noreferrer"
-                                                    style={{ display: 'inline-block', color: '#1976d2', textDecoration: 'none', fontSize: '14px', fontWeight: 'bold' }}
-                                                >
-                                                    📎 Ver Archivo Adjunto (Original)
-                                                </a>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                <span style={{ color: '#777', fontSize: '14px' }}>Sucursal:</span>
+                                                <span style={{ fontWeight: 'bold', color: '#333', fontSize: '14px' }}>{trabajo.sucursal}</span>
                                             </div>
                                         </div>
                                     </div>
-                                )}
 
+                                    {reportData && (
+                                        <div style={{ background: '#fff', padding: '20px', borderRadius: '15px', border: '1px solid #eee' }}>
+                                            <h4 style={{ margin: '0 0 15px 0', color: '#333', fontSize: '16px' }}>📋 Datos del Reporte</h4>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+
+                                                <div>
+                                                    <span style={{ color: '#777', fontSize: '13px', display: 'block', marginBottom: '4px' }}>Reporte de tienda:</span>
+                                                    <div style={{ background: '#fafafa', padding: '10px', borderRadius: '8px', fontSize: '14px', color: '#333' }}>
+                                                        {reportData.reporteTienda || 'N/A'}
+                                                    </div>
+                                                </div>
+
+                                                <div>
+                                                    <span style={{ color: '#777', fontSize: '13px', display: 'block', marginBottom: '4px' }}>Descripción:</span>
+                                                    <div style={{ background: '#fafafa', padding: '10px', borderRadius: '8px', fontSize: '14px', color: '#333' }}>
+                                                        {reportData.descripcion || 'N/A'}
+                                                    </div>
+                                                </div>
+
+                                                <div>
+                                                    <span style={{ color: '#777', fontSize: '13px', display: 'block', marginBottom: '4px' }}>Materiales Utilizados:</span>
+                                                    <div style={{ background: '#fafafa', padding: '10px', borderRadius: '8px', fontSize: '14px', color: '#333' }}>
+                                                        {reportData.materiales || 'N/A'}
+                                                    </div>
+                                                </div>
+
+                                                <div>
+                                                    <span style={{ color: '#777', fontSize: '13px', display: 'block', marginBottom: '4px' }}>Observaciones Adicionales:</span>
+                                                    <div style={{ background: '#fafafa', padding: '10px', borderRadius: '8px', fontSize: '14px', color: '#333' }}>
+                                                        {reportData.observaciones || 'N/A'}
+                                                    </div>
+                                                </div>
+
+                                                {/* EVIDENCIA FOTOGRÁFICA */}
+                                                {reportData.imagenes && (reportData.imagenes.antes || reportData.imagenes.durante || reportData.imagenes.despues || reportData.imagenObservacion) && (
+                                                    <div>
+                                                        <span style={{ color: '#777', fontSize: '13px', display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Evidencia Fotográfica:</span>
+                                                        <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
+                                                            {reportData.imagenes.antes && (
+                                                                <div style={{ textAlign: 'center' }}>
+                                                                    <span style={{ fontSize: '12px', color: '#666', marginBottom: '4px', display: 'block' }}>Antes</span>
+                                                                    <img
+                                                                        src={reportData.imagenes.antes}
+                                                                        alt="Antes"
+                                                                        onClick={() => setSelectedZoomImage(reportData.imagenes.antes)}
+                                                                        style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #ddd', cursor: 'pointer', transition: 'transform 0.2s' }}
+                                                                        onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                                                                        onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                                                                    />
+                                                                </div>
+                                                            )}
+                                                            {reportData.imagenes.durante && (
+                                                                <div style={{ textAlign: 'center' }}>
+                                                                    <span style={{ fontSize: '12px', color: '#666', marginBottom: '4px', display: 'block' }}>Durante</span>
+                                                                    <img
+                                                                        src={reportData.imagenes.durante}
+                                                                        alt="Durante"
+                                                                        onClick={() => setSelectedZoomImage(reportData.imagenes.durante)}
+                                                                        style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #ddd', cursor: 'pointer', transition: 'transform 0.2s' }}
+                                                                        onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                                                                        onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                                                                    />
+                                                                </div>
+                                                            )}
+                                                            {reportData.imagenes.despues && (
+                                                                <div style={{ textAlign: 'center' }}>
+                                                                    <span style={{ fontSize: '12px', color: '#666', marginBottom: '4px', display: 'block' }}>Después</span>
+                                                                    <img
+                                                                        src={reportData.imagenes.despues}
+                                                                        alt="Después"
+                                                                        onClick={() => setSelectedZoomImage(reportData.imagenes.despues)}
+                                                                        style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #ddd', cursor: 'pointer', transition: 'transform 0.2s' }}
+                                                                        onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                                                                        onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                                                                    />
+                                                                </div>
+                                                            )}
+                                                            {reportData.imagenObservacion && (
+                                                                <div style={{ textAlign: 'center' }}>
+                                                                    <span style={{ fontSize: '12px', color: '#666', marginBottom: '4px', display: 'block' }}>Observación</span>
+                                                                    <img
+                                                                        src={reportData.imagenObservacion}
+                                                                        alt="Observación"
+                                                                        onClick={() => setSelectedZoomImage(reportData.imagenObservacion)}
+                                                                        style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #ddd', cursor: 'pointer', transition: 'transform 0.2s' }}
+                                                                        onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                                                                        onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                                                                    />
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* FIRMA DE LA EMPRESA */}
+                                                {reportData.firmaEmpresa && (
+                                                    <div style={{ marginTop: '10px' }}>
+                                                        <span style={{ color: '#777', fontSize: '13px', display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Firma de Validación:</span>
+                                                        <div style={{ background: '#f5f5f5', padding: '10px', borderRadius: '8px', display: 'inline-block' }}>
+                                                            <img
+                                                                src={reportData.firmaEmpresa}
+                                                                alt="Firma"
+                                                                onClick={() => setSelectedZoomImage(reportData.firmaEmpresa)}
+                                                                style={{ height: '60px', objectFit: 'contain', cursor: 'pointer', transition: 'transform 0.2s' }}
+                                                                onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                                                                onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {trabajo.cotizacion && (
+                                        <div style={{ background: '#fff9e6', padding: '20px', borderRadius: '15px', border: '1px solid #ffe0b2' }}>
+                                            <h4 style={{ margin: '0 0 15px 0', color: '#e65100', fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                💰 Cotización Aprobada
+                                            </h4>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                    <span style={{ color: '#777', fontSize: '14px' }}>Costo Final:</span>
+                                                    <span style={{ fontWeight: 'bold', color: '#333', fontSize: '16px' }}>${trabajo.cotizacion.costo}</span>
+                                                </div>
+                                                <div>
+                                                    <span style={{ color: '#777', fontSize: '14px', display: 'block', marginBottom: '5px' }}>Notas de Administración:</span>
+                                                    <p style={{ margin: 0, color: '#555', fontSize: '14px', fontStyle: 'italic', background: '#fff', padding: '10px', borderRadius: '8px', border: '1px solid #ffd54f' }}>
+                                                        "{trabajo.cotizacion.notas || "Sin notas adicionales."}"
+                                                    </p>
+                                                </div>
+                                                <div style={{ marginTop: '10px' }}>
+                                                    <a
+                                                        href={trabajo.cotizacion.archivo}
+                                                        target="_blank"
+                                                        rel="noreferrer"
+                                                        style={{ display: 'inline-block', color: '#1976d2', textDecoration: 'none', fontSize: '14px', fontWeight: 'bold' }}
+                                                    >
+                                                        📎 Ver Archivo Adjunto (Original)
+                                                    </a>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                </div>
                             </div>
                         </div>
-                    </div>
-                )
+                    );
+                })()
             }
-        </div >
+
+            {/* MODAL RECORDATORIO DE SEGURIDAD */}
+            {isSecurityModalOpen && selectedTaskForReport && (
+                <div className={styles.modalOverlay} style={{ zIndex: 1000 }} onClick={() => setIsSecurityModalOpen(false)}>
+                    <div className={styles.modalContent} style={{ maxWidth: '500px', width: '90%', padding: '40px 30px', textAlign: 'center', borderRadius: '25px' }} onClick={(e) => e.stopPropagation()}>
+                        <div style={{ fontSize: '60px', marginBottom: '20px' }}>⚠️</div>
+                        <h3 style={{ margin: '0 0 20px 0', color: '#f57f17', fontSize: '26px' }}>Recordatorio de Seguridad</h3>
+                        <p style={{ margin: '0 0 30px 0', fontSize: '16px', color: '#555', lineHeight: '1.6' }}>
+                            Por favor, asegúrate de llevar contigo todo tu <strong>equipo de seguridad adecuado</strong> (casco, guantes, lentes, botas, etc.) y las <strong>herramientas de mano necesarias</strong> antes de iniciar la tarea <span style={{ fontWeight: 'bold', color: '#333' }}>'{selectedTaskForReport.titulo}'</span>.<br /><br />
+                            ¡Tu seguridad es lo más importante!
+                        </p>
+                        <div style={{ display: 'flex', gap: '15px', justifyContent: 'center' }}>
+                            <button
+                                onClick={() => setIsSecurityModalOpen(false)}
+                                style={{ padding: '12px 25px', borderRadius: '30px', border: 'none', background: '#eee', color: '#555', fontWeight: 'bold', cursor: 'pointer', fontSize: '16px' }}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setIsSecurityModalOpen(false);
+                                    navigate(`/menu/reporte-tarea/${selectedTaskForReport.id}`);
+                                }}
+                                style={{ padding: '12px 30px', borderRadius: '30px', border: 'none', background: '#fbbc04', color: '#fff', fontWeight: 'bold', cursor: 'pointer', fontSize: '16px', boxShadow: '0 4px 10px rgba(251, 188, 4, 0.3)' }}
+                            >
+                                Entendido, Continuar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* IMAGE ZOOM MODAL */}
+            {selectedZoomImage && (
+                <div
+                    style={{
+                        position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+                        background: 'rgba(0, 0, 0, 0.85)', zIndex: 9999, display: 'flex',
+                        alignItems: 'center', justifyContent: 'center', padding: '20px',
+                        backdropFilter: 'blur(5px)'
+                    }}
+                    onClick={() => setSelectedZoomImage(null)}
+                >
+                    <div style={{ position: 'relative', maxWidth: '95%', maxHeight: '95%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                        <button
+                            onClick={() => setSelectedZoomImage(null)}
+                            style={{ position: 'absolute', top: '-40px', right: '0', background: 'none', border: 'none', color: '#fff', fontSize: '30px', cursor: 'pointer', fontWeight: 'bold' }}
+                        >
+                            ×
+                        </button>
+                        <img
+                            src={selectedZoomImage}
+                            alt="Zoomed Evidence"
+                            style={{ maxWidth: '100%', maxHeight: '90vh', objectFit: 'contain', borderRadius: '15px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}
+                            onClick={(e) => e.stopPropagation()}
+                        />
+                    </div>
+                </div>
+            )}
+
+        </div>
     );
 };
 

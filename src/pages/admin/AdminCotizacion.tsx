@@ -1,7 +1,7 @@
 import React, { useState, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import styles from "./AdminCotizacion.module.css";
-import { HiOutlineArrowLeft, HiOutlineDocumentAdd } from "react-icons/hi";
+import { HiOutlineDocumentAdd } from "react-icons/hi";
 
 const AdminCotizacion: React.FC = () => {
     const { id } = useParams();
@@ -81,9 +81,6 @@ const AdminCotizacion: React.FC = () => {
                 <div className={styles.contentWrapper}>
                     {/* ENCABEZADO */}
                     <div className={styles.header}>
-                        <button onClick={() => navigate(-1)} className={styles.backButton}>
-                            <HiOutlineArrowLeft size={24} />
-                        </button>
                         <div>
                             <h1 className={styles.pageTitle}>Generar Cotización</h1>
                             <p className={styles.subtitle}>Trabajo #{id}</p>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import styles from './AdminPerfilTrabajador.module.css';
 
 interface Trabajador {
@@ -16,7 +16,6 @@ interface Trabajador {
 
 const AdminPerfilTrabajador: React.FC = () => {
     const { id } = useParams();
-    const navigate = useNavigate();
     const [worker, setWorker] = useState<Trabajador | null>(null);
 
     useEffect(() => {
@@ -32,7 +31,6 @@ const AdminPerfilTrabajador: React.FC = () => {
         return (
             <div className={styles.dashboardLayout}>
                 <div className={styles.mainCard}>
-                    <button onClick={() => navigate(-1)} className={styles.backButton}>← Volver</button>
                     <p>Trabajador no encontrado.</p>
                 </div>
             </div>
@@ -47,7 +45,6 @@ const AdminPerfilTrabajador: React.FC = () => {
                 <div className={styles.sideDecoration}></div>
 
                 <div className={styles.contentWrapper}>
-                    <button onClick={() => navigate(-1)} className={styles.backButton}>← Volver</button>
 
                     <div className={styles.profileHeader}>
                         <div className={styles.infoGrid}>

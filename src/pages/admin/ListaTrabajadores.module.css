@@ -256,3 +256,105 @@
     text-decoration: underline;
     font-size: 12px;
 }
+
+/* ===========================
+   RESPONISVE / MOBILE
+=========================== */
+
+@media (max-width: 768px) {
+    .dashboardLayout {
+        flex-direction: column;
+        gap: 0;
+    }
+    
+    .rightColumn { display: none; }
+    
+    .searchSection {
+        flex-direction: column;
+        align-items: stretch;
+        margin: 10px 15px;
+    }
+    
+    .searchCard { width: 100%; margin-bottom: 5px; }
+    
+    .searchInput { width: 100%; }
+    
+    .filterBtn, .primaryBtn {
+        width: 100%;
+        justify-content: center;
+        text-align: center;
+        padding: 12px;
+        margin-bottom: 5px;
+    }
+    
+    .jobsSection { padding: 0; gap: 0; }
+    
+    .jobCard {
+        padding: 12px 15px;
+        border-radius: 0;
+        border: none;
+        border-bottom: 1px solid #f0f0f0;
+        background: white;
+        margin: 0;
+        box-shadow: none;
+    }
+    
+    .cardContent {
+        flex-direction: row;
+        align-items: center;
+        gap: 15px;
+        padding: 0;
+        word-break: break-word;
+    }
+    
+    .cardIcon {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        background: #e0e0e0;
+        font-size: 20px;
+        flex-shrink: 0;
+    }
+    
+    .cardInfo { flex: 1; position: relative; }
+    
+    .cardInfo h3 {
+        font-size: 16px;
+        font-weight: 600;
+        color: #111;
+        margin-bottom: 2px;
+        display: inline-block;
+        max-width: 75%;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .cardDate {
+        position: absolute;
+        top: 2px;
+        right: 0;
+        font-size: 11px;
+        color: #888;
+    }
+    
+    .cardInfo p {
+        font-size: 13px;
+        color: #666;
+        margin: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .cardIndicator { display: none; }
+    
+    .modalContent {
+        width: 90%;
+        padding: 20px;
+        max-height: 80vh;
+        overflow-y: auto;
+    }
+    
+    .radioGrid { grid-template-columns: 1fr; }
+}

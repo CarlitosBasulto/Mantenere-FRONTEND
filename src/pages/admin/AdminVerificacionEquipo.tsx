@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import styles from './AdminVerificacionEquipo.module.css';
 
@@ -7,41 +6,7 @@ const AdminVerificacionEquipo: React.FC = () => {
     const navigate = useNavigate();
     const { id } = useParams();
 
-    // Mock data based on realistic items
-    const [handTools, setHandTools] = useState([
-        { id: 1, name: 'Pinzas', checked: false },
-        { id: 2, name: 'Desarmador', checked: false },
-        { id: 3, name: 'Martillo', checked: false },
-        { id: 4, name: 'Cinta de medir', checked: false },
-        { id: 5, name: 'Pelacables', checked: false },
-        { id: 6, name: 'Cúter', checked: false },
-        { id: 7, name: 'Llaves ajustables', checked: false },
-    ]);
-
-    const [safetyEquipment, setSafetyEquipment] = useState([
-        { id: 1, name: 'Casco', checked: false },
-        { id: 2, name: 'Guantes de carnaza', checked: false },
-        { id: 3, name: 'Lentes de seguridad', checked: false },
-        { id: 4, name: 'Botas de trabajo', checked: false },
-        { id: 5, name: 'Arnés de seguridad', checked: false },
-        { id: 6, name: 'Chaleco reflejante', checked: false },
-    ]);
-
-    const toggleHandTool = (toolId: number) => {
-        setHandTools(tools => tools.map(t => t.id === toolId ? { ...t, checked: !t.checked } : t));
-    };
-
-    const toggleSafetyEquipment = (equipId: number) => {
-        setSafetyEquipment(equip => equip.map(e => e.id === equipId ? { ...e, checked: !e.checked } : e));
-    };
-
-    const allChecked = handTools.every(t => t.checked) && safetyEquipment.every(e => e.checked);
-
     const handleNext = () => {
-        if (!allChecked) {
-            alert("Por favor, marca todas las herramientas y el equipo de seguridad antes de continuar al reporte.");
-            return;
-        }
         // Navigate to the next step (report filling)
         navigate(`/menu/reporte-tarea/${id}`);
     };
@@ -59,72 +24,39 @@ const AdminVerificacionEquipo: React.FC = () => {
                 <div className={styles.contentWrapper}>
 
                     {/* Header */}
-                    <button onClick={() => navigate(-1)} className={styles.backButton}>
-                        ← Volver
-                    </button>
 
                     <div className={styles.headerTitle}>
                         <h1 className={styles.titleMain}>Trabajo</h1>
                         <h2 className={styles.titleSecondary}>Trabajo</h2>
                     </div>
 
-                    {/* Job Title and Priority */}
+                    {/* Job Title and Priority - can be fetched dynamically but kept static for now as per original */}
                     <div className={styles.jobHeader}>
-                        <h2 className={styles.jobName}>Reparación de azotea</h2>
+                        <h2 className={styles.jobName}>Verificación de Seguridad</h2>
                         <span className={styles.jobPriority}>
-                            Prioridad: Alta
+                            Importante
                         </span>
                     </div>
 
                     <div className={styles.scrollableContent}>
-                        {/* Checklists Container */}
-                        <div className={styles.checklistGrid}>
-                            {/* Hand Tools Column */}
-                            <div className={styles.infoSectionCard}>
-                                <h3 className={styles.checklistColumnTitle}>Herramientas de Mano</h3>
-                                <div className={styles.checklistItems}>
-                                    {handTools.map(item => (
-                                        <div
-                                            key={item.id}
-                                            className={`${styles.checklistItem} ${item.checked ? styles.checklistItemChecked : styles.checklistItemUnchecked}`}
-                                            onClick={() => toggleHandTool(item.id)}
-                                        >
-                                            <div className={`${styles.checkbox} ${item.checked ? styles.checkboxChecked : ''}`}>
-                                                {item.checked && '✓'}
-                                            </div>
-                                            <span className={styles.itemName}>{item.name}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
 
-                            {/* Safety Equipment Column */}
-                            <div className={styles.infoSectionCard}>
-                                <h3 className={styles.checklistColumnTitle}>Equipo de seguridad</h3>
-                                <div className={styles.checklistItems}>
-                                    {safetyEquipment.map(item => (
-                                        <div
-                                            key={item.id}
-                                            className={`${styles.checklistItem} ${item.checked ? styles.checklistItemChecked : styles.checklistItemUnchecked}`}
-                                            onClick={() => toggleSafetyEquipment(item.id)}
-                                        >
-                                            <div className={`${styles.checkbox} ${item.checked ? styles.checkboxChecked : ''}`}>
-                                                {item.checked && '✓'}
-                                            </div>
-                                            <span className={styles.itemName}>{item.name}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
+                        <div style={{ background: '#fff9c4', border: '1px solid #fbc02d', borderRadius: '15px', padding: '30px', margin: '20px 0', textAlign: 'center', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
+                            <div style={{ fontSize: '48px', marginBottom: '15px' }}>⚠️</div>
+                            <h3 style={{ margin: '0 0 15px 0', color: '#f57f17', fontSize: '24px' }}>Recordatorio de Seguridad</h3>
+                            <p style={{ margin: 0, fontSize: '18px', color: '#555', lineHeight: '1.6' }}>
+                                Por favor, asegúrate de llevar contigo todo tu <strong>equipo de seguridad adecuado</strong> (casco, guantes, lentes, botas, etc.) y las <strong>herramientas de mano necesarias</strong> antes de iniciar el trabajo. <br /><br />
+                                ¡Tu seguridad es lo más importante!
+                            </p>
                         </div>
 
                         {/* Next Button */}
-                        <div className={styles.footer}>
+                        <div className={styles.footer} style={{ justifyContent: 'center' }}>
                             <button
                                 onClick={handleNext}
-                                className={`${styles.nextButton} ${!allChecked ? styles.nextButtonDisabled : ''}`}
+                                className={styles.nextButton}
+                                style={{ padding: '15px 50px', fontSize: '18px', width: 'auto' }}
                             >
-                                Siguiente
+                                Entendido, Continuar
                             </button>
                         </div>
                     </div>

@@ -20,7 +20,7 @@
 .newRequestBtn {
     border-radius: 25px !important;
     padding: 10px 50px !important;
-    background: #5f5f5f !important;
+    background: #333 !important;
     color: #fff !important;
     font-weight: bold !important;
     white-space: nowrap !important;
@@ -29,7 +29,23 @@
 }
 
 .newRequestBtn:hover {
-    background: #8b8b8b !important;
+    background: #111 !important;
+    transform: scale(1.05) !important;
+}
+
+.sosBtn {
+    border-radius: 25px !important;
+    padding: 10px 50px !important;
+    background: #f44336 !important;
+    color: #fff !important;
+    font-weight: bold !important;
+    white-space: nowrap !important;
+    border: none !important;
+    transition: all 0.2s ease;
+}
+
+.sosBtn:hover {
+    background: #d32f2f !important;
     transform: scale(1.05) !important;
 }
 
@@ -596,4 +612,150 @@
 
 .newServiceTextArea:focus {
     border-color: #fbbc04;
+}
+
+.btnCotizar {
+    background: linear-gradient(135deg, #f9ab0f 0%, #e68a00 100%);
+    color: #fff;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 30px;
+    font-weight: bold;
+    font-size: 15px;
+    cursor: pointer;
+    white-space: nowrap;
+    box-shadow: 0 4px 15px rgba(249, 171, 15, 0.4);
+    transition: all 0.3s ease;
+    align-items: center;
+    display: inline-flex;
+    gap: 8px;
+}
+
+.btnCotizar:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(249, 171, 15, 0.6);
+}
+
+.nuevoBadge {
+    position: absolute;
+    top: -5px;
+    right: 15px;
+    /* Adjusting right so it overlaps the border slightly but stays visible */
+    background: #4fc3f7;
+    /* Light blue color like the image */
+    color: white;
+    padding: 6px 16px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 900;
+    text-transform: uppercase;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    z-index: 10;
+}
+
+/* ===========================
+   RESPONISVE / MOBILE (WhatsApp Style)
+=========================== */
+@media (max-width: 768px) {
+    .jobsSection { padding: 0; gap: 0; margin-top: 5px; }
+    
+    .jobCard {
+        padding: 16px 24px; /* Increased padding to give more breathing room */
+        border-radius: 0;
+        border: none;
+        border-bottom: 1px solid #f0f0f0;
+        background: white;
+        margin: 0;
+        box-shadow: none;
+    }
+    
+    .cardContent {
+        flex-direction: row;
+        align-items: flex-start;
+        gap: 15px;
+        padding: 0;
+        word-break: break-word;
+    }
+    
+    .cardIconStatus {
+        font-size: 24px;
+        margin-right: 0;
+        margin-top: 2px;
+        width: 35px; /* Fixed width to align all texts vertically */
+        display: flex;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+    
+    .cardInfo {
+        flex: 1;
+        position: relative;
+    }
+    
+    .cardDateWrapper {
+        flex-direction: row-reverse;
+        justify-content: flex-end; /* Date on the right natively if we want, or left */
+        margin-bottom: 2px;
+        position: absolute;
+        top: 0;
+        right: 0;
+    }
+    
+    .cardDate { font-size: 11px; color: #888; margin:0; }
+    
+    .jobTitle {
+        font-size: 16px;
+        font-weight: 600;
+        color: #111;
+        margin-bottom: 4px;
+        display: inline-block;
+        max-width: 75%;
+    }
+    
+    .jobDescription {
+        font-size: 13px;
+        color: #666;
+        margin: 0 0 5px 0;
+        background: transparent;
+        border-left: none;
+        padding: 0;
+        font-style: normal;
+    }
+    
+    .technicianLabel { font-size: 12px; margin-bottom: 5px; display: block; }
+    
+    .actionsContainer {
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 10px;
+        justify-content: flex-start;
+    }
+    
+    .statusBtn {
+        padding: 6px 12px !important;
+        font-size: 11px !important;
+        border-radius: 15px !important;
+    }
+    
+    .cardIndicator { display: none; }
+    
+    .requestBadge { position: relative; top: auto; right: auto; margin-bottom: 5px; display: inline-block; padding: 3px 10px; font-size: 10px; }
+    .nuevoBadge { position: relative; top: auto; right: auto; margin-bottom: 5px; display: inline-block; padding: 3px 10px; font-size: 10px; }
+    
+    .modalContent {
+        width: 90%;
+        padding: 20px;
+        max-height: 85vh;
+        overflow-y: auto;
+    }
+    .modalContentWide, .modalContentMedium, .modalContentSmall {
+        width: 90% !important;
+        padding: 20px !important;
+    }
+    
+    .filterGrid { grid-template-columns: 1fr; }
+    .formField { flex-direction: column; align-items: flex-start; gap: 5px; }
+    .requestModalActions { flex-direction: column; gap: 10px; }
+    .confirmBtnLarge, .cancelBtnLarge { width: 100%; padding: 12px; font-size: 14px; }
 }
