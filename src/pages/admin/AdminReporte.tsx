@@ -1,7 +1,11 @@
 
 import React, { useState, useRef } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import styles from './AdminReporte.module.css';
+import { createReporte } from '../../services/reportesService';
+import { updateEstadoTrabajo } from '../../services/trabajosService';
+import { useAuth } from '../../context/AuthContext';
+import jsPDF from 'jspdf';
 
 const compressImage = (file: File, callback: (compressedBase64: string) => void) => {
     const reader = new FileReader();
@@ -42,6 +46,9 @@ const compressImage = (file: File, callback: (compressedBase64: string) => void)
 const AdminReporte: React.FC = () => {
     const navigate = useNavigate();
     const { id } = useParams();
+    const location = useLocation();
+    const trabajoId = location.state?.trabajoId;
+    const { user } = useAuth();
 
     // Form states
     const [reporteTienda, setReporteTienda] = useState('');
@@ -124,13 +131,26 @@ const AdminReporte: React.FC = () => {
     const handleFirmaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            compressImage(file, (base64) => {
-                setFirmaEmpresa(base64);
-            });
+            if (file.type === "application/pdf") {
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    setFirmaEmpresa(ev.target?.result as string);
+                };
+                reader.readAsDataURL(file);
+            } else {
+                compressImage(file, (base64) => {
+                    setFirmaEmpresa(base64);
+                });
+            }
         }
     };
 
-    const handleGuardarInformacion = () => {
+    const handleGuardarInformacion = async () => {
+        if (!trabajoId) {
+            alert("Error: No se encontró el ID del trabajo asociado.");
+            return;
+        }
+
         const reportData = {
             id,
             reporteTienda,
@@ -142,12 +162,133 @@ const AdminReporte: React.FC = () => {
             firmaEmpresa,
             fecha: new Date().toLocaleDateString()
         };
-        localStorage.setItem(`report_data_temporal_${id}`, JSON.stringify(reportData));
-        alert("Información guardada temporalmente.");
+        
+        try {
+            const dataToSave = {
+                trabajo_id: trabajoId,
+                descripcion: descripcion || "Reporte generado",
+                solucion: JSON.stringify(reportData) // Empaquetamos todo en solucion para el backend
+            };
+            await createReporte(dataToSave);
+            localStorage.setItem(`report_data_temporal_${id}`, JSON.stringify(reportData));
+            alert("Información guardada en Base de Datos exitosamente.");
+        } catch (error) {
+            console.error(error);
+            alert("Hubo un error al guardar en Base de Datos. Se guardará temporalmente de forma local.");
+            localStorage.setItem(`report_data_temporal_${id}`, JSON.stringify(reportData));
+        }
     };
 
     const handleGenerarPDF = async () => {
-        alert("Generación de PDF en progreso (Simulación). El backend se encargará del documento real.");
+        try {
+            const doc = new jsPDF();
+            doc.setFontSize(16);
+            doc.text("Reporte de Mantenimiento", 105, 15, { align: "center" });
+
+            doc.setFontSize(10);
+            doc.text(`ID Tarea: ${id || "N/A"}`, 10, 25);
+            doc.text(`Fecha: ${new Date().toLocaleDateString('es-MX')}`, 10, 32);
+
+            doc.setFont("helvetica", "bold");
+            doc.text("Reporte de Tienda / Diagnóstico:", 10, 45);
+            doc.setFont("helvetica", "normal");
+            const prepReporte = doc.splitTextToSize(reporteTienda || 'Sin especificar', 180);
+            doc.text(prepReporte, 10, 52);
+
+            let nextY = 55 + (prepReporte.length * 5); // Dinámico basado en lineas
+
+            doc.setFont("helvetica", "bold");
+            doc.text("Descripción del Trabajo y Solución:", 10, nextY);
+            doc.setFont("helvetica", "normal");
+            const prepDesc = doc.splitTextToSize(descripcion || 'Sin especificar', 180);
+            nextY += 7;
+            doc.text(prepDesc, 10, nextY);
+            
+            nextY += (prepDesc.length * 5) + 5;
+
+            doc.setFont("helvetica", "bold");
+            doc.text("Materiales Utilizados:", 10, nextY);
+            doc.setFont("helvetica", "normal");
+            const prepMat = doc.splitTextToSize(materiales || 'Ninguno', 180);
+            nextY += 7;
+            doc.text(prepMat, 10, nextY);
+
+            nextY += (prepMat.length * 5) + 5;
+
+            doc.setFont("helvetica", "bold");
+            doc.text("Observaciones Adicionales:", 10, nextY);
+            doc.setFont("helvetica", "normal");
+            const prepObs = doc.splitTextToSize(observaciones || 'Ninguna', 180);
+            nextY += 7;
+            doc.text(prepObs, 10, nextY);
+
+            let currentY = nextY + (prepObs.length * 5) + 15;
+
+            if (currentY > 230) {
+                doc.addPage();
+                currentY = 20;
+            }
+
+            if (imagenes.antes || imagenes.durante || imagenes.despues) {
+                doc.setFont("helvetica", "bold");
+                doc.text("Evidencia Fotográfica:", 10, currentY);
+                currentY += 10;
+                
+                let x = 15;
+                if (imagenes.antes) {
+                    doc.text("Antes", x + 15, currentY);
+                    doc.addImage(imagenes.antes, 'JPEG', x, currentY + 5, 45, 45);
+                    x += 60;
+                }
+                if (imagenes.durante) {
+                    doc.text("Durante", x + 15, currentY);
+                    doc.addImage(imagenes.durante, 'JPEG', x, currentY + 5, 45, 45);
+                    x += 60;
+                }
+                if (imagenes.despues) {
+                    doc.text("Después", x + 15, currentY);
+                    doc.addImage(imagenes.despues, 'JPEG', x, currentY + 5, 45, 45);
+                }
+                currentY += 65;
+            }
+
+            if (imagenObservacion) {
+                if (currentY > 180) {
+                    doc.addPage();
+                    currentY = 20;
+                }
+                doc.setFont("helvetica", "bold");
+                doc.text("Evidencia Adicional (Observaciones):", 10, currentY);
+                doc.addImage(imagenObservacion, 'JPEG', 10, currentY + 10, 80, 80);
+                currentY += 100;
+            }
+
+            if (firmaEmpresa) {
+                if (currentY > 230) {
+                    doc.addPage();
+                    currentY = 20;
+                }
+                doc.setFont("helvetica", "bold");
+                doc.text("Firma de Conformidad de la Empresa:", 10, currentY);
+                
+                if (firmaEmpresa.startsWith('data:application/pdf')) {
+                    doc.setFont("helvetica", "normal");
+                    doc.text("[ Documento PDF Adjunto cargado en Base de Datos ]", 10, currentY + 15);
+                } else {
+                    // Evitamos formato transparente si firma es PNG usando PNG genérico pero como fue comprimida JPEG -> JPEG
+                    doc.addImage(firmaEmpresa, 'JPEG', 10, currentY + 5, 60, 40);
+                    doc.setDrawColor(0);
+                    doc.line(10, currentY + 50, 70, currentY + 50);
+                    doc.setFont("helvetica", "normal");
+                    doc.text("Sello / Firma Autorizada", 25, currentY + 55);
+                }
+            }
+
+            doc.save(`Reporte_Mantenimiento_T${id}.pdf`);
+        } catch (error) {
+            console.error(error);
+            alert("Hubo un error al generar el PDF. Asegúrate de que las fotos no sean demasiado grandes o corruptas.");
+        }
     };
 
     const handleOpenConfirm = () => {
@@ -159,7 +300,7 @@ const AdminReporte: React.FC = () => {
         setIsConfirmModalOpen(true);
     };
 
-    const handleSave = () => {
+    const handleSave = async () => {
 
         // Check if report is already finalized (editing mode)
         const isEditing = !!localStorage.getItem(`report_data_${id}`);
@@ -183,15 +324,9 @@ const AdminReporte: React.FC = () => {
                     // AUTO-SYNC STATUS CHECK
                     const allComplete = tasks.every((t: any) => t.estado === 'Completa');
                     if (allComplete) {
-                        const storedJobs = localStorage.getItem('negocios_list');
-                        if (storedJobs) {
-                            const list = JSON.parse(storedJobs);
-                            const jobIndex = list.findIndex((j: any) => j.id == jobFoundId); // NOTA: esto sigue estando mal (jobId vs businessId) pero lo restauramos para no romper el flujo existente mientras enfocamos
-                            if (jobIndex !== -1) {
-                                list[jobIndex].estado = 'Finalizado';
-                                localStorage.setItem('negocios_list', JSON.stringify(list));
-                            }
-                        }
+                        try {
+                            // Si tuviéramos API para tareas lo haríamos aquí
+                        } catch(e) {}
                     }
                     break;
                 }
@@ -219,7 +354,7 @@ const AdminReporte: React.FC = () => {
             }
         }
 
-        // Save full report data
+        // Save full report data locally
         const reportData = {
             id,
             jobFoundId,
@@ -233,92 +368,80 @@ const AdminReporte: React.FC = () => {
             fecha: new Date().toLocaleDateString()
         };
         localStorage.setItem(`report_data_${id}`, JSON.stringify(reportData));
+        localStorage.removeItem(`report_data_temporal_${id}`); // Limpiar temporal
+
+        // ✅ ACTUALIZAR EL ESTADO GLOBALY Y DB (ESPERANDO A QUE TERMINE Y CON FALLBACK ID SEGURO)
+        const safeTrabajoId = trabajoId || jobFoundId;
+        if (safeTrabajoId) {
+            try {
+                // Ensure sending to backend API correctly
+                await updateEstadoTrabajo(Number(safeTrabajoId), { estado: 'Finalizado' });
+                console.log("Estado de Trabajo actualizado a Finalizado en BD");
+            } catch (e: any) {
+                console.error("Error al finalizar en BD", e);
+                alert("Atención: Hubo un problema comunicándose con la Base de Datos para definir el trabajo como 'Finalizado'. Informa al administrador. Detalle: " + (e.message || ""));
+            }
+        }
 
         // GENERAR NOTIFICACIÓN PARA EL ADMINISTRADOR (Solo si no es edición)
         if (!isEditing) {
             const notificaciones = JSON.parse(localStorage.getItem('admin_notifications') || '[]');
             const nuevaNotificacion = {
                 id: Date.now(),
-                titulo: 'Trabajo Finalizado',
-                mensaje: `El técnico ha completado el reporte para: ${jobTitle}.`,
+                titulo: 'Trabajo Finalizado ✨',
+                mensaje: `El técnico ha cerrado permanentemente y generado reporte para la tarea: ${jobTitle}.`,
                 fecha: new Date().toLocaleDateString('es-MX', { hour: '2-digit', minute: '2-digit' }),
                 leida: false,
-                jobId: jobFoundId
+                enlace: `/menu/trabajo-detalle/${trabajoId || jobFoundId}`
             };
             notificaciones.unshift(nuevaNotificacion);
             localStorage.setItem('admin_notifications', JSON.stringify(notificaciones));
+            window.dispatchEvent(new Event('storage'));
         }
 
-        // GENERAR NOTIFICACIÓN PARA EL CLIENTE (Solo si no es edición)
-        if (jobFoundId && originalJob && !isEditing) {
-            const clientNotifs = JSON.parse(localStorage.getItem('client_notifications') || '[]');
-            const esVisita = originalJob.tipo && originalJob.tipo.toLowerCase().includes('visita');
+        // FINALMENTE, LECTURA REAL Y SEGURA PARA NOTIFICAR AL CLIENTE
+        if (safeTrabajoId && !isEditing) {
+            try {
+                // Sacamos datos del backend fresquitos ahora que localStorage está obsoleto para esta operación
+                const { getTrabajo } = await import('../../services/trabajosService');
+                const jobFromApi = await getTrabajo(Number(safeTrabajoId));
+                const clientNotifs = JSON.parse(localStorage.getItem('client_notifications') || '[]');
+                
+                const esVisitaStr = String(jobTitle).toLowerCase().includes('visita');
+                const esVisitaReal = jobFromApi.tipo && jobFromApi.tipo.toLowerCase() === 'visita';
 
-            clientNotifs.unshift({
-                id: Date.now() + 1,
-                titulo: esVisita ? 'Visita Completada' : 'Trabajo Finalizado',
-                mensaje: esVisita
-                    ? `El técnico ha terminado la visita para: ${jobTitle}.`
-                    : `El técnico ha terminado el trabajo de manera exitosa para: ${jobTitle}.`,
-                fecha: new Date().toLocaleDateString('es-MX', { hour: '2-digit', minute: '2-digit' }),
-                leida: false,
-                jobId: jobFoundId
-            });
-            localStorage.setItem('client_notifications', JSON.stringify(clientNotifs));
-        }
-
-        window.dispatchEvent(new Event('storage'));
-
-        // Create new request from observations if they exist (Solo si no es edición)
-        if (observaciones.trim() !== "" && !isEditing) {
-            if (foundBusinessKey && originalJob) {
-                const targetList = JSON.parse(localStorage.getItem(foundBusinessKey) || '[]');
-                const newRecursiveJob = {
-                    id: Date.now() + Math.floor(Math.random() * 1000),
-                    titulo: `Supervisión de Reporte: ${jobTitle}`,
-                    ubicacion: originalJob.ubicacion,
-                    tecnico: "Sin asignar",
-                    fecha: new Date().toLocaleDateString('es-MX'),
-                    estado: "Solicitud",
-                    tipo: "Visita",
-                    descripcion: `Hallazgo: ${observaciones}`,
-                    sucursal: realSucursal,
-                    encargado: originalJob.encargado,
-                    plaza: originalJob.plaza,
-                    ciudad: originalJob.ciudad,
-                    calle: originalJob.calle,
-                    numero: originalJob.numero,
-                    colonia: originalJob.colonia,
-                    cp: originalJob.cp,
-                };
-                targetList.push(newRecursiveJob);
-                localStorage.setItem(foundBusinessKey, JSON.stringify(targetList));
-            } else {
-                // Fallback de seguridad al listado envímero
-                const nuevasSolicitudes = JSON.parse(localStorage.getItem('new_solicitudes') || '[]');
-                const nuevaSolicitud = {
-                    id: Date.now(),
-                    nombre: `Nueva acción: ${jobTitle}`,
-                    subtitulo: `Obs: ${observaciones.substring(0, 30)}...`,
-                    fecha: new Date().toLocaleDateString(),
-                    tipo: "Técnico",
-                    sucursal: realSucursal
-                };
-                nuevasSolicitudes.push(nuevaSolicitud);
-                localStorage.setItem('new_solicitudes', JSON.stringify(nuevasSolicitudes));
+                clientNotifs.unshift({
+                    id: Date.now() + 1,
+                    titulo: (esVisitaStr || esVisitaReal) ? 'Visita Completada' : 'Trabajo Finalizado ✨',
+                    mensaje: (esVisitaStr || esVisitaReal)
+                        ? `El técnico ha concluido la visita de diagnóstico para: ${jobTitle}.`
+                        : `El técnico ha terminado el trabajo manera exitosa y el reporte está listo para: ${jobTitle}.`,
+                    fecha: new Date().toLocaleDateString('es-MX', { hour: '2-digit', minute: '2-digit' }),
+                    leida: false,
+                    jobId: jobFoundId
+                });
+                localStorage.setItem('client_notifications', JSON.stringify(clientNotifs));
+                window.dispatchEvent(new Event('storage'));
+            } catch (notifyErr) {
+                console.error("Error al generar notificacion de cliente:", notifyErr);
             }
         }
-
+        
         // Final edit save success message
         if (isEditing) {
             alert("Reporte actualizado con éxito.");
         } else {
             alert("Reporte guardado con éxito y tarea completada.");
         }
+        
         if (jobFoundId) {
-            navigate(`/menu/trabajo-detalle/${jobFoundId}`);
+            if (user?.role === 'tecnico') {
+                navigate(`/tecnico/trabajo-detalle/${jobFoundId}`, { replace: true });
+            } else {
+                navigate(`/menu/trabajo-detalle/${jobFoundId}`, { replace: true });
+            }
         } else {
-            navigate('/menu');
+            navigate(user?.role === 'tecnico' ? '/tecnico' : '/menu', { replace: true });
         }
     };
 
@@ -330,7 +453,7 @@ const AdminReporte: React.FC = () => {
             <input type="file" ref={duranteInputRef} style={{ display: 'none' }} onChange={(e) => handleImageChange(e, 'durante')} accept="image/*" />
             <input type="file" ref={despuesInputRef} style={{ display: 'none' }} onChange={(e) => handleImageChange(e, 'despues')} accept="image/*" />
             <input type="file" ref={observacionInputRef} style={{ display: 'none' }} onChange={handleImagenObservacionChange} accept="image/*" />
-            <input type="file" ref={firmaInputRef} style={{ display: 'none' }} onChange={handleFirmaChange} accept="image/*" />
+            <input type="file" ref={firmaInputRef} style={{ display: 'none' }} onChange={handleFirmaChange} accept="image/*,application/pdf" />
 
             {/* Main Content Card */}
             <div className={styles.mainCard}>
@@ -487,7 +610,7 @@ const AdminReporte: React.FC = () => {
                                 onClick={handleOpenConfirm}
                                 className={styles.saveButton}
                             >
-                                Guardar y Enviar
+                                Finalizar
                             </button>
                         </div>
                     </div>
@@ -535,7 +658,7 @@ const AdminReporte: React.FC = () => {
                                     transition: 'background 0.3s'
                                 }}
                             >
-                                {timerCount > 0 ? `Confirmar (${timerCount}s)` : 'Confirmar'}
+                                {timerCount > 0 ? `Finalizar (${timerCount}s)` : 'Confirmar y Finalizar'}
                             </button>
                         </div>
                     </div>

@@ -25,8 +25,11 @@ export const getCotizacionByTrabajoId = async (trabajoId: number): Promise<Cotiz
 };
 
 // 📌 Crear o actualizar una cotización
-export const saveCotizacion = async (data: Partial<Cotizacion>): Promise<Cotizacion> => {
-    const response = await api.post('/cotizaciones', data);
+export const saveCotizacion = async (data: Partial<Cotizacion> | FormData): Promise<Cotizacion> => {
+    const isFormData = data instanceof FormData;
+    const response = await api.post('/cotizaciones', data, isFormData ? {
+        headers: { "Content-Type": "multipart/form-data" }
+    } : {});
     return response.data.data;
 };
 

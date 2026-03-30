@@ -29,12 +29,11 @@ export const getReporteByTrabajoId = async (trabajoId: number): Promise<Reporte 
 };
 
 // 📌 Crear un reporte (Normalmente lo haría el Técnico)
-// Usamos FormData si vamos a enviar archivos físicos de imágenes
-export const createReporte = async (data: FormData): Promise<Reporte> => {
+// Ahora acepta tanto JSON (para Base64) como FormData
+export const createReporte = async (data: FormData | any): Promise<Reporte> => {
+    const isFormData = data instanceof FormData;
     const response = await api.post('/reportes', data, {
-        headers: {
-            "Content-Type": "multipart/form-data"
-        }
+        headers: isFormData ? { "Content-Type": "multipart/form-data" } : { "Content-Type": "application/json" }
     });
-    return response.data.data; // Suponiendo que el backend retorna { message: "...", data: {...} }
+    return response.data?.data || response.data; // Suponiendo que el backend retorna { message: "...", data: {...} } o directo
 };

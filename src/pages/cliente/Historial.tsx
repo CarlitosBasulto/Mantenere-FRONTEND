@@ -4,6 +4,7 @@ import styles from "./Historial.module.css";
 
 import { useAuth } from "../../context/AuthContext";
 import menuStyles from "../../components/Menu.module.css";
+import { getTrabajos } from "../../services/trabajosService";
 
 // Interfaz para el Trabajo
 interface TareaHistorial {
@@ -38,77 +39,49 @@ const Historial: React.FC<HistorialProps> = ({ businessId }) => {
         if (storedNegocios) {
             const negocios = JSON.parse(storedNegocios);
             negocios.forEach((n: any) => {
-                if (n.dueno === user.name) {
+                if (n.user_id === user.id || n.dueno === user.name) {
                     negociosIds.add(n.id);
                 }
             });
         }
 
-        // 2. Extraer los reportes/tareas completas de esos negocios
-        const todasLasTareas: TareaHistorial[] = [];
-
-        for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key?.startsWith('trabajos_business_')) {
-                const localBusinessId = Number(key.replace('trabajos_business_', ''));
-
-                if (businessId && localBusinessId !== businessId) continue;
-
-                if (negociosIds.has(localBusinessId) || user.role === 'admin' || user.role === 'tecnico') {
-                    const storedJobs = localStorage.getItem(key);
-                    if (storedJobs) {
-                        const jobs: any[] = JSON.parse(storedJobs);
-                        jobs.forEach(job => {
-                            // Obtener tareas del trabajo
-                            const storedTasks = localStorage.getItem(`tasks_${job.id}`);
-                            let tieneReportesCompletos = false;
-
-                            // 1. Agregar las SubTareas (reportes de técnico)
-                            if (storedTasks) {
-                                const subTareas: any[] = JSON.parse(storedTasks);
-                                subTareas.forEach(tarea => {
-                                    const hasTemporalData = (user.role === 'admin' || user.role === 'tecnico') ? !!localStorage.getItem(`report_data_temporal_${tarea.id}`) : false;
-
-                                    if (job.estado === 'Finalizado' || tarea.estado === 'Completa' || hasTemporalData) {
-                                        tieneReportesCompletos = true;
-                                        todasLasTareas.push({
-                                            id: tarea.id,
-                                            titulo: tarea.titulo,
-                                            descripcion: tarea.descripcion || "",
-                                            estado: tarea.estado === 'Completa' ? tarea.estado : (hasTemporalData ? 'Pre-Reporte' : tarea.estado),
-                                            ubicacion: job.ubicacion || `Negocio ${localBusinessId}`,
-                                            fecha: job.fecha,
-                                            tecnico: job.tecnico,
-                                            trabajoId: job.id
-                                        });
-                                    }
-                                });
-                            }
-
-                            // 2. Agregar un placeholder si el trabajo está Finalizado pero NO tuvo ni reportes ni cotizaciones visibles en esta iteración.
-                            // Esto evita que trabajos antiguos finalizados sin sub-tareas se vuelvan invisibles.
-                            if (job.estado === 'Finalizado' && !tieneReportesCompletos && !job.cotizacion) {
-                                todasLasTareas.push({
-                                    id: job.id + 1000000,
-                                    titulo: job.titulo,
-                                    descripcion: job.descripcion || "Trabajo completado exitosamente.",
-                                    estado: job.estado,
-                                    ubicacion: job.ubicacion || `Negocio ${localBusinessId}`,
-                                    fecha: job.fecha,
-                                    tecnico: job.tecnico !== "Sin asignar" ? job.tecnico : undefined,
-                                    trabajoId: job.id
-                                });
-                            }
-                        });
+        const fetchClientHistory = async () => {
+            try {
+                const apiJobs = await getTrabajos();
+                
+                // Filtrar solo los trabajos finalizados o completados
+                const terminados = apiJobs.filter((j: any) => j.estado === 'Finalizado' || j.estado === 'Cotización Aceptada');
+                
+                // Filtrar por negocio
+                const filteredJobs = terminados.filter((job: any) => {
+                    if (businessId) {
+                        return job.negocio_id === businessId;
                     }
-                }
+                    if (user.role === 'admin' || user.role === 'tecnico') {
+                        return true;
+                    }
+                    return negociosIds.has(job.negocio_id) || job.negocio?.user_id === user.id;
+                });
+
+                const mappedTareas = filteredJobs.map((job: any) => ({
+                    id: job.id,
+                    titulo: job.titulo,
+                    descripcion: job.descripcion || "Trabajo completado exitosamente.",
+                    estado: job.estado,
+                    ubicacion: job.negocio?.ubicacion || job.negocio?.nombre || "Sucursal",
+                    fecha: job.fecha_programada ? (job.fecha_programada.includes('-') ? job.fecha_programada.split('-').reverse().join('/') : job.fecha_programada) : new Date(job.created_at).toLocaleDateString('es-MX'),
+                    tecnico: job.trabajador?.nombre || "Sin Asignar",
+                    trabajoId: job.id
+                }));
+
+                mappedTareas.sort((a: any, b: any) => b.id - a.id);
+                setRawTareas(mappedTareas);
+            } catch (error) {
+                console.error("Error cargando historial de cliente:", error);
             }
-        }
+        };
 
-        // Ordenar por ID o alguna lógica (al no tener fecha exacta en subTareas, usamos ID)
-        todasLasTareas.sort((a, b) => b.id - a.id);
-
-        setRawTareas(todasLasTareas);
+        fetchClientHistory();
     }, [user, businessId]);
 
     // Filtrado

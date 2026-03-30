@@ -9,6 +9,18 @@ import {
     HiOutlineClock, 
     HiOutlineCurrencyDollar 
 } from "react-icons/hi2";
+import { getTrabajo, updateEstadoTrabajo, assignTrabajador } from "../../services/trabajosService";
+import { createActividad, getActividadesByTrabajo } from "../../services/actividadesService";
+import { getTrabajadores } from "../../services/trabajadoresService";
+import { saveCotizacion, updateCotizacionStatus, getCotizacionByTrabajoId } from "../../services/cotizacionesService";
+
+export interface CotizacionData {
+    id?: number;
+    costo: string;
+    notas: string;
+    archivo: string;
+    fecha: string;
+}
 
 // Interfaces
 interface Trabajo {
@@ -17,7 +29,7 @@ interface Trabajo {
     ubicacion: string;
     tecnico: string;
     fecha: string;
-    estado: "En Espera" | "Finalizado" | "En Proceso" | "Asignado" | "Solicitud" | "Cotización Enviada" | "Cotización Aceptada" | "Cotización Rechazada";
+    estado: "En Espera" | "Finalizado" | "En Proceso" | "Asignado" | "Solicitud" | "Cotización Enviada" | "Cotización Aceptada" | "Cotización Rechazada" | "Cotización Aprobada" | "Pendiente de Cotizar";
     tipo?: "Visita" | "Trabajo" | "Nueva Solicitud";
     visitado?: boolean;
     descripcion?: string;
@@ -31,12 +43,7 @@ interface Trabajo {
     cp?: string;
     fechaAsignada?: string;
     horaAsignada?: string;
-    cotizacion?: {
-        costo: string;
-        notas: string;
-        archivo: string;
-        fecha: string;
-    };
+    cotizacion?: CotizacionData;
     asignaciones?: {
         tecnicoId: number;
         tecnicoNombre: string;
@@ -81,7 +88,7 @@ const AdminDetalleTrabajo: React.FC = () => {
     // MOCK DATA
     const [trabajo, setTrabajo] = useState<Trabajo | null>(null);
     const [subTareas, setSubTareas] = useState<SubTarea[]>([]);
-    const [isFromNewReq, setIsFromNewReq] = useState(false);
+    // const [isFromNewReq, setIsFromNewReq] = useState(false);
 
     // MODAL DE SEGURIDAD
     const [isSecurityModalOpen, setIsSecurityModalOpen] = useState(false);
@@ -91,119 +98,120 @@ const AdminDetalleTrabajo: React.FC = () => {
     const [costo, setCosto] = useState("");
     const [notas, setNotas] = useState("");
     const [archivo, setArchivo] = useState<string | null>(null);
+    const [archivoFile, setArchivoFile] = useState<File | null>(null);
     const [nombreArchivo, setNombreArchivo] = useState<string>("");
     const fileInputRef = React.useRef<HTMLInputElement>(null);
-
-    const initialJobs: Trabajo[] = [];
-
-    const tecnicosData: Tecnico[] = [
-        { id: 1, nombre: "Javier Antonio Medina Medina" },
-        { id: 2, nombre: "Carlos Daniel Dzul Vicente" },
-        { id: 3, nombre: "Ernesto Eduardo Martin Escalante" },
-        { id: 4, nombre: "Pedro Javier" },
-    ];
+    const [tecnicosData, setTecnicosData] = useState<Tecnico[]>([]);
 
     useEffect(() => {
-        // Buscamos el trabajo en todas las listas de negocios persistidas
-        let foundJob: Trabajo | null = null;
+        const fetchTecnicos = async () => {
+            try {
+                const data = await getTrabajadores();
+                // Filtramos activos si es que hay un campo estado activo (opcional) o tomamos todos
+                const techList = data.filter((t: any) => t.estado?.toLowerCase() === 'activo' || t.estado === 'Activo');
+                setTecnicosData(techList.map((t: any) => ({
+                    id: t.id,
+                    nombre: t.nombre
+                })));
+            } catch (error) {
+                console.error("Error al obtener técnicos:", error);
+            }
+        };
+        fetchTecnicos();
+    }, []);
 
-        for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key?.startsWith('trabajos_business_')) {
-                const stored = localStorage.getItem(key);
-                if (stored) {
-                    const list: Trabajo[] = JSON.parse(stored);
-                    const match = list.find(j => j.id === Number(id));
-                    if (match) {
-                        foundJob = match;
-                        break;
+    useEffect(() => {
+        const fetchAll = async () => {
+            if (!id) return;
+            let currentTech = "Admin/Técnico";
+            try {
+                const data = await getTrabajo(Number(id));
+                currentTech = data.trabajador?.nombre || "Sin Asignar";
+                    const isTrabajoDefinitivo = ["Cotización Enviada", "Cotización Rechazada", "Cotización Aceptada", "Cotización Aprobada", "En Proceso", "Finalizado"].includes(data.estado) || data.visitado;
+                    const calculatedTipo = isTrabajoDefinitivo ? "Trabajo" : "Visita";
+
+                    const mappedJob = {
+                        id: data.id,
+                        titulo: data.titulo || (data as any).descripcion?.substring(0,20) || "Servicio",
+                        ubicacion: data.negocio?.ubicacion || "Por definir",
+                        tecnico: currentTech,
+                        fecha: data.fecha_programada || new Date(data.created_at).toLocaleDateString('es-MX'),
+                        estado: (data.estado === "Pendiente" ? "Solicitud" : data.estado) as any,
+                        tipo: calculatedTipo, 
+                        visitado: data.visitado,
+                    descripcion: data.descripcion,
+                    sucursal: data.negocio?.nombre || "Por definir",
+                    encargado: data.negocio?.encargado || "Por definir",
+                    plaza: data.negocio?.nombrePlaza || data.negocio?.nombre_plaza || "Por definir",
+                    ciudad: data.negocio?.ciudad || "M?rida",
+                    calle: data.negocio?.calle || "Por definir",
+                    numero: data.negocio?.numero || "S/N",
+                    colonia: data.negocio?.colonia || "Por definir",
+                    cp: data.negocio?.cp || "S/N"
+                };
+                setTrabajo(mappedJob as any);
+            } catch (error) {
+                console.error("No se pudo hallar el trabajo en servidor:", error);
+                setTrabajo(null);
+            }
+
+            try {
+                const acts = await getActividadesByTrabajo(Number(id));
+                const mappedSubTareas = acts.map((act: any) => {
+                    // Extraer posible cotización inferida desde descripción
+                    let finalDesc = act.descripcion || "";
+                    let parsedMonto = "Por Evaluar";
+                    let parsedDetalles = finalDesc;
+                    let esCot = true;
+
+                    const quoteMarker = "|||QUOTE_DATA|||";
+                    if (finalDesc.includes(quoteMarker)) {
+                        const parts = finalDesc.split(quoteMarker);
+                        parsedDetalles = parts[0].trim();
+                        try {
+                            const qData = JSON.parse(parts[1].trim());
+                            if (qData.monto) parsedMonto = qData.monto;
+                            if (qData.detalles) parsedDetalles += "\n\nNotas adicionales del técnico:\n" + qData.detalles;
+                        } catch(e) {}
                     }
-                }
-            }
-        }
 
-        if (!foundJob) {
-            // Check in new_solicitudes
-            const savedSolicitudes = JSON.parse(localStorage.getItem('new_solicitudes') || '[]');
-            const match = savedSolicitudes.find((s: any) => s.id === Number(id));
-            if (match) {
-                // Buscar datos reales de la empresa/negocio
-                let enc = "Pendiente", plz = "Pendiente", cd = "Mérida", cal = "Por definir", num = "S/N", ubi = match.sucursal || "Por definir", col = "Por definir", codp = "S/N";
-                const storedNegocios = localStorage.getItem('negocios_list');
-                let foundBusinessId: number | null = null;
-                if (storedNegocios) {
-                    const negocios = JSON.parse(storedNegocios);
-                    const n = negocios.find((neg: any) => neg.nombre === match.sucursal || neg.nombre === match.nombre);
-                    if (n) {
-                        enc = n.encargado || "Pendiente";
-                        plz = n.nombrePlaza || "Pendiente";
-                        cal = n.calle || "Por definir";
-                        cd = n.ciudad || "Mérida";
-                        num = n.numero || "S/N";
-                        ubi = n.nombre || match.sucursal;
-                        col = n.colonia || "Por definir";
-                        codp = n.cp || "S/N";
-                        foundBusinessId = n.id;
+                    return {
+                        id: act.id,
+                        titulo: act.tipo,
+                        descripcion: parsedDetalles,
+                        estado: "Nueva",
+                        tecnicoNombre: currentTech,
+                        esCotizacion: esCot,
+                        cotizacionMonto: parsedMonto,
+                        cotizacionDetalles: parsedDetalles,
+                        cotizacionArchivo: "",
+                        cotizacionEstado: "Sugerencia de Técnico"
+                    };
+                });
+                setSubTareas(mappedSubTareas as any);
+
+                // Cargar cotización real si existe
+                try {
+                    const cotiz = await getCotizacionByTrabajoId(Number(id));
+                    if (cotiz) {
+                        setTrabajo((prev: any) => prev ? {
+                            ...prev,
+                            cotizacion: {
+                                id: cotiz.id,
+                                costo: cotiz.monto,
+                                notas: cotiz.descripcion || "",
+                                archivo: cotiz.archivo || "",
+                                fecha: cotiz.updated_at ? new Date(cotiz.updated_at).toLocaleDateString('es-MX') : ""
+                            }
+                        } : prev);
                     }
-                }
+                } catch(e) { console.log('Sin cotización previa'); }
 
-                foundJob = {
-                    id: match.id,
-                    titulo: match.nombre,
-                    ubicacion: ubi,
-                    tecnico: "Sin asignar",
-                    fecha: match.fecha,
-                    estado: 'Solicitud',
-                    tipo: 'Visita',
-                    descripcion: match.subtitulo,
-                    sucursal: ubi,
-                    encargado: enc,
-                    plaza: plz,
-                    ciudad: cd,
-                    calle: cal,
-                    numero: num,
-                    colonia: col,
-                    cp: codp,
-                    businessId: foundBusinessId // Guardado internamente en caso de usarlo para un enlace directo
-                } as any;
-                setIsFromNewReq(true);
+            } catch (error) {
+                console.error("Error al cargar historial desde Laravel:", error);
             }
-        }
-
-        if (foundJob) {
-            // AUTOFIRMAR Y AUTOCOMPLETAR CON LOS DATOS REALES DE LA EMPRESA SIEMPRE 
-            // (por si el dueño editó su sucursal, queremos mostrar la info actual)
-            const storedNegocios = localStorage.getItem('negocios_list');
-            if (storedNegocios) {
-                const negocios = JSON.parse(storedNegocios);
-                const n = negocios.find((neg: any) => neg.nombre === foundJob!.sucursal);
-                if (n) {
-                    foundJob.encargado = n.encargado || foundJob.encargado || "Pendiente";
-                    foundJob.plaza = n.nombrePlaza || foundJob.plaza || "Pendiente";
-                    foundJob.calle = n.calle || foundJob.calle || "Por definir";
-                    foundJob.ciudad = n.ciudad || foundJob.ciudad || "Mérida";
-                    foundJob.numero = n.numero || foundJob.numero || "S/N";
-                    foundJob.colonia = n.colonia || foundJob.colonia || "Por definir";
-                    foundJob.cp = n.cp || foundJob.cp || "S/N";
-                    (foundJob as any).estadoGeografico = n.estado || "Yucatán"; // Para diferenciarlo del estado del trabajo
-                    (foundJob as any).businessId = n.id;
-                }
-            }
-            setTrabajo(foundJob);
-        } else {
-            const found = initialJobs.find(j => j.id === Number(id));
-            setTrabajo(found || initialJobs[0]);
-        }
-
-        // LOCAL STORAGE FOR TASKS
-        const storedTasks = localStorage.getItem(`tasks_${id}`);
-        if (storedTasks) {
-            setSubTareas(JSON.parse(storedTasks));
-        } else {
-            const initialTasks: SubTarea[] = [];
-            setSubTareas(initialTasks);
-            localStorage.setItem(`tasks_${id}`, JSON.stringify(initialTasks));
-        }
+        };
+        fetchAll();
     }, [id]);
 
     // Save tasks to local storage whenever they change
@@ -242,7 +250,6 @@ const AdminDetalleTrabajo: React.FC = () => {
     const [isQuoteIncluded, setIsQuoteIncluded] = useState(false);
     const [newQuoteAmount, setNewQuoteAmount] = useState("");
     const [newQuoteDetails, setNewQuoteDetails] = useState("");
-    const [newQuoteFile, setNewQuoteFile] = useState<string | null>(null);
     const [newQuoteFileName, setNewQuoteFileName] = useState("");
     const addFileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -251,8 +258,8 @@ const AdminDetalleTrabajo: React.FC = () => {
             const file = e.target.files[0];
             setNewQuoteFileName(file.name);
             const reader = new FileReader();
-            reader.onload = (event) => {
-                setNewQuoteFile(event.target?.result as string);
+            reader.onload = () => {
+                // Archivo procesado
             };
             reader.readAsDataURL(file);
         }
@@ -262,7 +269,7 @@ const AdminDetalleTrabajo: React.FC = () => {
         t.nombre.toLowerCase().includes(technicianSearch.toLowerCase())
     );
 
-    const handleConfirmAssignment = () => {
+    const handleConfirmAssignment = async () => {
         if (trabajo && selectedTechnicians.length > 0) {
             const assignedNames = selectedTechnicians
                 .map(id => tecnicosData.find(t => t.id === id)?.nombre)
@@ -270,149 +277,110 @@ const AdminDetalleTrabajo: React.FC = () => {
                 .join(", ");
 
             if (assignedNames) {
-                const newEstado = (trabajo.estado === "Solicitud" ? "Asignado" : trabajo.estado) as any;
-                const updatedJob = {
-                    ...trabajo,
-                    tecnico: assignedNames,
-                    estado: newEstado,
-                    tipo: selectedType,
-                    visitado: trabajo.visitado,
-                    fechaAsignada: asignarFecha,
-                    horaAsignada: asignarHora
-                };
-                setTrabajo(updatedJob);
+                try {
+                    // Update in Backend
+                    await assignTrabajador(trabajo.id, selectedTechnicians[0]);
+                    
+                    const needsStateUpdate = trabajo.estado === "Solicitud" || trabajo.estado === "Cotización Aceptada" || trabajo.estado === "Cotización Aprobada";
+                    const newEstado = needsStateUpdate ? "Asignado" : trabajo.estado;
+                    
+                    if (needsStateUpdate) {
+                        await updateEstadoTrabajo(trabajo.id, { estado: "Asignado" });
+                    }
 
-                if (isFromNewReq) {
-                    // Remover de new_solicitudes
-                    const savedSolicitudes = JSON.parse(localStorage.getItem('new_solicitudes') || '[]');
-                    const filtered = savedSolicitudes.filter((s: any) => s.id !== trabajo.id);
-                    localStorage.setItem('new_solicitudes', JSON.stringify(filtered));
+                    const updatedJob = {
+                        ...trabajo,
+                        tecnico: assignedNames,
+                        estado: newEstado,
+                        tipo: selectedType,
+                        visitado: trabajo.visitado,
+                        fechaAsignada: asignarFecha,
+                        horaAsignada: asignarHora
+                    };
+                    setTrabajo(updatedJob);
 
-                    // Agregar a la lista del negocio correcto basado en el nombre de la sucursal principal
-                    const negociosList = JSON.parse(localStorage.getItem('negocios_list') || '[]');
-                    const targetNegocio = negociosList.find((n: any) => n.nombre === trabajo.sucursal);
-                    const businessId = targetNegocio ? targetNegocio.id : 1; // Default a 1 si no se encuentra
-                    const defaultBusinessKey = `trabajos_business_${businessId}`;
-
-                    const list = JSON.parse(localStorage.getItem(defaultBusinessKey) || '[]');
-                    list.push(updatedJob);
-                    localStorage.setItem(defaultBusinessKey, JSON.stringify(list));
-
-                    setIsFromNewReq(false);
-                    alert("Solicitud asignada y transferida exitosamente a la base de datos principal.");
-                } else {
-                    for (let i = 0; i < localStorage.length; i++) {
-                        const key = localStorage.key(i);
-                        if (key?.startsWith('trabajos_business_')) {
-                            const stored = localStorage.getItem(key);
-                            if (stored) {
-                                const list: Trabajo[] = JSON.parse(stored);
-                                const jobIndex = list.findIndex(j => j.id === trabajo.id);
-                                if (jobIndex !== -1) {
-                                    list[jobIndex] = updatedJob;
-                                    localStorage.setItem(key, JSON.stringify(list));
-                                    break;
-                                }
-                            }
+                    // Notificaciones al técnico
+                    selectedTechnicians.forEach(id => {
+                        const tech = tecnicosData.find(t => t.id === id);
+                        if (tech) {
+                            const techKey = `tecnico_notifications_${tech.nombre}`;
+                            const techNotifs = JSON.parse(localStorage.getItem(techKey) || '[]');
+                            techNotifs.unshift({
+                                id: Date.now() + Math.random(),
+                                titulo: 'Nuevo Trabajo Asignado',
+                                mensaje: `Te han asignado un nuevo trabajo: ${trabajo.titulo} en ${trabajo.sucursal}.`,
+                                fecha: new Date().toLocaleDateString('es-MX', { hour: '2-digit', minute: '2-digit' }),
+                                leida: false,
+                                jobId: trabajo.id
+                            });
+                            localStorage.setItem(techKey, JSON.stringify(techNotifs));
                         }
-                    }
+                    });
+                    window.dispatchEvent(new Event('storage'));
+                    alert("Técnico asignado exitosamente.");
+                } catch (error) {
+                    console.error("Error asignando técnico:", error);
+                    alert("Error servidor de base de datos.");
                 }
-
-                // Generar notificaciones para cada técnico asignado
-                selectedTechnicians.forEach(id => {
-                    const tech = tecnicosData.find(t => t.id === id);
-                    if (tech) {
-                        const techKey = `tecnico_notifications_${tech.nombre}`;
-                        const techNotifs = JSON.parse(localStorage.getItem(techKey) || '[]');
-                        techNotifs.unshift({
-                            id: Date.now() + Math.random(),
-                            titulo: 'Nuevo Trabajo Asignado',
-                            mensaje: `Te han asignado un nuevo trabajo: ${trabajo.titulo} en ${trabajo.sucursal}.`,
-                            fecha: new Date().toLocaleDateString('es-MX', { hour: '2-digit', minute: '2-digit' }),
-                            leida: false,
-                            jobId: trabajo.id
-                        });
-                        localStorage.setItem(techKey, JSON.stringify(techNotifs));
-                    }
-                });
-                window.dispatchEvent(new Event('storage'));
             }
         }
         setIsModalOpen(false);
     };
 
-    const handleAddTask = () => {
+    const handleAddTask = async () => {
         try {
             if (editingTaskId) {
-                // EDITING
-                const updatedTasks = subTareas.map(t => {
-                    if (t.id === editingTaskId) {
-                        return { ...t, titulo: newTaskCategory, descripcion: newTaskDescription };
-                    }
-                    return t;
-                });
-                saveTasks(updatedTasks);
+                alert("La edici?n de actividades ya completadas est? deshabilitada en el sistema en vivo.");
             } else {
-                // ADDING NEW
-                const newTask: SubTarea = {
-                    id: Date.now(),
-                    titulo: newTaskCategory,
-                    descripcion: newTaskDescription,
-                    estado: "Nueva",
-                    tecnicoId: Date.now(), // ID simulado
-                    tecnicoNombre: user?.name,
-                    esCotizacion: isQuoteIncluded,
-                    cotizacionMonto: isQuoteIncluded ? Number(newQuoteAmount) || 0 : undefined,
-                    cotizacionDetalles: isQuoteIncluded ? newQuoteDetails : undefined,
-                    cotizacionEstado: isQuoteIncluded ? "Pendiente" : undefined,
-                    cotizacionArchivo: isQuoteIncluded && newQuoteFile ? newQuoteFile : undefined
-                };
-                const updatedTasks = [...subTareas, newTask];
-                saveTasks(updatedTasks);
-
-                // RECURSIVE JOB CREATION IF TIPO === "Trabajo"
-                if (trabajo?.tipo === 'Trabajo') {
-                    const newRecursiveJob: Trabajo = {
-                        id: Date.now() + Math.floor(Math.random() * 1000), // ensure uniqueness
-                        titulo: newTaskCategory,
-                        ubicacion: trabajo.ubicacion,
-                        tecnico: "Sin asignar",
-                        fecha: new Date().toLocaleDateString('es-MX'),
-                        estado: "Solicitud",
-                        tipo: "Visita",
-                        descripcion: newTaskDescription,
-                        sucursal: trabajo.sucursal,
-                        encargado: trabajo.encargado,
-                        plaza: trabajo.plaza,
-                        ciudad: trabajo.ciudad,
-                        calle: trabajo.calle,
-                        numero: trabajo.numero,
-                        colonia: trabajo.colonia,
-                        cp: trabajo.cp
-                    };
-
-                    // Find which business list this current job belongs to in localStorage
-                    for (let i = 0; i < localStorage.length; i++) {
-                        const key = localStorage.key(i);
-                        if (key?.startsWith('trabajos_business_')) {
-                            const stored = localStorage.getItem(key);
-                            if (stored) {
-                                const list: Trabajo[] = JSON.parse(stored);
-                                const jobIndex = list.findIndex(j => j.id === trabajo?.id);
-                                if (jobIndex !== -1) {
-                                    list.push(newRecursiveJob);
-                                    localStorage.setItem(key, JSON.stringify(list));
-                                    alert("Hallazgo registrado con éxito. Dado que este es un trabajo en ejecución, este reporte se ha generado automáticamente como una nueva 'Solicitud de Visita' para la sucursal.");
-                                    break;
-                                }
-                            }
-                        }
-                    }
+                let desc = newTaskDescription;
+                if (isQuoteIncluded) {
+                    const quotePayload = { monto: newQuoteAmount, detalles: newQuoteDetails };
+                    desc += ` \n|||QUOTE_DATA||| ${JSON.stringify(quotePayload)}`;
                 }
+
+                const body = {
+                    trabajo_id: Number(id),
+                    tipo: newTaskCategory,
+                    descripcion: desc
+                };
+                await createActividad(body);
+                const acts = await getActividadesByTrabajo(Number(id));
+                const mappedSubTareas = acts.map((act: any) => {
+                    let finalDesc = act.descripcion || "";
+                    let parsedMonto = "Por Evaluar";
+                    let parsedDetalles = finalDesc;
+                    let esCot = true;
+
+                    const quoteMarker = "|||QUOTE_DATA|||";
+                    if (finalDesc.includes(quoteMarker)) {
+                        const parts = finalDesc.split(quoteMarker);
+                        parsedDetalles = parts[0].trim();
+                        try {
+                            const qData = JSON.parse(parts[1].trim());
+                            if (qData.monto) parsedMonto = qData.monto;
+                            if (qData.detalles) parsedDetalles += "\n\nNotas adicionales del técnico:\n" + qData.detalles;
+                        } catch(e) {}
+                    }
+
+                    return {
+                        id: act.id,
+                        titulo: act.tipo,
+                        descripcion: parsedDetalles,
+                        estado: "Nueva",
+                        tecnicoNombre: user?.name,
+                        esCotizacion: esCot,
+                        cotizacionMonto: parsedMonto,
+                        cotizacionDetalles: parsedDetalles,
+                        cotizacionArchivo: "",
+                        cotizacionEstado: "Sugerencia de Técnico"
+                    };
+                });
+                setSubTareas(mappedSubTareas as any);
+                alert("Actividad registrada exitosamente y sincronizada.");
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error added task:", error);
-            // Si hubo un error (como cuota excedida al guardar la imagen), no cerramos el modal ni borramos los campos
+            alert("Error de API: " + (error.response?.data?.message || error.message));
             return;
         }
 
@@ -422,7 +390,6 @@ const AdminDetalleTrabajo: React.FC = () => {
         setIsQuoteIncluded(false);
         setNewQuoteAmount("");
         setNewQuoteDetails("");
-        setNewQuoteFile(null);
         setNewQuoteFileName("");
         setActiveTab("Trabajo");
     };
@@ -443,83 +410,22 @@ const AdminDetalleTrabajo: React.FC = () => {
         setIsAddModalOpen(true);
     };
 
-    const handleAceptarCotizacion = () => {
+    const handleAceptarCotizacion = async () => {
         if (!trabajo) return;
-        const updatedJob: Trabajo = { ...trabajo, estado: "Cotización Aceptada" };
-        setTrabajo(updatedJob);
-
-        for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key?.startsWith('trabajos_business_')) {
-                const stored = localStorage.getItem(key);
-                if (stored) {
-                    const list: Trabajo[] = JSON.parse(stored);
-                    const jobIndex = list.findIndex(j => j.id === trabajo.id);
-                    if (jobIndex !== -1) {
-                        list[jobIndex] = updatedJob;
-                        localStorage.setItem(key, JSON.stringify(list));
-                        break;
-                    }
-                }
+        try {
+            await updateEstadoTrabajo(trabajo.id, { estado: "Cotización Aceptada" });
+            if (trabajo.cotizacion?.id) {
+                await updateCotizacionStatus(trabajo.cotizacion.id, "Aprobada");
             }
-        }
-        alert("Cotización aceptada. El administrador procederá a asignar a un técnico.");
-    };
-
-    const handleRechazarCotizacion = () => {
-        if (!trabajo) return;
-        if (window.confirm("¿Seguro que deseas rechazar la cotización?")) {
-            const updatedJob: Trabajo = { ...trabajo, estado: "Cotización Rechazada" };
+            const updatedJob: Trabajo = { ...trabajo, estado: "Cotización Aceptada" };
             setTrabajo(updatedJob);
 
-            for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i);
-                if (key?.startsWith('trabajos_business_')) {
-                    const stored = localStorage.getItem(key);
-                    if (stored) {
-                        const list: Trabajo[] = JSON.parse(stored);
-                        const jobIndex = list.findIndex(j => j.id === trabajo.id);
-                        if (jobIndex !== -1) {
-                            list[jobIndex] = updatedJob;
-                            localStorage.setItem(key, JSON.stringify(list));
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-    };
-
-    const handleFinishVisit = () => {
-        if (!trabajo) return;
-
-        const isVisita = trabajo.tipo === "Visita";
-        const message = isVisita
-            ? "¿Confirmar diagnóstico y enviar al administrador? Ya no podrás editar esta visita."
-            : "¿Confirmar finalización del trabajo? Ya no podrás editar este registro.";
-
-        if (window.confirm(message)) {
-            const updatedJob: Trabajo = {
-                ...trabajo,
-                estado: isVisita ? "Solicitud" : "Finalizado",
-                tecnico: isVisita ? "Sin asignar" : trabajo.tecnico, // Si es visita se desasigna para el TRABAJO real.
-                asignaciones: isVisita ? [] : trabajo.asignaciones, // Se resetean las asignaciones para el trabajo real
-                visitado: isVisita ? true : trabajo.visitado
-            };
-
-            setTrabajo(updatedJob);
-
-            // Generar notificación para el Admin
+            // Notificar al Admin
             const adminNotifs = JSON.parse(localStorage.getItem('admin_notifications') || '[]');
-            const actionText = isVisita ? 'Diagnóstico Completado' : 'Trabajo Finalizado';
-            const msgText = isVisita
-                ? `El técnico ha completado la visita estructurada para: ${trabajo.titulo} en ${trabajo.sucursal}.`
-                : `El técnico ha finalizado el trabajo: ${trabajo.titulo} en ${trabajo.sucursal}.`;
-
             adminNotifs.unshift({
-                id: Date.now() + Math.random(),
-                titulo: actionText,
-                mensaje: msgText,
+                id: Date.now(),
+                titulo: 'Cotización Aceptada',
+                mensaje: `El cliente ha aceptado la cotización de $${trabajo.cotizacion?.costo || '---'} para el trabajo ${trabajo.titulo}. Por favor asigna a un técnico para realizar el trabajo.`,
                 fecha: new Date().toLocaleDateString('es-MX', { hour: '2-digit', minute: '2-digit' }),
                 leida: false,
                 jobId: trabajo.id
@@ -527,24 +433,89 @@ const AdminDetalleTrabajo: React.FC = () => {
             localStorage.setItem('admin_notifications', JSON.stringify(adminNotifs));
             window.dispatchEvent(new Event('storage'));
 
-            // Persistir en la lista del negocio
-            for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i);
-                if (key?.startsWith('trabajos_business_')) {
-                    const stored = localStorage.getItem(key);
-                    if (stored) {
-                        const list: Trabajo[] = JSON.parse(stored);
-                        const jobIndex = list.findIndex(j => j.id === trabajo.id);
-                        if (jobIndex !== -1) {
-                            list[jobIndex] = updatedJob;
-                            localStorage.setItem(key, JSON.stringify(list));
-                            break;
-                        }
-                    }
-                }
-            }
+            alert("Cotización aceptada. El administrador procederá a asignar a un técnico.");
+        } catch (error) {
+            console.error(error);
+            alert("Error al confirmar aceptación.");
+        }
+    };
 
-            navigate(user?.role === 'tecnico' ? '/tecnico' : '/menu');
+    const handleRechazarCotizacion = async () => {
+        if (!trabajo) return;
+        if (window.confirm("¿Seguro que deseas rechazar la cotización?")) {
+            try {
+                await updateEstadoTrabajo(trabajo.id, { estado: "Cotización Rechazada" });
+                if (trabajo.cotizacion?.id) {
+                    await updateCotizacionStatus(trabajo.cotizacion.id, "Rechazada");
+                }
+                const updatedJob: Trabajo = { ...trabajo, estado: "Cotización Rechazada" };
+                setTrabajo(updatedJob);
+
+                // Notificar al Admin
+                const adminNotifs = JSON.parse(localStorage.getItem('admin_notifications') || '[]');
+                adminNotifs.unshift({
+                    id: Date.now(),
+                    titulo: 'Cotización Rechazada',
+                    mensaje: `El cliente ha rechazado la cotización para el trabajo ${trabajo.titulo}.`,
+                    fecha: new Date().toLocaleDateString('es-MX', { hour: '2-digit', minute: '2-digit' }),
+                    leida: false,
+                    jobId: trabajo.id
+                });
+                localStorage.setItem('admin_notifications', JSON.stringify(adminNotifs));
+                window.dispatchEvent(new Event('storage'));
+
+            } catch (error) {
+                console.error(error);
+            }
+        }
+    };
+
+    const handleFinishVisit = async () => {
+        if (!trabajo) return;
+
+        const isVisita = trabajo.tipo === "Visita";
+        const message = isVisita
+            ? "?Confirmar diagn?stico y enviar al administrador? Ya no podr?s editar esta visita."
+            : "?Confirmar finalizaci?n del trabajo? Ya no podr?s editar este registro.";
+
+        if (window.confirm(message)) {
+            try {
+                if (isVisita) {
+                    await updateEstadoTrabajo(trabajo.id, { estado: "En Espera", visitado: true });
+                    const updatedJob = {
+                        ...trabajo,
+                        estado: "En Espera" as any,
+                        visitado: true,
+                        tecnico: "Sin asignar"
+                    };
+                    setTrabajo(updatedJob);
+                    
+                    // Notificar al Admin
+                    const notifs = JSON.parse(localStorage.getItem('admin_notifications') || '[]');
+                    notifs.unshift({
+                        id: Date.now(),
+                        titulo: 'Visita Finalizada',
+                        mensaje: `El técnico ${user?.name || 'Sistema'} ha concluido la visita en ${trabajo.sucursal}. La solicitud ahora espera cotización.`,
+                        fecha: new Date().toLocaleDateString('es-MX', { hour: '2-digit', minute: '2-digit' }),
+                        leida: false,
+                        enlace: `/menu/trabajo-detalle/${trabajo.id}`
+                    });
+                    localStorage.setItem('admin_notifications', JSON.stringify(notifs));
+                    window.dispatchEvent(new Event('storage'));
+
+                } else {
+                    await updateEstadoTrabajo(trabajo.id, { estado: "Finalizado" });
+                    const updatedJob = {
+                        ...trabajo,
+                        estado: "Finalizado" as any,
+                        tecnico: trabajo.tecnico
+                    };
+                    setTrabajo(updatedJob);
+                }
+                alert("Reporte confirmado y enviado al Administrador.");
+            } catch (error: any) {
+                alert("La API rechazó el estado: " + error.message);
+            }
         }
     };
 
@@ -553,57 +524,76 @@ const AdminDetalleTrabajo: React.FC = () => {
         const file = e.target.files?.[0];
         if (file) {
             setNombreArchivo(file.name);
-            // Para evitar llenar y romper el localStorage con Base64 (QuotaExceededError), 
-            // usamos una URL de objeto temporal o guardamos un string de demostración.
-            try {
-                const url = URL.createObjectURL(file);
-                setArchivo(url);
-            } catch (err) {
-                setArchivo(`mock_path_for_${file.name}`);
-            }
+            setArchivoFile(file); // Guarda el objeto puro File para enviarlo
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setArchivo(reader.result as string); // Sirve solo para mantener el string en UI (opcional)
+            };
+            reader.readAsDataURL(file);
         }
     };
 
-    const handleEnviarCotizacion = () => {
+    const handleEnviarCotizacion = async () => {
         if (!costo || !archivo || !trabajo) {
             alert("Por favor, ingresa el costo y sube un documento de cotización.");
             return;
         }
 
-        const updatedJob: Trabajo = {
-            ...trabajo,
-            estado: "Cotización Enviada",
-            cotizacion: {
-                costo,
-                notas,
-                archivo,
-                fecha: new Date().toLocaleDateString('es-MX')
-            }
-        };
-
-        setTrabajo(updatedJob);
-
         try {
-            for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i);
-                if (key?.startsWith('trabajos_business_')) {
-                    const stored = localStorage.getItem(key);
-                    if (stored) {
-                        const list: Trabajo[] = JSON.parse(stored);
-                        const jobIndex = list.findIndex(j => j.id === trabajo.id);
-                        if (jobIndex !== -1) {
-                            list[jobIndex] = updatedJob;
-                            localStorage.setItem(key, JSON.stringify(list));
-                            break;
-                        }
-                    }
-                }
+            await updateEstadoTrabajo(trabajo.id, { estado: "Cotización Enviada" });
+            
+            let formData;
+            if (archivoFile) {
+                formData = new FormData();
+                formData.append('trabajo_id', trabajo.id.toString());
+                formData.append('monto', costo);
+                formData.append('descripcion', notas);
+                formData.append('estado', "Pendiente");
+                formData.append('archivo', archivoFile); // Objeto File natural
             }
+
+            const payloadObject = formData || {
+                trabajo_id: trabajo.id,
+                monto: Number(costo),
+                descripcion: notas,
+                archivo: archivo,
+                estado: "Pendiente"
+            };
+
+            const savedCotiz = await saveCotizacion(payloadObject as any);
+
+            const updatedJob: Trabajo = {
+                ...trabajo,
+                estado: "Cotización Enviada",
+                cotizacion: {
+                    id: savedCotiz.id,
+                    costo,
+                    notas,
+                    archivo,
+                    fecha: new Date().toLocaleDateString('es-MX')
+                }
+            };
+
+            setTrabajo(updatedJob);
+
+            // Notificar al cliente localmente
+            const clientNotifs = JSON.parse(localStorage.getItem('client_notifications') || '[]');
+            clientNotifs.unshift({
+                id: Date.now(),
+                titulo: 'Nueva Cotización Recibida',
+                mensaje: `Se ha generado una cotización de $${costo} para tu solicitud: ${trabajo.titulo || 'Mantenimiento'}.`,
+                fecha: new Date().toLocaleDateString('es-MX', { hour: '2-digit', minute: '2-digit' }),
+                leida: false,
+                enlace: `/cliente/cotizaciones`
+            });
+            localStorage.setItem('client_notifications', JSON.stringify(clientNotifs));
+            window.dispatchEvent(new Event('storage'));
+
             alert("Cotización enviada exitosamente al cliente.");
             setActiveTab("Datos");
-        } catch (error) {
-            console.error("Error al guardar la cotización:", error);
-            alert("Hubo un error al guardar la cotización. Es posible que el archivo adjunto sea muy grande para el almacenamiento local demo.");
+        } catch (error: any) {
+            console.error("Error al enviar cotización:", error.response?.data || error);
+            alert("Error al enviar cotización a la base de datos:\n" + (error.response?.data?.message || error.message));
         }
     };
 
@@ -636,7 +626,16 @@ const AdminDetalleTrabajo: React.FC = () => {
                         const getStepIndex = (estado: string) => {
                             if (estado === "Finalizado") return 4;
                             if (["En Proceso"].includes(estado)) return 3;
-                            if (["Cotización Enviada", "Cotización Aceptada", "Cotización Rechazada", "Asignado"].includes(estado)) return 2;
+                            const isAuthTech = user?.role === 'tecnico';
+                            if (["Cotización Enviada", "Cotización Aceptada", "Cotización Aprobada", "Cotización Rechazada", "Asignado"].includes(estado)) {
+                                // Si ya se completó la visita y saltó a cotización, o si es un técnico alocado al "Trabajo" definitivo:
+                                if (estado === "Asignado" && trabajo.visitado) return 3; 
+                                if (["Cotización Aceptada", "Cotización Aprobada"].includes(estado)) {
+                                    // Considerar en progreso si ya se aceptó y hay un técnico viendo la pantalla
+                                    if (isAuthTech || trabajo.tecnico !== "Sin asignar" && trabajo.tecnico !== "Sin Asignar") return 3;
+                                }
+                                return 2;
+                            }
                             return 1;
                         };
                         const currentStep = getStepIndex(trabajo.estado);
@@ -850,20 +849,20 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                 </div>
                                             )}
 
-                                            {(trabajo.estado === "Cotización Aceptada" || (trabajo.estado === "Solicitud" && !trabajo.visitado)) && trabajo.tecnico === "Sin asignar" && (
+                                            {(trabajo.estado === "Cotización Aceptada" || trabajo.estado === "Cotización Aprobada" || (trabajo.estado === "Solicitud" && !trabajo.visitado && trabajo.tecnico === "Sin asignar")) && (
                                                 <button
                                                     onClick={() => {
                                                         // Pre-seleccionar "Visita" si es una solicitud
                                                         if (trabajo.estado === "Solicitud") {
                                                             setSelectedType("Visita");
-                                                        } else if (trabajo.estado === "Cotización Aceptada") {
+                                                        } else if (trabajo.estado === "Cotización Aceptada" || trabajo.estado === "Cotización Aprobada") {
                                                             setSelectedType("Trabajo");
                                                         }
                                                         setIsModalOpen(true);
                                                     }}
                                                     className={`${styles.actionButton} ${styles.assignButton}`}
                                                 >
-                                                    Asignar Técnico
+                                                    {(trabajo.estado === "Cotización Aceptada" || trabajo.estado === "Cotización Aprobada") ? "Asignar Técnico para Trabajo" : "Asignar Técnico"}
                                                 </button>
                                             )}
 
@@ -897,7 +896,7 @@ const AdminDetalleTrabajo: React.FC = () => {
 
                     {
                         activeTab === 'Cotización' && (
-                            <div className={styles.infoGrid2} style={{ gap: '40px' }}>
+                            <div className={user?.role === 'cliente' ? '' : styles.infoGrid2} style={{ gap: '40px', display: user?.role === 'cliente' ? 'block' : undefined }}>
                                 {/* COLUMNA IZQUIERDA: FORMULARIO O VISTA CLIENTE */}
                                 <div style={{ background: '#fff', borderRadius: '20px', padding: '30px', boxShadow: '0 4px 15px rgba(0,0,0,0.05)', border: '1px solid #eee' }}>
 
@@ -922,7 +921,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                 <div>
                                                     <p style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#666', fontWeight: 'bold' }}>Documento Adjunto:</p>
                                                     <a
-                                                        href={trabajo.cotizacion?.archivo}
+                                                        href={trabajo.cotizacion?.archivo?.startsWith('http') || trabajo.cotizacion?.archivo?.startsWith('data:') ? trabajo.cotizacion.archivo : `http://127.0.0.1:8085/storage/${trabajo.cotizacion?.archivo}`}
                                                         target="_blank"
                                                         rel="noreferrer"
                                                         style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: '#fff', border: '1px solid #ccc', padding: '12px 25px', borderRadius: '25px', color: '#333', textDecoration: 'none', fontWeight: 'bold', fontSize: '15px', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }}
@@ -1016,7 +1015,8 @@ const AdminDetalleTrabajo: React.FC = () => {
                                 </div>
 
                                 {/* COLUMNA DERECHA: TAREAS Y COTIZACIONES DEL TÉCNICO */}
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '30px', background: '#fff', borderRadius: '20px', padding: '30px', boxShadow: '0 4px 15px rgba(0,0,0,0.05)', border: '1px solid #eee' }}>
+                                {user?.role !== 'cliente' && (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '30px', background: '#fff', borderRadius: '20px', padding: '30px', boxShadow: '0 4px 15px rgba(0,0,0,0.05)', border: '1px solid #eee' }}>
 
                                     {/* COTIZACIONES */}
                                     {subTareas.some(t => t.esCotizacion) && (
@@ -1047,7 +1047,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                         {tarea.cotizacionArchivo && (
                                                             <div style={{ marginBottom: '15px' }}>
                                                                 <a
-                                                                    href={tarea.cotizacionArchivo}
+                                                                    href={tarea.cotizacionArchivo.startsWith('http') || tarea.cotizacionArchivo.startsWith('data:') ? tarea.cotizacionArchivo : `http://127.0.0.1:8085/storage/${tarea.cotizacionArchivo}`}
                                                                     target="_blank"
                                                                     rel="noreferrer"
                                                                     style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: '#fff', border: '1px solid #ccc', padding: '8px 15px', borderRadius: '15px', color: '#333', textDecoration: 'none', fontWeight: 'bold', fontSize: '12px' }}
@@ -1076,6 +1076,9 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                             <h3 style={{ margin: '0 0 5px 0', fontSize: '16px', color: '#333' }}>
                                                                 {tarea.titulo}
                                                             </h3>
+                                                            <p style={{ margin: '0 0 5px 0', fontSize: '12px', color: '#999', fontWeight: 'bold' }}>
+                                                                {tarea.id}
+                                                            </p>
                                                             <p style={{ margin: 0, fontSize: '14px', color: '#666', fontStyle: 'italic' }}>
                                                                 {tarea.descripcion}
                                                             </p>
@@ -1087,7 +1090,8 @@ const AdminDetalleTrabajo: React.FC = () => {
                                             )}
                                         </div>
                                     </div>
-                                </div>
+                                    </div>
+                                )}
                             </div>
                         )
                     }
@@ -1116,6 +1120,9 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                 <h3 className={styles.taskTitle}>
                                                     {tarea.titulo}
                                                 </h3>
+                                                <p style={{ margin: '0 0 5px 0', fontSize: '12px', color: '#aaa', fontWeight: 'bold' }}>
+                                                    {tarea.id}
+                                                </p>
                                                 <p className={styles.taskDesc}>
                                                     {tarea.descripcion}
                                                 </p>
@@ -1133,7 +1140,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                 </span>
 
                                                 <div style={{ display: 'flex', gap: '5px' }}>
-                                                    {trabajo.tipo !== 'Trabajo' && (
+                                                    {trabajo.tipo === 'Visita' && (
                                                         <>
                                                             <button
                                                                 onClick={(e) => openEditModal(e, tarea)}
@@ -1155,7 +1162,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                                     ))}
                                 </div>
 
-                                {user?.role === 'tecnico' && (
+                                {user?.role === 'tecnico' && trabajo.tipo === 'Visita' && subTareas.length > 0 && (
                                     <div style={{ marginTop: '30px', textAlign: 'center' }}>
                                         <button
                                             onClick={handleFinishVisit}
@@ -1173,15 +1180,17 @@ const AdminDetalleTrabajo: React.FC = () => {
                     {
                         activeTab === 'Registro' && (
                             <div>
-                                <button
-                                    onClick={() => setIsAddModalOpen(true)}
-                                    className={styles.addTaskButton}
-                                >
-                                    <div className={styles.addTaskIcon}>+</div>
-                                    Agregar
-                                </button>
+                                {user?.role === 'tecnico' && trabajo.tipo === 'Visita' && (
+                                    <button
+                                        onClick={() => setIsAddModalOpen(true)}
+                                        className={styles.addTaskButton}
+                                    >
+                                        <div className={styles.addTaskIcon}>+</div>
+                                        Agregar
+                                    </button>
+                                )}
 
-                                {user?.role === 'tecnico' && subTareas.length > 0 && (
+                                {user?.role === 'tecnico' && subTareas.length > 0 && trabajo.tipo === 'Visita' && (
                                     <div style={{ marginTop: '50px', textAlign: 'center' }}>
                                         <button
                                             onClick={handleFinishVisit}
@@ -1399,7 +1408,7 @@ const AdminDetalleTrabajo: React.FC = () => {
 
                             <div style={{ marginTop: '40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <button
-                                    onClick={() => { setIsAddModalOpen(false); setEditingTaskId(null); setNewTaskDescription(""); setIsQuoteIncluded(false); setNewQuoteAmount(""); setNewQuoteDetails(""); setNewQuoteFile(null); setNewQuoteFileName(""); }}
+                                    onClick={() => { setIsAddModalOpen(false); setEditingTaskId(null); setNewTaskDescription(""); setIsQuoteIncluded(false); setNewQuoteAmount(""); setNewQuoteDetails(""); setNewQuoteFileName(""); }}
                                     style={{ background: '#eee', color: '#555', border: 'none', padding: '15px 40px', borderRadius: '30px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer' }}
                                 >
                                     Cancelar
@@ -1436,9 +1445,9 @@ const AdminDetalleTrabajo: React.FC = () => {
                                         <button
                                             onClick={() => {
                                                 if (user?.role === 'admin') {
-                                                    navigate(`/menu/reporte-tarea/${selectedHistoryTask.id}`);
+                                                    navigate(`/menu/reporte-tarea/${selectedHistoryTask.id}`, { state: { trabajoId: trabajo?.id } });
                                                 } else if (user?.role === 'tecnico') {
-                                                    navigate(`/tecnico/reporte-tarea/${selectedHistoryTask.id}`); // Ajuste para técnico si existiese, de lo contrario volverá a la home por fallback
+                                                    navigate(`/tecnico/reporte-tarea/${selectedHistoryTask.id}`, { state: { trabajoId: trabajo?.id } }); // Ajuste para técnico si existiese, de lo contrario volverá a la home por fallback
                                                 }
                                             }}
                                             style={{ background: '#e3f2fd', color: '#1976d2', border: '1px solid #1976d2', padding: '8px 15px', borderRadius: '8px', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '5px' }}
@@ -1666,7 +1675,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                             <button
                                 onClick={() => {
                                     setIsSecurityModalOpen(false);
-                                    navigate(`/menu/reporte-tarea/${selectedTaskForReport.id}`);
+                                    navigate(`/menu/reporte-tarea/${selectedTaskForReport.id}`, { state: { trabajoId: trabajo.id } });
                                 }}
                                 style={{ padding: '12px 30px', borderRadius: '30px', border: 'none', background: '#fbbc04', color: '#fff', fontWeight: 'bold', cursor: 'pointer', fontSize: '16px', boxShadow: '0 4px 10px rgba(251, 188, 4, 0.3)' }}
                             >

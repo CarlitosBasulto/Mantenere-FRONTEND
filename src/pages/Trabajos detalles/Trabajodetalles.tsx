@@ -1,18 +1,22 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { createTrabajo, getTrabajos, assignTrabajador } from "../../services/trabajosService";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import menuStyles from "../../components/Menu.module.css";
 import styles from "./Trabajodetalles.module.css";
 import { useAuth } from "../../context/AuthContext";
 import Historial from "../cliente/Historial";
 import Cotizaciones from "../cliente/Cotizaciones";
+import { getNegocios, getNegocio } from "../../services/negociosService";
+import { getTrabajadores } from "../../services/trabajadoresService";
 
 interface Trabajo {
     id: number;
     titulo: string;
     ubicacion: string;
     tecnico: string;
+    tecnicoUserId?: number; // Permite un tracking fidedigno del técnico asignado
     fecha: string; // Formato DD/MM/YYYY
-    estado: "En Espera" | "Finalizado" | "En Proceso" | "Asignado" | "Solicitud" | "Cotización Enviada" | "Cotización Aceptada" | "Cotización Rechazada";
+    estado: "En Espera" | "Finalizado" | "En Proceso" | "Asignado" | "Solicitud" | "Cotización Enviada" | "Cotización Aceptada" | "Cotización Rechazada" | "Cotización Aprobada";
     tipo?: "Visita" | "Trabajo" | "Nueva Solicitud" | "SOS";
     visitado?: boolean;
     descripcion?: string;
@@ -53,44 +57,104 @@ const TrabajoDetalle: React.FC = () => {
     const [businessName, setBusinessName] = useState("Cargando...");
 
     React.useEffect(() => {
-        const stored = localStorage.getItem('negocios_list');
-        if (stored) {
-            const negocios = JSON.parse(stored);
-            const current = negocios.find((n: any) => n.id === Number(id));
-            if (current) {
-                setBusinessName(current.nombre);
-                setNewRequestData(prev => ({ ...prev, cliente: current.nombre }));
+        const fetchBusiness = async () => {
+            try {
+                // Intenta obtener de la lista global que Laravel nos de
+                const all = await getNegocios();
+                const current = all.find((n: any) => n.id === Number(id));
+                
+                if (current) {
+                    setBusinessName(current.nombre);
+                    setNewRequestData(prev => ({ ...prev, cliente: current.nombre }));
+                } else {
+                    // Si falla el query batch, try individual
+                    const individual = await getNegocio(Number(id));
+                    if (individual && individual.nombre) {
+                        setBusinessName(individual.nombre);
+                        setNewRequestData(prev => ({ ...prev, cliente: individual.nombre }));
+                    } else {
+                        setBusinessName("Desconocido");
+                    }
+                }
+            } catch (err) {
+                console.error("Error cargando nombre del negocio:", err);
+                setBusinessName("Desconocido");
             }
-        }
+        };
+
+        fetchBusiness();
     }, [id]);
 
-    // DATOS SIMULADOS INICIALES
-    const initialJobs: Trabajo[] = [];
-
+    // DATOS DESDE LA API
     const [trabajosData, setTrabajosData] = useState<Trabajo[]>([]);
 
-    React.useEffect(() => {
-        const stored = localStorage.getItem(`trabajos_business_${id}`);
-        if (stored) {
-            setTrabajosData(JSON.parse(stored));
-        } else {
-            // Mostramos los datos iniciales de ejemplo para cualquier negocio si está vacío
-            setTrabajosData(initialJobs);
+    useEffect(() => {
+        const fetchJobs = async () => {
+            try {
+                const data = await getTrabajos();
+                const filtered = data.filter((j: any) => j.negocio_id === Number(id));
+                const mapped = filtered.map((j: any) => {
+                    const isSOS = j.prioridad === "Alta" || j.titulo?.includes("SOS");
+                    let displayTipo = "Nueva Solicitud";
+                    if (isSOS) {
+                        displayTipo = "SOS";
+                    } else if (j.tipo && ["Visita", "Trabajo", "Mantenimiento"].includes(j.tipo)) {
+                        displayTipo = j.tipo;
+                    } else if (j.estado !== "Pendiente" && j.estado !== "Solicitud") {
+                        // Si el estado tiene que ver con la cotización ya completada o en proceso, 
+                        // automáticamente es la fase de Trabajo (haya presionado terminar visita o no).
+                        const isTrabajoDefinitivo = ["Cotización Enviada", "Cotización Rechazada", "Cotización Aceptada", "Cotización Aprobada", "En Proceso", "Finalizado"].includes(j.estado) || j.visitado;
+                        
+                        displayTipo = isTrabajoDefinitivo ? "Trabajo" : "Visita";
+                    }
+
+                    return {
+                        id: j.id,
+                        titulo: j.titulo,
+                        ubicacion: j.negocio?.nombre || businessName,
+                        tecnico: j.trabajador?.nombre || "Sin asignar",
+                        tecnicoUserId: j.trabajador?.user_id || null, // <--- Added User ID mapping for strict filtering
+                        fecha: j.fecha_programada ? (j.fecha_programada.includes('-') ? j.fecha_programada.split('-').reverse().join('/') : j.fecha_programada) : new Date(j.created_at).toLocaleDateString('es-MX'),
+                        estado: j.estado === "Pendiente" ? "Solicitud" : j.estado,
+                        visitado: Boolean(j.visitado),
+                        tipo: displayTipo,
+                        descripcion: j.descripcion,
+                        isEmergency: isSOS
+                    };
+                });
+                setTrabajosData(mapped);
+            } catch (error) {
+                console.error("Error al obtener trabajos: ", error);
+            }
+        };
+        if (businessName !== "Cargando...") {
+            fetchJobs();
         }
-    }, [id]);
+    }, [id, businessName]);
 
     const saveJobs = (data: Trabajo[]) => {
         setTrabajosData(data);
-        localStorage.setItem(`trabajos_business_${id}`, JSON.stringify(data));
+        // localStorage.setItem(`trabajos_business_${id}`, JSON.stringify(data)); // Eliminado para evitar cruce de caché
     };
 
-    // DATOS SIMULADOS - TECNICOS
-    const tecnicosData: Tecnico[] = [
-        { id: 1, nombre: "Javier Antonio Medina Medina" },
-        { id: 2, nombre: "Carlos Daniel Dzul Vicente" },
-        { id: 3, nombre: "Ernesto Eduardo Martin Escalante" },
-        { id: 4, nombre: "Pedro Javier" },
-    ];
+    // DATOS REALES - TECNICOS
+    const [tecnicosData, setTecnicosData] = useState<Tecnico[]>([]);
+
+    React.useEffect(() => {
+        const fetchTecnicos = async () => {
+            try {
+                const data = await getTrabajadores();
+                const techList = data.filter((t: any) => t.estado?.toLowerCase() === 'activo' || t.estado === 'Activo');
+                setTecnicosData(techList.map((t: any) => ({
+                    id: t.id,
+                    nombre: t.nombre
+                })));
+            } catch (error) {
+                console.error("Error al obtener técnicos:", error);
+            }
+        };
+        fetchTecnicos();
+    }, []);
 
     // ESTADOS
     const [searchText, setSearchText] = useState("");
@@ -176,7 +240,7 @@ const TrabajoDetalle: React.FC = () => {
 
         // 2. FILTRO ADICIONAL: Solo mostrar trabajos del técnico si el rol es 'tecnico' y NO están finalizados
         if (user?.role === 'tecnico') {
-            filteredJobs = filteredJobs.filter(job => job.tecnico === user.name && job.estado !== "Finalizado");
+            filteredJobs = filteredJobs.filter(job => job.tecnicoUserId === user.id && job.estado !== "Finalizado");
         }
 
         // Agrupar por fecha
@@ -192,9 +256,16 @@ const TrabajoDetalle: React.FC = () => {
 
     const groupedJobs = getGroupedJobs();
     const sortedDates = Object.keys(groupedJobs).sort((a, b) => {
-        const [da, ma, ya] = a.split('/').map(Number);
-        const [db, mb, yb] = b.split('/').map(Number);
-        return new Date(yb, mb - 1, db).getTime() - new Date(ya, ma - 1, da).getTime();
+        const parseDate = (dateStr: string) => {
+            const parts = dateStr.includes('/') ? dateStr.split('/') : dateStr.split('-');
+            if (parts.length === 3) {
+                // Asumiendo DD/MM/YYYY si el día está primero. YYYY-MM-DD fue convertido arriba a DD/MM/YYYY
+                const [d, m, y] = parts.map(Number);
+                return new Date(y, m - 1, d).getTime();
+            }
+            return new Date(dateStr).getTime();
+        };
+        return parseDate(b) - parseDate(a);
     });
 
     // --- HANDLERS ---
@@ -233,13 +304,23 @@ const TrabajoDetalle: React.FC = () => {
         setIsModalOpen(true);
     };
 
-    const handleConfirmAssignment = () => {
+    const handleConfirmAssignment = async () => {
         if (selectedJobId) {
             const assignedNames = selectedAssignments.length > 0
                 ? selectedAssignments.map(a => a.tecnicoNombre).join(", ")
                 : "Sin asignar";
 
             const newEstado = (selectedAssignments.length > 0 ? "Asignado" : "Solicitud") as any;
+
+            if (selectedAssignments.length > 0) {
+                try {
+                    await assignTrabajador(selectedJobId, selectedAssignments[0].tecnicoId);
+                } catch (error) {
+                    console.error("Error al asignar técnico en la API:", error);
+                    alert("Hubo un error sincronizando el trabajador con la base de datos.");
+                    return;
+                }
+            }
 
             const updated = trabajosData.map(job => {
                 if (job.id === selectedJobId) {
@@ -280,7 +361,7 @@ const TrabajoDetalle: React.FC = () => {
         setIsModalOpen(false);
     };
 
-    const handleConfirmRequest = () => {
+    const handleConfirmRequest = async () => {
         if (isEditingRequest && editingRequestId !== null) {
             // Edit existing request
             const updated = trabajosData.map(job => {
@@ -297,41 +378,46 @@ const TrabajoDetalle: React.FC = () => {
             alert("Solicitud actualizada exitosamente.");
         } else {
             // Create new request
-            const newJob: Trabajo = {
-                id: Date.now(),
-                titulo: `${newRequestData.categoria} - ${newRequestData.cliente || businessName}`,
-                ubicacion: newRequestData.cliente || businessName,
-                tecnico: "Sin asignar",
-                fecha: newRequestData.fecha || new Date().toLocaleDateString('es-MX'),
-                estado: "Solicitud",
-                tipo: "Nueva Solicitud",
-                descripcion: newRequestData.descripcion
-            };
-            const updated = [...trabajosData, newJob];
-            saveJobs(updated);
-
-            // Notify Admin
-            let adminNotifications = [];
             try {
-                const stored = localStorage.getItem('admin_notifications');
-                if (stored && stored !== "null" && stored !== "undefined") {
-                    const parsed = JSON.parse(stored);
-                    if (Array.isArray(parsed)) adminNotifications = parsed;
-                }
-            } catch (error) {
-                console.error("Error al leer admin_notifications", error);
-            }
+                const newJobPayload = {
+                    titulo: `${newRequestData.categoria} - ${newRequestData.cliente || businessName}`,
+                    descripcion: newRequestData.descripcion,
+                    prioridad: "Media",
+                    negocio_id: Number(id),
+                    fecha_programada: newRequestData.fecha || null
+                };
+                
+                const dbJob = await createTrabajo(newJobPayload);
 
-            adminNotifications.unshift({
-                id: Date.now() + Math.random(),
-                titulo: 'NUEVA SOLICITUD',
-                mensaje: `El cliente ha creado una nueva solicitud: ${newJob.titulo} en la sucursal ${businessName}.`,
-                fecha: new Date().toLocaleDateString('es-MX', { hour: '2-digit', minute: '2-digit' }),
-                leida: false,
-                jobId: newJob.id
-            });
-            localStorage.setItem('admin_notifications', JSON.stringify(adminNotifications));
-            window.dispatchEvent(new Event('storage')); // Trigger update for menu
+                // Update purely visual UI State immediately
+                const newJobView = {
+                    id: dbJob.id || Date.now(),
+                    titulo: dbJob.titulo,
+                    ubicacion: newRequestData.cliente || businessName,
+                    tecnico: "Sin asignar",
+                    fecha: dbJob.fecha_programada || new Date().toLocaleDateString('es-MX'),
+                    estado: "Solicitud",
+                    tipo: "Nueva Solicitud",
+                    descripcion: dbJob.descripcion
+                };
+                saveJobs([...trabajosData, newJobView as any]);
+
+                // Notify admin
+                const adminNotifications = JSON.parse(localStorage.getItem('admin_notifications') || '[]');
+                adminNotifications.unshift({
+                    id: Date.now() + Math.random(),
+                    titulo: 'NUEVA SOLICITUD',
+                    mensaje: `El cliente ha creado una nueva solicitud: ${newJobView.titulo} en la sucursal ${businessName}.`,
+                    fecha: new Date().toLocaleDateString('es-MX', { hour: '2-digit', minute: '2-digit' }),
+                    leida: false,
+                    jobId: newJobView.id
+                });
+                localStorage.setItem('admin_notifications', JSON.stringify(adminNotifications));
+                window.dispatchEvent(new Event('storage'));
+            } catch (error) {
+                console.error("Error creating record:", error);
+                alert("Hubo un error contactando al servidor.");
+            }
         }
         setTimeout(() => {
             setIsRequestModalOpen(false);
@@ -350,36 +436,50 @@ const TrabajoDetalle: React.FC = () => {
         }, 0);
     };
 
-    const handleSOSRequest = () => {
+    const handleSOSRequest = async () => {
         if (window.confirm("¿Estás seguro de que deseas enviar una solicitud de EMERGENCIA (SOS)? Esto notificará al administrador inmediatamente.")) {
-            const newJob: Trabajo = {
-                id: Date.now(),
-                titulo: `🚨 EMERGENCIA SOS - ${businessName}`,
-                ubicacion: businessName,
-                tecnico: "Sin asignar",
-                fecha: new Date().toLocaleDateString('es-MX'),
-                estado: "Solicitud",
-                tipo: "SOS",
-                descripcion: "Solicitud de emergencia generada por el cliente.",
-                isEmergency: true
-            };
-            const updated = [newJob, ...trabajosData]; // Poner el SOS al inicio
-            saveJobs(updated);
+            try {
+                const newJobPayload = {
+                    titulo: `🚨 EMERGENCIA SOS - ${businessName}`,
+                    descripcion: "Solicitud de emergencia generada por el cliente.",
+                    prioridad: "Alta",
+                    negocio_id: Number(id),
+                    fecha_programada: null
+                };
+                
+                const dbJob = await createTrabajo(newJobPayload);
 
-            // Notify Admin
-            const adminNotifications = JSON.parse(localStorage.getItem('admin_notifications') || '[]');
-            adminNotifications.unshift({
-                id: Date.now(),
-                titulo: `🚨 NUEVA EMERGENCIA`,
-                mensaje: `El cliente ${user?.name || 'desconocido'} de la sucursal ${businessName} ha solicitado ayuda de emergencia.`,
-                fecha: new Date().toLocaleDateString('es-MX') + ' ' + new Date().toLocaleTimeString('es-MX'),
-                leida: false,
-                jobId: newJob.id
-            });
-            localStorage.setItem('admin_notifications', JSON.stringify(adminNotifications));
-            window.dispatchEvent(new Event('storage')); // Trigger update for menu
+                const newJobView = {
+                    id: dbJob.id || Date.now(),
+                    titulo: dbJob.titulo,
+                    ubicacion: businessName,
+                    tecnico: "Sin asignar",
+                    fecha: new Date().toLocaleDateString('es-MX'),
+                    estado: "Solicitud",
+                    tipo: "SOS",
+                    descripcion: dbJob.descripcion,
+                    isEmergency: true
+                };
+                
+                saveJobs([newJobView as any, ...trabajosData]);
 
-            alert("Solicitud de emergencia enviada exitosamente. El administrador ha sido notificado.");
+                const adminNotifications = JSON.parse(localStorage.getItem('admin_notifications') || '[]');
+                adminNotifications.unshift({
+                    id: Date.now(),
+                    titulo: `🚨 NUEVA EMERGENCIA`,
+                    mensaje: `El cliente ${user?.name || 'desconocido'} de la sucursal ${businessName} ha solicitado ayuda de emergencia.`,
+                    fecha: new Date().toLocaleDateString('es-MX') + ' ' + new Date().toLocaleTimeString('es-MX'),
+                    leida: false,
+                    jobId: newJobView.id
+                });
+                localStorage.setItem('admin_notifications', JSON.stringify(adminNotifications));
+                window.dispatchEvent(new Event('storage'));
+
+                alert("Solicitud de emergencia enviada exitosamente. El administrador ha sido notificado.");
+            } catch (error) {
+                console.error("Error SOS:", error);
+                alert("Hubo un error contactando al servidor.");
+            }
         }
     };
 
@@ -596,7 +696,7 @@ const TrabajoDetalle: React.FC = () => {
                                                     <span className={styles.cardDate}>{trabajo.fecha}</span>
                                                 </div>
 
-                                                {user?.role === 'admin' && trabajo.visitado && trabajo.estado !== 'Finalizado' && (
+                                                {user?.role === 'admin' && Boolean(trabajo.visitado) && (trabajo.estado === 'Solicitud' || trabajo.estado === 'En Espera') && !isSos ? (
                                                     <div className={styles.diagnosisBanner}>
                                                         <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
                                                             <span className={styles.diagnosisIcon}>🛡️</span>
@@ -606,7 +706,19 @@ const TrabajoDetalle: React.FC = () => {
                                                             </div>
                                                         </div>
                                                     </div>
-                                                )}
+                                                ) : null}
+
+                                                {user?.role === 'admin' && (trabajo.estado === 'Cotización Aceptada' || trabajo.estado === 'Cotización Aprobada') ? (
+                                                    <div className={styles.diagnosisBanner} style={{ background: '#e8f5e9', border: '1px solid #c8e6c9', color: '#2e7d32', marginBottom: '15px' }}>
+                                                        <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
+                                                            <span className={styles.diagnosisIcon} style={{ background: '#c8e6c9', color: '#2e7d32' }}>✓</span>
+                                                            <div>
+                                                                <p className={styles.diagnosisTitle} style={{ color: '#2e7d32' }}>COTIZACIÓN ACEPTADA</p>
+                                                                <p className={styles.diagnosisText} style={{ color: '#388e3c', margin: 0 }}>El cliente ha aceptado la cotización. Asigne técnico para arrancar el trabajo.</p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ) : null}
 
                                                 {(user?.role === 'cliente' || user?.role === 'admin') &&
                                                     ['Cotización Enviada', 'Cotización Aceptada', 'Cotización Rechazada'].includes(trabajo.estado) &&
@@ -696,7 +808,7 @@ const TrabajoDetalle: React.FC = () => {
                                                     (trabajo.tecnico === "Sin asignar" || trabajo.estado === "Solicitud") && trabajo.estado !== "En Espera" ? (
                                                         <>
                                                             {/* Solo permitir asignar si NO ha sido visitado o si es cotización aceptada (pero esas ya no son Solicitud) */}
-                                                            {(!trabajo.visitado || trabajo.estado === "Cotización Aceptada") && (
+                                                            {(!Boolean(trabajo.visitado) || trabajo.estado === "Cotización Aceptada" || trabajo.estado === "Cotización Aprobada") && (
                                                                 <button
                                                                     className={`${styles.statusBtn} ${styles.assignBtn}`}
                                                                     onClick={(e) => { e.stopPropagation(); openAssignmentModal(trabajo.id); }}
@@ -705,7 +817,7 @@ const TrabajoDetalle: React.FC = () => {
                                                                 </button>
                                                             )}
                                                             {/* Mostrar el botón de cotizar si el trabajo ya fue visitado y sigue siendo Solicitud */}
-                                                            {(trabajo.visitado && trabajo.estado === "Solicitud") && (
+                                                            {(Boolean(trabajo.visitado) && trabajo.estado === "Solicitud") ? (
                                                                 <button
                                                                     className={styles.btnCotizar}
                                                                     onClick={(e) => {
@@ -715,7 +827,7 @@ const TrabajoDetalle: React.FC = () => {
                                                                 >
                                                                     📝 Realizar Cotización →
                                                                 </button>
-                                                            )}
+                                                            ) : null}
                                                             <button
                                                                 className={`${styles.statusBtn} ${styles.statusBadge} ${trabajo.estado === "Solicitud" ? styles.statusSolicitud : styles.statusAsignado}`}
                                                                 onClick={(e) => e.stopPropagation()}
@@ -739,7 +851,7 @@ const TrabajoDetalle: React.FC = () => {
                                                     // Vista para Tecnico o Cliente (solo badge de estado)
                                                     <>
                                                         <button
-                                                            className={`${styles.statusBtn} ${styles.statusBadge} ${trabajo.estado === 'Finalizado' ? styles.statusFinalizado : (trabajo.estado === 'Cotización Aceptada' ? styles.statusAceptada : styles.statusAsignado)}`}
+                                                            className={`${styles.statusBtn} ${styles.statusBadge} ${trabajo.estado === 'Finalizado' ? styles.statusFinalizado : ((trabajo.estado === 'Cotización Aceptada' || trabajo.estado === 'Cotización Aprobada') ? styles.statusAceptada : styles.statusAsignado)}`}
                                                             onClick={(e) => e.stopPropagation()}
                                                             style={{
                                                                 background: trabajo.estado === 'Cotización Enviada' ? '#ffe0b2' : undefined,

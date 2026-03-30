@@ -18,7 +18,7 @@ export const createTrabajo = async (data: any) => {
     return res.data;
 };
 
-export const updateEstadoTrabajo = async (id: number, data: { estado: string }) => {
+export const updateEstadoTrabajo = async (id: number, data: { estado: string; visitado?: boolean }) => {
     const res = await api.put(`/trabajos/${id}/estado`, data);
     return res.data;
 };

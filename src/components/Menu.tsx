@@ -52,9 +52,10 @@ const MenuLayout: React.FC = () => {
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
-    const marcarComoLeidas = () => {
-        const actualizadas = notificaciones.map(n => ({ ...n, leida: true }));
+    const marcarUnaComoLeida = (id: number) => {
+        const actualizadas = notificaciones.map(n => n.id === id ? { ...n, leida: true } : n);
         setNotificaciones(actualizadas);
+        
         if (user?.role === 'admin') {
             localStorage.setItem('admin_notifications', JSON.stringify(actualizadas));
         } else if (user?.role === 'cliente') {
@@ -205,7 +206,6 @@ const MenuLayout: React.FC = () => {
                                     className={styles.iconBtn}
                                     onClick={() => {
                                         setMostrarNotificaciones(!mostrarNotificaciones);
-                                        if (!mostrarNotificaciones && unreadCount > 0) marcarComoLeidas();
                                     }}
                                 >
                                     <HiOutlineBell size={24} />
@@ -221,14 +221,19 @@ const MenuLayout: React.FC = () => {
                                             {notificaciones.length > 0 ? (
                                                 notificaciones.map(noti => (
                                                     <div key={noti.id} className={`${styles.notificationItem} ${!noti.leida ? styles.notificationUnread : ''}`} onClick={() => {
-                                                        if (noti.jobId) {
-                                                            if (user?.role === 'admin') navigate(`/menu/trabajo-detalle/${noti.jobId}`);
-                                                            else if (user?.role === 'cliente') {
-                                                                if ((noti.titulo || noti.title || '').includes('Cotización')) navigate(`/cliente/cotizaciones`);
-                                                                else navigate(`/cliente/trabajo-detalle/${noti.jobId}`);
-                                                            }
-                                                            else if (user?.role === 'tecnico') {
-                                                                navigate(`/tecnico/trabajo-detalle/${noti.jobId}`);
+                                                        if (noti.jobId || noti.enlace) {
+                                                            marcarUnaComoLeida(noti.id);
+                                                            if (noti.enlace) {
+                                                                navigate(noti.enlace);
+                                                            } else if (noti.jobId) {
+                                                                if (user?.role === 'admin') navigate(`/menu/trabajo-detalle/${noti.jobId}`);
+                                                                else if (user?.role === 'cliente') {
+                                                                    if ((noti.titulo || noti.title || '').includes('Cotización')) navigate(`/cliente/cotizaciones`);
+                                                                    else navigate(`/cliente/trabajo-detalle/${noti.jobId}`);
+                                                                }
+                                                                else if (user?.role === 'tecnico') {
+                                                                    navigate(`/tecnico/trabajo-detalle/${noti.jobId}`);
+                                                                }
                                                             }
                                                         }
                                                         setMostrarNotificaciones(false);

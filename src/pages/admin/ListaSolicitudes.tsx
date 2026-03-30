@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { getTrabajos } from "../../services/trabajosService";
 import styles from "./ListaSolicitudes.module.css";
 import menuStyles from "../../components/Menu.module.css";
 import { useAuth } from "../../context/AuthContext";
@@ -9,6 +10,7 @@ interface Trabajo {
     titulo: string;
     ubicacion: string;
     tecnico: string;
+    tecnicoUserId?: number | null;
     fecha: string;
     estado: string;
     tipo?: "Visita" | "Trabajo" | "Nueva Solicitud" | "SOS";
@@ -31,51 +33,38 @@ const ListaSolicitudes: React.FC = () => {
     // DATA LOADING
     const [solicitudes, setSolicitudes] = useState<Trabajo[]>([]);
 
-    React.useEffect(() => {
-        const allJobs: Trabajo[] = [];
-        for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key?.startsWith('trabajos_business_')) {
-                const stored = localStorage.getItem(key);
-                if (stored) {
-                    const list: Trabajo[] = JSON.parse(stored);
-                    allJobs.push(...list.filter(j => j.estado === 'Solicitud' || j.estado === 'En Espera' || (j.estado === 'Asignado' && j.tipo === 'Visita') || j.estado === 'Cotización Aceptada'));
-                }
+    useEffect(() => {
+        const fetchSolicitudes = async () => {
+            try {
+                const apiJobs = await getTrabajos();
+                // Filtramos por estados relevantes para la bandeja de "Nuevas Solicitudes"
+                const activeJobs = apiJobs.filter((j: any) => 
+                    j.estado === 'Pendiente' || 
+                    j.estado === 'Solicitud' || 
+                    j.estado === 'En Espera' || 
+                    (j.estado === 'Asignado' && (j.prioridad !== 'Alta' && !j.titulo?.includes('SOS'))) ||
+                    j.estado === 'Cotización Aceptada'
+                );
+
+                const mappedJobs = activeJobs.map((j: any) => ({
+                    id: j.id,
+                    titulo: j.titulo,
+                    ubicacion: j.negocio?.ubicacion || j.negocio?.nombre || "Por definir",
+                    tecnico: j.trabajador?.nombre || "Sin asignar",
+                    tecnicoUserId: j.trabajador?.user_id || null,
+                    fecha: j.fecha_programada ? (j.fecha_programada.includes('-') ? j.fecha_programada.split('-').reverse().join('/') : j.fecha_programada) : new Date(j.created_at).toLocaleDateString('es-MX'),
+                    estado: j.estado === "Pendiente" ? "Solicitud" : j.estado,
+                    tipo: j.prioridad === 'Alta' || j.titulo?.includes('SOS') ? "SOS" : "Nueva Solicitud",
+                    sucursal: j.negocio?.nombre || "Por definir",
+                    visitado: false,
+                }));
+                setSolicitudes(mappedJobs);
+            } catch (error) {
+                console.error("Error al obtener solicitudes desde la base de datos:", error);
             }
-        }
+        };
 
-        // Also get old new_solicitudes if any
-        const savedSolicitudes = JSON.parse(localStorage.getItem('new_solicitudes') || '[]');
-        const mappedSaved = savedSolicitudes.map((s: any) => ({
-            id: s.id || Date.now() + Math.random(),
-            titulo: s.nombre,
-            ubicacion: "",
-            tecnico: s.tipo === 'Técnico' ? s.subtitulo.replace('Técnico: ', '') : 'Sin asignar',
-            fecha: s.fecha,
-            estado: 'Solicitud',
-            tipo: s.tipo === 'Técnico' ? 'Visita' : 'Trabajo',
-            sucursal: s.nombre
-        }));
-
-        const mockData: Trabajo[] = [
-            {
-                id: 1,
-                titulo: "Mantenimiento General (Mock)",
-                ubicacion: "Centro",
-                tecnico: "Sin asignar",
-                fecha: "25/08/2026",
-                estado: "Solicitud",
-                tipo: "Trabajo",
-                sucursal: "Mc Donals (Centro)",
-                visitado: false
-            }
-        ];
-
-        if (allJobs.length > 0) {
-            setSolicitudes([...allJobs, ...mappedSaved]);
-        } else {
-            setSolicitudes([...mockData, ...mappedSaved]);
-        }
+        fetchSolicitudes();
     }, []);
 
     // FILTRADO
@@ -86,7 +75,7 @@ const ListaSolicitudes: React.FC = () => {
             req.tecnico.toLowerCase().includes(searchTextLower);
 
         if (user?.role === 'tecnico') {
-            return matchesText && req.tecnico === user.name;
+            return matchesText && req.tecnicoUserId === user.id;
         }
 
         let matchesStatus = true;

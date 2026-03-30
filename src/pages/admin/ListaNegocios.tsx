@@ -3,6 +3,9 @@ import { useNavigate } from "react-router-dom";
 import styles from "./ListaNegocios.module.css";
 import menuStyles from "../../components/Menu.module.css";
 import { useAuth } from "../../context/AuthContext";
+import { getNegocios } from "../../services/negociosService";
+import { getTrabajos } from "../../services/trabajosService";
+
 import { HiOutlinePencil } from "react-icons/hi2";
 import { FaImage } from "react-icons/fa6";
 
@@ -14,58 +17,58 @@ interface Negocio {
     fecha: string;
     estado: string; // Added status field
     imagenPerfil?: string; // Client uploaded picture
+    user_id?: number;
 }
 
 const ListaNegocios: React.FC = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
     const [negocios, setNegocios] = useState<Negocio[]>([]);
+    const [globalJobs, setGlobalJobs] = useState<any[]>([]);
     const [searchText, setSearchText] = useState("");
 
     useEffect(() => {
-        const stored = localStorage.getItem('negocios_list');
-        const mockData: Negocio[] = [];
-
-        if (stored) {
-            const list = JSON.parse(stored);
-            // Evitar duplicados del mock inicial si ya están en storage
-            const filteredMock = mockData.filter(m => !list.some((l: any) => l.id === m.id));
-            setNegocios([...list, ...filteredMock]);
-        } else {
-            setNegocios(mockData);
-            localStorage.setItem('negocios_list', JSON.stringify(mockData));
-        }
-    }, []);
+        const fetchData = async () => {
+            try {
+                const data = await getNegocios();
+                const mapped = data.map((n: any) => ({
+                    ...n,
+                    id: n.id,
+                    nombre: n.nombre,
+                    ubicacion: n.tipo === "W/M" ? `${n.calleAv || ''} Mza ${n.manzana || ''}` : (n.nombrePlaza || n.colonia || "Mérida"),
+                    dueno: n.encargado || "Cliente",
+                    fecha: new Date(n.created_at).toLocaleDateString('es-MX'),
+                    estado: n.estado_aprobacion || "En Espera",
+                    user_id: n.user_id,
+                    imagenPerfil: n.imagenPerfil
+                }));
+                setNegocios(mapped);
+                
+                if (user?.role === 'admin' || user?.role === 'tecnico') {
+                    const jobsApi = await getTrabajos();
+                    setGlobalJobs(jobsApi);
+                }
+            } catch (error) {
+                console.error("Error al cargar negocios o trabajos:", error);
+                const stored = localStorage.getItem('negocios_list');
+                if (stored) setNegocios(JSON.parse(stored));
+            }
+        };
+        fetchData();
+    }, [user]);
 
     const filteredNegocios = negocios.filter((negocio) => {
         const matchesSearch = negocio.nombre.toLowerCase().includes(searchText.toLowerCase());
 
         // FILTRO POR ROL: El cliente solo ve lo suyo, el admin ve todo
         if (user?.role === 'cliente') {
-            return matchesSearch && negocio.dueno === user.name;
+            return matchesSearch && (negocio.dueno === user.name || negocio.user_id === user.id);
         }
 
         // FILTRO POR ROL: El técnico solo ve los negocios donde tiene trabajos asignados
         if (user?.role === 'tecnico') {
-            // Buscamos dinámicamente en qué negocios tiene trabajos el técnico
-            let hasJobsInThisBusiness = false;
-
-            // 1. Verificar en datos persistidos
-            const storedJobs = localStorage.getItem(`trabajos_business_${negocio.id}`);
-            if (storedJobs) {
-                const jobs = JSON.parse(storedJobs);
-                if (jobs.some((j: any) => j.tecnico === user.name)) {
-                    hasJobsInThisBusiness = true;
-                }
-            }
-
-            // 2. Si no hay persistidos, verificar en los IDs de demo por defecto (para que no salga vacio al inicio)
-            const defaultDemoIds = [1, 3];
-            if (!hasJobsInThisBusiness && defaultDemoIds.includes(negocio.id)) {
-                hasJobsInThisBusiness = true;
-            }
-
-            return matchesSearch && hasJobsInThisBusiness;
+            const hasAssignedJobs = globalJobs.some((j: any) => j.negocio_id === negocio.id && j.trabajador?.user_id === user.id);
+            return matchesSearch && hasAssignedJobs;
         }
 
         return matchesSearch;
@@ -124,11 +127,7 @@ const ListaNegocios: React.FC = () => {
                     {filteredNegocios.map((negocio) => {
                         let hasSOS = false;
                         if (user?.role === 'admin') {
-                            const storedJobs = localStorage.getItem(`trabajos_business_${negocio.id}`);
-                            if (storedJobs) {
-                                const jobs = JSON.parse(storedJobs);
-                                hasSOS = jobs.some((j: any) => j.tipo === 'SOS' && j.estado === 'Solicitud');
-                            }
+                            hasSOS = globalJobs.some((j: any) => j.negocio_id === negocio.id && j.tipo === 'SOS' && j.estado === 'Solicitud');
                         }
 
                         return (
@@ -159,6 +158,7 @@ const ListaNegocios: React.FC = () => {
                                             <span className={styles.cardDate}>{negocio.fecha}</span>
                                             <h3>{negocio.nombre}</h3>
                                             <p>Dueño: {negocio.dueno}</p>
+                                            <p>Ubicación: {negocio.ubicacion}</p>
                                             <p className={negocio.estado === 'Finalizado' ? styles.estadoFinalizado : styles.estadoPendiente}>
                                                 Estado: {negocio.estado}
                                             </p>

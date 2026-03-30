@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import styles from "./PerfilEmpresa.module.css";
 import { useAuth } from "../../context/AuthContext";
+import { createNegocio, updateNegocio, getNegocio } from "../../services/negociosService";
+
 
 type BusinessType = "FC" | "FS" | "MALL" | "W/M";
 
@@ -33,26 +35,27 @@ const PerfilEmpresa: React.FC = () => {
     const [formData, setFormData] = useState<BusinessData>({
         nombreSucursal: "",
         tipo: "FC",
-        encargado: user?.name || "",
-        estado: "Yucatan",
-        ciudad: "Merida",
+        encargado: "", // Solicitado: Debe salir vacío por defecto
+        estado: "Yucatán",
+        ciudad: "Mérida",
+        nombrePlaza: ""
     });
 
     const [searchParams] = useSearchParams();
     const editId = searchParams.get('id');
 
     React.useEffect(() => {
-        if (editId) {
-            const stored = localStorage.getItem('negocios_list');
-            if (stored) {
-                const list = JSON.parse(stored);
-                // Buscar el negocio con ese ID
-                const existing = list.find((item: any) => item.id.toString() === editId);
-                if (existing) {
+        const fetchNegocio = async () => {
+            if (editId) {
+                try {
+                    const existing = await getNegocio(Number(editId));
                     setFormData(prev => ({ ...prev, ...existing, nombreSucursal: existing.nombre }));
+                } catch (error) {
+                    console.error("Error fetching negocio:", error);
                 }
             }
-        }
+        };
+        fetchNegocio();
     }, [editId]);
 
     const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -73,7 +76,7 @@ const PerfilEmpresa: React.FC = () => {
         }
     };
 
-    const handleSave = () => {
+    const handleSave = async () => {
         // Validación básica
         if (!formData.nombreSucursal) return alert("Por favor ingresa el nombre de la sucursal");
         if (!formData.encargado) return alert(`Por favor ingresa el ${formData.tipo === 'FC' ? 'encargado' : 'dueño'} de la empresa`);
@@ -94,46 +97,38 @@ const PerfilEmpresa: React.FC = () => {
         }
         if (!formData.cp) return alert("Por favor ingresa el código postal");
 
-        // Obtener lista actual de negocios
-        const stored = localStorage.getItem('negocios_list');
-        const list = stored ? JSON.parse(stored) : [];
+        try {
+            const payload = {
+                nombre: formData.nombreSucursal,
+                tipo: formData.tipo,
+                encargado: formData.encargado,
+                user_id: user?.id,
+                estado: formData.estado,
+                ciudad: formData.ciudad,
+                calle: formData.calle,
+                numero: formData.numero,
+                colonia: formData.colonia,
+                cp: formData.cp,
+                referencia: formData.referencia,
+                manzana: formData.manzana,
+                lote: formData.lote,
+                calleAv: formData.calleAv,
+                imagenPerfil: formData.imagenPerfil,
+                nombrePlaza: formData.nombrePlaza
+            };
 
-        // Crear nuevo objeto de negocio formateado para ListaNegocios.tsx
-        const newBusiness = {
-            id: Date.now(),
-            nombre: formData.nombreSucursal,
-            ubicacion: formData.tipo === "W/M" ? `${formData.calleAv || ''} Mza ${formData.manzana || ''}` : (formData.nombrePlaza || formData.colonia || "Mérida"),
-            dueno: user?.name || "Cliente",
-            fecha: new Date().toLocaleDateString('es-MX'),
-            estado: "En Espera", // Status inicial para el Admin
-            ...formData // Guardamos el resto de la info detallada
-        };
-
-        const updatedList = editId
-            // Si estamos editando, mapeamos y reemplazamos el existente conservando el ID antiguo
-            ? list.map((item: any) => item.id.toString() === editId ? { ...newBusiness, id: item.id } : item)
-            // Si es nuevo, lo añadimos al final
-            : [...list, newBusiness];
-
-        localStorage.setItem('negocios_list', JSON.stringify(updatedList));
-
-        // Notificación para el Administrador si es un nuevo negocio
-        if (!editId) {
-            const adminNotifs = JSON.parse(localStorage.getItem('admin_notifications') || '[]');
-            adminNotifs.unshift({
-                id: Date.now() + Math.random(),
-                titulo: "Nueva Empresa Registrada",
-                mensaje: `El cliente ${user?.name || "Cliente"} ha registrado una nueva empresa: ${formData.nombreSucursal}.`,
-                fecha: new Date().toLocaleDateString('es-MX', { hour: '2-digit', minute: '2-digit' }),
-                leida: false,
-                type: 'new_business'
-            });
-            localStorage.setItem('admin_notifications', JSON.stringify(adminNotifs));
-            window.dispatchEvent(new Event('storage'));
+            if (editId) {
+                await updateNegocio(Number(editId), payload);
+                alert("Informaci?n actualizada correctamente (DB)");
+            } else {
+                await createNegocio(payload);
+                alert("Informaci?n guardada correctamente (DB)");
+            }
+            navigate('/cliente');
+        } catch (error) {
+            console.error("Error saving negocio:", error);
+            alert("Hubo un error al guardar la empresa en el servidor.");
         }
-
-        alert(editId ? "Información actualizada correctamente" : "Información guardada correctamente");
-        navigate('/cliente');
     };
 
     return (
