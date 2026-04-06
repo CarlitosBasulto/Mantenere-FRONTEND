@@ -1,15 +1,16 @@
 .dashboardLayout {
     display: flex;
-    gap: 40px;
-    flex: 1;
-    min-height: 0;
+    justify-content: center;
+    width: 100%;
 }
 
 .leftColumn {
     display: flex;
     flex-direction: column;
-    flex: 3;
-    min-height: 0;
+    width: 100%;
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 0 20px;
 }
 
 .rightColumn {
@@ -67,83 +68,242 @@
 
 .jobCard {
     background: white;
-    padding: 20px 30px;
-    border-radius: 40px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    padding: 0 0 25px 0; /* No padding at top to let statusBar take full width */
+    border-radius: 30px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
     width: 100%;
-    border: none;
+    border: 1px solid #f0f0f0;
     min-height: 100px;
     display: flex;
     flex-direction: column;
-    justify-content: center;
     position: relative;
-    overflow: hidden;
+    overflow: visible;
     cursor: pointer;
     transition: transform 0.2s, box-shadow 0.2s;
 }
 
 .jobCard:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
 }
+
+/* Status Bar at the very top */
+.statusBar {
+    height: 35px;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    padding: 0 25px;
+    font-size: 11px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 20px;
+}
+
+.statusBar.yellow { background: #fff8e1; color: #fbc02d; }
+.statusBar.red { background: #ffebee; color: #d32f2f; }
+.statusBar.green { background: #e8f5e9; color: #2e7d32; }
+.statusBar.blue { background: #e3f2fd; color: #1565c0; }
 
 .cardContent {
     display: flex;
-    align-items: center;
-    gap: 25px;
+    flex-direction: column;
+    padding: 0 30px;
     width: 100%;
-    padding-right: 20px;
 }
 
-.cardIcon {
-    width: 50px;
-    height: 50px;
-    background: #f4f4f4;
-    border-radius: 12px;
+.headerRow {
     display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 24px;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 15px;
 }
 
-.cardInfo {
-    flex: 1;
+.dateGroup {
     display: flex;
     flex-direction: column;
 }
 
-.cardDate {
-    font-size: 13px;
-    color: #999;
-    margin-bottom: 4px;
+.strikingDate {
+    color: #00a884;
+    font-weight: 800;
+    font-size: 15px;
+    margin: 0;
 }
 
 .cardInfo h3 {
-    margin-bottom: 2px;
-    font-size: 19px;
-    color: #111;
+    margin: 0 0 10px 0;
+    font-size: 22px;
+    color: #000;
     font-weight: 700;
 }
 
-.cardInfo p {
+.descriptionBox {
+    background: #f4f7f9;
+    padding: 12px 18px;
+    border-radius: 12px;
+    margin-bottom: 15px;
+    border-left: 4px solid #cfd8dc;
+}
+
+.descriptionBox p {
     margin: 0;
     font-size: 14px;
-    color: #555;
+    color: #455a64;
+    line-height: 1.5;
+    font-weight: 500;
 }
 
-.cardIndicator {
+.equipmentBadge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #f0f9ff;
+    color: #0369a1;
+    padding: 5px 12px;
+    border-radius: 8px;
+    font-size: 11.5px;
+    font-weight: 700;
+    margin-top: 10px;
+    border: 1px solid #bae6fd;
+    box-shadow: 0 1px 2px rgba(3, 105, 161, 0.05);
+}
+
+.footerRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 5px;
+}
+
+.tecnicoInfo {
+    font-size: 13px;
+    color: #777;
+    font-weight: 600;
+}
+
+.tipoBadge {
+    background: #000;
+    color: #fff;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: bold;
+}
+
+/* Action Menu Styles */
+.menuContainer {
+    position: relative;
+    z-index: 10;
+}
+
+.dotsBtn {
+    background: none;
+    border: none;
+    font-size: 20px;
+    color: #999;
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 50%;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.dotsBtn:hover {
+    background: #f0f0f0;
+    color: #333;
+}
+
+.dropdownMenu {
     position: absolute;
     right: 0;
-    top: 0;
-    bottom: 0;
-    width: 35px;
-    background: #d4ebf9;
-    border-top-left-radius: 40px;
-    border-bottom-left-radius: 40px;
+    top: 35px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+    border: 1px solid #eee;
+    padding: 8px;
+    min-width: 140px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
 }
 
-.yellow {
-    background: #fff8d6;
+.menuItem {
+    background: none;
+    border: none;
+    padding: 10px 15px;
+    text-align: left;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #444;
+}
+
+.menuItem:hover {
+    background: #f5f5f5;
+}
+
+.deleteItem {
+    color: #d32f2f;
+}
+
+.deleteItem:hover {
+    background: #fff1f1;
+}
+
+/* diagnosis / SOS specific banners can stay or be removed based on statusBar redundancy */
+.diagnosisBanner {
+    background: linear-gradient(135deg, #fffaf2 0%, #fff3e0 100%);
+    border: 1px solid #ffe0b2;
+    border-left: 5px solid #ff9800;
+    border-radius: 16px;
+    margin: 0 30px 20px 30px;
+    padding: 15px 20px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.diagnosisIconWrapper {
+    width: 38px;
+    height: 38px;
+    background: rgba(255, 152, 0, 0.15);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+.diagnosisTextGroup {
+    display: flex;
+    flex-direction: column;
+}
+
+.diagnosisTitle {
+    margin: 0;
+    color: #e65100;
+    font-weight: 800;
+    font-size: 13px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+.diagnosisText {
+    margin: 1px 0 0 0;
+    color: #4e342e;
+    font-size: 12.5px;
+    font-weight: 500;
+    line-height: 1.4;
 }
 
 /* ===========================
@@ -158,80 +318,29 @@
     
     .rightColumn { display: none; }
     
-    .searchSection {
-        flex-direction: column;
-        align-items: stretch;
-        margin: 10px 15px;
-    }
-    
-    .searchCard { width: 100%; border-bottom: 1px solid #eee; padding-bottom: 10px; }
-    
-    .searchInput { width: 100%; }
-    
-    .filterBtn { width: 100%; justify-content: center; padding: 12px; }
-    
     .jobsSection { padding: 0; gap: 0; }
     
     .jobCard {
-        padding: 12px 15px;
+        padding: 0 0 15px 0;
         border-radius: 0;
-        border: none;
         border-bottom: 1px solid #f0f0f0;
-        background: white;
         margin: 0;
         box-shadow: none;
     }
-    
-    .cardContent {
-        flex-direction: row;
-        align-items: center;
-        gap: 15px;
-        padding: 0;
-        word-break: break-word;
-    }
-    
-    .cardIcon {
-        width: 50px;
-        height: 50px;
-        font-size: 24px;
-        border-radius: 50%;
-        background: #e0e0e0;
-        flex-shrink: 0;
-    }
-    
-    .cardInfo { flex: 1; position: relative; }
-    
-    .cardInfo h3 {
-        font-size: 16px;
-        font-weight: 600;
-        color: #111;
-        margin-bottom: 2px;
-        display: inline-block;
-        max-width: 75%;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-    
-    .cardDate {
-        position: absolute;
-        top: 2px;
-        right: 0;
-        font-size: 11px;
-        color: #888;
-    }
-    
-    .cardInfo p {
-        font-size: 13px;
-        color: #666;
-        margin: 0;
-        max-height: 38px;
-        overflow: hidden;
-        text-overflow: ellipsis;
+
+    .statusBar { 
+        height: 25px; 
+        font-size: 9px;
+        padding: 0 15px;
+        margin-bottom: 10px;
     }
 
-    .cardIndicator { display: none; }
-    
+    .cardContent { padding: 0 15px; }
+
+    .cardInfo h3 { font-size: 17px; }
+
+    .strikingDate { font-size: 13px; }
+
     .modalContent {
         width: 90%;
         padding: 20px;

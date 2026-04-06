@@ -4,27 +4,31 @@ export interface Cotizacion {
     id?: number;
     trabajo_id: number;
     descripcion?: string;
-    monto: number;
+    monto: number | string;
     estado?: "Pendiente" | "Aprobada" | "Rechazada";
-    archivo?: string; // Corrigiendo error TS
+    archivo?: string;
     created_at?: string;
     updated_at?: string;
 }
 
-// 📌 Obtener la cotización de un trabajo específico
-export const getCotizacionByTrabajoId = async (trabajoId: number): Promise<Cotizacion | null> => {
+// 📌 Obtener TODAS las cotizaciones de un trabajo (devuelve array)
+export const getCotizacionesByTrabajoId = async (trabajoId: number): Promise<Cotizacion[]> => {
     try {
         const response = await api.get(`/cotizaciones/trabajo/${trabajoId}`);
-        return response.data;
+        // Si el backend devuelve un array vacío o el trabajo no tiene cotizaciones
+        return Array.isArray(response.data) ? response.data : [];
     } catch (error: any) {
         if (error.response && error.response.status === 404) {
-            return null; // No existe
+            return [];
         }
         throw error;
     }
 };
 
-// 📌 Crear o actualizar una cotización
+// 📌 Mantener compatibilidad con código anterior (alias)
+export const getCotizacionByTrabajoId = getCotizacionesByTrabajoId;
+
+// ➕ Crear una nueva cotización
 export const saveCotizacion = async (data: Partial<Cotizacion> | FormData): Promise<Cotizacion> => {
     const isFormData = data instanceof FormData;
     const response = await api.post('/cotizaciones', data, isFormData ? {
@@ -33,7 +37,21 @@ export const saveCotizacion = async (data: Partial<Cotizacion> | FormData): Prom
     return response.data.data;
 };
 
-// 📌 Actualizar el estado de la cotización (Aprobar / Rechazar)
+// ✏️ Editar una cotización existente
+export const updateCotizacion = async (id: number, data: FormData | Partial<Cotizacion>): Promise<Cotizacion> => {
+    const isFormData = data instanceof FormData;
+    const response = await api.put(`/cotizaciones/${id}`, data, isFormData ? {
+        headers: { "Content-Type": "multipart/form-data" }
+    } : {});
+    return response.data.data;
+};
+
+// 🗑️ Eliminar una cotización
+export const deleteCotizacion = async (id: number): Promise<void> => {
+    await api.delete(`/cotizaciones/${id}`);
+};
+
+// ✅❌ Actualizar el estado individual (Aprobar / Rechazar) de una cotización
 export const updateCotizacionStatus = async (id: number, estado: "Aprobada" | "Rechazada" | "Pendiente"): Promise<Cotizacion> => {
     const response = await api.put(`/cotizaciones/${id}/estado`, { estado });
     return response.data.data;

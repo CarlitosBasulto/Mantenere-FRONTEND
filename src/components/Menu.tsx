@@ -7,39 +7,72 @@ import { useAuth } from "../context/AuthContext";
 import { 
     HiOutlineUser, HiOutlineBell, HiOutlineBriefcase, 
     HiOutlineUsers, HiOutlineDocumentText, HiOutlineClock,
-    HiOutlineCurrencyDollar, HiOutlineWrench
+    HiOutlineCurrencyDollar, HiOutlineWrench, HiOutlineSquares2X2,
+    HiCheckBadge
 } from "react-icons/hi2";
+import { 
+    getNotificaciones, 
+    markNotificacionAsRead, 
+    markAllNotificacionesAsRead 
+} from "../services/notificacionesService";
+import type { Notificacion } from "../services/notificacionesService";
 
 
 const MenuLayout: React.FC = () => {
     const location = useLocation();
     const navigate = useNavigate();
-    const { user } = useAuth(); // Usamos el contexto
+    const { user, loading, logout } = useAuth(); // Usamos el contexto
     const [sidebarOptions, setSidebarOptions] = useState<string[]>([]);
-    const [activeOption, setActiveOption] = useState("Negocios");
+    const [activeOption, setActiveOption] = useState("");
     const [notificaciones, setNotificaciones] = useState<any[]>([]);
     const [mostrarNotificaciones, setMostrarNotificaciones] = useState(false);
+    const [mostrarPerfil, setMostrarPerfil] = useState(false);
     const notificacionesRef = useRef<HTMLDivElement>(null);
+    const perfilRef = useRef<HTMLDivElement>(null);
+
+    // Cerrar menús al hacer clic fuera
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (notificacionesRef.current && !notificacionesRef.current.contains(event.target as Node)) {
+                setMostrarNotificaciones(false);
+            }
+            if (perfilRef.current && !perfilRef.current.contains(event.target as Node)) {
+                setMostrarPerfil(false);
+            }
+        };
+
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    // Obtener ruta base según el rol
+    const getBaseRoute = () => {
+        if (!user) return "/";
+        const role = user.role;
+        if (role === 'admin') return "/menu";
+        if (role === 'cliente') return "/cliente";
+        if (role === 'tecnico') return "/tecnico";
+        return "/";
+    };
 
     // Cargar notificaciones
-    const cargarNotificaciones = () => {
-        if (user?.role === 'admin') {
-            const stored = JSON.parse(localStorage.getItem('admin_notifications') || '[]');
-            setNotificaciones(stored);
-        } else if (user?.role === 'cliente') {
-            const storedClient = JSON.parse(localStorage.getItem('client_notifications') || '[]');
-            setNotificaciones(storedClient);
-        } else if (user?.role === 'tecnico') {
-            const storedTecnico = JSON.parse(localStorage.getItem(`tecnico_notifications_${user.name}`) || '[]');
-            setNotificaciones(storedTecnico);
+    const cargarNotificaciones = async () => {
+        if (!user?.id) return;
+        try {
+            const data = await getNotificaciones(user.id);
+            setNotificaciones(data);
+        } catch (error) {
+            console.error("Error cargando notificaciones de la BD:", error);
+            // Fallback silencioso
         }
     };
 
     useEffect(() => {
         cargarNotificaciones();
-        window.addEventListener('storage', cargarNotificaciones);
-        return () => window.removeEventListener('storage', cargarNotificaciones);
-    }, [user]);
+        // Polling suave cada 30 segundos para nuevas notificaciones
+        const interval = setInterval(cargarNotificaciones, 30000);
+        return () => clearInterval(interval);
+    }, [user?.id]);
 
     // Cerrar click outside
     useEffect(() => {
@@ -52,20 +85,26 @@ const MenuLayout: React.FC = () => {
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
-    const marcarUnaComoLeida = (id: number) => {
-        const actualizadas = notificaciones.map(n => n.id === id ? { ...n, leida: true } : n);
-        setNotificaciones(actualizadas);
-        
-        if (user?.role === 'admin') {
-            localStorage.setItem('admin_notifications', JSON.stringify(actualizadas));
-        } else if (user?.role === 'cliente') {
-            localStorage.setItem('client_notifications', JSON.stringify(actualizadas));
-        } else if (user?.role === 'tecnico') {
-            localStorage.setItem(`tecnico_notifications_${user.name}`, JSON.stringify(actualizadas));
+    const marcarUnaComoLeida = async (id: number) => {
+        try {
+            await markNotificacionAsRead(id);
+            setNotificaciones(prev => prev.map(n => n.id === id ? { ...n, leido: true } : n));
+        } catch (error) {
+            console.error("Error al marcar como leída:", error);
         }
     };
 
-    const unreadCount = notificaciones.filter(n => !n.leida).length;
+    const marcarTodasComoLeidas = async () => {
+        if (!user?.id) return;
+        try {
+            await markAllNotificacionesAsRead(user.id);
+            setNotificaciones(prev => prev.map(n => ({ ...n, leido: true })));
+        } catch (error) {
+            console.error("Error al marcar todas como leídas:", error);
+        }
+    };
+
+    const unreadCount = notificaciones.filter(n => !n.leido).length;
 
     // Determinar opciones del sidebar basado en el ROL y la RUTA
     useEffect(() => {
@@ -75,7 +114,7 @@ const MenuLayout: React.FC = () => {
         let baseOptions: string[] = [];
 
         if (user.role === 'admin') {
-            baseOptions = ["Negocios", "Trabajadores", "Solicitudes", "Trabajos Realizados"];
+            baseOptions = ["Dashboard", "Negocios", "Trabajadores", "Usuarios", "Solicitudes", "Trabajos Realizados"];
         } else if (user.role === 'cliente') {
             baseOptions = ["Mis Negocios", "Cotizaciones", "Historial"];
         } else if (user.role === 'tecnico') {
@@ -94,10 +133,13 @@ const MenuLayout: React.FC = () => {
             const path = location.pathname;
 
             if (path.startsWith("/menu")) {
-                if (path === "/menu" || path === "/menu/") setActiveOption("Negocios");
+                if (path === "/menu" || path === "/menu/") setActiveOption("Dashboard");
+                else if (path.includes("dashboard")) setActiveOption("Dashboard");
                 else if (path.includes("trabajadores")) setActiveOption("Trabajadores");
+                else if (path.includes("usuarios")) setActiveOption("Usuarios");
                 else if (path.includes("solicitudes")) setActiveOption("Solicitudes");
                 else if (path.includes("trabajos-realizados")) setActiveOption("Trabajos Realizados");
+                else setActiveOption("Negocios");
             } else if (path.startsWith("/cliente")) {
                 if (path === "/cliente" || path === "/cliente/") setActiveOption("Mis Negocios");
                 else if (path.includes("cotizaciones")) setActiveOption("Cotizaciones");
@@ -112,9 +154,11 @@ const MenuLayout: React.FC = () => {
     const handleNavigation = (option: string) => {
         setActiveOption(option);
 
+        if (option === "Dashboard") navigate("/menu/dashboard");
         // Mapeo de navegación según opción
-        if (option === "Negocios") navigate("/menu");
+        if (option === "Negocios") navigate("/menu/negocios");
         if (option === "Trabajadores") navigate("/menu/trabajadores");
+        if (option === "Usuarios") navigate("/menu/usuarios");
         if (option === "Solicitudes") navigate("/menu/solicitudes");
         if (option === "Trabajos Realizados") navigate("/menu/trabajos-realizados");
 
@@ -143,10 +187,13 @@ const MenuLayout: React.FC = () => {
 
     const getIconForOption = (option: string) => {
         switch (option) {
+            case "Dashboard":
+                return <HiOutlineSquares2X2 size={22} />;
             case "Negocios":
             case "Mis Negocios":
                 return <HiOutlineBriefcase size={22} />;
             case "Trabajadores":
+            case "Usuarios":
                 return <HiOutlineUsers size={22} />;
             case "Solicitudes":
             case "Nueva Solicitud":
@@ -167,12 +214,14 @@ const MenuLayout: React.FC = () => {
 
 
 
+    if (loading) return null;
+
     return (
         <div className={styles.container}>
 
             {/* SIDEBAR IZQUIERDO */}
             <aside className={styles.sidebar}>
-                <div className={styles.logoContainer} onClick={() => navigate("/menu")}>
+                <div className={styles.logoContainer} onClick={() => navigate(getBaseRoute())}>
                     <img src={logo} alt="Logo" className={styles.logo} />
                 </div>
 
@@ -214,39 +263,38 @@ const MenuLayout: React.FC = () => {
 
                                 {mostrarNotificaciones && (
                                     <div className={styles.notificationDropdown}>
-                                        <div className={styles.dropdownHeader}>
+                                        <div className={styles.dropdownHeader} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                             <h4>Notificaciones</h4>
+                                            {unreadCount > 0 && (
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); marcarTodasComoLeidas(); }}
+                                                    style={{ background: 'none', border: 'none', color: '#0284c7', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                                >
+                                                    <HiCheckBadge /> Leer todas
+                                                </button>
+                                            )}
                                         </div>
                                         <div className={styles.dropdownBody}>
                                             {notificaciones.length > 0 ? (
-                                                notificaciones.map(noti => (
-                                                    <div key={noti.id} className={`${styles.notificationItem} ${!noti.leida ? styles.notificationUnread : ''}`} onClick={() => {
-                                                        if (noti.jobId || noti.enlace) {
+                                                notificaciones.map((noti: Notificacion) => (
+                                                    <div key={noti.id} className={`${styles.notificationItem} ${!noti.leido ? styles.notificationUnread : ''}`} onClick={() => {
+                                                        if (noti.enlace) {
                                                             marcarUnaComoLeida(noti.id);
-                                                            if (noti.enlace) {
-                                                                navigate(noti.enlace);
-                                                            } else if (noti.jobId) {
-                                                                if (user?.role === 'admin') navigate(`/menu/trabajo-detalle/${noti.jobId}`);
-                                                                else if (user?.role === 'cliente') {
-                                                                    if ((noti.titulo || noti.title || '').includes('Cotización')) navigate(`/cliente/cotizaciones`);
-                                                                    else navigate(`/cliente/trabajo-detalle/${noti.jobId}`);
-                                                                }
-                                                                else if (user?.role === 'tecnico') {
-                                                                    navigate(`/tecnico/trabajo-detalle/${noti.jobId}`);
-                                                                }
-                                                            }
+                                                            navigate(noti.enlace);
                                                         }
                                                         setMostrarNotificaciones(false);
                                                     }}>
                                                         <div className={styles.notificationIcon}>
-                                                            {(noti.titulo || noti.title || '').includes('Cotización') ? '📄' : '✅'}
+                                                            {(noti.titulo || '').includes('Cotización') ? '📄' : '✅'}
                                                         </div>
                                                         <div className={styles.notificationContent}>
-                                                            <div className={styles.notificationTitle}>{noti.titulo || noti.title || 'Alerta'}</div>
-                                                            <div className={styles.notificationMessage}>{noti.mensaje || noti.message || ''}</div>
-                                                            <div className={styles.notificationTime}>{noti.fecha || noti.date || ''}</div>
+                                                            <div className={styles.notificationTitle}>{noti.titulo}</div>
+                                                            <div className={styles.notificationMessage}>{noti.mensaje}</div>
+                                                            <div className={styles.notificationTime}>
+                                                                {new Date(noti.created_at).toLocaleDateString()} {new Date(noti.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                            </div>
                                                         </div>
-                                                        {!noti.leida && <div className={styles.notificationDot}></div>}
+                                                        {!noti.leido && <div className={styles.notificationDot}></div>}
                                                     </div>
                                                 ))
                                             ) : (<div className={styles.noNotifications}>No hay notificaciones recientes.</div>
@@ -256,16 +304,45 @@ const MenuLayout: React.FC = () => {
                                 )}
                             </div>
 
-                            <button
-                                className={styles.iconBtn}
-                                onClick={() => {
-                                    if (user?.role === 'cliente') navigate("/cliente/mi-perfil");
-                                    else if (user?.role === 'admin') navigate("/menu/mi-perfil");
-                                    else if (user?.role === 'tecnico') navigate("/tecnico/mi-perfil");
-                                }}
-                            >
-                                <HiOutlineUser size={24} />
-                            </button>
+                            <div className={styles.perfilWrapper} ref={perfilRef}>
+                                <button
+                                    className={styles.iconBtn}
+                                    onClick={() => setMostrarPerfil(!mostrarPerfil)}
+                                >
+                                    <HiOutlineUser size={24} />
+                                </button>
+
+                                {mostrarPerfil && (
+                                    <div className={styles.perfilDropdown}>
+                                        <div className={styles.perfilHeader}>
+                                            <p className={styles.userName}>{user?.name}</p>
+                                            <p className={styles.userRole}>{user?.role}</p>
+                                        </div>
+                                        <div className={styles.dropdownDivider} />
+                                        <button 
+                                            className={styles.dropdownItem}
+                                            onClick={() => {
+                                                setMostrarPerfil(false);
+                                                if (user?.role === 'cliente') navigate("/cliente/mi-perfil");
+                                                else if (user?.role === 'admin') navigate("/menu/mi-perfil");
+                                                else if (user?.role === 'tecnico') navigate("/tecnico/mi-perfil");
+                                            }}
+                                        >
+                                            Ver Perfil
+                                        </button>
+                                        <button 
+                                            className={`${styles.dropdownItem} ${styles.logoutItem}`}
+                                            onClick={() => {
+                                                setMostrarPerfil(false);
+                                                logout();
+                                                navigate("/inicio-sesion");
+                                            }}
+                                        >
+                                            Cerrar Sesión
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </header>
                 )}

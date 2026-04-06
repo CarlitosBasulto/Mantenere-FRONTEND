@@ -2,55 +2,92 @@ import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import styles from "./PerfilEmpresa.module.css";
 import { useAuth } from "../../context/AuthContext";
+import { useModal } from "../../context/ModalContext";
+import { getTrabajadores, updateTrabajador } from "../../services/trabajadoresService";
+
 
 interface UserProfile {
     nombre: string;
     email: string;
     telefono: string;
     imagenPerfil?: string;
+    rfc?: string;
+    razonSocial?: string;
+    direccionFiscal?: string;
 }
 
 const MiPerfil: React.FC = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
+    const { showAlert } = useModal();
 
     const [formData, setFormData] = useState<UserProfile>({
         nombre: user?.name || "",
         email: "",
         telefono: "",
+        rfc: "",
+        razonSocial: "",
+        direccionFiscal: ""
     });
+
+    const [workerId, setWorkerId] = useState<number | null>(null);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const profileKey = `profile_${user?.name?.replace(/\s+/g, '') || 'default'}`;
 
     useEffect(() => {
-        let adminData: Partial<UserProfile> = {};
+        const fetchInitialData = async () => {
+            let adminData: Partial<UserProfile> = {};
 
-        // Buscar si existe en trabajadores_list (registro del admin)
-        const storedWorkers = localStorage.getItem('trabajadores_list');
-        if (storedWorkers) {
-            const workers = JSON.parse(storedWorkers);
-            const worker = workers.find((w: any) => w.nombre === user?.name);
-            if (worker) {
-                adminData = {
-                    nombre: worker.nombre,
-                    email: worker.correo || "",
-                    telefono: worker.telefono || "",
-                    imagenPerfil: worker.avatar || ""
-                };
+            // 1. Intentar obtener datos desde el Servidor (Prioridad si es técnico)
+            if (user?.role === 'tecnico') {
+                try {
+                    const data = await getTrabajadores();
+                    const worker = data.find((w: any) => 
+                        w.correo === user.email || w.nombre === user.name || w.user_id === user.id
+                    );
+                    if (worker) {
+                        setWorkerId(worker.id);
+                        adminData = {
+                            nombre: worker.nombre,
+                            email: worker.correo || "",
+                            telefono: worker.telefono || "",
+                            imagenPerfil: worker.avatar || ""
+                        };
+                    }
+                } catch (err) {
+                    console.error("Error fetching worker data:", err);
+                }
             }
-        }
 
-        // Cargar datos previos si existen
-        const stored = localStorage.getItem(profileKey);
-        if (stored) {
-            const localData = JSON.parse(stored);
-            setFormData({ ...adminData, ...localData });
-        } else if (Object.keys(adminData).length > 0) {
-            setFormData(prev => ({ ...prev, ...adminData }));
-        }
-    }, [profileKey, user?.name]);
+            // Fallback a localStorage para compatibilidad o datos offline
+            const storedWorkers = localStorage.getItem('trabajadores_list');
+            if (!adminData.nombre && storedWorkers) {
+                const workers = JSON.parse(storedWorkers);
+                const worker = workers.find((w: any) => w.nombre === user?.name);
+                if (worker) {
+                    adminData = {
+                        nombre: worker.nombre,
+                        email: worker.correo || "",
+                        telefono: worker.telefono || "",
+                        imagenPerfil: worker.avatar || ""
+                    };
+                }
+            }
+
+            // Cargar datos previos si existen
+            const stored = localStorage.getItem(profileKey);
+            if (stored) {
+                const localData = JSON.parse(stored);
+                setFormData({ ...adminData, ...localData });
+            } else if (Object.keys(adminData).length > 0) {
+                setFormData(prev => ({ ...prev, ...adminData }));
+            }
+        };
+
+        fetchInitialData();
+    }, [profileKey, user]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
@@ -68,22 +105,32 @@ const MiPerfil: React.FC = () => {
         }
     };
 
-    const handleSave = () => {
+    const handleSave = async () => {
         if (!formData.nombre) {
-            alert("El nombre es obligatorio");
+            showAlert("Campo Requerido", "El nombre es obligatorio", "warning");
             return;
         }
 
         try {
-            // Guardar perfil en storage
+            // 1. GUARDAR EN EL SERVIDOR (Si es técnico y tenemos su ID)
+            if (user?.role === 'tecnico' && workerId) {
+                await updateTrabajador(workerId, {
+                    nombre: formData.nombre,
+                    correo: formData.email,
+                    telefono: formData.telefono,
+                    avatar: formData.imagenPerfil
+                });
+            }
+
+            // 2. Guardar perfil en storage local para persistencia inmediata
             localStorage.setItem(profileKey, JSON.stringify(formData));
 
-            // También actualizar la base de datos de trabajadores (para que el admin vea la foto/datos)
+            // También actualizar la lista local de trabajadores (para compatibilidad de vistas legacy)
             const storedWorkers = localStorage.getItem('trabajadores_list');
             if (storedWorkers) {
                 const workers = JSON.parse(storedWorkers);
                 const updatedWorkers = workers.map((w: any) => {
-                    if (w.nombre === user?.name) {
+                    if (w.nombre === user?.name || w.correo === user?.email) {
                         return {
                             ...w,
                             nombre: formData.nombre,
@@ -97,11 +144,11 @@ const MiPerfil: React.FC = () => {
                 localStorage.setItem('trabajadores_list', JSON.stringify(updatedWorkers));
             }
 
-            alert("Perfil actualizado correctamente");
-            navigate(-1); // Regresar a la pantalla anterior
+            showAlert("Éxito", "Perfil actualizado correctamente en el servidor", "success");
+            navigate(-1);
         } catch (error) {
             console.error("Error al guardar perfil:", error);
-            alert("Error al guardar: La imagen podría ser muy pesada para el almacenamiento local. Intenta con una más pequeña.");
+            showAlert("Error al Guardar", "No se pudo sincronizar con el servidor. Verifica tu conexión.", "error");
         }
     };
 
@@ -145,7 +192,9 @@ const MiPerfil: React.FC = () => {
                         <h2 className={styles.sectionTitle}>Información Personal</h2>
                         <div className={styles.formGrid}>
                             <div className={styles.inputGroup} style={{ gridColumn: 'span 2' }}>
-                                <label className={styles.label}>Nombre Completo / Empresa Principal</label>
+                                <label className={styles.label}>
+                                    {user?.role === 'tecnico' ? 'Nombre Completo' : 'Nombre Completo / Empresa Principal'}
+                                </label>
                                 <input
                                     type="text"
                                     name="nombre"
@@ -176,6 +225,53 @@ const MiPerfil: React.FC = () => {
                             </div>
                         </div>
                     </div>
+
+                    {/* INFORMACION FISCAL - Solo visible para clientes */}
+                    {user?.role !== 'tecnico' && (
+                        <div className={styles.section}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
+                                <h2 className={styles.sectionTitle} style={{ marginBottom: 0 }}>Información Fiscal (Facturación)</h2>
+                                <span style={{ fontSize: '12px', background: '#e3f2fd', color: '#1565c0', padding: '4px 10px', borderRadius: '10px', fontWeight: 'bold' }}>Solo para dueños</span>
+                            </div>
+                            <div className={styles.formGrid}>
+                                <div className={styles.inputGroup}>
+                                    <label className={styles.label}>RFC</label>
+                                    <input
+                                        type="text"
+                                        name="rfc"
+                                        placeholder="Ej: ABC123456XYZ"
+                                        className={styles.input}
+                                        value={formData.rfc}
+                                        onChange={handleChange}
+                                    />
+                                </div>
+                                <div className={styles.inputGroup} style={{ gridColumn: 'span 2' }}>
+                                    <label className={styles.label}>Razón Social</label>
+                                    <input
+                                        type="text"
+                                        name="razonSocial"
+                                        placeholder="Nombre Legal de la Empresa"
+                                        className={styles.input}
+                                        value={formData.razonSocial}
+                                        onChange={handleChange}
+                                    />
+                                </div>
+                            </div>
+                            <div className={styles.formGrid}>
+                                <div className={styles.inputGroup} style={{ gridColumn: 'span 3' }}>
+                                    <label className={styles.label}>Dirección Fiscal Completa</label>
+                                    <input
+                                        type="text"
+                                        name="direccionFiscal"
+                                        placeholder="Calle, Número, Colonia, CP, Mérida, Yucatán"
+                                        className={styles.input}
+                                        value={formData.direccionFiscal}
+                                        onChange={handleChange}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {/* BOTON GUARDAR */}
                     <div className={styles.footer}>

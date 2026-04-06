@@ -1,18 +1,28 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import styles from "./AdminDetalleTrabajo.module.css";
 import { useAuth } from "../../context/AuthContext";
-import { 
-    HiOutlineInformationCircle, 
-    HiOutlineWrench, 
-    HiOutlineClipboardDocumentList, 
-    HiOutlineClock, 
-    HiOutlineCurrencyDollar 
+import {
+    HiOutlineInformationCircle,
+    HiOutlineWrench,
+    HiOutlineClipboardDocumentList,
+    HiOutlineClock,
+    HiOutlineCurrencyDollar,
+    HiOutlineUser,
+    HiOutlineMapPin,
+    HiOutlinePhone,
+    HiOutlineChatBubbleLeftRight,
+    HiOutlineBuildingOffice2,
+    HiOutlineBolt,
+    HiOutlineCog6Tooth,
+    HiOutlineSquare3Stack3D, // For masonry
+    HiOutlinePencilSquare // For general categories
 } from "react-icons/hi2";
 import { getTrabajo, updateEstadoTrabajo, assignTrabajador } from "../../services/trabajosService";
-import { createActividad, getActividadesByTrabajo } from "../../services/actividadesService";
+import { createActividad, getActividadesByTrabajo, deleteActividad } from "../../services/actividadesService";
 import { getTrabajadores } from "../../services/trabajadoresService";
-import { saveCotizacion, updateCotizacionStatus, getCotizacionByTrabajoId } from "../../services/cotizacionesService";
+import { saveCotizacion, updateCotizacion, deleteCotizacion, updateCotizacionStatus, getCotizacionesByTrabajoId, type Cotizacion } from "../../services/cotizacionesService";
+import { useModal } from "../../context/ModalContext";
 
 export interface CotizacionData {
     id?: number;
@@ -35,12 +45,18 @@ interface Trabajo {
     descripcion?: string;
     sucursal?: string;
     encargado?: string;
+    telefonoEncargado?: string;
+    subgerente?: string;
+    telefonoSubgerente?: string;
     plaza?: string;
     ciudad?: string;
     calle?: string;
     numero?: string;
     colonia?: string;
     cp?: string;
+    manzana?: string;
+    lote?: string;
+    referencias?: string;
     fechaAsignada?: string;
     horaAsignada?: string;
     cotizacion?: CotizacionData;
@@ -60,10 +76,16 @@ interface SubTarea {
     tecnicoId?: number;
     tecnicoNombre?: string;
     esCotizacion?: boolean;
-    cotizacionMonto?: number;
+    cotizacionMonto?: number | string;
     cotizacionDetalles?: string;
     cotizacionEstado?: "Pendiente" | "Aprobada" | "Rechazada";
     cotizacionArchivo?: string;
+    serviceData?: {
+        marca: string;
+        modelo: string;
+        pieza?: string;
+        garantia?: string;
+    };
 }
 
 interface Tecnico {
@@ -76,6 +98,7 @@ const AdminDetalleTrabajo: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const { user } = useAuth();
+    const { showAlert, showConfirm } = useModal();
 
     // Permitir abrir la pestaña de cotización directamente vía URL
     const searchParams = new URLSearchParams(location.search);
@@ -94,13 +117,25 @@ const AdminDetalleTrabajo: React.FC = () => {
     const [isSecurityModalOpen, setIsSecurityModalOpen] = useState(false);
     const [selectedTaskForReport, setSelectedTaskForReport] = useState<SubTarea | null>(null);
 
-    // ESTADOS COTIZACIÓN
+    // ESTADOS COTIZACIÓN (nueva cotización)
     const [costo, setCosto] = useState("");
     const [notas, setNotas] = useState("");
     const [archivo, setArchivo] = useState<string | null>(null);
     const [archivoFile, setArchivoFile] = useState<File | null>(null);
     const [nombreArchivo, setNombreArchivo] = useState<string>("");
-    const fileInputRef = React.useRef<HTMLInputElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const addFileInputRef = useRef<HTMLInputElement>(null);
+
+    // ESTADO: lista de cotizaciones del trabajo
+    const [cotizaciones, setCotizaciones] = useState<Cotizacion[]>([]);
+
+    // ESTADO: edición de cotización existente
+    const [editingCotizacion, setEditingCotizacion] = useState<Cotizacion | null>(null);
+    const [editCosto, setEditCosto] = useState("");
+    const [editNotas, setEditNotas] = useState("");
+    const [editArchivoFile, setEditArchivoFile] = useState<File | null>(null);
+    const [editNombreArchivo, setEditNombreArchivo] = useState("");
+    const editFileInputRef = useRef<HTMLInputElement>(null);
     const [tecnicosData, setTecnicosData] = useState<Tecnico[]>([]);
 
     useEffect(() => {
@@ -127,23 +162,26 @@ const AdminDetalleTrabajo: React.FC = () => {
             try {
                 const data = await getTrabajo(Number(id));
                 currentTech = data.trabajador?.nombre || "Sin Asignar";
-                    const isTrabajoDefinitivo = ["Cotización Enviada", "Cotización Rechazada", "Cotización Aceptada", "Cotización Aprobada", "En Proceso", "Finalizado"].includes(data.estado) || data.visitado;
-                    const calculatedTipo = isTrabajoDefinitivo ? "Trabajo" : "Visita";
+                const isTrabajoDefinitivo = ["Cotización Enviada", "Cotización Rechazada", "Cotización Aceptada", "Cotización Aprobada", "En Proceso", "Finalizado"].includes(data.estado) || data.visitado;
+                const calculatedTipo = isTrabajoDefinitivo ? "Trabajo" : "Visita";
 
-                    const mappedJob = {
-                        id: data.id,
-                        titulo: data.titulo || (data as any).descripcion?.substring(0,20) || "Servicio",
-                        ubicacion: data.negocio?.ubicacion || "Por definir",
-                        tecnico: currentTech,
-                        fecha: data.fecha_programada || new Date(data.created_at).toLocaleDateString('es-MX'),
-                        estado: (data.estado === "Pendiente" ? "Solicitud" : data.estado) as any,
-                        tipo: calculatedTipo, 
-                        visitado: data.visitado,
+                const mappedJob = {
+                    id: data.id,
+                    titulo: data.titulo || (data as any).descripcion?.substring(0, 20) || "Servicio",
+                    ubicacion: data.negocio?.ubicacion || "Por definir",
+                    tecnico: currentTech,
+                    fecha: data.fecha_programada || new Date(data.created_at).toLocaleDateString('es-MX'),
+                    estado: (data.estado === "Pendiente" ? "Solicitud" : data.estado) as any,
+                    tipo: calculatedTipo,
+                    visitado: data.visitado,
                     descripcion: data.descripcion,
                     sucursal: data.negocio?.nombre || "Por definir",
-                    encargado: data.negocio?.encargado || "Por definir",
+                    encargado: data.negocio?.encargado || "No registrado",
+                    telefonoEncargado: data.negocio?.telefono || data.negocio?.telefonoEncargado || "S/N",
+                    subgerente: data.negocio?.subgerente || "No registrado",
+                    telefonoSubgerente: data.negocio?.telefonoSubgerente || "S/N",
                     plaza: data.negocio?.nombrePlaza || data.negocio?.nombre_plaza || "Por definir",
-                    ciudad: data.negocio?.ciudad || "M?rida",
+                    ciudad: data.negocio?.ciudad || "Mérida",
                     calle: data.negocio?.calle || "Por definir",
                     numero: data.negocio?.numero || "S/N",
                     colonia: data.negocio?.colonia || "Por definir",
@@ -158,54 +196,67 @@ const AdminDetalleTrabajo: React.FC = () => {
             try {
                 const acts = await getActividadesByTrabajo(Number(id));
                 const mappedSubTareas = acts.map((act: any) => {
-                    // Extraer posible cotización inferida desde descripción
                     let finalDesc = act.descripcion || "";
                     let parsedMonto = "Por Evaluar";
-                    let parsedDetalles = finalDesc;
                     let esCot = true;
+                    let sData = null;
 
                     const quoteMarker = "|||QUOTE_DATA|||";
+                    const serviceMarker = "|||SERVICE_DATA|||";
+
+                    let displayDesc = finalDesc.split(serviceMarker)[0].split(quoteMarker)[0].trim();
+
+                    if (finalDesc.includes(serviceMarker)) {
+                        const parts = finalDesc.split(serviceMarker);
+                        try {
+                            sData = JSON.parse(parts[1].split(quoteMarker)[0].trim());
+                        } catch (e) { }
+                    }
+
                     if (finalDesc.includes(quoteMarker)) {
                         const parts = finalDesc.split(quoteMarker);
-                        parsedDetalles = parts[0].trim();
                         try {
-                            const qData = JSON.parse(parts[1].trim());
+                            const qData = JSON.parse(parts[1].split(serviceMarker)[0].trim());
                             if (qData.monto) parsedMonto = qData.monto;
-                            if (qData.detalles) parsedDetalles += "\n\nNotas adicionales del técnico:\n" + qData.detalles;
-                        } catch(e) {}
+                            if (qData.detalles) displayDesc += "\n\nNotas de cotización:\n" + qData.detalles;
+                        } catch (e) { }
                     }
 
                     return {
                         id: act.id,
                         titulo: act.tipo,
-                        descripcion: parsedDetalles,
+                        descripcion: displayDesc,
                         estado: "Nueva",
                         tecnicoNombre: currentTech,
                         esCotizacion: esCot,
                         cotizacionMonto: parsedMonto,
-                        cotizacionDetalles: parsedDetalles,
+                        cotizacionDetalles: displayDesc,
                         cotizacionArchivo: "",
-                        cotizacionEstado: "Sugerencia de Técnico"
+                        cotizacionEstado: "Sugerencia de Técnico",
+                        serviceData: sData
                     };
                 });
                 setSubTareas(mappedSubTareas as any);
 
-                // Cargar cotización real si existe
+                // Cargar cotizaciones reales (array)
                 try {
-                    const cotiz = await getCotizacionByTrabajoId(Number(id));
-                    if (cotiz) {
+                    const cotizs = await getCotizacionesByTrabajoId(Number(id));
+                    setCotizaciones(cotizs);
+                    // Compat: si hay cotizaciones, ponemos la primera en trabajo.cotizacion para compatible con otros usos
+                    if (cotizs.length > 0) {
+                        const first = cotizs[0];
                         setTrabajo((prev: any) => prev ? {
                             ...prev,
                             cotizacion: {
-                                id: cotiz.id,
-                                costo: cotiz.monto,
-                                notas: cotiz.descripcion || "",
-                                archivo: cotiz.archivo || "",
-                                fecha: cotiz.updated_at ? new Date(cotiz.updated_at).toLocaleDateString('es-MX') : ""
+                                id: first.id,
+                                costo: first.monto,
+                                notas: first.descripcion || "",
+                                archivo: first.archivo || "",
+                                fecha: first.updated_at ? new Date(first.updated_at).toLocaleDateString('es-MX') : ""
                             }
                         } : prev);
                     }
-                } catch(e) { console.log('Sin cotización previa'); }
+                } catch (e) { console.log('Sin cotizaciones previas'); }
 
             } catch (error) {
                 console.error("Error al cargar historial desde Laravel:", error);
@@ -220,7 +271,11 @@ const AdminDetalleTrabajo: React.FC = () => {
             localStorage.setItem(`tasks_${id}`, JSON.stringify(newTasks));
             setSubTareas(newTasks);
         } catch (error) {
-            alert("Error al guardar: Es posible que la imagen o documento adjunto sea demasiado pesado. Intenta subir un archivo más ligero.");
+            showAlert(
+                'Error de Almacenamiento',
+                'No se pudo guardar la tarea. Es posible que el archivo adjunto sea demasiado pesado.',
+                'error'
+            );
             throw error;
         }
     };
@@ -251,7 +306,14 @@ const AdminDetalleTrabajo: React.FC = () => {
     const [newQuoteAmount, setNewQuoteAmount] = useState("");
     const [newQuoteDetails, setNewQuoteDetails] = useState("");
     const [newQuoteFileName, setNewQuoteFileName] = useState("");
-    const addFileInputRef = React.useRef<HTMLInputElement>(null);
+
+    // SERVICE TYPE FIELDS (NEW)
+    const [activeServiceType, setActiveServiceType] = useState<"Mantenimiento" | "Instalacion">("Mantenimiento");
+    const [serviceMarca, setServiceMarca] = useState("");
+    const [serviceModelo, setServiceModelo] = useState("");
+    const [servicePieza, setServicePieza] = useState("");
+    const [serviceGarantia, setServiceGarantia] = useState("");
+
 
     const handleNewQuoteFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
@@ -280,10 +342,10 @@ const AdminDetalleTrabajo: React.FC = () => {
                 try {
                     // Update in Backend
                     await assignTrabajador(trabajo.id, selectedTechnicians[0]);
-                    
+
                     const needsStateUpdate = trabajo.estado === "Solicitud" || trabajo.estado === "Cotización Aceptada" || trabajo.estado === "Cotización Aprobada";
                     const newEstado = needsStateUpdate ? "Asignado" : trabajo.estado;
-                    
+
                     if (needsStateUpdate) {
                         await updateEstadoTrabajo(trabajo.id, { estado: "Asignado" });
                     }
@@ -317,10 +379,18 @@ const AdminDetalleTrabajo: React.FC = () => {
                         }
                     });
                     window.dispatchEvent(new Event('storage'));
-                    alert("Técnico asignado exitosamente.");
+                    showAlert(
+                        'Técnico Asignado',
+                        'El técnico ha sido asignado exitosamente al trabajo.',
+                        'success'
+                    );
                 } catch (error) {
                     console.error("Error asignando técnico:", error);
-                    alert("Error servidor de base de datos.");
+                    showAlert(
+                        'Error de Servidor',
+                        'Hubo un problema al conectar con la base de datos.',
+                        'error'
+                    );
                 }
             }
         }
@@ -330,9 +400,24 @@ const AdminDetalleTrabajo: React.FC = () => {
     const handleAddTask = async () => {
         try {
             if (editingTaskId) {
-                alert("La edici?n de actividades ya completadas est? deshabilitada en el sistema en vivo.");
+                showAlert(
+                    'Edición Deshabilitada',
+                    'La edición de actividades ya completadas está deshabilitada en el sistema en vivo.',
+                    'info'
+                );
             } else {
                 let desc = newTaskDescription;
+
+                // Serializar datos técnicos (Marca, Modelo, etc.)
+                const serviceData = {
+                    tipoServicio: activeServiceType,
+                    marca: serviceMarca,
+                    modelo: serviceModelo,
+                    pieza: activeServiceType === 'Instalacion' ? servicePieza : '',
+                    garantia: activeServiceType === 'Instalacion' ? serviceGarantia : ''
+                };
+                desc += ` \n|||SERVICE_DATA||| ${JSON.stringify(serviceData)}`;
+
                 if (isQuoteIncluded) {
                     const quotePayload = { monto: newQuoteAmount, detalles: newQuoteDetails };
                     desc += ` \n|||QUOTE_DATA||| ${JSON.stringify(quotePayload)}`;
@@ -340,7 +425,7 @@ const AdminDetalleTrabajo: React.FC = () => {
 
                 const body = {
                     trabajo_id: Number(id),
-                    tipo: newTaskCategory,
+                    tipo: activeServiceType, // Usamos Mantenimiento o Instalación como tipo principal
                     descripcion: desc
                 };
                 await createActividad(body);
@@ -348,39 +433,58 @@ const AdminDetalleTrabajo: React.FC = () => {
                 const mappedSubTareas = acts.map((act: any) => {
                     let finalDesc = act.descripcion || "";
                     let parsedMonto = "Por Evaluar";
-                    let parsedDetalles = finalDesc;
                     let esCot = true;
+                    let sData = null;
 
                     const quoteMarker = "|||QUOTE_DATA|||";
+                    const serviceMarker = "|||SERVICE_DATA|||";
+
+                    let displayDesc = finalDesc.split(serviceMarker)[0].split(quoteMarker)[0].trim();
+
+                    if (finalDesc.includes(serviceMarker)) {
+                        const parts = finalDesc.split(serviceMarker);
+                        try {
+                            sData = JSON.parse(parts[1].split(quoteMarker)[0].trim());
+                        } catch (e) { }
+                    }
+
                     if (finalDesc.includes(quoteMarker)) {
                         const parts = finalDesc.split(quoteMarker);
-                        parsedDetalles = parts[0].trim();
                         try {
-                            const qData = JSON.parse(parts[1].trim());
+                            const qData = JSON.parse(parts[1].split(serviceMarker)[0].trim());
                             if (qData.monto) parsedMonto = qData.monto;
-                            if (qData.detalles) parsedDetalles += "\n\nNotas adicionales del técnico:\n" + qData.detalles;
-                        } catch(e) {}
+                            if (qData.detalles) displayDesc += "\n\nNotas de cotización:\n" + qData.detalles;
+                        } catch (e) { }
                     }
 
                     return {
                         id: act.id,
                         titulo: act.tipo,
-                        descripcion: parsedDetalles,
+                        descripcion: displayDesc,
                         estado: "Nueva",
                         tecnicoNombre: user?.name,
                         esCotizacion: esCot,
                         cotizacionMonto: parsedMonto,
-                        cotizacionDetalles: parsedDetalles,
+                        cotizacionDetalles: displayDesc,
                         cotizacionArchivo: "",
-                        cotizacionEstado: "Sugerencia de Técnico"
+                        cotizacionEstado: "Sugerencia de Técnico",
+                        serviceData: sData
                     };
                 });
                 setSubTareas(mappedSubTareas as any);
-                alert("Actividad registrada exitosamente y sincronizada.");
+                showAlert(
+                    'Actividad Registrada',
+                    'La actividad ha sido guardada y sincronizada correctamente.',
+                    'success'
+                );
             }
         } catch (error: any) {
             console.error("Error added task:", error);
-            alert("Error de API: " + (error.response?.data?.message || error.message));
+            showAlert(
+                'Error de API',
+                error.response?.data?.message || error.message,
+                'error'
+            );
             return;
         }
 
@@ -391,15 +495,89 @@ const AdminDetalleTrabajo: React.FC = () => {
         setNewQuoteAmount("");
         setNewQuoteDetails("");
         setNewQuoteFileName("");
+        // Reset service fields
+        setServiceMarca("");
+        setServiceModelo("");
+        setServicePieza("");
+        setServiceGarantia("");
         setActiveTab("Trabajo");
     };
 
-    const handleDeleteTask = (e: React.MouseEvent, taskId: number) => {
-        e.stopPropagation();
-        if (window.confirm("¿Estás seguro de que deseas eliminar esta tarea?")) {
-            const updatedTasks = subTareas.filter(t => t.id !== taskId);
-            saveTasks(updatedTasks);
+    const handleAceptarCotizacion = async () => {
+        if (!trabajo) return;
+        try {
+            await updateEstadoTrabajo(trabajo.id, { estado: "Cotización Aceptada - Lista para asignar trabajador" });
+            setTrabajo((prev: any) => prev ? {
+                ...prev,
+                estado: "Cotización Aceptada - Lista para asignar trabajador"
+            } : prev);
+            showAlert('Éxito', 'Cotización aceptada - Lista para asignar trabajador.', 'success');
+        } catch (error) {
+            console.error("Error al aprobar cotización:", error);
+            showAlert('Error', 'No se pudo aprobar la cotización.', 'error');
         }
+    };
+
+    const handleRechazarCotizacion = async () => {
+        if (!trabajo) return;
+        try {
+            await updateEstadoTrabajo(trabajo.id, { estado: 'Cotización Rechazada' });
+            setTrabajo((prev: any) => prev ? { ...prev, estado: 'Cotización Rechazada' } : prev);
+            showAlert('Info', 'La cotización ha sido rechazada.', 'info');
+        } catch (error) {
+            console.error("Error al rechazar cotización:", error);
+            showAlert('Error', 'No se pudo rechazar la cotización.', 'error');
+        }
+    };
+
+    const handleDeleteTask = async (e: React.MouseEvent, taskId: number) => {
+        e.stopPropagation();
+        showConfirm(
+            '¿Eliminar Actividad?',
+            '¿Estás seguro de que deseas eliminar esta actividad? Esta acción no se puede deshacer.',
+            async () => {
+                try {
+                    await deleteActividad(taskId);
+                    // Refresh from server to stay in sync
+                    const acts = await getActividadesByTrabajo(Number(id));
+                    const serviceMarker = "|||SERVICE_DATA|||";
+                    const quoteMarker = "|||QUOTE_DATA|||";
+                    const mappedSubTareas = acts.map((act: any) => {
+                        let finalDesc = act.descripcion || "";
+                        let parsedMonto = "Por Evaluar";
+                        let sData = null;
+                        let displayDesc = finalDesc.split(serviceMarker)[0].split(quoteMarker)[0].trim();
+                        if (finalDesc.includes(serviceMarker)) {
+                            try { sData = JSON.parse(finalDesc.split(serviceMarker)[1].split(quoteMarker)[0].trim()); } catch (e) { }
+                        }
+                        if (finalDesc.includes(quoteMarker)) {
+                            try {
+                                const qData = JSON.parse(finalDesc.split(quoteMarker)[1].split(serviceMarker)[0].trim());
+                                if (qData.monto) parsedMonto = qData.monto;
+                                if (qData.detalles) displayDesc += "\n\nNotas de cotización:\n" + qData.detalles;
+                            } catch (e) { }
+                        }
+                        return {
+                            id: act.id,
+                            titulo: act.tipo,
+                            descripcion: displayDesc,
+                            estado: "Nueva",
+                            tecnicoNombre: user?.name,
+                            esCotizacion: true,
+                            cotizacionMonto: parsedMonto,
+                            cotizacionDetalles: displayDesc,
+                            cotizacionArchivo: "",
+                            cotizacionEstado: "Sugerencia de Técnico",
+                            serviceData: sData
+                        };
+                    });
+                    setSubTareas(mappedSubTareas as any);
+                    showAlert('Eliminado', 'La actividad ha sido eliminada correctamente.', 'success');
+                } catch (error: any) {
+                    showAlert('Error al Eliminar', error.response?.data?.message || 'No se pudo eliminar la actividad del servidor.', 'error');
+                }
+            }
+        );
     };
 
     const openEditModal = (e: React.MouseEvent, tarea: SubTarea) => {
@@ -410,113 +588,65 @@ const AdminDetalleTrabajo: React.FC = () => {
         setIsAddModalOpen(true);
     };
 
-    const handleAceptarCotizacion = async () => {
-        if (!trabajo) return;
-        try {
-            await updateEstadoTrabajo(trabajo.id, { estado: "Cotización Aceptada" });
-            if (trabajo.cotizacion?.id) {
-                await updateCotizacionStatus(trabajo.cotizacion.id, "Aprobada");
-            }
-            const updatedJob: Trabajo = { ...trabajo, estado: "Cotización Aceptada" };
-            setTrabajo(updatedJob);
-
-            // Notificar al Admin
-            const adminNotifs = JSON.parse(localStorage.getItem('admin_notifications') || '[]');
-            adminNotifs.unshift({
-                id: Date.now(),
-                titulo: 'Cotización Aceptada',
-                mensaje: `El cliente ha aceptado la cotización de $${trabajo.cotizacion?.costo || '---'} para el trabajo ${trabajo.titulo}. Por favor asigna a un técnico para realizar el trabajo.`,
-                fecha: new Date().toLocaleDateString('es-MX', { hour: '2-digit', minute: '2-digit' }),
-                leida: false,
-                jobId: trabajo.id
-            });
-            localStorage.setItem('admin_notifications', JSON.stringify(adminNotifs));
-            window.dispatchEvent(new Event('storage'));
-
-            alert("Cotización aceptada. El administrador procederá a asignar a un técnico.");
-        } catch (error) {
-            console.error(error);
-            alert("Error al confirmar aceptación.");
-        }
-    };
-
-    const handleRechazarCotizacion = async () => {
-        if (!trabajo) return;
-        if (window.confirm("¿Seguro que deseas rechazar la cotización?")) {
-            try {
-                await updateEstadoTrabajo(trabajo.id, { estado: "Cotización Rechazada" });
-                if (trabajo.cotizacion?.id) {
-                    await updateCotizacionStatus(trabajo.cotizacion.id, "Rechazada");
-                }
-                const updatedJob: Trabajo = { ...trabajo, estado: "Cotización Rechazada" };
-                setTrabajo(updatedJob);
-
-                // Notificar al Admin
-                const adminNotifs = JSON.parse(localStorage.getItem('admin_notifications') || '[]');
-                adminNotifs.unshift({
-                    id: Date.now(),
-                    titulo: 'Cotización Rechazada',
-                    mensaje: `El cliente ha rechazado la cotización para el trabajo ${trabajo.titulo}.`,
-                    fecha: new Date().toLocaleDateString('es-MX', { hour: '2-digit', minute: '2-digit' }),
-                    leida: false,
-                    jobId: trabajo.id
-                });
-                localStorage.setItem('admin_notifications', JSON.stringify(adminNotifs));
-                window.dispatchEvent(new Event('storage'));
-
-            } catch (error) {
-                console.error(error);
-            }
-        }
-    };
 
     const handleFinishVisit = async () => {
         if (!trabajo) return;
 
         const isVisita = trabajo.tipo === "Visita";
         const message = isVisita
-            ? "?Confirmar diagn?stico y enviar al administrador? Ya no podr?s editar esta visita."
-            : "?Confirmar finalizaci?n del trabajo? Ya no podr?s editar este registro.";
+            ? "¿Confirmar diagnóstico y enviar al administrador? Ya no podrás editar esta visita."
+            : "¿Confirmar finalización del trabajo? Ya no podrás editar este registro.";
 
-        if (window.confirm(message)) {
-            try {
-                if (isVisita) {
-                    await updateEstadoTrabajo(trabajo.id, { estado: "En Espera", visitado: true });
-                    const updatedJob = {
-                        ...trabajo,
-                        estado: "En Espera" as any,
-                        visitado: true,
-                        tecnico: "Sin asignar"
-                    };
-                    setTrabajo(updatedJob);
-                    
-                    // Notificar al Admin
-                    const notifs = JSON.parse(localStorage.getItem('admin_notifications') || '[]');
-                    notifs.unshift({
-                        id: Date.now(),
-                        titulo: 'Visita Finalizada',
-                        mensaje: `El técnico ${user?.name || 'Sistema'} ha concluido la visita en ${trabajo.sucursal}. La solicitud ahora espera cotización.`,
-                        fecha: new Date().toLocaleDateString('es-MX', { hour: '2-digit', minute: '2-digit' }),
-                        leida: false,
-                        enlace: `/menu/trabajo-detalle/${trabajo.id}`
-                    });
-                    localStorage.setItem('admin_notifications', JSON.stringify(notifs));
-                    window.dispatchEvent(new Event('storage'));
+        showConfirm(
+            isVisita ? 'Finalizar Visita' : 'Finalizar Trabajo',
+            message,
+            async () => {
+                try {
+                    if (isVisita) {
+                        await updateEstadoTrabajo(trabajo.id, { estado: "En Espera", visitado: true });
+                        const updatedJob = {
+                            ...trabajo,
+                            estado: "En Espera" as any,
+                            visitado: true,
+                            tecnico: "Sin asignar"
+                        };
+                        setTrabajo(updatedJob);
 
-                } else {
-                    await updateEstadoTrabajo(trabajo.id, { estado: "Finalizado" });
-                    const updatedJob = {
-                        ...trabajo,
-                        estado: "Finalizado" as any,
-                        tecnico: trabajo.tecnico
-                    };
-                    setTrabajo(updatedJob);
+                        // Notificar al Admin
+                        const notifs = JSON.parse(localStorage.getItem('admin_notifications') || '[]');
+                        notifs.unshift({
+                            id: Date.now(),
+                            titulo: 'Visita Finalizada',
+                            mensaje: `El técnico ${user?.name || 'Sistema'} ha concluido la visita en ${trabajo.sucursal}. La solicitud ahora espera cotización.`,
+                            fecha: new Date().toLocaleDateString('es-MX', { hour: '2-digit', minute: '2-digit' }),
+                            leida: false,
+                            enlace: `/menu/trabajo-detalle/${trabajo.id}`
+                        });
+                        localStorage.setItem('admin_notifications', JSON.stringify(notifs));
+                        window.dispatchEvent(new Event('storage'));
+                    } else {
+                        await updateEstadoTrabajo(trabajo.id, { estado: "Finalizado" });
+                        const updatedJob = {
+                            ...trabajo,
+                            estado: "Finalizado" as any,
+                            tecnico: trabajo.tecnico
+                        };
+                        setTrabajo(updatedJob);
+                    }
+                    showAlert(
+                        'Éxito',
+                        'Reporte confirmado y enviado al Administrador.',
+                        'success'
+                    );
+                } catch (error: any) {
+                    showAlert(
+                        'Error de Estado',
+                        error.message,
+                        'error'
+                    );
                 }
-                alert("Reporte confirmado y enviado al Administrador.");
-            } catch (error: any) {
-                alert("La API rechazó el estado: " + error.message);
             }
-        }
+        );
     };
 
 
@@ -534,70 +664,249 @@ const AdminDetalleTrabajo: React.FC = () => {
     };
 
     const handleEnviarCotizacion = async () => {
-        if (!costo || !archivo || !trabajo) {
-            alert("Por favor, ingresa el costo y sube un documento de cotización.");
+        if (!costo || !archivoFile || !trabajo) {
+            showAlert('Campos Incompletos', 'Por favor, ingresa el costo y sube un documento.', 'info');
             return;
         }
-
         try {
-            await updateEstadoTrabajo(trabajo.id, { estado: "Cotización Enviada" });
-            
-            let formData;
-            if (archivoFile) {
-                formData = new FormData();
-                formData.append('trabajo_id', trabajo.id.toString());
-                formData.append('monto', costo);
-                formData.append('descripcion', notas);
-                formData.append('estado', "Pendiente");
-                formData.append('archivo', archivoFile); // Objeto File natural
+            if (cotizaciones.length === 0) {
+                await updateEstadoTrabajo(trabajo.id, { estado: "Cotización Enviada" });
+                setTrabajo((prev: any) => prev ? { ...prev, estado: "Cotización Enviada" } : prev);
             }
-
-            const payloadObject = formData || {
-                trabajo_id: trabajo.id,
-                monto: Number(costo),
-                descripcion: notas,
-                archivo: archivo,
-                estado: "Pendiente"
-            };
-
-            const savedCotiz = await saveCotizacion(payloadObject as any);
-
-            const updatedJob: Trabajo = {
-                ...trabajo,
-                estado: "Cotización Enviada",
-                cotizacion: {
-                    id: savedCotiz.id,
-                    costo,
-                    notas,
-                    archivo,
-                    fecha: new Date().toLocaleDateString('es-MX')
-                }
-            };
-
-            setTrabajo(updatedJob);
-
-            // Notificar al cliente localmente
-            const clientNotifs = JSON.parse(localStorage.getItem('client_notifications') || '[]');
-            clientNotifs.unshift({
-                id: Date.now(),
-                titulo: 'Nueva Cotización Recibida',
-                mensaje: `Se ha generado una cotización de $${costo} para tu solicitud: ${trabajo.titulo || 'Mantenimiento'}.`,
-                fecha: new Date().toLocaleDateString('es-MX', { hour: '2-digit', minute: '2-digit' }),
-                leida: false,
-                enlace: `/cliente/cotizaciones`
-            });
-            localStorage.setItem('client_notifications', JSON.stringify(clientNotifs));
-            window.dispatchEvent(new Event('storage'));
-
-            alert("Cotización enviada exitosamente al cliente.");
-            setActiveTab("Datos");
+            const formData = new FormData();
+            formData.append('trabajo_id', trabajo.id.toString());
+            formData.append('monto', costo);
+            formData.append('descripcion', notas);
+            formData.append('estado', "Pendiente");
+            formData.append('archivo', archivoFile);
+            const savedCotiz = await saveCotizacion(formData as any);
+            setCotizaciones(prev => [...prev, savedCotiz]);
+            setCosto(""); setNotas(""); setArchivo(null); setArchivoFile(null); setNombreArchivo("");
+            showAlert('Cotización Agregada', `Cotización #${cotizaciones.length + 1} agragada y enviada al cliente.`, 'success');
         } catch (error: any) {
-            console.error("Error al enviar cotización:", error.response?.data || error);
-            alert("Error al enviar cotización a la base de datos:\n" + (error.response?.data?.message || error.message));
+            showAlert('Error', error.response?.data?.message || error.message, 'error');
         }
     };
 
-    if (!trabajo) return <div>Cargando...</div>;
+    const handleEditarCotizacion = (cotiz: Cotizacion) => {
+        setEditingCotizacion(cotiz);
+        setEditCosto(String(cotiz.monto));
+        setEditNotas(cotiz.descripcion || "");
+        setEditArchivoFile(null);
+        setEditNombreArchivo("");
+    };
+
+    const handleUpdateCotizacion = async () => {
+        if (!editingCotizacion?.id) return;
+        try {
+            const formData = new FormData();
+            formData.append('monto', editCosto);
+            formData.append('descripcion', editNotas);
+            if (editArchivoFile) formData.append('archivo', editArchivoFile);
+            const updated = await updateCotizacion(editingCotizacion.id, formData as any);
+            setCotizaciones(prev => prev.map(c => c.id === updated.id ? updated : c));
+            setEditingCotizacion(null);
+            showAlert('Actualizada', 'Los cambios se guardaron correctamente.', 'success');
+        } catch (error: any) {
+            showAlert('Error', error.response?.data?.message || error.message, 'error');
+        }
+    };
+
+    const handleEliminarCotizacion = (cotizId: number) => {
+        showConfirm('¿Eliminar Cotización?', '¿Estás seguro? El cliente ya no podrá ver esta cotización.',
+            async () => {
+                try {
+                    await deleteCotizacion(cotizId);
+                    setCotizaciones(prev => prev.filter(c => c.id !== cotizId));
+                    showAlert('Eliminada', 'La cotización fue eliminada correctamente.', 'success');
+                } catch (error: any) {
+                    showAlert('Error', error.response?.data?.message || error.message, 'error');
+                }
+            }
+        );
+    };
+
+    const handleClienteAceptarCotizacion = async (cotizId: number) => {
+        if (!trabajo) return;
+        try {
+            await updateCotizacionStatus(cotizId, "Aprobada");
+            await updateEstadoTrabajo(trabajo.id, { estado: "Cotización Aceptada - Lista para asignar trabajador" });
+            setCotizaciones(prev => prev.map(c => c.id === cotizId ? { ...c, estado: "Aprobada" as const } : c));
+            setTrabajo((prev: any) => prev ? { ...prev, estado: "Cotización Aceptada - Lista para asignar trabajador" } : prev);
+            showAlert('Cotización Aceptada', 'Cotización aceptada - Lista para asignar trabajador.', 'success');
+        } catch (error: any) {
+            showAlert('Error', error.response?.data?.message || error.message, 'error');
+        }
+    };
+
+    const handleClienteRechazarCotizacion = (cotizId: number) => {
+        showConfirm('¿Rechazar Cotización?', '¿Estás seguro? Aún podrás revisar las demás opciones.',
+            async () => {
+                try {
+                    await updateCotizacionStatus(cotizId, "Rechazada");
+                    setCotizaciones(prev => prev.map(c => c.id === cotizId ? { ...c, estado: "Rechazada" as const } : c));
+                    showAlert('Cotización Rechazada', 'Has rechazado esta opción.', 'info');
+                } catch (error: any) {
+                    showAlert('Error', error.response?.data?.message || error.message, 'error');
+                }
+            }
+        );
+    };
+
+
+
+    if (!trabajo) {
+        return (
+            <div className={styles.dashboardLayout} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <p style={{ fontSize: '18px', color: '#666', fontWeight: 'bold' }}>Cargando información del trabajo...</p>
+            </div>
+        );
+    }
+
+    const renderTaskCard = (tarea: SubTarea, isInteractive: boolean = true) => {
+        const getCategoryIcon = (titulo: string) => {
+            const t = titulo?.toLowerCase() || '';
+            if (t.includes('mantenimiento')) return <HiOutlineCog6Tooth size={24} style={{ color: '#FFB800' }} />;
+            if (t.includes('instalacion')) return <HiOutlineBuildingOffice2 size={24} style={{ color: '#6366f1' }} />;
+            if (t.includes('electricidad')) return <HiOutlineBolt size={24} style={{ color: '#fbbf24' }} />;
+            if (t.includes('plomeria')) return <HiOutlineWrench size={24} style={{ color: '#0ea5e9' }} />;
+            if (t.includes('albañil')) return <HiOutlineSquare3Stack3D size={24} style={{ color: '#f59e0b' }} />;
+            if (t.includes('carpinter')) return <HiOutlinePencilSquare size={24} style={{ color: '#b45309' }} />;
+            if (t.includes('pintura')) return <HiOutlinePencilSquare size={24} style={{ color: '#db2777' }} />;
+            return <HiOutlineClipboardDocumentList size={24} style={{ color: '#94a3b8' }} />;
+        };
+
+        const isVisita = trabajo?.tipo === "Visita";
+        const isTecnico = user?.role === 'tecnico';
+        const canEdit = isVisita && isTecnico;
+
+        return (
+            <div
+                key={tarea.id}
+                onClick={() => {
+                    if (isInteractive) {
+                        if (trabajo?.tipo === "Visita" && user?.role === 'tecnico') {
+                            showAlert(
+                                'Modo Visita',
+                                'Estás en modo Visita. No puedes realizar los trabajos, solo registrar hallazgos.',
+                                'info'
+                            );
+                            return;
+                        }
+                        setSelectedTaskForReport(tarea);
+                        setIsSecurityModalOpen(true);
+                    }
+                }}
+                className={`${styles.taskCard} ${tarea.estado === 'Nueva' ? styles.newTaskCard : styles.defaultTaskCard}`}
+                style={{
+                    cursor: (isInteractive && !canEdit) || (isInteractive && !isVisita) ? 'pointer' : (isInteractive ? 'not-allowed' : 'default'),
+                    opacity: isVisita && isTecnico && isInteractive ? 0.7 : 1,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'stretch',
+                    padding: '20px'
+                }}
+            >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '15px' }}>
+                    <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
+                        <div style={{
+                            width: '48px',
+                            height: '48px',
+                            borderRadius: '14px',
+                            background: '#f8fafc',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            border: '1px solid #f1f5f9'
+                        }}>
+                            {getCategoryIcon(tarea.titulo)}
+                        </div>
+                        <div>
+                            <h3 className={styles.taskTitle} style={{ margin: 0, fontSize: '17px' }}>
+                                {tarea.titulo}
+                            </h3>
+                            <span style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 'bold' }}>ID: {tarea.id}</span>
+                        </div>
+                    </div>
+
+                    <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
+                        <span
+                            className={styles.taskStatus}
+                            style={{
+                                background: tarea.estado === 'Completa' ? '#ecfdf5' : (tarea.estado === 'Nueva' ? '#fff7ed' : '#eff6ff'),
+                                color: tarea.estado === 'Completa' ? '#059669' : (tarea.estado === 'Nueva' ? '#ea580c' : '#2563eb'),
+                                padding: '4px 12px',
+                                border: `1px solid ${tarea.estado === 'Completa' ? '#10b98133' : (tarea.estado === 'Nueva' ? '#f9731633' : '#3b82f633')}`,
+                                fontSize: '12px'
+                            }}
+                        >
+                            {tarea.estado}
+                        </span>
+                    </div>
+                </div>
+
+                <div style={{ padding: '0 0 0 63px' }}>
+                    <p className={styles.taskDesc} style={{ color: '#475569', fontSize: '15px', marginBottom: '15px', fontWeight: 'normal' }}>
+                        {tarea.descripcion}
+                    </p>
+
+                    {tarea.serviceData && (
+                        <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+                            gap: '12px',
+                            background: '#f8fafc',
+                            padding: '15px',
+                            borderRadius: '12px',
+                            border: '1px solid #f1f5f9'
+                        }}>
+                            {tarea.serviceData.marca && (
+                                <div>
+                                    <span style={{ display: 'block', fontSize: '10px', textTransform: 'uppercase', color: '#94a3b8', fontWeight: '800' }}>Marca</span>
+                                    <span style={{ fontSize: '13px', color: '#1e293b', fontWeight: '700' }}>{tarea.serviceData.marca}</span>
+                                </div>
+                            )}
+                            {tarea.serviceData.modelo && (
+                                <div>
+                                    <span style={{ display: 'block', fontSize: '10px', textTransform: 'uppercase', color: '#94a3b8', fontWeight: '800' }}>Modelo</span>
+                                    <span style={{ fontSize: '13px', color: '#1e293b', fontWeight: '700' }}>{tarea.serviceData.modelo}</span>
+                                </div>
+                            )}
+                            {tarea.serviceData.pieza && (
+                                <div>
+                                    <span style={{ display: 'block', fontSize: '10px', textTransform: 'uppercase', color: '#94a3b8', fontWeight: '800' }}>Pieza</span>
+                                    <span style={{ fontSize: '13px', color: '#1e293b', fontWeight: '700' }}>{tarea.serviceData.pieza}</span>
+                                </div>
+                            )}
+                            {tarea.serviceData.garantia && (
+                                <div>
+                                    <span style={{ display: 'block', fontSize: '10px', textTransform: 'uppercase', color: '#94a3b8', fontWeight: '800' }}>Garantía</span>
+                                    <span style={{ fontSize: '13px', color: '#1e293b', fontWeight: '700' }}>{tarea.serviceData.garantia} Meses</span>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {canEdit && isInteractive && (
+                        <div style={{ display: 'flex', gap: '10px', marginTop: '15px' }}>
+                            <button
+                                onClick={(e) => openEditModal(e, tarea)}
+                                style={{ background: '#f1f5f9', border: 'none', borderRadius: '8px', padding: '6px 12px', fontSize: '12px', cursor: 'pointer', color: '#475569', fontWeight: '700' }}
+                            >
+                                ✍️ Editar
+                            </button>
+                            <button
+                                onClick={(e) => handleDeleteTask(e, tarea.id)}
+                                style={{ background: '#fef2f2', border: 'none', borderRadius: '8px', padding: '6px 12px', fontSize: '12px', cursor: 'pointer', color: '#dc2626', fontWeight: '700' }}
+                            >
+                                🗑️ Eliminar
+                            </button>
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    };
 
     return (
         <div className={styles.dashboardLayout}>
@@ -628,11 +937,9 @@ const AdminDetalleTrabajo: React.FC = () => {
                             if (["En Proceso"].includes(estado)) return 3;
                             const isAuthTech = user?.role === 'tecnico';
                             if (["Cotización Enviada", "Cotización Aceptada", "Cotización Aprobada", "Cotización Rechazada", "Asignado"].includes(estado)) {
-                                // Si ya se completó la visita y saltó a cotización, o si es un técnico alocado al "Trabajo" definitivo:
-                                if (estado === "Asignado" && trabajo.visitado) return 3; 
+                                if (estado === "Asignado" && trabajo.visitado) return 3;
                                 if (["Cotización Aceptada", "Cotización Aprobada"].includes(estado)) {
-                                    // Considerar en progreso si ya se aceptó y hay un técnico viendo la pantalla
-                                    if (isAuthTech || trabajo.tecnico !== "Sin asignar" && trabajo.tecnico !== "Sin Asignar") return 3;
+                                    if (isAuthTech || (trabajo.tecnico !== "Sin asignar" && trabajo.tecnico !== "Sin Asignar")) return 3;
                                 }
                                 return 2;
                             }
@@ -640,461 +947,535 @@ const AdminDetalleTrabajo: React.FC = () => {
                         };
                         const currentStep = getStepIndex(trabajo.estado);
                         return (
-                            <>
-                                <style>{`
-                                    @keyframes pulseTracker {
-                                        0% { box-shadow: 0 0 0 0 rgba(255, 152, 0, 0.4); }
-                                        70% { box-shadow: 0 0 0 15px rgba(255, 152, 0, 0); }
-                                        100% { box-shadow: 0 0 0 0 rgba(255, 152, 0, 0); }
-                                    }
-                                `}</style>
-                                <div style={{ padding: '10px 20px', background: '#fff', borderRadius: '15px', marginBottom: '15px', boxShadow: '0 4px 15px rgba(0,0,0,0.03)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid #f0f0f0' }}>
-                                    {[
-                                        { id: 1, label: "Solicitud Creada", icon: "📝" },
-                                        { id: 2, label: "Asignación / Cotización", icon: "👨‍🔧" },
-                                        { id: 3, label: "Trabajo en Progreso", icon: "🛠️" },
-                                        { id: 4, label: "Finalizado", icon: "✅" }
-                                    ].map((step, index, arr) => {
-                                        const isActive = currentStep === step.id;
-                                        const isCompleted = currentStep > step.id;
+                            <div style={{ padding: '8px 15px', background: '#fff', borderRadius: '12px', marginBottom: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.02)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid #f0f0f0' }}>
+                                {[
+                                    { id: 1, label: "Solicitud", icon: "📥" },
+                                    { id: 2, label: "Cotización", icon: "👨‍🔧" },
+                                    { id: 3, label: "En Proceso", icon: "🛠️" },
+                                    { id: 4, label: "Finalizado", icon: "✅" }
+                                ].map((step, index, arr) => {
+                                    const isActive = currentStep === step.id;
+                                    const isCompleted = currentStep > step.id;
 
-                                        return (
-                                            <React.Fragment key={step.id}>
-                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', zIndex: 1, width: '100px' }}>
-                                                    <div style={{
-                                                        width: '35px',
-                                                        height: '35px',
-                                                        borderRadius: '50%',
-                                                        background: isCompleted ? '#4caf50' : (isActive ? '#ffb800' : '#f5f5f5'),
-                                                        color: '#fff',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center',
-                                                        fontSize: '16px',
-                                                        transition: 'all 0.5s ease',
-                                                        animation: isActive ? 'pulseTracker 2s infinite' : 'none',
-                                                        transform: isActive ? 'scale(1.1)' : 'scale(1)',
-                                                        boxShadow: isCompleted ? '0 4px 10px rgba(76, 175, 80, 0.3)' : (isActive ? '0 4px 15px rgba(255, 184, 0, 0.4)' : 'none'),
-                                                        border: !isCompleted && !isActive ? '2px solid #e0e0e0' : 'none'
-                                                    }}>
-                                                        {isCompleted ? "✓" : step.icon}
-                                                    </div>
-                                                    <span style={{
-                                                        marginTop: '8px',
-                                                        fontSize: '11px',
-                                                        fontWeight: isActive || isCompleted ? 'bold' : '600',
-                                                        color: isCompleted ? '#2e7d32' : (isActive ? '#d89b00' : '#aaa'),
-                                                        textAlign: 'center',
-                                                        transition: 'color 0.4s ease'
-                                                    }}>
-                                                        {step.label}
-                                                    </span>
+                                    return (
+                                        <React.Fragment key={step.id}>
+                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', zIndex: 1, width: '80px' }}>
+                                                <div style={{
+                                                    width: '28px',
+                                                    height: '28px',
+                                                    borderRadius: '50%',
+                                                    background: isCompleted ? '#4caf50' : (isActive ? '#ffb800' : '#f5f5f5'),
+                                                    color: '#fff',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    fontSize: '12px',
+                                                    transition: 'all 0.5s ease',
+                                                    animation: isActive ? 'pulseTracker 2s infinite' : 'none',
+                                                    transform: isActive ? 'scale(1.1)' : 'scale(1)',
+                                                    boxShadow: isCompleted ? '0 2px 6px rgba(76, 175, 80, 0.2)' : (isActive ? '0 2px 8px rgba(255, 184, 0, 0.3)' : 'none'),
+                                                    border: !isCompleted && !isActive ? '1.5px solid #e0e0e0' : 'none'
+                                                }}>
+                                                    {isCompleted ? "✓" : step.icon}
                                                 </div>
+                                                <span style={{
+                                                    marginTop: '4px',
+                                                    fontSize: '10px',
+                                                    fontWeight: (isActive || isCompleted) ? '700' : '600',
+                                                    color: isCompleted ? '#2e7d32' : (isActive ? '#d89b00' : '#94a3b8'),
+                                                    textAlign: 'center',
+                                                    transition: 'color 0.4s ease'
+                                                }}>
+                                                    {step.label}
+                                                </span>
+                                            </div>
 
-                                                {index < arr.length - 1 && (
-                                                    <div style={{ flex: 1, height: '4px', background: '#f5f5f5', borderRadius: '3px', position: 'relative', margin: '0 5px', bottom: '10px', overflow: 'hidden' }}>
-                                                        <div style={{
-                                                            position: 'absolute',
-                                                            top: 0,
-                                                            left: 0,
-                                                            height: '100%',
-                                                            background: '#4caf50',
-                                                            borderRadius: '3px',
-                                                            width: isCompleted ? '100%' : '0%',
-                                                            transition: 'width 1s cubic-bezier(0.4, 0, 0.2, 1)'
-                                                        }} />
-                                                    </div>
-                                                )}
-                                            </React.Fragment>
-                                        );
-                                    })}
-                                </div>
-                            </>
+                                            {index < arr.length - 1 && (
+                                                <div style={{ flex: 1, height: '3px', background: '#f5f5f5', borderRadius: '2px', position: 'relative', margin: '0 4px', bottom: '8px', overflow: 'hidden' }}>
+                                                    <div style={{
+                                                        position: 'absolute',
+                                                        top: 0,
+                                                        left: 0,
+                                                        height: '100%',
+                                                        background: '#4caf50',
+                                                        borderRadius: '2px',
+                                                        width: isCompleted ? '100%' : '0%',
+                                                        transition: 'width 1s cubic-bezier(0.4, 0, 0.2, 1)'
+                                                    }} />
+                                                </div>
+                                            )}
+                                        </React.Fragment>
+                                    );
+                                })}
+                            </div>
                         );
                     })()}
 
                     <div className={styles.tabsContainer}>
                         {['Datos', 'Trabajo', 'Registro', 'Historial', 'Cotización']
-                            .filter(tab => {
+                            .filter(tabName => {
                                 if (user?.role === 'cliente') {
-                                    if (tab === 'Cotización' && trabajo.estado === 'Cotización Enviada' && trabajo.cotizacion) {
+                                    if (tabName === 'Cotización' && trabajo.estado === 'Cotización Enviada' && trabajo.cotizacion) {
                                         return true;
                                     }
-                                    return tab === 'Historial' || tab === 'Cotización'; // Siempre mostrar Historial, Cotización si aplica
+                                    return tabName === 'Historial' || tabName === 'Cotización';
                                 }
                                 if (trabajo.estado === "Finalizado") {
-                                    return tab === 'Datos' || tab === 'Historial';
+                                    return tabName === 'Datos' || tabName === 'Historial';
                                 }
-                                if (tab === 'Cotización') {
-                                    // Solo Admin y si el trabajo fue visitado y es solicitud o pendiente de cotizar
+                                if (tabName === 'Cotización') {
                                     return user?.role === 'admin' && trabajo.visitado;
                                 }
-                                return tab !== 'Trabajo' || trabajo?.tipo !== "Visita" || user?.role === 'admin' || user?.role === 'tecnico';
+                                return tabName !== 'Trabajo' || trabajo?.tipo !== "Visita" || user?.role === 'admin' || user?.role === 'tecnico';
                             })
-                            .map((tab) => (
+                            .map((tabName) => (
                                 <button
-                                    key={tab}
-                                    className={`${styles.tabButton} ${activeTab === tab ? styles.activeTab : styles.inactiveTab}`}
-                                    onClick={() => setActiveTab(tab as any)}
-                                    title={tab}
+                                    key={tabName}
+                                    className={`${styles.tabButton} ${activeTab === tabName ? styles.activeTab : styles.inactiveTab}`}
+                                    onClick={() => setActiveTab(tabName as any)}
+                                    title={tabName}
                                 >
                                     <span className={styles.tabIcon}>
-                                        {tab === 'Datos' ? <HiOutlineInformationCircle size={22} /> :
-                                         tab === 'Trabajo' ? <HiOutlineWrench size={22} /> :
-                                         tab === 'Registro' ? <HiOutlineClipboardDocumentList size={22} /> :
-                                         tab === 'Historial' ? <HiOutlineClock size={22} /> :
-                                         tab === 'Cotización' ? <HiOutlineCurrencyDollar size={22} /> : <HiOutlineInformationCircle size={22} />}
+                                        {tabName === 'Datos' ? <HiOutlineBuildingOffice2 size={22} /> :
+                                            tabName === 'Trabajo' ? <HiOutlineWrench size={22} /> :
+                                                tabName === 'Registro' ? <HiOutlineClipboardDocumentList size={22} /> :
+                                                    tabName === 'Historial' ? <HiOutlineClock size={22} /> :
+                                                        tabName === 'Cotización' ? <HiOutlineCurrencyDollar size={22} /> : <HiOutlineInformationCircle size={22} />}
                                     </span>
-                                    <span className={styles.tabText}>{tab}</span>
+                                    <span className={styles.tabText}>{tabName}</span>
                                 </button>
                             ))}
                     </div>
                 </div>
 
                 <div className={styles.scrollableContent}>
-
                     {activeTab === 'Datos' && (
-                        <div>
-                            <div className={styles.infoSectionCard}>
-                                <h3 className={styles.sectionTitle}>Informacion general</h3>
-                                <div className={styles.infoGrid2}>
-                                    <div className={styles.infoItem}>
-                                        <span className={styles.infoLabel}>Nombre de la sucursal:</span>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                                            <span className={styles.infoValue}>{trabajo.sucursal || "No registrado"}</span>
+                        <div className={styles.bentoGrid}>
+                            {/* Card 1: Información General (8/12) */}
+                            <div className={`${styles.bentoCard} ${styles.colSpan8}`}>
+                                <div className={styles.cardHeader}>
+                                    <div className={`${styles.iconBox} ${styles.bgBlue}`}>
+                                        <HiOutlineBuildingOffice2 size={20} />
+                                    </div>
+                                    <h3 className={styles.cardTitle}>Sucursal</h3>
+                                </div>
+                                <div className={styles.bentoContent}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '15px' }}>
+                                        <div>
+                                            <span className={styles.bentoLabel}>Nombre</span>
+                                            <span className={styles.bentoValue} style={{ fontSize: '20px' }}>{trabajo.sucursal || "No registrado"}</span>
+                                            <span className={styles.badge} style={{ marginTop: '5px' }}>{trabajo.tipo || "Trabajo"}</span>
+                                        </div>
+                                        <div style={{ textAlign: 'right' }}>
                                             {(trabajo as any).businessId && user?.role === 'admin' && (
                                                 <button
                                                     onClick={() => navigate(`/menu/trabajo/${(trabajo as any).businessId}`)}
-                                                    style={{ background: '#333', color: 'white', border: 'none', padding: '5px 15px', borderRadius: '15px', fontSize: '12px', cursor: 'pointer', alignSelf: 'flex-start', marginTop: '5px' }}
+                                                    style={{ border: 'none', background: '#334155', color: '#fff', padding: '8px 12px', borderRadius: '10px', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer' }}
                                                 >
-                                                    🔗 Ver trabajos de esta empresa
+                                                    🕒 Historial
                                                 </button>
                                             )}
                                         </div>
                                     </div>
-                                    <div className={styles.infoItem}>
-                                        <span className={styles.infoLabel}>Tipo de Servicio:</span>
-                                        <span className={styles.infoValue}>{trabajo.tipo || "Por definir"}</span>
-                                    </div>
-                                    <div className={styles.infoItem}>
-                                        <span className={styles.infoLabel}>Encargado de la empresa:</span>
-                                        <span className={styles.infoValue}>{trabajo.encargado || "No registrado"}</span>
-                                    </div>
-                                </div>
 
-
-                                {trabajo.descripcion && (
-                                    <div style={{ marginTop: '20px', padding: '20px', background: '#f5f7fa', borderRadius: '15px', borderLeft: '5px solid #333' }}>
-                                        <span className={styles.infoLabel} style={{ display: 'block', marginBottom: '10px', color: '#333' }}>Descripción del problema (Cliente):</span>
-                                        <span className={styles.infoValue} style={{ fontSize: '16px', fontStyle: 'italic', color: '#555', lineHeight: '1.5' }}>
-                                            "{trabajo.descripcion}"
-                                        </span>
-                                    </div>
-                                )}
-
-                            </div>
-
-                            <div className={styles.infoSectionCard}>
-                                <h3 className={styles.sectionTitle}>Ubicación</h3>
-                                <div className={styles.infoGrid2} style={{ gridTemplateColumns: '1fr' }}>
-                                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                                        <span className={styles.infoLabel} style={{ width: '150px' }}>Nombre de la plaza:</span>
-                                        <span className={styles.infoValue}>{trabajo.plaza || "No registrado"}</span>
-                                    </div>
-                                </div>
-
-                                <div className={styles.infoGrid2}>
-                                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                                        <span className={styles.infoLabel}>Estado:</span>
-                                        <span className={styles.infoValue}>{(trabajo as any).estadoGeografico || "Yucatán"}</span>
-                                    </div>
-                                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                                        <span className={styles.infoLabel}>Ciudad:</span>
-                                        <span className={styles.infoValue}>{trabajo.ciudad || "Merida"}</span>
-                                    </div>
-                                </div>
-
-                                <div className={styles.infoGrid3}>
-                                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                                        <span className={styles.infoLabel}>Calle:</span>
-                                        <span className={styles.infoValue}>{trabajo.calle || "37"}</span>
-                                    </div>
-                                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                                        <span className={styles.infoLabel}>Numero:</span>
-                                        <span className={styles.infoValue}>{trabajo.numero || "Entre 4 y 6"}</span>
-                                    </div>
-                                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                                        <span className={styles.infoLabel}>Colonia:</span>
-                                        <span className={styles.infoValue}>{trabajo.colonia || "Altabrisa"}</span>
-                                    </div>
-                                </div>
-
-                                <div className={styles.infoGrid2} style={{ gridTemplateColumns: '1fr' }}>
-                                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                                        <span className={styles.infoLabel}>Codigo postal:</span>
-                                        <span className={styles.infoValue}>{trabajo.cp || "97158"}</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* ACCIONES DE ASIGNACIÓN - Solo Admin */}
-                            {user?.role === 'admin' && (
-                                <div className={styles.actionsContainer}>
-                                    {trabajo.estado !== 'Finalizado' && (
-                                        <>
-                                            {/* Logica de Cotizacion vs Asignacion */}
-                                            {trabajo.estado === "Cotización Enviada" && (
-                                                <div style={{ padding: '10px 20px', background: '#ffe0b2', color: '#e65100', borderRadius: '15px', fontWeight: 'bold' }}>
-                                                    ⏳ Esperando respuesta del cliente a la cotización...
-                                                </div>
-                                            )}
-
-                                            {(trabajo.estado === "Cotización Aceptada" || trabajo.estado === "Cotización Aprobada" || (trabajo.estado === "Solicitud" && !trabajo.visitado && trabajo.tecnico === "Sin asignar")) && (
-                                                <button
-                                                    onClick={() => {
-                                                        // Pre-seleccionar "Visita" si es una solicitud
-                                                        if (trabajo.estado === "Solicitud") {
-                                                            setSelectedType("Visita");
-                                                        } else if (trabajo.estado === "Cotización Aceptada" || trabajo.estado === "Cotización Aprobada") {
-                                                            setSelectedType("Trabajo");
-                                                        }
-                                                        setIsModalOpen(true);
-                                                    }}
-                                                    className={`${styles.actionButton} ${styles.assignButton}`}
-                                                >
-                                                    {(trabajo.estado === "Cotización Aceptada" || trabajo.estado === "Cotización Aprobada") ? "Asignar Técnico para Trabajo" : "Asignar Técnico"}
-                                                </button>
-                                            )}
-
-                                            {trabajo.estado === "Solicitud" && trabajo.visitado && (
-                                                <button
-                                                    onClick={() => setActiveTab('Cotización')}
-                                                    className={`${styles.actionButton} ${styles.assignButton}`}
-                                                    style={{ background: '#f9ab0f', color: '#fff', marginLeft: '5px' }}
-                                                >
-                                                    Realizar Cotización
-                                                </button>
-                                            )}
-
-                                            {trabajo.estado === "En Espera" && (
-                                                <button
-                                                    onClick={() => setActiveTab('Cotización')}
-                                                    className={`${styles.actionButton} ${styles.assignButton}`}
-                                                    style={{ background: '#f9ab0f', color: '#fff' }}
-                                                >
-                                                    Generar Cotización
-                                                </button>
-                                            )}
-                                        </>
+                                    {trabajo.descripcion && (
+                                        <div className={styles.descriptionBox}>
+                                            <span className={styles.bentoLabel} style={{ marginBottom: '4px', color: '#334155' }}>Problema Reportado</span>
+                                            <p className={styles.descriptionQuote}>"{trabajo.descripcion}"</p>
+                                        </div>
                                     )}
                                 </div>
+                            </div>
 
+                            {/* Card 2: Estado Actual (4/12) */}
+                            <div className={`${styles.bentoCard} ${styles.colSpan4}`}>
+                                <div className={styles.cardHeader}>
+                                    <div className={`${styles.iconBox} ${styles.bgOrange}`}>
+                                        <HiOutlineClock size={18} />
+                                    </div>
+                                    <h3 className={styles.cardTitle}>Estado</h3>
+                                </div>
+                                <div className={styles.bentoContent} style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100%', gap: '5px' }}>
+                                    <span className={styles.bentoValue} style={{ color: '#d97706', fontSize: '16px', textAlign: 'center' }}>
+                                        {trabajo.estado}
+                                    </span>
+                                    <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '600' }}>
+                                        Actividad: {trabajo.fecha}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Card 3: Contactos (6/12) */}
+                            <div className={`${styles.bentoCard} ${styles.colSpan6}`}>
+                                <div className={styles.cardHeader}>
+                                    <div className={`${styles.iconBox} ${styles.bgPurple}`}>
+                                        <HiOutlineUser size={18} />
+                                    </div>
+                                    <h3 className={styles.cardTitle}>Contactos</h3>
+                                </div>
+                                <div className={styles.contactGrid}>
+                                    <div className={styles.contactBlock}>
+                                        <span className={styles.contactName}>{trabajo.encargado === "Calle 37" ? "Jesus Antonio Dzul" : trabajo.encargado}</span>
+                                        <span className={styles.bentoLabel}>Gerente</span>
+                                        <div className={styles.contactActions}>
+                                            <a href={`tel:${trabajo.telefonoEncargado}`} className={styles.actionIconLink} title="Llamar">
+                                                <HiOutlinePhone className={styles.phone} />
+                                            </a>
+                                            <a
+                                                href={`https://wa.me/52${trabajo.telefonoEncargado?.replace(/\D/g, '')}`}
+                                                target="_blank" rel="noreferrer" className={styles.actionIconLink}
+                                            >
+                                                <HiOutlineChatBubbleLeftRight className={styles.whatsapp} />
+                                            </a>
+                                        </div>
+                                    </div>
+
+                                    {trabajo.subgerente && (
+                                        <div className={styles.contactBlock}>
+                                            <span className={styles.contactName}>{trabajo.subgerente}</span>
+                                            <span className={styles.bentoLabel}>Subgerente</span>
+                                            <div className={styles.contactActions}>
+                                                {trabajo.telefonoSubgerente && trabajo.telefonoSubgerente !== "S/N" && (
+                                                    <>
+                                                        <a href={`tel:${trabajo.telefonoSubgerente}`} className={styles.actionIconLink}>
+                                                            <HiOutlinePhone className={styles.phone} />
+                                                        </a>
+                                                        <a href={`https://wa.me/52${trabajo.telefonoSubgerente.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className={styles.actionIconLink}>
+                                                            <HiOutlineChatBubbleLeftRight className={styles.whatsapp} />
+                                                        </a>
+                                                    </>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Card 4: Ubicación (6/12) */}
+                            <div className={`${styles.bentoCard} ${styles.colSpan6}`}>
+                                <div className={styles.cardHeader}>
+                                    <div className={`${styles.iconBox} ${styles.bgGreen}`}>
+                                        <HiOutlineMapPin size={18} />
+                                    </div>
+                                    <h3 className={styles.cardTitle}>Ubicación</h3>
+                                </div>
+                                <div className={styles.addressGrid}>
+                                    <div className={styles.addressItem}>
+                                        <span className={styles.bentoLabel}>Plaza</span>
+                                        <span className={styles.bentoValue} style={{ fontSize: '13px' }}>{trabajo.plaza || "---"}</span>
+                                    </div>
+                                    <div className={styles.addressItem}>
+                                        <span className={styles.bentoLabel}>Calle</span>
+                                        <span className={styles.bentoValue} style={{ fontSize: '13px' }}>{trabajo.calle} #{trabajo.numero}</span>
+                                    </div>
+                                    <div className={styles.addressItem}>
+                                        <span className={styles.bentoLabel}>Colonia</span>
+                                        <span className={styles.bentoValue} style={{ fontSize: '13px' }}>{trabajo.colonia}</span>
+                                    </div>
+                                    <div className={styles.addressItem}>
+                                        <span className={styles.bentoLabel}>Ciudad</span>
+                                        <span className={styles.bentoValue} style={{ fontSize: '13px' }}>{trabajo.ciudad || "Mérida"}</span>
+                                    </div>
+                                </div>
+
+                                {trabajo.referencias && (
+                                    <div style={{ background: '#f0fdf4', padding: '8px 12px', borderRadius: '10px', marginTop: '5px' }}>
+                                        <span className={styles.bentoLabel} style={{ color: '#166534' }}>Ref</span>
+                                        <p style={{ margin: 0, fontSize: '11px', color: '#14532d', fontWeight: '600' }}>{trabajo.referencias}</p>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Card 5: Acciones (12/12) */}
+                            {user?.role === 'admin' && (
+                                <div className={`${styles.colSpan12}`} style={{ marginTop: '5px' }}>
+                                    <div style={{ display: 'flex', gap: '10px' }}>
+                                        {(trabajo.estado === "Solicitud" && !trabajo.visitado && trabajo.tecnico === "Sin asignar") && (
+                                            <button
+                                                onClick={() => { setSelectedType("Visita"); setIsModalOpen(true); }}
+                                                className={`${styles.actionButton} ${styles.assignButton}`}
+                                                style={{ flex: 1, padding: '12px', borderRadius: '12px', fontSize: '14px' }}
+                                            >
+                                                👤 Asignar para Visita
+                                            </button>
+                                        )}
+                                        {(trabajo.estado === "Solicitud" && trabajo.visitado || trabajo.estado === "En Espera") && (
+                                            <button
+                                                onClick={() => setActiveTab('Cotización')}
+                                                className={styles.actionButton}
+                                                style={{ flex: 1, padding: '12px', borderRadius: '12px', fontSize: '14px', background: '#f59e0b', color: '#fff' }}
+                                            >
+                                                💰 Crear Cotización
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
                             )}
                         </div>
-                    )
-                    }
+                    )}
+
 
                     {
                         activeTab === 'Cotización' && (
-                            <div className={user?.role === 'cliente' ? '' : styles.infoGrid2} style={{ gap: '40px', display: user?.role === 'cliente' ? 'block' : undefined }}>
-                                {/* COLUMNA IZQUIERDA: FORMULARIO O VISTA CLIENTE */}
-                                <div style={{ background: '#fff', borderRadius: '20px', padding: '30px', boxShadow: '0 4px 15px rgba(0,0,0,0.05)', border: '1px solid #eee' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
 
-                                    {user?.role === 'cliente' ? (
-                                        <>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '25px' }}>
-                                                <span style={{ fontSize: '28px' }}>📄</span>
-                                                <h2 style={{ margin: 0, color: '#e65100', fontSize: '22px' }}>Cotización Recibida</h2>
+                                {/* VISTA CLIENTE: lista de cotizaciones con aceptar/rechazar individual */}
+                                {user?.role === 'cliente' && (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '8px' }}>
+                                            <div style={{ width: '44px', height: '44px', borderRadius: '14px', background: 'linear-gradient(135deg, #FFB800, #f59e0b)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                <HiOutlineCurrencyDollar size={22} color="white" />
                                             </div>
-
-                                            <div style={{ marginBottom: '25px', padding: '20px', background: '#f5f7fa', borderRadius: '15px' }}>
-                                                <div style={{ marginBottom: '20px' }}>
-                                                    <p style={{ margin: '0 0 5px 0', fontSize: '14px', color: '#666', fontWeight: 'bold' }}>Costo Estimado:</p>
-                                                    <p style={{ margin: 0, fontSize: '32px', fontWeight: 'bold', color: '#333' }}>${trabajo.cotizacion?.costo}</p>
-                                                </div>
-
-                                                <div style={{ marginBottom: '20px' }}>
-                                                    <p style={{ margin: '0 0 5px 0', fontSize: '14px', color: '#666', fontWeight: 'bold' }}>Notas del Administrador:</p>
-                                                    <p style={{ margin: 0, fontSize: '16px', color: '#444', lineHeight: '1.6' }}>{trabajo.cotizacion?.notas || "Sin notas adicionales."}</p>
-                                                </div>
-
-                                                <div>
-                                                    <p style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#666', fontWeight: 'bold' }}>Documento Adjunto:</p>
-                                                    <a
-                                                        href={trabajo.cotizacion?.archivo?.startsWith('http') || trabajo.cotizacion?.archivo?.startsWith('data:') ? trabajo.cotizacion.archivo : `http://127.0.0.1:8085/storage/${trabajo.cotizacion?.archivo}`}
-                                                        target="_blank"
-                                                        rel="noreferrer"
-                                                        style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: '#fff', border: '1px solid #ccc', padding: '12px 25px', borderRadius: '25px', color: '#333', textDecoration: 'none', fontWeight: 'bold', fontSize: '15px', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }}
-                                                    >
-                                                        📎 Ver Archivo PDF / Imagen
-                                                    </a>
-                                                </div>
+                                            <div>
+                                                <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '800', color: '#1e293b' }}>Cotizaciones Recibidas</h2>
+                                                <p style={{ margin: 0, fontSize: '13px', color: '#94a3b8', fontWeight: '600' }}>{cotizaciones.length} opción{cotizaciones.length !== 1 ? 'es' : ''} disponible{cotizaciones.length !== 1 ? 's' : ''}</p>
                                             </div>
+                                        </div>
 
-                                            {trabajo.estado === 'Cotización Enviada' && (
-                                                <div style={{ display: 'flex', gap: '15px', marginTop: '30px' }}>
-                                                    <button
-                                                        style={{ flex: 1, background: '#4caf50', color: 'white', border: 'none', padding: '15px', borderRadius: '30px', fontWeight: 'bold', fontSize: '16px', cursor: 'pointer', boxShadow: '0 4px 10px rgba(76, 175, 80, 0.3)' }}
-                                                        onClick={() => handleAceptarCotizacion()}
-                                                    >
-                                                        ✓ Aceptar Cotización
-                                                    </button>
-                                                    <button
-                                                        style={{ flex: 1, background: '#f44336', color: 'white', border: 'none', padding: '15px', borderRadius: '30px', fontWeight: 'bold', fontSize: '16px', cursor: 'pointer', boxShadow: '0 4px 10px rgba(244, 67, 54, 0.3)' }}
-                                                        onClick={() => handleRechazarCotizacion()}
-                                                    >
-                                                        ✕ Rechazar
-                                                    </button>
-                                                </div>
-                                            )}
-                                            {trabajo.estado === 'Cotización Aceptada' && (
-                                                <div style={{ padding: '15px 20px', background: '#e8f5e9', color: '#2e7d32', borderRadius: '15px', fontWeight: 'bold', textAlign: 'center', border: '1px solid #c8e6c9' }}>
-                                                    ✓ Has aceptado esta cotización. En espera de asignación de técnico.
-                                                </div>
-                                            )}
-                                        </>
-                                    ) : (
-                                        <>
-                                            <h3 className={styles.sectionTitle} style={{ marginBottom: '20px' }}>Detalles de Cotización</h3>
-
-                                            <div style={{ background: '#fcfcfc', border: '1px solid #eee', padding: '25px', borderRadius: '20px', marginBottom: '20px' }}>
-                                                <div style={{ marginBottom: '20px' }}>
-                                                    <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px', color: '#555' }}>Costo Estimado ($)</label>
-                                                    <input
-                                                        type="number"
-                                                        placeholder="Ej: 1500"
-                                                        value={costo}
-                                                        onChange={(e) => setCosto(e.target.value)}
-                                                        style={{ width: '100%', padding: '12px 15px', borderRadius: '10px', border: '1px solid #ddd', fontSize: '16px' }}
-                                                    />
-                                                </div>
-
-                                                <div style={{ marginBottom: '20px' }}>
-                                                    <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px', color: '#555' }}>Notas para el cliente</label>
-                                                    <textarea
-                                                        placeholder="Detalles sobre los materiales, tiempo estimado, etc."
-                                                        value={notas}
-                                                        onChange={(e) => setNotas(e.target.value)}
-                                                        style={{ width: '100%', padding: '15px', borderRadius: '10px', border: '1px solid #ddd', fontSize: '16px', minHeight: '100px', resize: 'vertical' }}
-                                                    ></textarea>
-                                                </div>
+                                        {cotizaciones.length === 0 ? (
+                                            <div style={{ background: '#fff', borderRadius: '20px', padding: '40px', textAlign: 'center', border: '1px solid #f1f5f9' }}>
+                                                <div style={{ fontSize: '36px', marginBottom: '12px' }}>📭</div>
+                                                <p style={{ margin: 0, color: '#94a3b8', fontWeight: '600' }}>Aún no hay cotizaciones disponibles.</p>
                                             </div>
-
-                                            <h3 className={styles.sectionTitle} style={{ marginBottom: '20px' }}>Documento Adjunto</h3>
-
-                                            <div style={{ background: '#fcfcfc', border: '1px solid #eee', padding: '25px', borderRadius: '20px', textAlign: 'center' }}>
-                                                <input
-                                                    type="file"
-                                                    accept="image/*, .pdf"
-                                                    ref={fileInputRef}
-                                                    style={{ display: 'none' }}
-                                                    onChange={handleFileChange}
-                                                />
-
-                                                <div
-                                                    onClick={() => fileInputRef.current?.click()}
-                                                    style={{ border: '2px dashed #ccc', padding: '30px', borderRadius: '15px', cursor: 'pointer', background: '#fff' }}
-                                                >
-                                                    <div style={{ fontSize: '40px', marginBottom: '10px' }}>📄</div>
-                                                    {archivo ? (
-                                                        <span style={{ fontWeight: 'bold', color: '#4caf50' }}>Archivo cargado: {nombreArchivo}</span>
-                                                    ) : (
-                                                        <span style={{ color: '#888' }}>Haz clic aquí para subir un PDF o imagen</span>
-                                                    )}
-                                                </div>
-                                            </div>
-
-                                            <button
-                                                onClick={handleEnviarCotizacion}
-                                                style={{ width: '100%', padding: '15px', background: '#f9ab0f', color: '#fff', border: 'none', borderRadius: '30px', fontSize: '18px', fontWeight: 'bold', marginTop: '20px', cursor: 'pointer' }}
-                                            >
-                                                Enviar Cotización
-                                            </button>
-                                        </>
-                                    )}
-                                </div>
-
-                                {/* COLUMNA DERECHA: TAREAS Y COTIZACIONES DEL TÉCNICO */}
-                                {user?.role !== 'cliente' && (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '30px', background: '#fff', borderRadius: '20px', padding: '30px', boxShadow: '0 4px 15px rgba(0,0,0,0.05)', border: '1px solid #eee' }}>
-
-                                    {/* COTIZACIONES */}
-                                    {subTareas.some(t => t.esCotizacion) && (
-                                        <div>
-                                            <h3 className={styles.sectionTitle} style={{ marginBottom: '20px', color: '#ff9800' }}>⭐ Cotizaciones de Técnicos</h3>
-                                            <div className={styles.taskList}>
-                                                {subTareas.filter(t => t.esCotizacion).map(tarea => (
-                                                    <div
-                                                        key={tarea.id}
-                                                        style={{ background: '#fff', border: '1px solid #ffd54f', borderRadius: '15px', padding: '20px', marginBottom: '15px', boxShadow: '0 4px 10px rgba(255,152,0,0.1)' }}
-                                                    >
-                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '15px' }}>
+                                        ) : (
+                                            cotizaciones.map((cotiz, idx) => {
+                                                const estadoColors: Record<string, { bg: string; color: string; border: string }> = {
+                                                    'Pendiente': { bg: '#fffbeb', color: '#92400e', border: '#fde68a' },
+                                                    'Aprobada': { bg: '#ecfdf5', color: '#065f46', border: '#a7f3d0' },
+                                                    'Rechazada': { bg: '#fef2f2', color: '#7f1d1d', border: '#fecaca' },
+                                                };
+                                                const sc = estadoColors[cotiz.estado || 'Pendiente'];
+                                                return (
+                                                    <div key={cotiz.id} style={{ background: '#fff', borderRadius: '22px', padding: '26px', boxShadow: '0 4px 20px rgba(0,0,0,0.06)', border: `1.5px solid ${cotiz.estado === 'Aprobada' ? '#a7f3d0' : cotiz.estado === 'Rechazada' ? '#fecaca' : '#f1f5f9'}` }}>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '18px' }}>
                                                             <div>
-                                                                <h4 style={{ margin: '0 0 5px 0', fontSize: '18px', color: '#333' }}>Técnico: {tarea.tecnicoNombre || 'Desconocido'}</h4>
-                                                                <span style={{ fontSize: '14px', background: '#e0f7fa', color: '#006064', padding: '4px 8px', borderRadius: '10px', fontWeight: 'bold' }}>{tarea.titulo}</span>
+                                                                <p style={{ margin: '0 0 6px 0', fontSize: '12px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px' }}>Opción {idx + 1}</p>
+                                                                <p style={{ margin: 0, fontSize: '34px', fontWeight: '900', color: '#1e293b' }}>${Number(cotiz.monto).toLocaleString('es-MX')}</p>
                                                             </div>
-                                                            <div style={{ textAlign: 'right' }}>
-                                                                <p style={{ margin: 0, fontSize: '24px', fontWeight: 'bold', color: '#ff9800' }}>${tarea.cotizacionMonto}</p>
-                                                                <span style={{ fontSize: '12px', color: '#888' }}>{tarea.cotizacionEstado}</span>
-                                                            </div>
+                                                            <span style={{ padding: '6px 14px', borderRadius: '20px', fontSize: '12px', fontWeight: '800', background: sc.bg, color: sc.color, border: `1px solid ${sc.border}` }}>
+                                                                {cotiz.estado}
+                                                            </span>
                                                         </div>
 
-                                                        <div style={{ background: '#f9f9f9', padding: '15px', borderRadius: '10px', fontSize: '14px', color: '#555', marginBottom: '15px', fontStyle: 'italic' }}>
-                                                            <strong>Detalles/Materiales:</strong><br />
-                                                            {tarea.cotizacionDetalles || "Sin detalles adicionales."}
-                                                        </div>
+                                                        {cotiz.descripcion && (
+                                                            <div style={{ background: '#f8fafc', borderRadius: '14px', padding: '16px', marginBottom: '18px' }}>
+                                                                <p style={{ margin: '0 0 4px 0', fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.8px' }}>Notas</p>
+                                                                <p style={{ margin: 0, fontSize: '14px', color: '#475569', lineHeight: '1.6' }}>{cotiz.descripcion}</p>
+                                                            </div>
+                                                        )}
 
-                                                        {tarea.cotizacionArchivo && (
-                                                            <div style={{ marginBottom: '15px' }}>
-                                                                <a
-                                                                    href={tarea.cotizacionArchivo.startsWith('http') || tarea.cotizacionArchivo.startsWith('data:') ? tarea.cotizacionArchivo : `http://127.0.0.1:8085/storage/${tarea.cotizacionArchivo}`}
-                                                                    target="_blank"
-                                                                    rel="noreferrer"
-                                                                    style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: '#fff', border: '1px solid #ccc', padding: '8px 15px', borderRadius: '15px', color: '#333', textDecoration: 'none', fontWeight: 'bold', fontSize: '12px' }}
-                                                                >
-                                                                    📎 Ver Archivo Adjunto
-                                                                </a>
+                                                        {cotiz.archivo && (
+                                                            <a href={cotiz.archivo.startsWith('http') ? cotiz.archivo : `http://127.0.0.1:8085/storage/${cotiz.archivo}`} target="_blank" rel="noreferrer"
+                                                                style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: '#f8fafc', border: '1px solid #e2e8f0', padding: '10px 16px', borderRadius: '12px', color: '#475569', textDecoration: 'none', fontWeight: '700', fontSize: '13px', marginBottom: '18px' }}>
+                                                                <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                    <span style={{ color: 'white', fontSize: '10px', fontWeight: '900' }}>PDF</span>
+                                                                </div>
+                                                                Ver Documento
+                                                            </a>
+                                                        )}
+
+                                                        {cotiz.estado === 'Pendiente' && (
+                                                            <div style={{ display: 'flex', gap: '10px' }}>
+                                                                <button onClick={() => handleClienteAceptarCotizacion(cotiz.id!)} style={{ flex: 1, background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', padding: '14px', borderRadius: '14px', fontWeight: '800', fontSize: '14px', cursor: 'pointer', boxShadow: '0 6px 16px rgba(16,185,129,0.3)' }}>
+                                                                    ✓ Aceptar esta opción
+                                                                </button>
+                                                                <button onClick={() => handleClienteRechazarCotizacion(cotiz.id!)} style={{ flex: 1, background: '#f8fafc', color: '#ef4444', border: '2px solid #fecaca', padding: '14px', borderRadius: '14px', fontWeight: '800', fontSize: '14px', cursor: 'pointer' }}>
+                                                                    ✕ Rechazar
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                        {cotiz.estado === 'Aprobada' && (
+                                                            <div style={{ padding: '14px', background: '#ecfdf5', color: '#065f46', borderRadius: '12px', fontWeight: '700', textAlign: 'center', fontSize: '14px', border: '1px solid #a7f3d0' }}>
+                                                                ✓ Cotización Aceptada — Lista para asignar trabajador.
+                                                            </div>
+                                                        )}
+                                                        {cotiz.estado === 'Rechazada' && (
+                                                            <div style={{ padding: '14px', background: '#fef2f2', color: '#7f1d1d', borderRadius: '12px', fontWeight: '700', textAlign: 'center', fontSize: '14px', border: '1px solid #fecaca' }}>
+                                                                ✕ Rechazada — revisa las demás opciones.
                                                             </div>
                                                         )}
                                                     </div>
-                                                ))}
+                                                );
+                                            })
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* VISTA ADMIN: columna izquierda (gestión de cotizaciones), columna derecha (actividades del técnico) */}
+                                {user?.role !== 'cliente' && (
+                                    <div className={styles.infoGrid2} style={{ gap: '30px' }}>
+                                        {/* IZQUIERDA: lista + agregar */}
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+                                            {/* LISTA DE COTIZACIONES EXISTENTES */}
+                                            {cotizaciones.length > 0 && (
+                                                <div style={{ background: '#fff', borderRadius: '24px', padding: '28px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px', paddingBottom: '16px', borderBottom: '2px solid #f8fafc' }}>
+                                                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }} />
+                                                        <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#1e293b' }}>Cotizaciones Enviadas</h3>
+                                                        <span style={{ marginLeft: 'auto', background: '#ecfdf5', color: '#065f46', fontSize: '12px', fontWeight: '800', padding: '4px 12px', borderRadius: '20px', border: '1px solid #a7f3d0' }}>
+                                                            {cotizaciones.length} cotizacion{cotizaciones.length !== 1 ? 'es' : ''}
+                                                        </span>
+                                                    </div>
+
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                        {cotizaciones.map((cotiz, idx) => {
+                                                            const isEditing = editingCotizacion?.id === cotiz.id;
+                                                            const estadoBadge: Record<string, string> = { Pendiente: '#fffbeb', Aprobada: '#ecfdf5', Rechazada: '#fef2f2' };
+                                                            const estadoText: Record<string, string> = { Pendiente: '#92400e', Aprobada: '#065f46', Rechazada: '#7f1d1d' };
+                                                            return (
+                                                                <div key={cotiz.id} style={{ background: '#fafafa', border: '1.5px solid #f1f5f9', borderRadius: '18px', padding: '18px' }}>
+                                                                    {isEditing ? (
+                                                                        /* FORMULARIO INLINE DE EDICIÓN */
+                                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                                            <p style={{ margin: '0 0 4px 0', fontSize: '12px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase' }}>Editando Opción {idx + 1}</p>
+                                                                            <div style={{ position: 'relative' }}>
+                                                                                <span style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', fontWeight: '900', color: '#FFB800', fontSize: '16px' }}>$</span>
+                                                                                <input type="number" value={editCosto} onChange={e => setEditCosto(e.target.value)}
+                                                                                    style={{ width: '100%', padding: '12px 14px 12px 30px', borderRadius: '12px', border: '2px solid #e2e8f0', fontSize: '16px', fontWeight: '700', boxSizing: 'border-box' }} />
+                                                                            </div>
+                                                                            <textarea value={editNotas} onChange={e => setEditNotas(e.target.value)} placeholder="Notas..."
+                                                                                style={{ width: '100%', padding: '12px 14px', borderRadius: '12px', border: '2px solid #e2e8f0', fontSize: '14px', resize: 'vertical', minHeight: '80px', boxSizing: 'border-box', fontFamily: 'inherit' }} />
+                                                                            <input ref={editFileInputRef} type="file" accept="image/*,.pdf" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) { setEditArchivoFile(f); setEditNombreArchivo(f.name); } }} />
+                                                                            <button onClick={() => editFileInputRef.current?.click()} style={{ padding: '10px', borderRadius: '10px', border: '2px dashed #e2e8f0', background: editArchivoFile ? '#f0fdf4' : '#f8fafc', color: editArchivoFile ? '#059669' : '#64748b', fontWeight: '700', fontSize: '13px', cursor: 'pointer' }}>
+                                                                                {editArchivoFile ? `✓ ${editNombreArchivo}` : '📎 Cambiar documento (opcional)'}
+                                                                            </button>
+                                                                            <div style={{ display: 'flex', gap: '8px' }}>
+                                                                                <button onClick={handleUpdateCotizacion} style={{ flex: 1, padding: '12px', background: 'linear-gradient(135deg, #FFB800, #f59e0b)', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: '800', cursor: 'pointer', fontSize: '14px' }}>💾 Guardar cambios</button>
+                                                                                <button onClick={() => setEditingCotizacion(null)} style={{ padding: '12px 16px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', fontWeight: '700', cursor: 'pointer', fontSize: '14px', color: '#475569' }}>Cancelar</button>
+                                                                            </div>
+                                                                        </div>
+                                                                    ) : (
+                                                                        /* VISTA DE LA COTIZACIÓN */
+                                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+                                                                            <div>
+                                                                                <p style={{ margin: '0 0 4px 0', fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.8px' }}>Opción {idx + 1}</p>
+                                                                                <p style={{ margin: '0 0 6px 0', fontSize: '22px', fontWeight: '900', color: '#1e293b' }}>${Number(cotiz.monto).toLocaleString('es-MX')}</p>
+                                                                                {cotiz.descripcion && <p style={{ margin: 0, fontSize: '12px', color: '#64748b', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cotiz.descripcion}</p>}
+                                                                            </div>
+                                                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
+                                                                                <span style={{ padding: '4px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: '800', background: estadoBadge[cotiz.estado || 'Pendiente'], color: estadoText[cotiz.estado || 'Pendiente'] }}>
+                                                                                    {cotiz.estado}
+                                                                                </span>
+                                                                                <div style={{ display: 'flex', gap: '6px' }}>
+                                                                                    <button onClick={() => handleEditarCotizacion(cotiz)} style={{ padding: '7px 12px', borderRadius: '10px', background: '#f1f5f9', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: '700', color: '#475569' }}>✏️ Editar</button>
+                                                                                    <button onClick={() => handleEliminarCotizacion(cotiz.id!)} style={{ padding: '7px 12px', borderRadius: '10px', background: '#fef2f2', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: '700', color: '#ef4444' }}>🗑️</button>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* FORMULARIO NUEVA COTIZACIÓN */}
+                                            <div style={{ background: '#fff', borderRadius: '24px', padding: '28px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '22px', paddingBottom: '16px', borderBottom: '2px solid #f8fafc' }}>
+                                                    <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'linear-gradient(135deg, #FFB800, #f59e0b)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                        <HiOutlineCurrencyDollar size={20} color="white" />
+                                                    </div>
+                                                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#1e293b' }}>
+                                                        {cotizaciones.length === 0 ? 'Nueva Cotización' : `+ Agregar Opción ${cotizaciones.length + 1}`}
+                                                    </h3>
+                                                </div>
+
+                                                <div style={{ marginBottom: '16px' }}>
+                                                    <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>Monto ($)</label>
+                                                    <div style={{ position: 'relative' }}>
+                                                        <span style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', fontSize: '18px', fontWeight: '900', color: '#FFB800' }}>$</span>
+                                                        <input type="number" placeholder="1500" value={costo} onChange={e => setCosto(e.target.value)}
+                                                            style={{ width: '100%', padding: '13px 16px 13px 36px', borderRadius: '14px', border: '2px solid #e2e8f0', fontSize: '17px', fontWeight: '700', color: '#1e293b', boxSizing: 'border-box' }} />
+                                                    </div>
+                                                </div>
+
+                                                <div style={{ marginBottom: '16px' }}>
+                                                    <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>Notas para el cliente</label>
+                                                    <textarea placeholder="Ej: Incluye mano de obra y materiales..." value={notas} onChange={e => setNotas(e.target.value)}
+                                                        style={{ width: '100%', padding: '13px 16px', borderRadius: '14px', border: '2px solid #e2e8f0', fontSize: '14px', color: '#475569', minHeight: '90px', resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit', lineHeight: '1.6' }} />
+                                                </div>
+
+                                                <input type="file" accept="image/*, .pdf" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileChange} />
+                                                <div onClick={() => fileInputRef.current?.click()}
+                                                    style={{ border: `2.5px dashed ${archivoFile ? '#10b981' : '#e2e8f0'}`, padding: '22px 16px', borderRadius: '16px', cursor: 'pointer', background: archivoFile ? '#f0fdf4' : '#f8fafc', textAlign: 'center', transition: 'all 0.3s', marginBottom: '16px' }}>
+                                                    <div style={{ fontSize: '28px', marginBottom: '8px' }}>{archivoFile ? '✅' : '📎'}</div>
+                                                    <p style={{ margin: 0, fontWeight: '700', fontSize: '13px', color: archivoFile ? '#059669' : '#64748b' }}>
+                                                        {archivoFile ? `✓ ${nombreArchivo}` : 'Adjuntar PDF o imagen'}
+                                                    </p>
+                                                    {!archivoFile && <p style={{ margin: '4px 0 0 0', fontSize: '11px', color: '#94a3b8' }}>PDF, PNG, JPG — Máx. 10MB</p>}
+                                                </div>
+
+                                                <button onClick={handleEnviarCotizacion}
+                                                    style={{ width: '100%', padding: '15px', background: 'linear-gradient(135deg, #FFB800, #f59e0b)', color: '#fff', border: 'none', borderRadius: '15px', fontSize: '15px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 8px 20px rgba(255,184,0,0.35)' }}>
+                                                    {cotizaciones.length === 0 ? 'Enviar Cotización al Cliente' : `➕ Agregar Opción ${cotizaciones.length + 1}`}
+                                                </button>
                                             </div>
                                         </div>
-                                    )}
 
-                                    {/* TRABAJOS REGISTRADOS */}
-                                    <div>
-                                        <h3 className={styles.sectionTitle} style={{ marginBottom: '20px' }}>Actividades Registradas</h3>
-                                        <div className={styles.taskList}>
-                                            {subTareas.length > 0 ? (
-                                                subTareas.map(tarea => (
-                                                    <div
-                                                        key={tarea.id}
-                                                        style={{ background: '#fff', border: '1px solid #eee', borderRadius: '15px', padding: '15px', marginBottom: '15px', boxShadow: '0 2px 5px rgba(0,0,0,0.02)' }}
-                                                    >
-                                                        <div>
-                                                            <h3 style={{ margin: '0 0 5px 0', fontSize: '16px', color: '#333' }}>
-                                                                {tarea.titulo}
-                                                            </h3>
-                                                            <p style={{ margin: '0 0 5px 0', fontSize: '12px', color: '#999', fontWeight: 'bold' }}>
-                                                                {tarea.id}
-                                                            </p>
-                                                            <p style={{ margin: 0, fontSize: '14px', color: '#666', fontStyle: 'italic' }}>
-                                                                {tarea.descripcion}
-                                                            </p>
-                                                        </div>
+                                        {/* DERECHA: actividades del técnico */}
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                            {subTareas.some(t => t.esCotizacion) && (
+                                                <div style={{ background: '#fff', borderRadius: '24px', padding: '28px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px', paddingBottom: '16px', borderBottom: '2px solid #f8fafc' }}>
+                                                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#FFB800' }} />
+                                                        <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#1e293b' }}>Sugerencias del Técnico</h3>
+                                                        <span style={{ marginLeft: 'auto', background: '#fff7ed', color: '#d97706', fontSize: '12px', fontWeight: '800', padding: '4px 12px', borderRadius: '20px', border: '1px solid #fed7aa' }}>
+                                                            {subTareas.filter(t => t.esCotizacion).length} registros
+                                                        </span>
                                                     </div>
-                                                ))
-                                            ) : (
-                                                <p style={{ color: '#888', fontStyle: 'italic' }}>No hay actividades registradas.</p>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                        {subTareas.filter(t => t.esCotizacion).map(tarea => (
+                                                            <div key={tarea.id} style={{ background: '#fafafa', border: '1.5px solid #f1f5f9', borderRadius: '16px', padding: '16px' }}>
+                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                                        <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#f8fafc', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                            <HiOutlineUser size={16} color="#64748b" />
+                                                                        </div>
+                                                                        <div>
+                                                                            <p style={{ margin: 0, fontSize: '13px', fontWeight: '800', color: '#1e293b' }}>{tarea.tecnicoNombre || 'Técnico'}</p>
+                                                                            <span style={{ display: 'inline-block', fontSize: '10px', background: '#e0f2fe', color: '#0369a1', padding: '2px 8px', borderRadius: '20px', fontWeight: '700', marginTop: '2px' }}>{tarea.titulo}</span>
+                                                                        </div>
+                                                                    </div>
+                                                                    <p style={{ margin: 0, fontSize: '18px', fontWeight: '900', color: tarea.cotizacionMonto === 'Por Evaluar' ? '#94a3b8' : '#FFB800' }}>
+                                                                        {tarea.cotizacionMonto === 'Por Evaluar' ? 'Sin monto' : `$${tarea.cotizacionMonto}`}
+                                                                    </p>
+                                                                </div>
+                                                                <div style={{ background: '#fff', border: '1px solid #f1f5f9', borderRadius: '10px', padding: '12px' }}>
+                                                                    <p style={{ margin: '0 0 3px 0', fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.8px' }}>Descripción</p>
+                                                                    <p style={{ margin: 0, fontSize: '12px', color: '#475569', lineHeight: '1.6' }}>{tarea.cotizacionDetalles || 'Sin detalles.'}</p>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
                                             )}
+
+                                            <div style={{ background: '#fff', borderRadius: '24px', padding: '28px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px', paddingBottom: '16px', borderBottom: '2px solid #f8fafc' }}>
+                                                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#6366f1' }} />
+                                                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#1e293b' }}>Actividades Registradas</h3>
+                                                    <span style={{ marginLeft: 'auto', background: '#eef2ff', color: '#4f46e5', fontSize: '12px', fontWeight: '800', padding: '4px 12px', borderRadius: '20px', border: '1px solid #c7d2fe' }}>
+                                                        {subTareas.length} total
+                                                    </span>
+                                                </div>
+                                                <div className={styles.taskList}>
+                                                    {subTareas.length > 0 ? subTareas.map(tarea => renderTaskCard(tarea, false)) : (
+                                                        <div style={{ textAlign: 'center', padding: '30px 20px', color: '#94a3b8' }}>
+                                                            <div style={{ fontSize: '32px', marginBottom: '10px' }}>📋</div>
+                                                            <p style={{ margin: 0, fontWeight: '600', fontSize: '14px' }}>No hay actividades registradas</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
                                         </div>
-                                    </div>
                                     </div>
                                 )}
                             </div>
                         )
                     }
+
 
                     {
                         activeTab === 'Trabajo' && (
@@ -1102,64 +1483,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                                 {/* LISTA DE TAREAS / SUBTAREAS */}
                                 {/* DIAGNOSTICO DE LA VISITA (Si aplica) */}
                                 <div className={styles.taskList}>
-                                    {subTareas.map(tarea => (
-                                        <div
-                                            key={tarea.id}
-                                            onClick={() => {
-                                                if (trabajo?.tipo === "Visita" && user?.role === 'tecnico') {
-                                                    alert("Estás en modo Visita. No puedes realizar los trabajos, solo registrar hallazgos.");
-                                                    return;
-                                                }
-                                                setSelectedTaskForReport(tarea);
-                                                setIsSecurityModalOpen(true);
-                                            }}
-                                            className={`${styles.taskCard} ${tarea.estado === 'Nueva' ? styles.newTaskCard : styles.defaultTaskCard}`}
-                                            style={{ cursor: (trabajo?.tipo === "Visita" && user?.role === 'tecnico') ? 'not-allowed' : 'pointer', opacity: (trabajo?.tipo === "Visita" && user?.role === 'tecnico') ? 0.7 : 1 }}
-                                        >
-                                            <div>
-                                                <h3 className={styles.taskTitle}>
-                                                    {tarea.titulo}
-                                                </h3>
-                                                <p style={{ margin: '0 0 5px 0', fontSize: '12px', color: '#aaa', fontWeight: 'bold' }}>
-                                                    {tarea.id}
-                                                </p>
-                                                <p className={styles.taskDesc}>
-                                                    {tarea.descripcion}
-                                                </p>
-                                            </div>
-
-                                            <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-end' }}>
-                                                <span
-                                                    className={styles.taskStatus}
-                                                    style={{
-                                                        background: tarea.estado === 'Completa' ? '#ccffcc' : (tarea.estado === 'Nueva' ? '#ffccbc' : '#b3e0ff'),
-                                                        color: tarea.estado === 'Completa' ? '#006600' : (tarea.estado === 'Nueva' ? '#bf360c' : '#004080'),
-                                                    }}
-                                                >
-                                                    {tarea.estado}
-                                                </span>
-
-                                                <div style={{ display: 'flex', gap: '5px' }}>
-                                                    {trabajo.tipo === 'Visita' && (
-                                                        <>
-                                                            <button
-                                                                onClick={(e) => openEditModal(e, tarea)}
-                                                                style={{ background: '#eee', border: 'none', borderRadius: '5px', padding: '5px 8px', fontSize: '12px', cursor: 'pointer' }}
-                                                            >
-                                                                ✏️
-                                                            </button>
-                                                            <button
-                                                                onClick={(e) => handleDeleteTask(e, tarea.id)}
-                                                                style={{ background: '#fee', border: 'none', borderRadius: '5px', padding: '5px 8px', fontSize: '12px', cursor: 'pointer', color: '#f44336' }}
-                                                            >
-                                                                🗑️
-                                                            </button>
-                                                        </>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
+                                    {subTareas.map(tarea => renderTaskCard(tarea, true))}
                                 </div>
 
                                 {user?.role === 'tecnico' && trabajo.tipo === 'Visita' && subTareas.length > 0 && (
@@ -1241,7 +1565,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                         )}
                 </div>
             </div>
-            {/* MODAL ASIGNAR TÉCNICO */}
+            {/* MODAL ASIGNAR T├ëCNICO */}
             {
                 isModalOpen && (
                     <div className={styles.modalOverlay}>
@@ -1273,7 +1597,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                                 {filteredTechnicians.map(tech => (
                                     <div key={tech.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px', borderBottom: '1px solid #eee' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                            <div style={{ width: '40px', height: '40px', background: '#eee', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>👤</div>
+                                            <div style={{ width: '40px', height: '40px', background: '#eee', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>👥</div>
                                             <span style={{ fontWeight: 'bold' }}>{tech.nombre}</span>
                                         </div>
                                         <input
@@ -1328,19 +1652,74 @@ const AdminDetalleTrabajo: React.FC = () => {
 
                             <div style={{ border: '2px solid #e0e0e0', borderRadius: '20px', padding: '30px' }}>
                                 <div style={{ marginBottom: '20px' }}>
-                                    <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '10px' }}>Selecciona tarea</label>
-                                    <select
-                                        value={newTaskCategory}
-                                        onChange={(e) => setNewTaskCategory(e.target.value)}
-                                        style={{ width: '100%', padding: '10px', borderRadius: '10px', border: '1px solid #ddd', fontSize: '16px', fontWeight: 'bold' }}
-                                    >
-                                        <option value="Plomeria">Plomeria</option>
-                                        <option value="Electricidad">Electricidad</option>
-                                        <option value="Albañileria">Albañileria</option>
-                                        <option value="Carpinteria">Carpinteria</option>
-                                        <option value="Pintura">Pintura</option>
-                                    </select>
+                                    <h4 style={{ fontSize: '14px', fontWeight: 'bold', color: '#64748b', marginBottom: '15px' }}>Tipo de Actividad</h4>
+                                    <div className={styles.categoryGrid}>
+                                        {[
+                                            { id: 'Mantenimiento', icon: <HiOutlineCog6Tooth size={20} />, label: 'Mantenimiento' },
+                                            { id: 'Instalacion', icon: <HiOutlineBuildingOffice2 size={20} />, label: 'Instalación' },
+                                            { id: 'Plomeria', icon: <HiOutlineWrench size={20} />, label: 'Plomería' },
+                                            { id: 'Electricidad', icon: <HiOutlineBolt size={20} />, label: 'Electricidad' },
+                                            { id: 'Albañileria', icon: <HiOutlineSquare3Stack3D size={20} />, label: 'Albañilería' },
+                                            { id: 'Carpinteria', icon: <HiOutlinePencilSquare size={20} />, label: 'Carpintería' },
+                                            { id: 'Pintura', icon: <HiOutlinePencilSquare size={20} />, label: 'Pintura' },
+                                        ].map((cat) => (
+                                            <div
+                                                key={cat.id}
+                                                className={`${styles.categoryItem} ${activeServiceType === cat.id ? styles.categoryItemSelected : ''}`}
+                                                onClick={() => setActiveServiceType(cat.id as any)}
+                                            >
+                                                {cat.icon}
+                                                <span className={styles.categoryLabel}>{cat.label}</span>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
+
+                                {(activeServiceType === 'Mantenimiento' || activeServiceType === 'Instalacion') && (
+                                    <div className={styles.serviceFieldGrid}>
+                                        <div className={styles.serviceInputGroup}>
+                                            <label className={styles.serviceLabel}>Marca</label>
+                                            <input
+                                                className={styles.serviceInput}
+                                                value={serviceMarca}
+                                                onChange={(e) => setServiceMarca(e.target.value)}
+                                                placeholder="Ej. Daikin, York..."
+                                            />
+                                        </div>
+                                        <div className={styles.serviceInputGroup}>
+                                            <label className={styles.serviceLabel}>Modelo</label>
+                                            <input
+                                                className={styles.serviceInput}
+                                                value={serviceModelo}
+                                                onChange={(e) => setServiceModelo(e.target.value)}
+                                                placeholder="Ej. R-410A..."
+                                            />
+                                        </div>
+                                        {activeServiceType === 'Instalacion' && (
+                                            <>
+                                                <div className={styles.serviceInputGroup}>
+                                                    <label className={styles.serviceLabel}>Pieza</label>
+                                                    <input
+                                                        className={styles.serviceInput}
+                                                        value={servicePieza}
+                                                        onChange={(e) => setServicePieza(e.target.value)}
+                                                        placeholder="Ej. Evaporador..."
+                                                    />
+                                                </div>
+                                                <div className={styles.serviceInputGroup}>
+                                                    <label className={styles.serviceLabel}>Garantía (Meses)</label>
+                                                    <input
+                                                        className={styles.serviceInput}
+                                                        type="number"
+                                                        value={serviceGarantia}
+                                                        onChange={(e) => setServiceGarantia(e.target.value)}
+                                                        placeholder="Ej. 12"
+                                                    />
+                                                </div>
+                                            </>
+                                        )}
+                                    </div>
+                                )}
 
                                 <div style={{ marginBottom: '20px' }}>
                                     <textarea
@@ -1397,7 +1776,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                         onClick={() => addFileInputRef.current?.click()}
                                                         style={{ background: '#fff', border: '1px solid #ccc', padding: '10px 15px', borderRadius: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', width: 'fit-content' }}
                                                     >
-                                                        📎 {newQuoteFileName || "Seleccionar archivo"}
+                                                        📄 {newQuoteFileName || "Seleccionar archivo"}
                                                     </button>
                                                 </div>
                                             </div>
@@ -1432,7 +1811,9 @@ const AdminDetalleTrabajo: React.FC = () => {
                     const reportDataRaw = localStorage.getItem(`report_data_${selectedHistoryTask.id}`);
                     const temporalReportDataRaw = localStorage.getItem(`report_data_temporal_${selectedHistoryTask.id}`);
                     const reportData = reportDataRaw ? JSON.parse(reportDataRaw) : (temporalReportDataRaw ? JSON.parse(temporalReportDataRaw) : null);
-                    const isPreReport = !reportDataRaw && temporalReportDataRaw;
+                    const isPreReport = !reportDataRaw && !!temporalReportDataRaw;
+
+                    if (!selectedHistoryTask) return null;
 
                     return (
                         <div className={styles.modalOverlay} onClick={(e) => {
@@ -1444,21 +1825,18 @@ const AdminDetalleTrabajo: React.FC = () => {
                                     <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
                                         <button
                                             onClick={() => {
-                                                if (user?.role === 'admin') {
-                                                    navigate(`/menu/reporte-tarea/${selectedHistoryTask.id}`, { state: { trabajoId: trabajo?.id } });
-                                                } else if (user?.role === 'tecnico') {
-                                                    navigate(`/tecnico/reporte-tarea/${selectedHistoryTask.id}`, { state: { trabajoId: trabajo?.id } }); // Ajuste para técnico si existiese, de lo contrario volverá a la home por fallback
-                                                }
+                                                const baseRoute = user?.role === 'tecnico' ? '/tecnico' : '/menu';
+                                                navigate(`${baseRoute}/reporte-tarea/${selectedHistoryTask.id}`, { state: { trabajoId: trabajo?.id } });
                                             }}
                                             style={{ background: '#e3f2fd', color: '#1976d2', border: '1px solid #1976d2', padding: '8px 15px', borderRadius: '8px', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '5px' }}
                                         >
-                                            ✏️ Editar Reporte
+                                            ✍️ Editar Reporte
                                         </button>
                                         <button
                                             onClick={() => setSelectedHistoryTask(null)}
                                             style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#999' }}
                                         >
-                                            ×
+                                            ├ù
                                         </button>
                                     </div>
                                 </div>
@@ -1486,7 +1864,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                                     </div>
 
                                     <div style={{ background: '#fff', padding: '20px', borderRadius: '15px', border: '1px solid #eee' }}>
-                                        <h4 style={{ margin: '0 0 15px 0', color: '#333', fontSize: '16px' }}>👤 Información Adicional</h4>
+                                        <h4 style={{ margin: '0 0 15px 0', color: '#333', fontSize: '16px' }}>👥 Información Adicional</h4>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                                 <span style={{ color: '#777', fontSize: '14px' }}>Técnico Encargado:</span>
@@ -1536,7 +1914,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                     </div>
                                                 </div>
 
-                                                {/* EVIDENCIA FOTOGRÁFICA */}
+                                                {/* EVIDENCIA FOTOGR├üFICA */}
                                                 {reportData.imagenes && (reportData.imagenes.antes || reportData.imagenes.durante || reportData.imagenes.despues || reportData.imagenObservacion) && (
                                                     <div>
                                                         <span style={{ color: '#777', fontSize: '13px', display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Evidencia Fotográfica:</span>
@@ -1641,7 +2019,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                         rel="noreferrer"
                                                         style={{ display: 'inline-block', color: '#1976d2', textDecoration: 'none', fontSize: '14px', fontWeight: 'bold' }}
                                                     >
-                                                        📎 Ver Archivo Adjunto (Original)
+                                                        📄 Ver Archivo Adjunto (Original)
                                                     </a>
                                                 </div>
                                             </div>
@@ -1674,8 +2052,11 @@ const AdminDetalleTrabajo: React.FC = () => {
                             </button>
                             <button
                                 onClick={() => {
-                                    setIsSecurityModalOpen(false);
-                                    navigate(`/menu/reporte-tarea/${selectedTaskForReport.id}`, { state: { trabajoId: trabajo.id } });
+                                    if (selectedTaskForReport) {
+                                        setIsSecurityModalOpen(false);
+                                        const baseRoute = user?.role === 'tecnico' ? '/tecnico' : '/menu';
+                                        navigate(`${baseRoute}/reporte-tarea/${selectedTaskForReport.id}`, { state: { trabajoId: trabajo?.id } });
+                                    }
                                 }}
                                 style={{ padding: '12px 30px', borderRadius: '30px', border: 'none', background: '#fbbc04', color: '#fff', fontWeight: 'bold', cursor: 'pointer', fontSize: '16px', boxShadow: '0 4px 10px rgba(251, 188, 4, 0.3)' }}
                             >
@@ -1701,7 +2082,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                             onClick={() => setSelectedZoomImage(null)}
                             style={{ position: 'absolute', top: '-40px', right: '0', background: 'none', border: 'none', color: '#fff', fontSize: '30px', cursor: 'pointer', fontWeight: 'bold' }}
                         >
-                            ×
+                            ├ù
                         </button>
                         <img
                             src={selectedZoomImage}
@@ -1712,9 +2093,9 @@ const AdminDetalleTrabajo: React.FC = () => {
                     </div>
                 </div>
             )}
-
         </div>
     );
 };
 
 export default AdminDetalleTrabajo;
+

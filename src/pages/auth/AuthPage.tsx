@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import styles from './AuthPage.module.css';
 import { useAuth } from '../../context/AuthContext';
+import { useModal } from '../../context/ModalContext';
 import { loginUser } from '../../services/authService';
 import type { UserRole } from '../../context/AuthContext';
 
@@ -10,6 +11,7 @@ const AuthPage: React.FC = () => {
     const location = useLocation();
     const navigate = useNavigate();
     const { login } = useAuth();
+    const { showAlert } = useModal();
     const [loginEmail, setLoginEmail] = useState("");
     const [loginPassword, setLoginPassword] = useState("");
     
@@ -58,13 +60,16 @@ const AuthPage: React.FC = () => {
             else navigate('/cliente');
         } catch (error: any) {
             console.error(error);
-            alert("Credenciales inválidas o error de red");
+            showAlert("Error de Inicio de Sesión", "Credenciales inválidas o error de red.", "error");
         }
     };
 
     const handleRegisterSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (regPassword !== regConfirm) return alert("Las contraseñas no coinciden");
+        if (regPassword !== regConfirm) {
+            showAlert("Error de Registro", "Las contraseñas no coinciden.", "warning");
+            return;
+        }
         login({ id: 100, name: regName || 'Nuevo Cliente', role: 'cliente', email: regEmail });
         navigate('/cliente');
     };
@@ -109,11 +114,7 @@ const AuthPage: React.FC = () => {
                         <input type="password" placeholder="Contraseña" className={styles.input} value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} />
                         <a href="#" className={styles.link}>¿Olvidaste tu contraseña?</a>
                         <button type="submit" className={styles.button}>Ingresar</button>
-                        <div style={{ marginTop: '10px', fontSize: '11px', color: '#666', background: '#f0f0f0', padding: '10px', borderRadius: '10px', textAlign: 'center' }}>
-                            <p style={{ margin: '0 0 5px 0', fontWeight: 'bold' }}>Perfiles de Prueba:</p>
-                            <p style={{ margin: 0 }}>Admin: <code>admin@test.com</code></p>
-                            <p style={{ margin: 0 }}>Técnico: <code>pedro@tecnico.com</code></p>
-                        </div>
+
                     </form>
                 </div>
 

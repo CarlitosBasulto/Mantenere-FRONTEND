@@ -158,19 +158,19 @@
     background: #d4ebf9;
 }
 
-/* Modal styles */
+/* Modal styles Improved */
 .modalOverlay {
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
+    background: rgba(0, 0, 0, 0.4);
     display: flex;
     justify-content: center;
     align-items: center;
     z-index: 1000;
-    backdrop-filter: blur(2px);
+    backdrop-filter: blur(4px);
 }
 
 .modalContent {
@@ -179,6 +179,234 @@
     border-radius: 20px;
     width: 350px;
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+}
+
+.modalWide {
+    width: 100%;
+    max-width: 550px;
+    padding: 40px;
+    border-radius: 28px;
+}
+
+.modalTitleLarge {
+    font-size: 26px;
+    font-weight: 800;
+    color: #111;
+    margin: 0 0 8px 0;
+    text-align: left;
+}
+
+.modalSubtitle {
+    color: #666;
+    font-size: 14px;
+    margin-bottom: 30px;
+}
+
+.workerForm {
+    display: flex;
+    flex-direction: column;
+    gap: 25px;
+}
+
+.formGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.formField {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.formField label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #444;
+}
+
+.premiumInput {
+    padding: 12px 16px;
+    border: 1.5px solid #eee;
+    border-radius: 12px;
+    font-size: 14px;
+    transition: all 0.2s ease;
+    background: #fcfcfc;
+}
+
+.premiumInput:focus {
+    border-color: #FFB800;
+    background: white;
+    box-shadow: 0 0 0 4px rgba(255, 184, 0, 0.1);
+    outline: none;
+}
+
+.specialtySection {
+    background: #fafafa;
+    padding: 20px;
+    border-radius: 16px;
+    border: 1px solid #f0f0f0;
+}
+
+.sectionLabel {
+    display: block;
+    font-size: 14px;
+    font-weight: 700;
+    color: #333;
+    margin-bottom: 15px;
+}
+
+.rolesGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.roleChipWrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.roleChip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+    width: 100%;
+}
+
+.roleChip:has(input:checked) {
+    border-color: #FFB800;
+    background: rgba(255, 184, 0, 0.05);
+}
+
+.roleChip input {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: #FFB800;
+}
+
+.chipLabel {
+    font-size: 13px;
+    font-weight: 500;
+    color: #4b5563;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.deleteRoleBtn {
+    position: absolute;
+    right: -10px;
+    top: -10px;
+    width: 24px;
+    height: 24px;
+    min-width: 24px;
+    min-height: 24px;
+    background: #FF4D4D;
+    color: white;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 0;
+    z-index: 20;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+    transition: opacity 0.2s ease;
+    padding: 0;
+}
+
+.roleChipWrapper:hover .deleteRoleBtn {
+    opacity: 1;
+}
+
+.deleteRoleBtn:hover {
+    background: #E60000;
+}
+
+.addCategoryWrapper {
+    display: flex;
+    gap: 8px;
+    margin-top: 5px;
+}
+
+.addCategoryInput {
+    flex: 1;
+    padding: 10px 14px;
+    border: 1px dashed #ccc;
+    border-radius: 10px;
+    font-size: 13px;
+    background: transparent;
+}
+
+.addCategoryInput:focus {
+    border-style: solid;
+    border-color: #FFB800;
+    outline: none;
+}
+
+.addCategoryBtn {
+    background: #333;
+    color: white;
+    border: none;
+    padding: 0 15px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.modalActionsRow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 30px;
+    margin-top: 20px;
+    width: 100%;
+}
+
+.saveWorkerBtn {
+    background: #FFB800;
+    color: white;
+    border: none;
+    padding: 14px 28px;
+    border-radius: 14px;
+    font-weight: 700;
+    font-size: 15px;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(255, 184, 0, 0.25);
+    transition: transform 0.2s;
+}
+
+.saveWorkerBtn:hover {
+    transform: translateY(-2px);
+    background: #f2ae00;
+}
+
+.cancelLink {
+    background: none;
+    border: none;
+    color: #6b7280;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.cancelLink:hover {
+    color: #111;
+    text-decoration: underline;
 }
 
 .filterSection {
@@ -259,7 +487,7 @@
 
 /* ===========================
    RESPONISVE / MOBILE
-=========================== */
+ =========================== */
 
 @media (max-width: 768px) {
     .dashboardLayout {
@@ -356,5 +584,7 @@
         overflow-y: auto;
     }
     
+    .formGrid { grid-template-columns: 1fr; }
+    .modalWide { padding: 25px; }
     .radioGrid { grid-template-columns: 1fr; }
 }

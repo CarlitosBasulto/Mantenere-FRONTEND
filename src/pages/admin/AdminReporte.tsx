@@ -2,9 +2,11 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import styles from './AdminReporte.module.css';
-import { createReporte } from '../../services/reportesService';
+import { createReporte, getReporteByTrabajoId } from '../../services/reportesService';
 import { updateEstadoTrabajo } from '../../services/trabajosService';
+import { createNotificacionByRole } from '../../services/notificacionesService';
 import { useAuth } from '../../context/AuthContext';
+import { useModal } from '../../context/ModalContext';
 import jsPDF from 'jspdf';
 
 const compressImage = (file: File, callback: (compressedBase64: string) => void) => {
@@ -49,66 +51,80 @@ const AdminReporte: React.FC = () => {
     const location = useLocation();
     const trabajoId = location.state?.trabajoId;
     const { user } = useAuth();
+    const { showAlert, showConfirm } = useModal();
 
-    // Form states
     const [reporteTienda, setReporteTienda] = useState('');
     const [descripcion, setDescripcion] = useState('');
     const [materiales, setMateriales] = useState('');
     const [observaciones, setObservaciones] = useState('');
 
-    // Evidence images state (Base64)
     const [imagenes, setImagenes] = useState({
         antes: null as string | null,
         durante: null as string | null,
         despues: null as string | null
     });
     const [imagenObservacion, setImagenObservacion] = useState<string | null>(null);
-
     const [firmaEmpresa, setFirmaEmpresa] = useState<string | null>(null);
 
-    // Modal Confirmation State
-    const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
-    const [timerCount, setTimerCount] = useState(3);
+    const [involucraEquipo, setInvolucraEquipo] = useState(false);
+    const [equipoInfo, setEquipoInfo] = useState({
+        tipo: 'Instalación',
+        marca: '',
+        modelo: '',
+        piezas: '',
+        garantia: ''
+    });
 
     React.useEffect(() => {
-        let timer: ReturnType<typeof setTimeout>;
-        if (isConfirmModalOpen && timerCount > 0) {
-            timer = setTimeout(() => {
-                setTimerCount(prev => prev - 1);
-            }, 1000);
-        }
-        return () => clearTimeout(timer);
-    }, [isConfirmModalOpen, timerCount]);
+        const loadReportData = async () => {
+            try {
+                const report = await getReporteByTrabajoId(Number(id));
+                if (report) {
+                    try {
+                        const parsed = JSON.parse(report.solucion);
+                        if (parsed.reporteTienda) setReporteTienda(parsed.reporteTienda);
+                        if (parsed.descripcion) setDescripcion(parsed.descripcion);
+                        if (parsed.materiales) setMateriales(parsed.materiales);
+                        if (parsed.observaciones) setObservaciones(parsed.observaciones);
+                        if (parsed.imagenes) setImagenes(parsed.imagenes);
+                        if (parsed.imagenObservacion) setImagenObservacion(parsed.imagenObservacion);
+                        if (parsed.firmaEmpresa) setFirmaEmpresa(parsed.firmaEmpresa);
+                        if (parsed.involucraEquipo !== undefined) setInvolucraEquipo(parsed.involucraEquipo);
+                        if (parsed.equipoInfo) setEquipoInfo(parsed.equipoInfo);
+                        return; 
+                    } catch(e) {}
+                }
 
-    React.useEffect(() => {
-        // Try to load an already finalized report first for editing
-        const finalData = localStorage.getItem(`report_data_${id}`);
-        // Fallback to temporal data if the report is not yet finalized
-        const temporalData = localStorage.getItem(`report_data_temporal_${id}`);
+                const temporalData = localStorage.getItem(`report_data_temporal_${id}`);
+                if (temporalData) {
+                    const parsed = JSON.parse(temporalData);
+                    if (parsed.reporteTienda) setReporteTienda(parsed.reporteTienda);
+                    if (parsed.descripcion) setDescripcion(parsed.descripcion);
+                    if (parsed.materiales) setMateriales(parsed.materiales);
+                    if (parsed.observaciones) setObservaciones(parsed.observaciones);
+                    if (parsed.imagenes) setImagenes(parsed.imagenes);
+                    if (parsed.imagenObservacion) setImagenObservacion(parsed.imagenObservacion);
+                    if (parsed.firmaEmpresa) setFirmaEmpresa(parsed.firmaEmpresa);
+                    if (parsed.involucraEquipo !== undefined) setInvolucraEquipo(parsed.involucraEquipo);
+                    if (parsed.equipoInfo) setEquipoInfo(parsed.equipoInfo);
+                }
+            } catch (err) {
+                console.error("Error cargando reporte inicial:", err);
+            }
+        };
 
-        const savedData = finalData || temporalData;
-
-        if (savedData) {
-            const parsed = JSON.parse(savedData);
-            if (parsed.reporteTienda) setReporteTienda(parsed.reporteTienda);
-            if (parsed.descripcion) setDescripcion(parsed.descripcion);
-            if (parsed.materiales) setMateriales(parsed.materiales);
-            if (parsed.observaciones) setObservaciones(parsed.observaciones);
-            if (parsed.imagenes) setImagenes(parsed.imagenes);
-            if (parsed.imagenObservacion) setImagenObservacion(parsed.imagenObservacion);
-            if (parsed.firmaEmpresa) setFirmaEmpresa(parsed.firmaEmpresa);
-        }
+        loadReportData();
     }, [id]);
 
+    const handleEquipoInfoChange = (field: string, value: string) => {
+        setEquipoInfo(prev => ({ ...prev, [field]: value }));
+    };
 
-
-    // Refs for hidden file inputs
     const antesInputRef = useRef<HTMLInputElement>(null);
     const duranteInputRef = useRef<HTMLInputElement>(null);
     const despuesInputRef = useRef<HTMLInputElement>(null);
     const observacionInputRef = useRef<HTMLInputElement>(null);
     const firmaInputRef = useRef<HTMLInputElement>(null);
-
 
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'antes' | 'durante' | 'despues') => {
         const file = e.target.files?.[0];
@@ -146,8 +162,9 @@ const AdminReporte: React.FC = () => {
     };
 
     const handleGuardarInformacion = async () => {
-        if (!trabajoId) {
-            alert("Error: No se encontró el ID del trabajo asociado.");
+        const safeId = trabajoId || id;
+        if (!safeId) {
+            showAlert("Error", "No se encontró el ID del trabajo asociado.", "error");
             return;
         }
 
@@ -160,22 +177,22 @@ const AdminReporte: React.FC = () => {
             imagenes,
             imagenObservacion,
             firmaEmpresa,
+            involucraEquipo,
+            equipoInfo: involucraEquipo ? equipoInfo : null,
             fecha: new Date().toLocaleDateString()
         };
         
         try {
             const dataToSave = {
-                trabajo_id: trabajoId,
+                trabajo_id: Number(safeId),
                 descripcion: descripcion || "Reporte generado",
-                solucion: JSON.stringify(reportData) // Empaquetamos todo en solucion para el backend
+                solucion: JSON.stringify(reportData) 
             };
             await createReporte(dataToSave);
-            localStorage.setItem(`report_data_temporal_${id}`, JSON.stringify(reportData));
-            alert("Información guardada en Base de Datos exitosamente.");
+            showAlert("Éxito", "Información guardada en Base de Datos exitosamente.", "success");
         } catch (error) {
             console.error(error);
-            alert("Hubo un error al guardar en Base de Datos. Se guardará temporalmente de forma local.");
-            localStorage.setItem(`report_data_temporal_${id}`, JSON.stringify(reportData));
+            showAlert("Error", "Hubo un error al guardar en la Base de Datos.", "error");
         }
     };
 
@@ -195,7 +212,7 @@ const AdminReporte: React.FC = () => {
             const prepReporte = doc.splitTextToSize(reporteTienda || 'Sin especificar', 180);
             doc.text(prepReporte, 10, 52);
 
-            let nextY = 55 + (prepReporte.length * 5); // Dinámico basado en lineas
+            let nextY = 55 + (prepReporte.length * 5); 
 
             doc.setFont("helvetica", "bold");
             doc.text("Descripción del Trabajo y Solución:", 10, nextY);
@@ -222,7 +239,33 @@ const AdminReporte: React.FC = () => {
             nextY += 7;
             doc.text(prepObs, 10, nextY);
 
-            let currentY = nextY + (prepObs.length * 5) + 15;
+            nextY += (prepObs.length * 5) + 10;
+
+            // --- NUEVA SECCIÓN: EQUIPOS INVOLUCRADOS ---
+            if (involucraEquipo) {
+                if (nextY > 260) { doc.addPage(); nextY = 20; }
+                
+                doc.setFillColor(245, 245, 245);
+                doc.rect(10, nextY, 190, 35, 'F');
+                
+                doc.setFont("helvetica", "bold");
+                doc.text("Equipos Involucrados:", 15, nextY + 8);
+                
+                doc.setFontSize(9);
+                doc.text(`Tipo: ${equipoInfo.tipo}`, 15, nextY + 15);
+                doc.text(`Marca: ${equipoInfo.marca || 'N/A'}`, 15, nextY + 22);
+                doc.text(`Modelo: ${equipoInfo.modelo || 'N/A'}`, 15, nextY + 29);
+                
+                if (equipoInfo.tipo === 'Instalación') {
+                    doc.text(`Piezas: ${equipoInfo.piezas || '1'}`, 90, nextY + 15);
+                    doc.text(`Garantía: ${equipoInfo.garantia || '0'} meses`, 90, nextY + 22);
+                }
+                
+                doc.setFontSize(10);
+                nextY += 45;
+            }
+
+            let currentY = nextY + 5;
 
             if (currentY > 230) {
                 doc.addPage();
@@ -275,7 +318,6 @@ const AdminReporte: React.FC = () => {
                     doc.setFont("helvetica", "normal");
                     doc.text("[ Documento PDF Adjunto cargado en Base de Datos ]", 10, currentY + 15);
                 } else {
-                    // Evitamos formato transparente si firma es PNG usando PNG genérico pero como fue comprimida JPEG -> JPEG
                     doc.addImage(firmaEmpresa, 'JPEG', 10, currentY + 5, 60, 40);
                     doc.setDrawColor(0);
                     doc.line(10, currentY + 50, 70, currentY + 50);
@@ -287,185 +329,82 @@ const AdminReporte: React.FC = () => {
             doc.save(`Reporte_Mantenimiento_T${id}.pdf`);
         } catch (error) {
             console.error(error);
-            alert("Hubo un error al generar el PDF. Asegúrate de que las fotos no sean demasiado grandes o corruptas.");
+            showAlert("Error PDF", "Hubo un error al generar el PDF. Asegúrate de que las fotos no sean demasiado grandes o corruptas.", "error");
         }
     };
 
     const handleOpenConfirm = () => {
         if (!reporteTienda || !descripcion || !firmaEmpresa) {
-            alert("Por favor completa los campos principales y asegúrate de agregar la foto de la firma de la empresa.");
+            showAlert("Campos Incompletos", "Por favor completa los campos principales y asegúrate de agregar la foto de la firma de la empresa.", "warning");
             return;
         }
-        setTimerCount(3);
-        setIsConfirmModalOpen(true);
+        
+        showConfirm(
+            "Finalizar Reporte",
+            "¿Estás seguro de enviar? Una vez enviado, el reporte no podrá ser editado y se marcará como finalizado.",
+            () => handleSave(),
+            () => {},
+            "Confirmar y Finalizar",
+            "Cancelar"
+        );
     };
 
     const handleSave = async () => {
+        const safeTrabajoId = trabajoId || id;
+        if (!safeTrabajoId) return;
 
-        // Check if report is already finalized (editing mode)
-        const isEditing = !!localStorage.getItem(`report_data_${id}`);
+        const jobTitle = `Trabajo #${safeTrabajoId}`;
+        localStorage.removeItem(`report_data_temporal_${id}`);
 
-        // Find the task in localStorage and update it
-        let jobFoundId: string | null = null;
-        let jobTitle = "Tarea Desconocida";
+        try {
+            await updateEstadoTrabajo(Number(safeTrabajoId), { estado: 'Finalizado' });
 
-        for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key && key.startsWith('tasks_')) {
-                const tasks = JSON.parse(localStorage.getItem(key) || '[]');
-                const taskIndex = tasks.findIndex((t: any) => t.id == id);
+            // ELIMINADO: Ya no desasignamos al técnico al finalizar. 
+            // Queremos mantener el registro de quién hizo el trabajo en el historial.
 
-                if (taskIndex !== -1) {
-                    tasks[taskIndex].estado = 'Completa';
-                    jobTitle = tasks[taskIndex].titulo;
-                    localStorage.setItem(key, JSON.stringify(tasks));
-                    jobFoundId = key.replace('tasks_', '');
-
-                    // AUTO-SYNC STATUS CHECK
-                    const allComplete = tasks.every((t: any) => t.estado === 'Completa');
-                    if (allComplete) {
-                        try {
-                            // Si tuviéramos API para tareas lo haríamos aquí
-                        } catch(e) {}
-                    }
-                    break;
-                }
-            }
-        }
-
-        let realSucursal = "Desconocida";
-        let foundBusinessKey = "";
-        let originalJob: any = null;
-
-        // Find real sucursal searching for the job
-        if (jobFoundId) {
-            for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i);
-                if (key && key.startsWith('trabajos_business_')) {
-                    const jobs = JSON.parse(localStorage.getItem(key) || '[]');
-                    const job = jobs.find((j: any) => j.id == jobFoundId);
-                    if (job) {
-                        realSucursal = job.sucursal;
-                        foundBusinessKey = key;
-                        originalJob = job;
-                        break;
-                    }
-                }
-            }
-        }
-
-        // Save full report data locally
-        const reportData = {
-            id,
-            jobFoundId,
-            reporteTienda,
-            descripcion,
-            materiales,
-            observaciones,
-            imagenes,
-            imagenObservacion,
-            firmaEmpresa,
-            fecha: new Date().toLocaleDateString()
-        };
-        localStorage.setItem(`report_data_${id}`, JSON.stringify(reportData));
-        localStorage.removeItem(`report_data_temporal_${id}`); // Limpiar temporal
-
-        // ✅ ACTUALIZAR EL ESTADO GLOBALY Y DB (ESPERANDO A QUE TERMINE Y CON FALLBACK ID SEGURO)
-        const safeTrabajoId = trabajoId || jobFoundId;
-        if (safeTrabajoId) {
+            // --- PERSISTENCIA DE NOTIFICACIONES EN BD ---
+            // 1. Notificar a los Admins
             try {
-                // Ensure sending to backend API correctly
-                await updateEstadoTrabajo(Number(safeTrabajoId), { estado: 'Finalizado' });
-                console.log("Estado de Trabajo actualizado a Finalizado en BD");
-            } catch (e: any) {
-                console.error("Error al finalizar en BD", e);
-                alert("Atención: Hubo un problema comunicándose con la Base de Datos para definir el trabajo como 'Finalizado'. Informa al administrador. Detalle: " + (e.message || ""));
-            }
-        }
-
-        // GENERAR NOTIFICACIÓN PARA EL ADMINISTRADOR (Solo si no es edición)
-        if (!isEditing) {
-            const notificaciones = JSON.parse(localStorage.getItem('admin_notifications') || '[]');
-            const nuevaNotificacion = {
-                id: Date.now(),
-                titulo: 'Trabajo Finalizado ✨',
-                mensaje: `El técnico ha cerrado permanentemente y generado reporte para la tarea: ${jobTitle}.`,
-                fecha: new Date().toLocaleDateString('es-MX', { hour: '2-digit', minute: '2-digit' }),
-                leida: false,
-                enlace: `/menu/trabajo-detalle/${trabajoId || jobFoundId}`
-            };
-            notificaciones.unshift(nuevaNotificacion);
-            localStorage.setItem('admin_notifications', JSON.stringify(notificaciones));
-            window.dispatchEvent(new Event('storage'));
-        }
-
-        // FINALMENTE, LECTURA REAL Y SEGURA PARA NOTIFICAR AL CLIENTE
-        if (safeTrabajoId && !isEditing) {
-            try {
-                // Sacamos datos del backend fresquitos ahora que localStorage está obsoleto para esta operación
-                const { getTrabajo } = await import('../../services/trabajosService');
-                const jobFromApi = await getTrabajo(Number(safeTrabajoId));
-                const clientNotifs = JSON.parse(localStorage.getItem('client_notifications') || '[]');
-                
-                const esVisitaStr = String(jobTitle).toLowerCase().includes('visita');
-                const esVisitaReal = jobFromApi.tipo && jobFromApi.tipo.toLowerCase() === 'visita';
-
-                clientNotifs.unshift({
-                    id: Date.now() + 1,
-                    titulo: (esVisitaStr || esVisitaReal) ? 'Visita Completada' : 'Trabajo Finalizado ✨',
-                    mensaje: (esVisitaStr || esVisitaReal)
-                        ? `El técnico ha concluido la visita de diagnóstico para: ${jobTitle}.`
-                        : `El técnico ha terminado el trabajo manera exitosa y el reporte está listo para: ${jobTitle}.`,
-                    fecha: new Date().toLocaleDateString('es-MX', { hour: '2-digit', minute: '2-digit' }),
-                    leida: false,
-                    jobId: jobFoundId
+                await createNotificacionByRole({
+                    role: 'admin',
+                    titulo: 'Trabajo Finalizado ✨',
+                    mensaje: `El técnico ha generado reporte para: ${jobTitle}.`,
+                    enlace: `/menu/trabajo-detalle/${safeTrabajoId}`
                 });
-                localStorage.setItem('client_notifications', JSON.stringify(clientNotifs));
-                window.dispatchEvent(new Event('storage'));
-            } catch (notifyErr) {
-                console.error("Error al generar notificacion de cliente:", notifyErr);
+            } catch (notiErr) {
+                console.error("Error al notificar admins en BD:", notiErr);
             }
-        }
-        
-        // Final edit save success message
-        if (isEditing) {
-            alert("Reporte actualizado con éxito.");
-        } else {
-            alert("Reporte guardado con éxito y tarea completada.");
-        }
-        
-        if (jobFoundId) {
-            if (user?.role === 'tecnico') {
-                navigate(`/tecnico/trabajo-detalle/${jobFoundId}`, { replace: true });
-            } else {
-                navigate(`/menu/trabajo-detalle/${jobFoundId}`, { replace: true });
-            }
-        } else {
-            navigate(user?.role === 'tecnico' ? '/tecnico' : '/menu', { replace: true });
+
+            // 2. Notificar al Cliente (si existe el user_id del cliente en el trabajo)
+            // Nota: En una versión futura, el trabajo debería tener el user_id del cliente asociado.
+            // Por ahora, solo notificamos al Administrador que es el flujo principal.
+
+            showAlert("Éxito", "Reporte guardado con éxito en la Base de Datos.", "success");
+
+            const targetPath = user?.role === 'tecnico' ? `/tecnico/trabajo-detalle/${safeTrabajoId}` : `/menu/trabajo-detalle/${safeTrabajoId}`;
+            navigate(targetPath, { replace: true });
+
+        } catch (error: any) {
+            console.error("Error al finalizar reporte en DB:", error);
+            showAlert("Error de Servidor", "No se pudo sincronizar la finalización con la base de datos: " + (error.response?.data?.message || error.message), "error");
         }
     };
 
     return (
         <div className={styles.dashboardLayout} style={{ gap: '0', padding: '20px', height: '100%' }}>
 
-            {/* Hidden file inputs */}
             <input type="file" ref={antesInputRef} style={{ display: 'none' }} onChange={(e) => handleImageChange(e, 'antes')} accept="image/*" />
             <input type="file" ref={duranteInputRef} style={{ display: 'none' }} onChange={(e) => handleImageChange(e, 'durante')} accept="image/*" />
             <input type="file" ref={despuesInputRef} style={{ display: 'none' }} onChange={(e) => handleImageChange(e, 'despues')} accept="image/*" />
             <input type="file" ref={observacionInputRef} style={{ display: 'none' }} onChange={handleImagenObservacionChange} accept="image/*" />
             <input type="file" ref={firmaInputRef} style={{ display: 'none' }} onChange={handleFirmaChange} accept="image/*,application/pdf" />
 
-            {/* Main Content Card */}
             <div className={styles.mainCard}>
-
-                {/* Background Shapes */}
                 <div className={styles.bgShape1}></div>
                 <div className={styles.bgShape2}></div>
 
                 <div className={styles.contentWrapper}>
-
                     <div className={styles.scrollableContent}>
-                        {/* Header */}
                         <div className={styles.header}>
                             <h1 className={styles.pageTitle}>Reporte</h1>
                             <div className={styles.metaInfo}>
@@ -474,7 +413,6 @@ const AdminReporte: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* Form Fields Card */}
                         <div className={styles.infoSectionCard}>
                             <h3 className={styles.sectionTitle}>Datos del Reporte</h3>
                             <div className={styles.inputGroup}>
@@ -508,7 +446,96 @@ const AdminReporte: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* Evidence Section Card */}
+                        <div className={styles.infoSectionCard}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <h3 className={styles.sectionTitle}>Equipos Involucrados</h3>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 'bold' }}>
+                                    <input 
+                                        type="checkbox" 
+                                        checked={involucraEquipo} 
+                                        onChange={(e) => setInvolucraEquipo(e.target.checked)} 
+                                        style={{ width: '18px', height: '18px' }}
+                                    />
+                                    Registrar un equipo
+                                </label>
+                            </div>
+
+                            {involucraEquipo && (
+                                <div style={{ marginTop: '20px' }}>
+                                    <div style={{ display: 'flex', gap: '15px', marginBottom: '20px' }}>
+                                        <button 
+                                            type="button"
+                                            onClick={() => handleEquipoInfoChange('tipo', 'Instalación')}
+                                            style={{ 
+                                                flex: 1, padding: '10px', borderRadius: '8px', fontWeight: 'bold', border: 'none',
+                                                background: equipoInfo.tipo === 'Instalación' ? '#1976d2' : '#e0e0e0',
+                                                color: equipoInfo.tipo === 'Instalación' ? 'white' : '#333'
+                                            }}
+                                        >
+                                            Instalación
+                                        </button>
+                                        <button 
+                                            type="button"
+                                            onClick={() => handleEquipoInfoChange('tipo', 'Mantenimiento')}
+                                            style={{ 
+                                                flex: 1, padding: '10px', borderRadius: '8px', fontWeight: 'bold', border: 'none',
+                                                background: equipoInfo.tipo === 'Mantenimiento' ? '#1976d2' : '#e0e0e0',
+                                                color: equipoInfo.tipo === 'Mantenimiento' ? 'white' : '#333'
+                                            }}
+                                        >
+                                            Mantenimiento
+                                        </button>
+                                    </div>
+
+                                    <div className={styles.inputGroup}>
+                                        <label className={styles.label}>Marca:</label>
+                                        <input
+                                            type="text"
+                                            className={styles.input}
+                                            value={equipoInfo.marca}
+                                            onChange={(e) => handleEquipoInfoChange('marca', e.target.value)}
+                                            placeholder="Ej. Samsung, Truper..."
+                                        />
+                                    </div>
+                                    <div className={styles.inputGroup}>
+                                        <label className={styles.label}>Modelo / Detalles:</label>
+                                        <input
+                                            type="text"
+                                            className={styles.input}
+                                            value={equipoInfo.modelo}
+                                            onChange={(e) => handleEquipoInfoChange('modelo', e.target.value)}
+                                        />
+                                    </div>
+
+                                    {equipoInfo.tipo === 'Instalación' && (
+                                        <div style={{ display: 'flex', gap: '15px' }}>
+                                            <div className={styles.inputGroup} style={{ flex: 1 }}>
+                                                <label className={styles.label}>No. de Piezas/Instalados:</label>
+                                                <input
+                                                    type="number"
+                                                    className={styles.input}
+                                                    value={equipoInfo.piezas}
+                                                    onChange={(e) => handleEquipoInfoChange('piezas', e.target.value)}
+                                                    min="1"
+                                                />
+                                            </div>
+                                            <div className={styles.inputGroup} style={{ flex: 1 }}>
+                                                <label className={styles.label}>Garantía (Meses):</label>
+                                                <input
+                                                    type="number"
+                                                    className={styles.input}
+                                                    value={equipoInfo.garantia}
+                                                    onChange={(e) => handleEquipoInfoChange('garantia', e.target.value)}
+                                                    placeholder="Ej. 12"
+                                                    min="0"
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
                         <div className={styles.infoSectionCard}>
                             <h3 className={styles.sectionTitle}>Evidencia y Observaciones</h3>
                             <div className={styles.evidenceSection}>
@@ -535,7 +562,6 @@ const AdminReporte: React.FC = () => {
                                 </div>
                             </div>
 
-                            {/* Observations */}
                             <div className={styles.inputGroup}>
                                 <label className={styles.label}>Observaciones Adicionales:</label>
                                 <textarea
@@ -577,7 +603,6 @@ const AdminReporte: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* Validation Card */}
                         <div className={styles.infoSectionCard}>
                             <h3 className={styles.sectionTitle}>Validación</h3>
                             <div className={styles.validationSection}>
@@ -592,7 +617,6 @@ const AdminReporte: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* Save Button */}
                         <div className={styles.footer}>
                             <button
                                 onClick={handleGuardarInformacion}
@@ -614,56 +638,8 @@ const AdminReporte: React.FC = () => {
                             </button>
                         </div>
                     </div>
-
                 </div>
             </div>
-
-            {/* Confirmacion Modal */}
-            {isConfirmModalOpen && (
-                <div style={{
-                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                    background: 'rgba(0, 0, 0, 0.5)', display: 'flex', justifyContent: 'center',
-                    alignItems: 'center', zIndex: 1000, backdropFilter: 'blur(2px)'
-                }}>
-                    <div style={{
-                        background: 'white', padding: '30px', borderRadius: '20px',
-                        width: '350px', textAlign: 'center', boxShadow: '0 10px 25px rgba(0,0,0,0.2)'
-                    }}>
-                        <h3 style={{ marginBottom: '15px', color: '#333' }}>¿Estás seguro de enviar?</h3>
-                        <p style={{ marginBottom: '20px', color: '#666', fontSize: '14px' }}>
-                            Una vez enviado, el reporte no podrá ser editado y se marcará como finalizado.
-                        </p>
-                        <div style={{ display: 'flex', gap: '15px', justifyContent: 'center' }}>
-                            <button
-                                onClick={() => setIsConfirmModalOpen(false)}
-                                style={{ flex: 1, background: '#f44336', color: 'white', border: 'none', padding: '12px', borderRadius: '25px', cursor: 'pointer', fontWeight: 'bold' }}
-                            >
-                                Cancelar
-                            </button>
-                            <button
-                                onClick={() => {
-                                    setIsConfirmModalOpen(false);
-                                    handleSave();
-                                }}
-                                disabled={timerCount > 0}
-                                style={{
-                                    flex: 1,
-                                    background: timerCount > 0 ? '#cccccc' : '#4caf50',
-                                    color: timerCount > 0 ? '#666666' : 'white',
-                                    border: 'none',
-                                    padding: '12px',
-                                    borderRadius: '25px',
-                                    cursor: timerCount > 0 ? 'not-allowed' : 'pointer',
-                                    fontWeight: 'bold',
-                                    transition: 'background 0.3s'
-                                }}
-                            >
-                                {timerCount > 0 ? `Finalizar (${timerCount}s)` : 'Confirmar y Finalizar'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };

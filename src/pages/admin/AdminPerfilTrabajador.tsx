@@ -14,17 +14,39 @@ interface Trabajador {
     avatar?: string;
 }
 
+import { getTrabajador } from '../../services/trabajadoresService';
+
 const AdminPerfilTrabajador: React.FC = () => {
     const { id } = useParams();
     const [worker, setWorker] = useState<Trabajador | null>(null);
 
     useEffect(() => {
-        const saved = localStorage.getItem('trabajadores_list');
-        if (saved) {
-            const list: Trabajador[] = JSON.parse(saved);
-            const found = list.find(t => t.id === Number(id));
-            setWorker(found || null);
-        }
+        const fetchWorker = async () => {
+            try {
+                const data = await getTrabajador(Number(id));
+                setWorker({
+                    id: data.id,
+                    nombre: data.nombre,
+                    fecha: new Date(data.created_at).toLocaleDateString("es-ES"),
+                    puesto: data.puesto || "General",
+                    estado: data.estado === "Activo" || data.estado?.toLowerCase() === "activo" ? "Activo" : "Baja",
+                    correo: data.correo || "",
+                    telefono: data.telefono || "",
+                    ciudad: data.estado_prov || "Mérida, Yucatán",
+                    avatar: data.avatar || ""
+                });
+            } catch (error) {
+                console.error("Error fetching worker from API:", error);
+                // Fallback a localStorage
+                const saved = localStorage.getItem('trabajadores_list');
+                if (saved) {
+                    const list: Trabajador[] = JSON.parse(saved);
+                    const found = list.find(t => t.id === Number(id));
+                    setWorker(found || null);
+                }
+            }
+        };
+        fetchWorker();
     }, [id]);
 
     if (!worker) {
@@ -75,9 +97,17 @@ const AdminPerfilTrabajador: React.FC = () => {
                         </div>
 
                         <div className={styles.avatarContainer}>
-                            <div className={styles.avatarCircle}>
-                                👤
-                                <span className={styles.editLabel}>EDITAR</span>
+                            <div className={styles.avatarCircle} style={{ overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                {worker.avatar ? (
+                                    <img 
+                                        src={worker.avatar} 
+                                        alt={worker.nombre} 
+                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                                    />
+                                ) : (
+                                    "👤"
+                                )}
+                                <span className={styles.editLabel}>PERFIL</span>
                             </div>
                         </div>
                     </div>

@@ -23,3 +23,9 @@ export const toggleEstado = async (id: number) => {
     const res = await api.patch(`/trabajadores/${id}/estado`);
     return res.data;
 };
+
+// Actualizar perfil de un trabajador
+export const updateTrabajador = async (id: number, data: any) => {
+    const res = await api.put(`/trabajadores/${id}`, data);
+    return res.data;
+};

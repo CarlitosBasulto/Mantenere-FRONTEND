@@ -1,19 +1,97 @@
-.headerWrapper {
+.dashboardLayout {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+}
+
+.mainContainer {
+    width: 100%;
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+.premiumHeader {
+    margin-bottom: 25px;
+    width: 100%;
+}
+
+.bannerWrapper {
+    position: relative;
+    width: 100%;
+    height: 220px;
+    border-radius: 24px;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+}
+
+.bannerImg {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.bannerOverlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 100%;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.2) 60%, transparent 100%);
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 30px;
+}
+
+.bannerContent {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.bannerLabel {
+    color: #00a884;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+}
+
+.bannerTitle {
+    color: #fff;
+    font-size: 36px;
+    font-weight: 900;
+    margin: 0;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.bannerStats {
+    color: #e2e8f0;
+    font-size: 14px;
+    margin: 4px 0 0 0;
+    font-weight: 500;
+}
+
+.simpleHeader {
+    background: white;
+    padding: 25px 30px;
+    border-radius: 20px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.05);
     margin-bottom: 20px;
 }
 
-.subTitle {
-    padding: 02;
-    color: #666;
-    margin: 0;
-    font-size: 14px;
-}
-
-.businessName {
+.businessTitle {
     font-size: 28px;
-    font-weight: bold;
+    font-weight: 800;
     color: #000;
     margin: 0;
+}
+
+.businessSubtitle {
+    color: #666;
+    margin: 5px 0 0 0;
+    font-size: 14px;
 }
 
 /* SEARCH SECTION - Supplemental styles */
@@ -59,238 +137,247 @@
 
 .jobCard {
     background: white;
-    padding: 20px 30px;
-    border-radius: 40px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    padding: 0 0 25px 0; /* No padding at top for statusBar */
+    border-radius: 30px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
     width: 100%;
-    border: none;
+    border: 1px solid #f0f0f0;
     min-height: 100px;
     display: flex;
     flex-direction: column;
-    justify-content: center;
     position: relative;
-    overflow: hidden;
+    overflow: visible;
     cursor: pointer;
     transition: transform 0.2s, box-shadow 0.2s;
+    margin-bottom: 5px;
 }
 
 .jobCard:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
 }
+
+/* Status Bar at the very top */
+.statusBar {
+    height: 35px;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    padding: 0 25px;
+    font-size: 11px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 20px;
+}
+
+.statusBar.yellow { background: #fff8e1; color: #fbc02d; }
+.statusBar.red { background: #ffebee; color: #d32f2f; }
+.statusBar.green { background: #e8f5e9; color: #2e7d32; }
+.statusBar.blue { background: #e3f2fd; color: #1565c0; }
 
 .cardContent {
-    align-items: center;
-    gap: 100px;
+    display: flex;
+    flex-direction: column;
+    padding: 0 30px;
     width: 100%;
-    padding-right: 20px;
 }
 
-.cardIconStatus {
-    font-size: 24px;
-    margin-right: 15px;
+.headerRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 15px;
 }
 
-.cardInfo {
-    flex: 1;
+.dateGroup {
     display: flex;
     flex-direction: column;
 }
 
-.cardDate {
+.strikingDate {
+    color: #00a884;
+    font-weight: 800;
+    font-size: 15px;
+    margin: 0;
+}
+
+.jobTitle {
+    margin: 0 0 10px 0;
+    font-size: 22px;
+    color: #000;
+    font-weight: 700;
+}
+
+.descriptionBox {
+    background: #f4f7f9;
+    padding: 12px 18px;
+    border-radius: 12px;
+    margin-bottom: 15px;
+    border-left: 4px solid #cfd8dc;
+}
+
+.descriptionBox p {
+    margin: 0;
+    font-size: 14px;
+    color: #455a64;
+    line-height: 1.5;
+    font-weight: 500;
+}
+
+.equipmentBadge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #e0f2fe;
+    color: #0369a1;
+    padding: 6px 12px;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 700;
+    margin-top: 10px;
+    border: 1px solid #bae6fd;
+    box-shadow: 0 2px 4px rgba(3, 105, 161, 0.05);
+}
+
+.footerRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 5px;
+}
+
+.technicianInfo {
     font-size: 13px;
-    color: #999;
-    margin-bottom: 4px;
+    color: #777;
+    font-weight: 600;
 }
 
-.requestBadgeContainer {
-    position: relative;
-}
-
-.requestIcon {
-    font-size: 24px;
-}
-
-.requestBadge {
-    position: absolute;
-    top: -5px;
-    right: -100px;
-    background: #d4ebf9;
-    color: #007bff;
-    padding: 4px 15px;
+.jobTypeBadge {
+    background: #000;
+    color: #fff;
+    padding: 4px 12px;
     border-radius: 20px;
     font-size: 11px;
     font-weight: bold;
-    white-space: nowrap;
 }
 
-.cardDateWrapper {
+/* Action Menu Styles */
+.menuContainer {
+    position: relative;
+    z-index: 10;
+}
+
+.dotsBtn {
+    background: none;
+    border: none;
+    font-size: 20px;
+    color: #999;
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 50%;
+    transition: all 0.2s;
     display: flex;
-    justify-content: space-between;
-    margin-bottom: 0px;
+    align-items: center;
+    justify-content: center;
 }
 
-.cardDateWrapper .cardDate {
-    color: #616161;
-    font-size: 10px;
+.dotsBtn:hover {
+    background: #f0f0f0;
+    color: #333;
+}
+
+.dropdownMenu {
+    position: absolute;
+    right: 0;
+    top: 35px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+    border: 1px solid #eee;
+    padding: 8px;
+    min-width: 140px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.menuItem {
+    background: none;
+    border: none;
+    padding: 10px 15px;
+    text-align: left;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #444;
+}
+
+.menuItem:hover {
+    background: #f5f5f5;
+}
+
+.deleteItem {
+    color: #d32f2f;
+}
+
+.deleteItem:hover {
+    background: #fff1f1;
+}
+
+.actionsCard {
+    display: flex;
+    gap: 10px;
+    align-items: center;
 }
 
 .diagnosisBanner {
-    background: #fff3e0;
-    border: 2px solid #e65100;
-    border-radius: 12px;
-    margin-bottom: 5px;
+    background: linear-gradient(135deg, #fffaf2 0%, #fff3e0 100%);
+    border: 1px solid #ffe0b2;
+    border-left: 5px solid #ff9800;
+    border-radius: 16px;
+    margin: 0 30px 15px 30px;
+    padding: 15px 20px;
     display: flex;
     align-items: center;
-    gap: 12px;
-    box-shadow: 0 4px 10px rgba(230, 81, 0, 0.15);
+    gap: 15px;
 }
 
-.diagnosisIcon {
-    font-size: 0px;
+.diagnosisIconWrapper {
+    width: 38px;
+    height: 38px;
+    background: rgba(255, 152, 0, 0.15);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
 }
 
 .diagnosisTitle {
     margin: 0;
-    color: #933300;
-    font-weight: 900;
-    font-size: 12px;
-    letter-spacing: 1px;
+    color: #e65100;
+    font-weight: 800;
+    font-size: 13px;
+    letter-spacing: 0.5px;
     text-transform: uppercase;
 }
 
 .diagnosisText {
-    margin: 2px 0 0 0;
-    color: #000;
-    font-size: 10px;
-    font-weight: bold;
-}
-
-.jobTitle {
-    margin: 0 0 5px 0;
-    font-size: 20px;
-    color: #000;
-    font-weight: bold;
-}
-
-.jobDescription {
-    margin: 0 0 8px 0;
-    font-size: 10px;
-    color: #070707;
-    font-style: italic;
-    background: #d0d0d0;
-    padding: 5px 10px;
-    border-radius: 8px;
-    border-left: 4px solid #ddd;
-}
-
-.technicianLabel {
-    margin: 0;
-    font-size: 12px;
-    color: #333;
-    font-weight: bold;
-}
-
-.technicianName {
-    color: #000;
-    font-size: 12px;
-    font-weight: 20;
-}
-
-.jobTypeContainer {
-    font-size: 12px;
-    color: #130000;
-    margin-top: 8px;
-}
-
-.jobTypeBadge {
-    background: #050101;
-    color: #fff;
-    padding: 3px 12px;
-    border-radius: 20px;
-    font-weight: bold;
-    font-size: 11px;
-}
-
-.actionsContainer {
-    display: flex;
-    gap: 10px;
-    flex-direction: row;
-    align-items: center;
-    justify-content: flex-end;
-}
-
-.assignBtn {
-    background: #333 !important;
-    color: white !important;
-    border-radius: 20px !important;
-    padding: 5px 15px !important;
-    font-size: 12px !important;
-}
-
-.editBtn {
-    background: #e0e0e0 !important;
-    color: #333 !important;
-    border-radius: 20px !important;
-    padding: 5px 15px !important;
-    font-size: 12px !important;
-}
-
-.statusBadge {
-    border-radius: 20px !important;
-    padding: 5px 15px !important;
-    font-size: 12px !important;
-}
-
-.statusSolicitud {
-    background: #fffbeb !important;
-    color: #92400e !important;
-}
-
-.statusAsignado {
-    background: #d4ebf9 !important;
-    color: #007bff !important;
-}
-
-.statusFinalizado {
-    background: #dfffd6 !important;
-    color: #2e7d32 !important;
-}
-
-.cardAction {
-    margin-right: 40px;
-    z-index: 2;
-    display: flex;
-    gap: 10px;
-    flex-direction: column;
-    align-items: flex-end;
-}
-
-.statusBtn {
-    padding: 10px 20px;
-    border-radius: 25px;
-    border: none;
-    background: #e0e0e0;
-    font-weight: 600;
-    color: #444;
-    cursor: pointer;
-    transition: background 0.2s;
-    font-size: 12px;
-}
-
-.statusBtn:hover {
-    opacity: 0.9;
+    margin: 1px 0 0 0;
+    color: #4e342e;
+    font-size: 12.5px;
+    font-weight: 500;
+    line-height: 1.4;
 }
 
 .cardIndicator {
-    position: absolute;
-    right: 0;
-    top: 0;
-    bottom: 0;
-    width: 35px;
-    background: #d4ebf9;
-    border-top-left-radius: 40px;
-    border-bottom-left-radius: 40px;
+     display: none;
 }
 
 .green {
@@ -657,105 +744,50 @@
    RESPONISVE / MOBILE (WhatsApp Style)
 =========================== */
 @media (max-width: 768px) {
-    .jobsSection { padding: 0; gap: 0; margin-top: 5px; }
-    
+    .mainContainer {
+        padding: 10px;
+    }
+
     .jobCard {
-        padding: 16px 24px; /* Increased padding to give more breathing room */
-        border-radius: 0;
-        border: none;
-        border-bottom: 1px solid #f0f0f0;
-        background: white;
-        margin: 0;
-        box-shadow: none;
+        border-radius: 20px;
+        padding-bottom: 15px;
     }
-    
+
+    .statusBar {
+        height: 30px;
+        padding: 0 15px;
+        font-size: 10px;
+    }
+
     .cardContent {
-        flex-direction: row;
-        align-items: flex-start;
-        gap: 15px;
-        padding: 0;
-        word-break: break-word;
+        padding: 0 20px;
     }
-    
-    .cardIconStatus {
-        font-size: 24px;
-        margin-right: 0;
-        margin-top: 2px;
-        width: 35px; /* Fixed width to align all texts vertically */
-        display: flex;
-        justify-content: center;
-        flex-shrink: 0;
-    }
-    
-    .cardInfo {
-        flex: 1;
-        position: relative;
-    }
-    
-    .cardDateWrapper {
-        flex-direction: row-reverse;
-        justify-content: flex-end; /* Date on the right natively if we want, or left */
-        margin-bottom: 2px;
-        position: absolute;
-        top: 0;
-        right: 0;
-    }
-    
-    .cardDate { font-size: 11px; color: #888; margin:0; }
-    
+
     .jobTitle {
-        font-size: 16px;
-        font-weight: 600;
-        color: #111;
-        margin-bottom: 4px;
-        display: inline-block;
-        max-width: 75%;
+        font-size: 18px;
     }
-    
-    .jobDescription {
+
+    .strikingDate {
         font-size: 13px;
-        color: #666;
-        margin: 0 0 5px 0;
-        background: transparent;
-        border-left: none;
-        padding: 0;
-        font-style: normal;
     }
-    
-    .technicianLabel { font-size: 12px; margin-bottom: 5px; display: block; }
-    
-    .actionsContainer {
-        flex-direction: row;
-        flex-wrap: wrap;
-        gap: 8px;
-        margin-top: 10px;
-        justify-content: flex-start;
+
+    .descriptionBox {
+        padding: 10px;
     }
-    
-    .statusBtn {
-        padding: 6px 12px !important;
-        font-size: 11px !important;
-        border-radius: 15px !important;
+
+    .footerRow {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
     }
-    
-    .cardIndicator { display: none; }
-    
-    .requestBadge { position: relative; top: auto; right: auto; margin-bottom: 5px; display: inline-block; padding: 3px 10px; font-size: 10px; }
-    .nuevoBadge { position: relative; top: auto; right: auto; margin-bottom: 5px; display: inline-block; padding: 3px 10px; font-size: 10px; }
+
+    .actionsCard {
+        width: 100%;
+        justify-content: space-between;
+    }
     
     .modalContent {
         width: 90%;
         padding: 20px;
-        max-height: 85vh;
-        overflow-y: auto;
     }
-    .modalContentWide, .modalContentMedium, .modalContentSmall {
-        width: 90% !important;
-        padding: 20px !important;
-    }
-    
-    .filterGrid { grid-template-columns: 1fr; }
-    .formField { flex-direction: column; align-items: flex-start; gap: 5px; }
-    .requestModalActions { flex-direction: column; gap: 10px; }
-    .confirmBtnLarge, .cancelBtnLarge { width: 100%; padding: 12px; font-size: 14px; }
 }

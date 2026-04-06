@@ -4,6 +4,10 @@ import { getTrabajos } from "../../services/trabajosService";
 import styles from "./ListaSolicitudes.module.css";
 import menuStyles from "../../components/Menu.module.css";
 import { useAuth } from "../../context/AuthContext";
+import { useModal } from "../../context/ModalContext";
+import { deleteTrabajo } from "../../services/trabajosService";
+import { HiOutlinePencil, HiOutlineTrash } from "react-icons/hi2";
+import { HiDotsVertical } from "react-icons/hi";
 
 interface Trabajo {
     id: number;
@@ -29,36 +33,84 @@ const ListaSolicitudes: React.FC = () => {
 
     const navigate = useNavigate();
     const { user } = useAuth();
+    const { showAlert, showConfirm } = useModal();
 
     // DATA LOADING
     const [solicitudes, setSolicitudes] = useState<Trabajo[]>([]);
+    const [activeMenuId, setActiveMenuId] = useState<number | null>(null);
 
     useEffect(() => {
         const fetchSolicitudes = async () => {
             try {
                 const apiJobs = await getTrabajos();
+                
                 // Filtramos por estados relevantes para la bandeja de "Nuevas Solicitudes"
-                const activeJobs = apiJobs.filter((j: any) => 
-                    j.estado === 'Pendiente' || 
-                    j.estado === 'Solicitud' || 
-                    j.estado === 'En Espera' || 
-                    (j.estado === 'Asignado' && (j.prioridad !== 'Alta' && !j.titulo?.includes('SOS'))) ||
-                    j.estado === 'Cotización Aceptada'
-                );
+                // Si es técnico, queremos ver TODO lo que tiene asignado y no esté finalizado
+                const activeJobs = apiJobs.filter((j: any) => {
+                    const isTecnico = user?.role === 'tecnico';
+                    const assignedToMe = j.trabajador?.user_id === user?.id || j.trabajador_id === user?.id;
+
+                    if (isTecnico) {
+                        const status = (j.estado || "").toLowerCase();
+                        // El técnico solo debe ver lo que tiene activamente para TRABAJAR (Asignado, En Proceso)
+                        // EXCLUIMOS: Finalizado, Cancelado, En Espera (Diagnóstico terminado), Solicitud (Aún es visita), Cotización Enviada
+                        return assignedToMe && 
+                               status !== 'finalizado' && 
+                               status !== 'cancelado' && 
+                               status !== 'en espera' && 
+                               status !== 'solicitud' && 
+                               status !== 'cotización enviada' &&
+                               status !== 'pendiente';
+                    }
+
+                    // Filtro original para Admin (Bandeja de entrada general)
+                    // Mostrar si: Pendiente, Solicitud, En Espera, Cotización Aceptada
+                    // O si: Es SOS/Alta Prioridad y NO está Finalizado/Cancelado
+                    const isSOS = j.prioridad === 'Alta' || (j.titulo && j.titulo.includes('SOS'));
+                    
+                    if (isSOS) {
+                        return j.estado !== 'Finalizado' && j.estado !== 'Cancelado';
+                    }
+
+                    return j.estado === 'Pendiente' || 
+                        j.estado === 'Solicitud' || 
+                        j.estado === 'En Espera' || 
+                        j.estado === 'Asignado' ||
+                        j.estado === 'Cotización Aceptada';
+                });
 
                 const mappedJobs = activeJobs.map((j: any) => ({
                     id: j.id,
                     titulo: j.titulo,
                     ubicacion: j.negocio?.ubicacion || j.negocio?.nombre || "Por definir",
                     tecnico: j.trabajador?.nombre || "Sin asignar",
-                    tecnicoUserId: j.trabajador?.user_id || null,
+                    tecnicoUserId: j.trabajador?.user_id || j.trabajador_id || null,
                     fecha: j.fecha_programada ? (j.fecha_programada.includes('-') ? j.fecha_programada.split('-').reverse().join('/') : j.fecha_programada) : new Date(j.created_at).toLocaleDateString('es-MX'),
                     estado: j.estado === "Pendiente" ? "Solicitud" : j.estado,
-                    tipo: j.prioridad === 'Alta' || j.titulo?.includes('SOS') ? "SOS" : "Nueva Solicitud",
+                    tipo: j.tipo || (j.prioridad === 'Alta' || j.titulo?.includes('SOS') ? "SOS" : "Nueva Solicitud"),
                     sucursal: j.negocio?.nombre || "Por definir",
-                    visitado: false,
+                    visitado: !!j.visitado,
                 }));
-                setSolicitudes(mappedJobs);
+
+                // ORDENAMIENTO AUTOMÁTICO: SOS primero, luego Fecha Descendente
+                const sortedJobs = [...mappedJobs].sort((a, b) => {
+                    // 1. SOS primero
+                    if (a.tipo === 'SOS' && b.tipo !== 'SOS') return -1;
+                    if (a.tipo !== 'SOS' && b.tipo === 'SOS') return 1;
+
+                    // 2. Fecha descendente (más recientes primero)
+                    const parseDate = (dateStr: string) => {
+                        const parts = dateStr.includes('/') ? dateStr.split('/') : dateStr.split('-');
+                        if (parts.length === 3) {
+                            const [d, m, y] = parts.map(Number);
+                            return new Date(y, m - 1, d).getTime();
+                        }
+                        return new Date(dateStr).getTime();
+                    };
+                    return parseDate(b.fecha) - parseDate(a.fecha);
+                });
+
+                setSolicitudes(sortedJobs);
             } catch (error) {
                 console.error("Error al obtener solicitudes desde la base de datos:", error);
             }
@@ -94,6 +146,51 @@ const ListaSolicitudes: React.FC = () => {
         setIsFilterModalOpen(false);
     };
 
+    const handleDeleteRequest = (id: number) => {
+        showConfirm(
+            "Borrar Solicitud",
+            "¿Estás seguro de que deseas eliminar esta solicitud? Esta acción no se puede deshacer.",
+            async () => {
+                try {
+                    await deleteTrabajo(id);
+                    setSolicitudes(prev => prev.filter(s => s.id !== id));
+                    showAlert("Éxito", "Solicitud eliminada correctamente", "success");
+                } catch (error) {
+                    console.error("Error al borrar:", error);
+                    showAlert("Error", "No se pudo eliminar la solicitud en el servidor.", "error");
+                }
+            }
+        );
+    };
+
+    const renderStatusBar = (job: Trabajo) => {
+        const status = (job.estado || "").toLowerCase();
+        let barClass = styles.yellow;
+        let text = "Pendiente";
+
+        if (status === "finalizado") {
+            barClass = styles.green;
+            text = "Finalizado";
+        } else if (job.tipo === "SOS") {
+            barClass = styles.red;
+            text = "¡ALERTA SOS!";
+        } else if (status.includes("cotizaci")) {
+            barClass = styles.blue;
+            text = "Cotización";
+        } else if (status === "asignado") {
+            barClass = styles.blue;
+            text = "Asignado";
+        } else {
+            text = job.estado;
+        }
+
+        return (
+            <div className={`${styles.statusBar} ${barClass}`}>
+                {text}
+            </div>
+        );
+    };
+
     return (
         <div className={styles.dashboardLayout}>
             {/* COLUMNA IZQUIERDA - LISTA */}
@@ -121,61 +218,113 @@ const ListaSolicitudes: React.FC = () => {
                     </div>
                 </div>
 
-                {/* LISTA DE SOLICITUDES */}
-                <div className={styles.jobsSection}>
+                <div className={styles.jobsSection} onClick={() => setActiveMenuId(null)}>
                     {filteredRequests.map((req) => (
                         <div
                             key={req.id}
                             className={styles.jobCard}
                             onClick={() => navigate(user?.role === 'tecnico' ? `/tecnico/trabajo-detalle/${req.id}` : `/menu/trabajo-detalle/${req.id}`)}
-                            style={{ cursor: 'pointer', flexDirection: 'column', alignItems: 'stretch' }}
                         >
-                            {req.tipo === 'SOS' && req.estado === 'Solicitud' && (
-                                <div style={{ background: '#ffebee', color: '#c62828', padding: '10px 15px', borderRadius: '10px', marginBottom: '15px', fontWeight: 'bold', border: '1px solid #ffcdd2' }}>
-                                    🚨 EMERGENCIA SOS: EL CLIENTE SOLICITA ATENCIÓN INMEDIATA
+                            {/* BARRA DE ESTADO SUPERIOR */}
+                            {renderStatusBar(req)}
+
+                            {!!req.visitado && (req.estado === 'Solicitud' || req.estado === 'En Espera') && (
+                                <div style={{ position: 'absolute', right: '-10px', top: '10px', background: '#00a699', color: 'white', fontWeight: 'bold', padding: '5px 15px', borderRadius: '20px', zIndex: 10, boxShadow: '0 4px 8px rgba(0, 166, 153, 0.4)', fontSize: '12px' }}>
+                                    DIAGNÓSTICO LISTO
                                 </div>
                             )}
-                            {req.visitado && req.estado === 'Solicitud' && (
-                                <div style={{ border: '1px solid #ff9800', background: '#fff3e0', color: '#e65100', padding: '10px 15px', borderRadius: '10px', marginBottom: '15px', fontWeight: 'bold' }}>
-                                    🛡️ AVISO DE DIAGNÓSTICO<br />
-                                    <span style={{ fontWeight: 'normal', fontSize: '14px', color: '#333' }}>Esta sucursal ya fue visitada y tiene un diagnóstico listo para ser revisado.</span>
-                                </div>
-                            )}
+
+                            {/* BANNER DE DIAGNÓSTICO (Opcional) */}
+
+
                             <div className={styles.cardContent}>
-                                {/* ICONO (Placeholder de imagen) */}
-                                <div className={styles.cardIcon}>
-                                    🖼️
-                                </div>
-                                <div className={styles.cardInfo}>
-                                    {(req.fechaAsignada || req.fecha) && (
-                                        <div style={{ background: '#eef8f1', padding: '6px 14px', borderRadius: '15px', marginBottom: '10px', display: 'inline-flex', alignItems: 'center', gap: '8px', border: '1px solid #c8e6c9', width: 'fit-content' }}>
-                                            <span style={{ color: '#137333', fontWeight: 'bold', fontSize: '13px' }}>
-                                                📅 {req.fechaAsignada || req.fecha}
-                                            </span>
-                                            {req.horaAsignada && (
-                                                <>
-                                                    <span style={{ color: '#137333', fontWeight: 'bold', fontSize: '13px' }}>-</span>
-                                                    <span style={{ color: '#137333', fontWeight: 'bold', fontSize: '13px' }}>
-                                                        ⏰ {req.horaAsignada}
-                                                    </span>
-                                                </>
+                                {/* FILA SUPERIOR: FECHA Y MENU */}
+                                <div className={styles.headerRow}>
+                                    <div className={styles.dateGroup}>
+                                        <p className={styles.strikingDate}>
+                                            📅 {req.fechaAsignada || req.fecha}
+                                        </p>
+                                    </div>
+
+                                    {/* MENU DE TRES PUNTOS - Solo Admin */}
+                                    {user?.role === 'admin' && (
+                                        <div className={styles.menuContainer} onClick={(e) => e.stopPropagation()}>
+                                            <button 
+                                                className={styles.dotsBtn}
+                                                onClick={() => setActiveMenuId(activeMenuId === req.id ? null : req.id)}
+                                            >
+                                                <HiDotsVertical />
+                                            </button>
+
+                                            {activeMenuId === req.id && (
+                                                <div className={styles.dropdownMenu}>
+                                                    <button 
+                                                        className={styles.menuItem}
+                                                        onClick={() => navigate(`/menu/editar-servicio/${req.id}`)}
+                                                    >
+                                                        <HiOutlinePencil /> Editar
+                                                    </button>
+                                                    <button 
+                                                        className={styles.menuItem}
+                                                        onClick={() => navigate(`/menu/trabajo-detalle/${req.id}`)}
+                                                    >
+                                                        <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>📋 Asignar</span>
+                                                    </button>
+                                                    <button 
+                                                        className={`${styles.menuItem} ${styles.deleteItem}`}
+                                                        onClick={() => handleDeleteRequest(req.id)}
+                                                    >
+                                                        <HiOutlineTrash /> Borrar
+                                                    </button>
+                                                </div>
                                             )}
                                         </div>
                                     )}
-                                    <h3>{req.titulo}</h3>
-                                    <p>{req.tecnico !== "Sin asignar" ? `Técnico: ${req.tecnico}` : `Dueño: ${req.sucursal || "No registrado"}`}</p>
-                                    {req.descripcion && <p style={{ fontSize: '12px', color: '#888', fontStyle: 'italic', marginTop: '5px' }}>Obs: {req.descripcion.substring(0, 50)}...</p>}
                                 </div>
-                                {/* Indicador lateral AMARILLO o ROJO */}
-                                <div className={`${styles.cardIndicator} ${req.tipo === 'SOS' && req.estado === 'Solicitud' ? '' : styles.yellow}`} style={req.tipo === 'SOS' && req.estado === 'Solicitud' ? { background: '#f44336' } : {}}></div>
+
+                                {/* INFO PRINCIPAL */}
+                                <div className={styles.cardInfo}>
+                                    <h3>{(req.estado === 'Finalizado') ? req.titulo.replace('🚨 SOS: ', '').replace('SOS: ', '') : req.titulo}</h3>
+                                    
+                                    {/* CAJA DE DESCRIPCIÓN ELEGANTE */}
+                                    {req.descripcion && (() => {
+                                        const desc = req.descripcion;
+                                        const bracketMatch = desc.match(/\[(.*?)\]/);
+                                        const mainText = desc.replace(/\[.*?\]/, '').trim();
+                                        const extraInfo = bracketMatch ? bracketMatch[1] : null;
+
+                                        return (
+                                            <div className={styles.descriptionBox}>
+                                                <p>{mainText || "Servicio solicitado sin descripción adicional."}</p>
+                                                {extraInfo && (
+                                                    <div className={styles.equipmentBadge}>
+                                                        📦 {extraInfo}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })()}
+                                </div>
+
+                                {/* FOOTER DE LA TARJETA */}
+                                <div className={styles.footerRow}>
+                                    <span className={styles.tecnicoInfo}>
+                                        {req.tecnico !== "Sin asignar" ? `Técnico: ${req.tecnico}` : `Dueño: ${req.sucursal || "No registrado"}`}
+                                    </span>
+                                    {/* Hide type label if not assigned (Admin sees it as 'Trabajo' or similar) */}
+                                    {req.tecnico && 
+                                     !req.tecnico.toLowerCase().includes("sin asignar") && 
+                                     !req.tecnico.toLowerCase().includes("pendiente") && 
+                                     req.tecnico !== "" && (
+                                        <span className={styles.tipoBadge}>
+                                            {req.estado === 'Finalizado' && req.tipo === 'SOS' ? 'Finalizado' : req.tipo}
+                                        </span>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     ))}
                 </div>
-            </div>
-
-            {/* COLUMNA DERECHA */}
-            <div className={styles.rightColumn}>
             </div>
 
             {/* MODAL DE FILTRO */}

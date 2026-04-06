@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
 import styles from "./ListaTrabajadores.module.css";
 import menuStyles from "../../components/Menu.module.css";
-import { HiOutlineUser } from 'react-icons/hi';
+import { HiOutlineUser, HiX } from 'react-icons/hi';
 import { useNavigate } from "react-router-dom";
+import { useModal } from "../../context/ModalContext";
 import { getTrabajadores, createTrabajador, toggleEstado } from "../../services/trabajadoresService";
 
 interface Trabajador {
@@ -19,6 +20,7 @@ interface Trabajador {
 
 const ListaTrabajadores: React.FC = () => {
     const navigate = useNavigate();
+    const { showAlert, showConfirm } = useModal();
     const [trabajadoresData, setTrabajadoresData] = useState<Trabajador[]>([]);
     
     const fetchTrabajadores = async () => {
@@ -31,6 +33,7 @@ const ListaTrabajadores: React.FC = () => {
                 fecha: new Date(t.created_at).toLocaleDateString("es-ES"),
                 puesto: t.puesto || "General",
                 correo: t.correo,
+                avatar: t.avatar, // <-- Añadido campo avatar
                 estado: t.estado === "Activo" || t.estado?.toLowerCase() === "activo" ? "Activo" : "Baja"
             }));
             
@@ -55,12 +58,12 @@ const ListaTrabajadores: React.FC = () => {
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [newWorkerName, setNewWorkerName] = useState("");
     const [newWorkerRoles, setNewWorkerRoles] = useState<string[]>([]);
-    const [customRole, setCustomRole] = useState("");
     const [newWorkerPhone, setNewWorkerPhone] = useState("");
     const [newWorkerEmail, setNewWorkerEmail] = useState("");
     const [newWorkerPassword, setNewWorkerPassword] = useState("");
+    const [newCategoryName, setNewCategoryName] = useState("");
 
-    const availableRoles = ["General", "Electricista", "Plomero", "Albañil", "Pintor", "Otros"];
+    const [availableRoles, setAvailableRoles] = useState(["General", "Electricista", "Plomero", "Albañil", "Pintor"]);
 
     const handleRoleToggle = (role: string) => {
         if (newWorkerRoles.includes(role)) {
@@ -70,12 +73,26 @@ const ListaTrabajadores: React.FC = () => {
         }
     };
 
+    const handleAddCategory = () => {
+        if (newCategoryName.trim()) {
+            const trimmed = newCategoryName.trim();
+            if (!availableRoles.includes(trimmed)) {
+                setAvailableRoles([...availableRoles, trimmed]);
+            }
+            if (!newWorkerRoles.includes(trimmed)) {
+                setNewWorkerRoles([...newWorkerRoles, trimmed]);
+            }
+            setNewCategoryName("");
+        }
+    };
+
+    const handleRemoveCategory = (role: string) => {
+        setAvailableRoles(availableRoles.filter(r => r !== role));
+        setNewWorkerRoles(newWorkerRoles.filter(r => r !== role));
+    };
+
     // Estado temporal para el modal de filtro
     const [tempFilter, setTempFilter] = useState("Activos");
-
-    const [isDeactivateModalOpen, setIsDeactivateModalOpen] = useState(false);
-    const [isReactivateModalOpen, setIsReactivateModalOpen] = useState(false);
-    const [workerToManage, setWorkerToManage] = useState<Trabajador | null>(null);
 
     // FILTRADO
     const filteredWorkers = trabajadoresData.filter((tr) => {
@@ -98,7 +115,7 @@ const ListaTrabajadores: React.FC = () => {
         e.preventDefault();
 
         if (!newWorkerName || !newWorkerEmail || !newWorkerPassword) {
-            alert("Rellena nombre, correo y contraseña obligatoriamente.");
+            showAlert("Campos Incompletos", "Rellena nombre, correo y contraseña obligatoriamente.", "warning");
             return;
         }
 
@@ -118,60 +135,68 @@ const ListaTrabajadores: React.FC = () => {
             // Reset y cerrar
             setNewWorkerName("");
             setNewWorkerRoles([]);
-            setCustomRole("");
             setNewWorkerPhone("");
             setNewWorkerEmail("");
             setNewWorkerPassword("");
             setIsAddModalOpen(false);
-            alert("Trabajador creado exitosamente.");
+            showAlert("Éxito", "Trabajador creado exitosamente.", "success");
         } catch (error: any) {
             console.error("Error al crear trabajador:", error);
             if (error.response && error.response.status === 422) {
                 const msgs = error.response.data.errors;
                 if (msgs) {
-                    const errorStr = Object.values(msgs).map((e: any) => e.join(", ")).join("\\n");
-                    alert("Error de validación (422):\\n" + errorStr);
+                    const errorStr = Object.values(msgs).map((e: any) => e.join(", ")).join("\n");
+                    showAlert("Error de Validación", errorStr, "error");
                 } else if (error.response.data.message) {
-                    alert("Error 422: " + error.response.data.message);
+                    showAlert("Error", error.response.data.message, "error");
                 } else {
-                    alert("Validación fallida. Revisa que el correo no se repita y la contraseña tenga 6 caracteres.");
+                    showAlert("Validación Fallida", "Revisa que el correo no se repita y la contraseña tenga 6 caracteres.", "warning");
                 }
             } else {
-                alert("Hubo un error contactando al servidor.");
+                showAlert("Error", "Hubo un error contactando al servidor.", "error");
             }
         }
     };
+Line: 97
 
-    const handleDeactivateWorker = async () => {
-        if (workerToManage) {
-            try {
-                if (workerToManage.estado === "Activo") {
-                   await toggleEstado(workerToManage.id);
+    const handleDeactivateWorker = async (worker: Trabajador) => {
+        showConfirm(
+            "Confirmar Baja",
+            `¿Estás seguro de dar de baja a ${worker.nombre}?`,
+            async () => {
+                try {
+                    await toggleEstado(worker.id);
+                    await fetchTrabajadores();
+                    showAlert("Éxito", "Trabajador dado de baja.", "info");
+                } catch (error) {
+                    console.error(error);
+                    showAlert("Error", "Error al dar de baja", "error");
                 }
-                await fetchTrabajadores();
-                setIsDeactivateModalOpen(false);
-                setWorkerToManage(null);
-            } catch (error) {
-                console.error(error);
-                alert("Error al dar de baja");
-            }
-        }
+            },
+            () => {},
+            "Dar de Baja",
+            "Cancelar"
+        );
     };
 
-    const handleReactivateWorker = async () => {
-        if (workerToManage) {
-            try {
-                if (workerToManage.estado === "Baja") {
-                   await toggleEstado(workerToManage.id);
+    const handleReactivateWorker = async (worker: Trabajador) => {
+        showConfirm(
+            "Confirmar Reactivación",
+            `¿Estás seguro de reactivar a ${worker.nombre}?`,
+            async () => {
+                try {
+                    await toggleEstado(worker.id);
+                    await fetchTrabajadores();
+                    showAlert("Éxito", "Trabajador reactivado.", "success");
+                } catch (error) {
+                    console.error(error);
+                    showAlert("Error", "Error al reactivar", "error");
                 }
-                await fetchTrabajadores();
-                setIsReactivateModalOpen(false);
-                setWorkerToManage(null);
-            } catch (error) {
-                console.error(error);
-                alert("Error al reactivar");
-            }
-        }
+            },
+            () => {},
+            "Reactivar",
+            "Cancelar"
+        );
     };
 
     return (
@@ -226,7 +251,15 @@ const ListaTrabajadores: React.FC = () => {
                             <div className={styles.cardContent}>
                                 {/* AVATAR */}
                                 <div className={styles.cardIcon}>
-                                    <HiOutlineUser size={30} color="#333" />
+                                    {worker.avatar ? (
+                                        <img 
+                                            src={worker.avatar} 
+                                            alt={worker.nombre} 
+                                            style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover' }} 
+                                        />
+                                    ) : (
+                                        <HiOutlineUser size={30} color="#333" />
+                                    )}
                                 </div>
                                 <div className={styles.cardInfo}>
                                     <span className={styles.cardDate}>{worker.fecha}</span>
@@ -242,8 +275,7 @@ const ListaTrabajadores: React.FC = () => {
                                         <button
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                setWorkerToManage(worker);
-                                                setIsDeactivateModalOpen(true);
+                                                handleDeactivateWorker(worker);
                                             }}
                                             style={{
                                                 background: '#fee2e2',
@@ -263,8 +295,7 @@ const ListaTrabajadores: React.FC = () => {
                                         <button
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                setWorkerToManage(worker);
-                                                setIsReactivateModalOpen(true);
+                                                handleReactivateWorker(worker);
                                             }}
                                             style={{
                                                 background: '#dcfce7',
@@ -330,125 +361,114 @@ const ListaTrabajadores: React.FC = () => {
             {/* MODAL NUEVO TRABAJADOR */}
             {isAddModalOpen && (
                 <div className={styles.modalOverlay}>
-                    <div className={styles.modalContent} style={{ width: '400px' }}>
-                        <h3>Nuevo Trabajador</h3>
-                        <form onSubmit={handleAddWorker}>
-                            <div className={styles.filterSection} style={{ marginBottom: '15px' }}>
-                                <label>Nombre Completo</label>
-                                <input
-                                    type="text"
-                                    className={styles.searchInput}
-                                    style={{ width: '100%', borderRadius: '8px', padding: '8px' }}
-                                    value={newWorkerName}
-                                    onChange={(e) => setNewWorkerName(e.target.value)}
-                                    placeholder="Ej. Juan Pérez"
-                                    required
-                                />
+                    <div className={`${styles.modalContent} ${styles.modalWide}`}>
+                        <h2 className={styles.modalTitleLarge}>Nuevo Trabajador</h2>
+                        <p className={styles.modalSubtitle}>Ingresa los datos para registrar un nuevo integrante al equipo.</p>
+                        
+                        <form onSubmit={handleAddWorker} className={styles.workerForm}>
+                            <div className={styles.formGrid}>
+                                <div className={styles.formField}>
+                                    <label>Nombre Completo</label>
+                                    <input
+                                        type="text"
+                                        className={styles.premiumInput}
+                                        value={newWorkerName}
+                                        onChange={(e) => setNewWorkerName(e.target.value)}
+                                        placeholder="Ej. Juan Pérez"
+                                        required
+                                    />
+                                </div>
+
+                                <div className={styles.formField}>
+                                    <label>Teléfono</label>
+                                    <input
+                                        type="tel"
+                                        className={styles.premiumInput}
+                                        value={newWorkerPhone}
+                                        onChange={(e) => setNewWorkerPhone(e.target.value)}
+                                        placeholder="Ej. 993 123 4567"
+                                    />
+                                </div>
+
+                                <div className={styles.formField}>
+                                    <label>Correo Electrónico</label>
+                                    <input
+                                        type="email"
+                                        className={styles.premiumInput}
+                                        value={newWorkerEmail}
+                                        onChange={(e) => setNewWorkerEmail(e.target.value)}
+                                        placeholder="Ej. juan@correo.com"
+                                        required
+                                    />
+                                </div>
+
+                                <div className={styles.formField}>
+                                    <label>Contraseña</label>
+                                    <input
+                                        type="text"
+                                        className={styles.premiumInput}
+                                        value={newWorkerPassword}
+                                        onChange={(e) => setNewWorkerPassword(e.target.value)}
+                                        placeholder="Mínimo 6 caracteres"
+                                        required
+                                    />
+                                </div>
                             </div>
 
-                            <div className={styles.filterSection} style={{ marginBottom: '15px' }}>
-                                <label>Teléfono</label>
-                                <input
-                                    type="tel"
-                                    className={styles.searchInput}
-                                    style={{ width: '100%', borderRadius: '8px', padding: '8px' }}
-                                    value={newWorkerPhone}
-                                    onChange={(e) => setNewWorkerPhone(e.target.value)}
-                                    placeholder="Ej. 993 123 4567"
-                                />
-                            </div>
-
-                            <div className={styles.filterSection} style={{ marginBottom: '15px' }}>
-                                <label>Correo Electrónico</label>
-                                <input
-                                    type="email"
-                                    className={styles.searchInput}
-                                    style={{ width: '100%', borderRadius: '8px', padding: '8px' }}
-                                    value={newWorkerEmail}
-                                    onChange={(e) => setNewWorkerEmail(e.target.value)}
-                                    placeholder="Ej. juan@correo.com"
-                                />
-                            </div>
-
-                            <div className={styles.filterSection} style={{ marginBottom: '15px' }}>
-                                <label>Contraseña</label>
-                                <input
-                                    type="text"
-                                    className={styles.searchInput}
-                                    style={{ width: '100%', borderRadius: '8px', padding: '8px' }}
-                                    value={newWorkerPassword}
-                                    onChange={(e) => setNewWorkerPassword(e.target.value)}
-                                    placeholder="Ingrese una contraseña"
-                                    required
-                                />
-                            </div>
-
-                            <div className={styles.filterSection} style={{ marginBottom: '25px' }}>
-                                <label style={{ display: 'block', marginBottom: '8px' }}>Puesto / Especialidad (Selecciona al menos uno)</label>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                            <div className={styles.specialtySection}>
+                                <label className={styles.sectionLabel}>Puesto / Especialidad (Selecciona al menos uno)</label>
+                                <div className={styles.rolesGrid}>
                                     {availableRoles.map(role => (
-                                        <label key={role} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '14px', cursor: 'pointer' }}>
-                                            <input
-                                                type="checkbox"
-                                                checked={newWorkerRoles.includes(role)}
-                                                onChange={() => handleRoleToggle(role)}
-                                                style={{ cursor: 'pointer' }}
-                                            />
-                                            {role}
-                                        </label>
+                                        <div key={role} className={styles.roleChipWrapper}>
+                                            <label className={styles.roleChip}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={newWorkerRoles.includes(role)}
+                                                    onChange={() => handleRoleToggle(role)}
+                                                />
+                                                <span className={styles.chipLabel}>{role}</span>
+                                            </label>
+                                            <button 
+                                                type="button" 
+                                                className={styles.deleteRoleBtn}
+                                                onClick={() => handleRemoveCategory(role)}
+                                                title={`Eliminar ${role}`}
+                                            >
+                                                <HiX size={14} />
+                                            </button>
+                                        </div>
                                     ))}
                                 </div>
 
-                                {newWorkerRoles.includes("Otros") && (
-                                    <div style={{ marginTop: '10px' }}>
-                                        <label style={{ fontSize: '13px', color: '#555' }}>Especificar otro puesto:</label>
-                                        <input
-                                            type="text"
-                                            className={styles.searchInput}
-                                            style={{ width: '100%', borderRadius: '8px', padding: '8px', marginTop: '5px' }}
-                                            value={customRole}
-                                            onChange={(e) => setCustomRole(e.target.value)}
-                                            placeholder="Ej. Técnico en refrigeración"
-                                            required={newWorkerRoles.includes("Otros")}
-                                        />
-                                    </div>
-                                )}
+                                {/* AGREGAR NUEVA CATEGORÍA */}
+                                <div className={styles.addCategoryWrapper}>
+                                    <input 
+                                        type="text"
+                                        placeholder="Otra especialidad..."
+                                        className={styles.addCategoryInput}
+                                        value={newCategoryName}
+                                        onChange={(e) => setNewCategoryName(e.target.value)}
+                                        onKeyDown={(e) => { if(e.key === 'Enter') { e.preventDefault(); handleAddCategory(); }}}
+                                    />
+                                    <button 
+                                        type="button" 
+                                        className={styles.addCategoryBtn}
+                                        onClick={handleAddCategory}
+                                    >
+                                        + Agregar
+                                    </button>
+                                </div>
                             </div>
 
-                            <div className={styles.modalActions}>
-                                <button type="submit" className={styles.applyBtn}>Guardar</button>
-                                <button type="button" className={styles.cancelBtn} onClick={() => setIsAddModalOpen(false)}>Cancelar</button>
+                            <div className={styles.modalActionsRow}>
+                                <button type="submit" className={styles.saveWorkerBtn}>Guardar Trabajador</button>
+                                <button type="button" className={styles.cancelLink} onClick={() => setIsAddModalOpen(false)}>Cancelar</button>
                             </div>
                         </form>
                     </div>
                 </div>
             )}
 
-            {isDeactivateModalOpen && workerToManage && (
-                <div className={styles.modalOverlay}>
-                    <div className={styles.modalContent}>
-                        <h3>Confirmar Baja</h3>
-                        <div style={{ padding: '20px 0', textAlign: 'center' }}>¿Estás seguro de dar de baja a <b>{workerToManage.nombre}</b>?</div>
-                        <div className={styles.modalActions}>
-                            <button className={styles.applyBtn} style={{ background: '#fca5a5', color: '#7f1d1d' }} onClick={handleDeactivateWorker}>Dar de Baja</button>
-                            <button className={styles.cancelBtn} onClick={() => setIsDeactivateModalOpen(false)}>Cancelar</button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {isReactivateModalOpen && workerToManage && (
-                <div className={styles.modalOverlay}>
-                    <div className={styles.modalContent}>
-                        <h3>Confirmar Reactivación</h3>
-                        <div style={{ padding: '20px 0', textAlign: 'center' }}>¿Estás seguro de reactivar a <b>{workerToManage.nombre}</b>?</div>
-                        <div className={styles.modalActions}>
-                            <button className={styles.applyBtn} onClick={handleReactivateWorker}>Reactivar</button>
-                            <button className={styles.cancelBtn} onClick={() => setIsReactivateModalOpen(false)}>Cancelar</button>
-                        </div>
-                    </div>
-                </div>
-            )}
 
         </div>
     );

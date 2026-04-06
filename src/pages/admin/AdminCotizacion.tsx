@@ -1,16 +1,22 @@
 import React, { useState, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import styles from "./AdminCotizacion.module.css";
+import { useModal } from "../../context/ModalContext";
 import { HiOutlineDocumentAdd } from "react-icons/hi";
+import { updateEstadoTrabajo } from "../../services/trabajosService";
+import { saveCotizacion } from "../../services/cotizacionesService";
 
 const AdminCotizacion: React.FC = () => {
     const { id } = useParams();
     const navigate = useNavigate();
+    const { showAlert } = useModal();
 
     const [costo, setCosto] = useState("");
     const [notas, setNotas] = useState("");
     const [archivo, setArchivo] = useState<string | null>(null);
     const [nombreArchivo, setNombreArchivo] = useState<string>("");
+
+    const [archivoFile, setArchivoFile] = useState<File | null>(null);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -18,6 +24,7 @@ const AdminCotizacion: React.FC = () => {
         const file = e.target.files?.[0];
         if (file) {
             setNombreArchivo(file.name);
+            setArchivoFile(file);
             const reader = new FileReader();
             reader.onloadend = () => {
                 setArchivo(reader.result as string);
@@ -26,51 +33,58 @@ const AdminCotizacion: React.FC = () => {
         }
     };
 
-    const handleEnviar = () => {
-        if (!costo || !archivo) {
-            alert("Por favor, ingresa el costo y sube un documento de cotización.");
+    const handleEnviar = async () => {
+        if (!costo || !archivo || !id) {
+            showAlert("Campos Incompletos", "Por favor, ingresa el costo y sube un documento de cotización.", "warning");
             return;
         }
 
-        // Cargar trabajos actuales
-        const storedJobs = localStorage.getItem('trabajos_list');
-        const jobs = storedJobs ? JSON.parse(storedJobs) : [];
+        try {
+            // 1. Actualizar estado del trabajo en base de datos
+            await updateEstadoTrabajo(Number(id), { estado: "Cotización Enviada" });
 
-        // Modificar el estado y añadir la cotización al trabajo
-        const updatedJobs = jobs.map((job: any) => {
-            if (job.id.toString() === id) {
-                return {
-                    ...job,
-                    estado: "Cotización Enviada",
-                    cotizacion: {
-                        costo,
-                        notas,
-                        archivo,
-                        fecha: new Date().toLocaleDateString('es-MX')
-                    }
-                };
+            // 2. Guardar cotización en base de datos
+            let formData;
+            if (archivoFile) {
+                formData = new FormData();
+                formData.append('trabajo_id', id);
+                formData.append('monto', costo);
+                formData.append('descripcion', notas);
+                formData.append('estado', "Pendiente");
+                formData.append('archivo', archivoFile);
             }
-            return job;
-        });
 
-        localStorage.setItem('trabajos_list', JSON.stringify(updatedJobs));
+            const payload = formData || {
+                trabajo_id: Number(id),
+                monto: Number(costo),
+                descripcion: notas,
+                archivo: archivo, // Base64 fallback if for some reason file is not present
+                estado: "Pendiente"
+            };
 
-        // GENERAR NOTIFICACIÓN PARA EL CLIENTE (Cotización)
-        const clientNotifs = JSON.parse(localStorage.getItem('client_notifications') || '[]');
-        clientNotifs.unshift({
-            id: Date.now(),
-            titulo: 'Cotización Recibida',
-            mensaje: `Ya tienes una nueva cotización lista para revisión (Trabajo #${id}).`,
-            fecha: new Date().toLocaleDateString('es-MX', { hour: '2-digit', minute: '2-digit' }),
-            leida: false,
-            jobId: id
-        });
-        localStorage.setItem('client_notifications', JSON.stringify(clientNotifs));
-        window.dispatchEvent(new Event('storage'));
+            await saveCotizacion(payload as any);
 
-        alert("Cotización enviada exitosamente al cliente.");
-        navigate(`/menu/trabajo-detalle/${id}`);
+            // 3. Notificación local (fallback UX)
+            const clientNotifs = JSON.parse(localStorage.getItem('client_notifications') || '[]');
+            clientNotifs.unshift({
+                id: Date.now(),
+                titulo: 'Cotización Recibida',
+                mensaje: `Ya tienes una nueva cotización lista para revisión (Trabajo #${id}).`,
+                fecha: new Date().toLocaleDateString('es-MX', { hour: '2-digit', minute: '2-digit' }),
+                leida: false,
+                jobId: id
+            });
+            localStorage.setItem('client_notifications', JSON.stringify(clientNotifs));
+            window.dispatchEvent(new Event('storage'));
+
+            showAlert("Éxito", "Cotización enviada exitosamente al cliente.", "success");
+            navigate(`/menu/trabajo-detalle/${id}`);
+        } catch (error: any) {
+            console.error("Error al enviar cotización:", error);
+            showAlert("Error de Servidor", "No se pudo guardar la cotización en la base de datos: " + (error.response?.data?.message || error.message), "error");
+        }
     };
+Line: 68
 
     return (
         <div className={styles.dashboardLayout}>

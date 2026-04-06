@@ -1,15 +1,16 @@
 .dashboardLayout {
     display: flex;
-    gap: 40px;
-    flex: 1;
-    min-height: 0;
+    justify-content: center;
+    width: 100%;
 }
 
 .leftColumn {
     display: flex;
     flex-direction: column;
-    flex: 3;
-    min-height: 0;
+    width: 100%;
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 0 20px;
 }
 
 .rightColumn {
@@ -120,8 +121,9 @@
 }
 
 .cardDate {
-    font-size: 13px;
-    color: #999;
+    font-size: 14px;
+    color: #00a884; /* Vibrant green to make it strikingly visible */
+    font-weight: bold;
     margin-bottom: 4px;
 }
 
@@ -161,6 +163,24 @@
 
 .blue {
     background: #d4ebf9;
+}
+
+.quoteBadge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #e0f2fe;
+    color: #0369a1;
+    padding: 6px 12px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border: 1px solid #bae6fd;
+    box-shadow: 0 4px 12px rgba(3, 105, 161, 0.1);
+    margin-top: 10px;
+    width: fit-content;
 }
 
 .editBtn {

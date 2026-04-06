@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import styles from "./ListaNegocios.module.css";
 import menuStyles from "../../components/Menu.module.css";
 import { useAuth } from "../../context/AuthContext";
+import { useModal } from "../../context/ModalContext";
 import { getNegocios } from "../../services/negociosService";
 import { getTrabajos } from "../../services/trabajosService";
 
@@ -15,14 +16,17 @@ interface Negocio {
     ubicacion: string;
     dueno: string;
     fecha: string;
-    estado: string; // Added status field
-    imagenPerfil?: string; // Client uploaded picture
+    estado: string; 
+    status: string; // Internal approval status
+    estado_geografico: string; // City or State for display
+    imagenPerfil?: string;
     user_id?: number;
 }
 
 const ListaNegocios: React.FC = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
+    const { } = useModal();
     const [negocios, setNegocios] = useState<Negocio[]>([]);
     const [globalJobs, setGlobalJobs] = useState<any[]>([]);
     const [searchText, setSearchText] = useState("");
@@ -31,20 +35,25 @@ const ListaNegocios: React.FC = () => {
         const fetchData = async () => {
             try {
                 const data = await getNegocios();
-                const mapped = data.map((n: any) => ({
-                    ...n,
-                    id: n.id,
-                    nombre: n.nombre,
-                    ubicacion: n.tipo === "W/M" ? `${n.calleAv || ''} Mza ${n.manzana || ''}` : (n.nombrePlaza || n.colonia || "Mérida"),
-                    dueno: n.encargado || "Cliente",
-                    fecha: new Date(n.created_at).toLocaleDateString('es-MX'),
-                    estado: n.estado_aprobacion || "En Espera",
-                    user_id: n.user_id,
-                    imagenPerfil: n.imagenPerfil
-                }));
+                const localData = JSON.parse(localStorage.getItem('local_negocios_info') || '{}');
+                const mapped = data.map((n: any) => {
+                    const localInfo = localData[n.id] || {};
+                    return {
+                        ...n,
+                        id: n.id,
+                        nombre: n.nombre,
+                        ubicacion: n.tipo === "W/M" ? `${n.calleAv || ''} Mza ${n.manzana || ''}` : (n.nombrePlaza || n.colonia || "Mérida"),
+                        dueno: n.encargado || "Cliente",
+                        fecha: new Date(n.created_at).toLocaleDateString('es-MX'),
+                        status: n.estado_aprobacion || "En Espera", // Mantenemos el estatus interno
+                        estado_geografico: localInfo.ciudad || n.ciudad || n.estado || "Mérida", // Prioridad a lo local
+                        user_id: n.user_id,
+                        imagenPerfil: n.imagenPerfil
+                    };
+                });
                 setNegocios(mapped);
                 
-                if (user?.role === 'admin' || user?.role === 'tecnico') {
+                if (user) {
                     const jobsApi = await getTrabajos();
                     setGlobalJobs(jobsApi);
                 }
@@ -108,26 +117,16 @@ const ListaNegocios: React.FC = () => {
                                 Registrar
                             </button>
                         )}
-                        <button
-                            className={styles.registrarBtn}
-                            style={{ background: '#f44336', fontSize: '12px', padding: '5px 10px' }}
-                            onClick={() => {
-                                if (window.confirm("¿Seguro que quieres borrar TODOS los datos guardados? Se reiniciará la aplicación.")) {
-                                    localStorage.clear();
-                                    window.location.reload();
-                                }
-                            }}
-                        >
-                            Reset Data
-                        </button>
                     </div>
                 </div>
 
                 <div className={styles.jobsSection}>
                     {filteredNegocios.map((negocio) => {
                         let hasSOS = false;
+                        let hasDiagnosis = false;
                         if (user?.role === 'admin') {
                             hasSOS = globalJobs.some((j: any) => j.negocio_id === negocio.id && j.tipo === 'SOS' && j.estado === 'Solicitud');
+                            hasDiagnosis = globalJobs.some((j: any) => j.negocio_id === negocio.id && (j.visitado === 1 || j.visitado === true) && (j.estado === 'Solicitud' || j.estado === 'En Espera'));
                         }
 
                         return (
@@ -137,10 +136,15 @@ const ListaNegocios: React.FC = () => {
                                         EMERGENCIA SOS
                                     </div>
                                 )}
+                                {hasDiagnosis && !hasSOS && (
+                                    <div style={{ position: 'absolute', right: '-10px', background: '#00a699', color: 'white', fontWeight: 'bold', padding: '5px 15px', borderRadius: '20px', zIndex: 10, boxShadow: '0 4px 8px rgba(0, 166, 153, 0.4)' }}>
+                                        DIAGNÓSTICO LISTO
+                                    </div>
+                                )}
                                 <div
                                     className={styles.jobCard}
                                     onClick={() => handleCardClick(negocio.id)}
-                                    style={hasSOS ? { border: '2px solid #f44336', backgroundColor: '#fffafa' } : {}}
+                                    style={hasSOS ? { border: '2px solid #f44336', backgroundColor: '#fffafa' } : (hasDiagnosis ? { border: '2px solid #00a699', backgroundColor: '#f0fdfc' } : {})}
                                 >
                                     <div className={styles.cardContent}>
                                         <div className={styles.cardIcon}>
@@ -159,9 +163,16 @@ const ListaNegocios: React.FC = () => {
                                             <h3>{negocio.nombre}</h3>
                                             <p>Dueño: {negocio.dueno}</p>
                                             <p>Ubicación: {negocio.ubicacion}</p>
-                                            <p className={negocio.estado === 'Finalizado' ? styles.estadoFinalizado : styles.estadoPendiente}>
-                                                Estado: {negocio.estado}
+                                            <p className={negocio.status === 'Finalizado' ? styles.estadoFinalizado : styles.estadoPendiente}>
+                                                Estado: {negocio.estado_geografico}
                                             </p>
+
+                                            {/* ALERTA DE COTIZACIÓN */}
+                                            {globalJobs.some(j => j.negocio_id === negocio.id && (j.estado || "").toLowerCase().includes("cotizaci")) && (
+                                                <div className={styles.quoteBadge} style={{ marginTop: '10px' }}>
+                                                    💰 Cotización Recibida
+                                                </div>
+                                            )}
                                         </div>
 
                                         {user?.role === 'cliente' && (
@@ -174,7 +185,7 @@ const ListaNegocios: React.FC = () => {
                                             </button>
                                         )}
 
-                                        <div className={`${styles.cardIndicator} ${negocio.estado === 'Finalizado' ? styles.blue : ''}`}></div>
+                                        <div className={`${styles.cardIndicator} ${negocio.status === 'Finalizado' ? styles.blue : ''}`}></div>
                                     </div>
                                 </div>
                             </div>
@@ -182,7 +193,6 @@ const ListaNegocios: React.FC = () => {
                     })}
                 </div>
             </div>
-            <div className={styles.rightColumn}></div>
         </div>
     );
 };

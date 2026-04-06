@@ -27,3 +27,20 @@ export const assignTrabajador = async (trabajoId: number, trabajadorId: number) 
     const res = await api.put(`/trabajos/${trabajoId}/asignar`, { trabajador_id: trabajadorId });
     return res.data;
 };
+
+// Actualizar un trabajo
+export const updateTrabajo = async (id: number, data: any) => {
+    const res = await api.put(`/trabajos/${id}`, data);
+    return res.data;
+};
+
+// Actualizar un trabajo (PATCH para actualizaciones parciales)
+export const updateTrabajoPatch = async (id: number, data: any) => {
+    const res = await api.patch(`/trabajos/${id}`, data);
+    return res.data;
+};
+// Eliminar un trabajo
+export const deleteTrabajo = async (id: number) => {
+    const res = await api.delete(`/trabajos/${id}`);
+    return res.data;
+};

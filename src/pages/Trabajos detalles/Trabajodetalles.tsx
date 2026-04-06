@@ -1,13 +1,19 @@
 import React, { useState, useEffect } from "react";
-import { createTrabajo, getTrabajos, assignTrabajador } from "../../services/trabajosService";
+import { createTrabajo, getTrabajos, assignTrabajador, updateEstadoTrabajo, updateTrabajo, updateTrabajoPatch } from "../../services/trabajosService";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import menuStyles from "../../components/Menu.module.css";
 import styles from "./Trabajodetalles.module.css";
 import { useAuth } from "../../context/AuthContext";
+import { useModal } from "../../context/ModalContext";
 import Historial from "../cliente/Historial";
 import Cotizaciones from "../cliente/Cotizaciones";
+import EquiposNegocio from "../admin/EquiposNegocio";
 import { getNegocios, getNegocio } from "../../services/negociosService";
 import { getTrabajadores } from "../../services/trabajadoresService";
+import { createNotificacion, createNotificacionByRole } from "../../services/notificacionesService";
+import { deleteTrabajo } from "../../services/trabajosService";
+import { HiDotsVertical } from "react-icons/hi";
+import { HiOutlinePencil, HiOutlineTrash, HiOutlineClipboardDocumentList } from "react-icons/hi2";
 
 interface Trabajo {
     id: number;
@@ -16,7 +22,7 @@ interface Trabajo {
     tecnico: string;
     tecnicoUserId?: number; // Permite un tracking fidedigno del técnico asignado
     fecha: string; // Formato DD/MM/YYYY
-    estado: "En Espera" | "Finalizado" | "En Proceso" | "Asignado" | "Solicitud" | "Cotización Enviada" | "Cotización Aceptada" | "Cotización Rechazada" | "Cotización Aprobada";
+    estado: "En Espera" | "Finalizado" | "En Proceso" | "Asignado" | "Solicitud" | "Cotización Enviada" | "Cotización Aceptada" | "Cotización Rechazada" | "Cotización Aprobada" | "Eliminado";
     tipo?: "Visita" | "Trabajo" | "Nueva Solicitud" | "SOS";
     visitado?: boolean;
     descripcion?: string;
@@ -49,12 +55,15 @@ const TrabajoDetalle: React.FC = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const { user } = useAuth();
+    const { showAlert, showConfirm } = useModal();
     const [searchParams, setSearchParams] = useSearchParams();
     const isCotizacionesTab = searchParams.get('tab') === 'cotizaciones';
     const isHistorialTab = searchParams.get('tab') === 'historial';
+    const isEquiposTab = searchParams.get('tab') === 'equipos';
 
     // Obtener nombre del negocio desde localStorage
     const [businessName, setBusinessName] = useState("Cargando...");
+    const [businessImage, setBusinessImage] = useState<string | null>(null);
 
     React.useEffect(() => {
         const fetchBusiness = async () => {
@@ -65,12 +74,14 @@ const TrabajoDetalle: React.FC = () => {
                 
                 if (current) {
                     setBusinessName(current.nombre);
+                    setBusinessImage(current.imagenPerfil || null);
                     setNewRequestData(prev => ({ ...prev, cliente: current.nombre }));
                 } else {
                     // Si falla el query batch, try individual
                     const individual = await getNegocio(Number(id));
                     if (individual && individual.nombre) {
                         setBusinessName(individual.nombre);
+                        setBusinessImage(individual.imagenPerfil || null);
                         setNewRequestData(prev => ({ ...prev, cliente: individual.nombre }));
                     } else {
                         setBusinessName("Desconocido");
@@ -87,6 +98,7 @@ const TrabajoDetalle: React.FC = () => {
 
     // DATOS DESDE LA API
     const [trabajosData, setTrabajosData] = useState<Trabajo[]>([]);
+    const [activeMenuId, setActiveMenuId] = useState<number | null>(null);
 
     useEffect(() => {
         const fetchJobs = async () => {
@@ -192,6 +204,7 @@ const TrabajoDetalle: React.FC = () => {
     // MODAL NUEVO/EDITAR SERVICIO (CLIENTE)
     const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
     const [isEditingRequest, setIsEditingRequest] = useState(false);
+    const [isSOSRequest, setIsSOSRequest] = useState(false);
     const [editingRequestId, setEditingRequestId] = useState<number | null>(null);
     const [newRequestData, setNewRequestData] = useState({
         categoria: "Electricidad",
@@ -210,8 +223,10 @@ const TrabajoDetalle: React.FC = () => {
     const getGroupedJobs = () => {
         const groups: { [key: string]: Trabajo[] } = {};
 
-        // 1. Filtrar por búsqueda y estatus
+        // 1. Filtrar por búsqueda, estatus y ocultar eliminados
         let filteredJobs = trabajosData.filter(job => {
+            if (job.estado === "Eliminado") return false;
+
             const matchesSearch = job.titulo.toLowerCase().includes(searchText.toLowerCase()) ||
                 job.tecnico.toLowerCase().includes(searchText.toLowerCase());
 
@@ -243,8 +258,27 @@ const TrabajoDetalle: React.FC = () => {
             filteredJobs = filteredJobs.filter(job => job.tecnicoUserId === user.id && job.estado !== "Finalizado");
         }
 
-        // Agrupar por fecha
-        filteredJobs.forEach(job => {
+        // 3. ORDENAMIENTO AUTOMÁTICO: SOS primero, luego Fecha Descendente
+        const parseDateForSort = (dateStr: string) => {
+            const parts = dateStr.includes('/') ? dateStr.split('/') : dateStr.split('-');
+            if (parts.length === 3) {
+                const [d, m, y] = parts.map(Number);
+                return new Date(y, m - 1, d).getTime();
+            }
+            return new Date(dateStr).getTime();
+        };
+
+        const sortedFilteredJobs = [...filteredJobs].sort((a, b) => {
+            // SOS primero
+            if (a.tipo === 'SOS' && b.tipo !== 'SOS') return -1;
+            if (a.tipo !== 'SOS' && b.tipo === 'SOS') return 1;
+
+            // Fecha descendente
+            return parseDateForSort(b.fecha) - parseDateForSort(a.fecha);
+        });
+
+        // 4. Agrupar por fecha (manteniendo el orden del sort)
+        sortedFilteredJobs.forEach(job => {
             const dateKey = job.fecha;
             if (!groups[dateKey]) {
                 groups[dateKey] = [];
@@ -273,10 +307,18 @@ const TrabajoDetalle: React.FC = () => {
         const job = trabajosData.find(j => j.id === jobId);
         setSelectedJobId(jobId);
 
-        if (job?.asignaciones && job.asignaciones.length > 0) {
+        // Reset search
+        setTechnicianSearch("");
+        
+        // Logic for pre-filling or resetting assignments
+        if (job?.estado === "Solicitud" || job?.estado === "En Espera" || job?.tecnico === "Sin asignar") {
+            // If it's a new request or coming back from a visit, we want it empty to avoid auto-assigning old tech
+            setSelectedAssignments([]);
+            setSelectedType("Visita");
+        } else if (job?.asignaciones && job.asignaciones.length > 0) {
             setSelectedAssignments(job.asignaciones);
+            setSelectedType("Trabajo");
         } else if (job?.tecnico && job.tecnico !== "Sin asignar") {
-            // Conversión por si viene de la estructura antigua sencilla
             const techNames = job.tecnico.split(", ");
             const convertedAssignments = techNames.map(name => {
                 const foundTech = tecnicosData.find(t => t.nombre === name);
@@ -288,17 +330,10 @@ const TrabajoDetalle: React.FC = () => {
                 } as AsignacionTecnico;
             });
             setSelectedAssignments(convertedAssignments);
+            setSelectedType("Trabajo");
         } else {
             setSelectedAssignments([]);
-        }
-
-        setTechnicianSearch("");
-
-        // Si es una solicitud nueva, forzamos a que sea Visita por defecto
-        if (job?.estado === "Solicitud") {
             setSelectedType("Visita");
-        } else {
-            setSelectedType("Trabajo"); // O el tipo que ya tenga
         }
 
         setIsModalOpen(true);
@@ -312,14 +347,41 @@ const TrabajoDetalle: React.FC = () => {
 
             const newEstado = (selectedAssignments.length > 0 ? "Asignado" : "Solicitud") as any;
 
-            if (selectedAssignments.length > 0) {
+            try {
+                // Sincronizar con Backend (Si es vacío, enviamos null para desasignar)
+                const techIdToAssign = selectedAssignments.length > 0 ? selectedAssignments[0].tecnicoId : null;
+                
                 try {
-                    await assignTrabajador(selectedJobId, selectedAssignments[0].tecnicoId);
-                } catch (error) {
-                    console.error("Error al asignar técnico en la API:", error);
-                    alert("Hubo un error sincronizando el trabajador con la base de datos.");
-                    return;
+                    await assignTrabajador(selectedJobId, techIdToAssign as any);
+                } catch (assignError: any) {
+                    // PLAN B: Intentar con PUT general (si falla con 405/422 en la ruta específica)
+                    if (techIdToAssign === null && assignError.response && (assignError.response.status === 422 || assignError.response.status === 405)) {
+                        console.log("Intentando Plan B: PUT general...");
+                        try {
+                            await updateTrabajo(selectedJobId, { trabajador_id: null });
+                        } catch (putError: any) {
+                            // PLAN C: Intentar con PATCH (si PUT dio 405 Method Not Allowed)
+                            if (putError.response && putError.response.status === 405) {
+                                console.log("Intentando Plan C: PATCH general...");
+                                await updateTrabajoPatch(selectedJobId, { trabajador_id: null });
+                            } else {
+                                throw putError;
+                            }
+                        }
+                    } else {
+                        throw assignError;
+                    }
                 }
+                
+                showAlert("Asignación Exitosa", "Cambio guardado en el servidor.", "success");
+            } catch (error: any) {
+                console.error("Error al sincronizar asignación en la API:", error);
+                if (error.response && error.response.status === 422) {
+                    showAlert("Restricción del Sistema", "El servidor no permite dejar el trabajo sin un técnico asignado. Por favor, selecciona a un responsable o contacta al soporte técnico.", "warning");
+                } else {
+                    showAlert("Error de Sincronización", "Hubo un error sincronizando el trabajador con la base de datos.", "error");
+                }
+                return; // Detener para que el modal no se cierre y el usuario pueda elegir a alguien
             }
 
             const updated = trabajosData.map(job => {
@@ -339,23 +401,21 @@ const TrabajoDetalle: React.FC = () => {
             });
             saveJobs(updated);
 
-            // Generar notificaciones para los técnicos asignados
-            const jobToNotify = trabajosData.find(j => j.id === selectedJobId);
-            if (jobToNotify && selectedAssignments.length > 0) {
-                selectedAssignments.forEach(asig => {
-                    const techKey = `tecnico_notifications_${asig.tecnicoNombre}`;
-                    const techNotifs = JSON.parse(localStorage.getItem(techKey) || '[]');
-                    techNotifs.unshift({
-                        id: Date.now() + Math.random(),
-                        titulo: 'Nuevo Trabajo Asignado',
-                        mensaje: `Te han asignado un nuevo trabajo: ${jobToNotify.titulo} en la sucursal ${businessName}.`,
-                        fecha: new Date().toLocaleDateString('es-MX', { hour: '2-digit', minute: '2-digit' }),
-                        leida: false,
-                        jobId: jobToNotify.id
-                    });
-                    localStorage.setItem(techKey, JSON.stringify(techNotifs));
-                });
-                window.dispatchEvent(new Event('storage'));
+            // --- NOTIFICACIONES EN BD ---
+            if (selectedJobId && selectedAssignments.length > 0) {
+                try {
+                    // Notificar a cada técnico asignado
+                    for (const asig of selectedAssignments) {
+                        await createNotificacion({
+                            user_id: asig.tecnicoId,
+                            titulo: 'Nuevo Trabajo Asignado 🛠️',
+                            mensaje: `Te han asignado un nuevo trabajo: ${assignedNames} en la sucursal ${businessName}.`,
+                            enlace: `/tecnico/trabajo-detalle/${selectedJobId}`
+                        });
+                    }
+                } catch (notiErr) {
+                    console.error("Error enviando notificaciones a técnicos:", notiErr);
+                }
             }
         }
         setIsModalOpen(false);
@@ -375,14 +435,17 @@ const TrabajoDetalle: React.FC = () => {
                 return job;
             });
             saveJobs(updated);
-            alert("Solicitud actualizada exitosamente.");
+            showAlert("Éxito", "Solicitud actualizada exitosamente.", "success");
         } else {
-            // Create new request
+            // Create new request (Normal or SOS)
             try {
+                const isEmergency = isSOSRequest;
                 const newJobPayload = {
-                    titulo: `${newRequestData.categoria} - ${newRequestData.cliente || businessName}`,
+                    titulo: isEmergency 
+                        ? `🚨 SOS: ${newRequestData.categoria} - ${businessName}`
+                        : `${newRequestData.categoria} - ${newRequestData.cliente || businessName}`,
                     descripcion: newRequestData.descripcion,
-                    prioridad: "Media",
+                    prioridad: isEmergency ? "Alta" : "Media",
                     negocio_id: Number(id),
                     fecha_programada: newRequestData.fecha || null
                 };
@@ -395,33 +458,41 @@ const TrabajoDetalle: React.FC = () => {
                     titulo: dbJob.titulo,
                     ubicacion: newRequestData.cliente || businessName,
                     tecnico: "Sin asignar",
-                    fecha: dbJob.fecha_programada || new Date().toLocaleDateString('es-MX'),
+                    fecha: dbJob.fecha_programada ? (dbJob.fecha_programada.includes('-') ? dbJob.fecha_programada.split('-').reverse().join('/') : dbJob.fecha_programada) : new Date().toLocaleDateString('es-MX'),
                     estado: "Solicitud",
-                    tipo: "Nueva Solicitud",
-                    descripcion: dbJob.descripcion
+                    tipo: isEmergency ? "SOS" : "Nueva Solicitud",
+                    descripcion: dbJob.descripcion,
+                    isEmergency: isEmergency
                 };
-                saveJobs([...trabajosData, newJobView as any]);
+                
+                if (isEmergency) {
+                    saveJobs([newJobView as any, ...trabajosData]);
+                } else {
+                    saveJobs([...trabajosData, newJobView as any]);
+                }
 
-                // Notify admin
-                const adminNotifications = JSON.parse(localStorage.getItem('admin_notifications') || '[]');
-                adminNotifications.unshift({
-                    id: Date.now() + Math.random(),
-                    titulo: 'NUEVA SOLICITUD',
-                    mensaje: `El cliente ha creado una nueva solicitud: ${newJobView.titulo} en la sucursal ${businessName}.`,
-                    fecha: new Date().toLocaleDateString('es-MX', { hour: '2-digit', minute: '2-digit' }),
-                    leida: false,
-                    jobId: newJobView.id
-                });
-                localStorage.setItem('admin_notifications', JSON.stringify(adminNotifications));
-                window.dispatchEvent(new Event('storage'));
+                // --- NOTIFICAR ADMIN EN BD ---
+                try {
+                    await createNotificacionByRole({
+                        role: 'admin',
+                        titulo: isEmergency ? '🚨 NUEVA EMERGENCIA' : 'NUEVA SOLICITUD ✨',
+                        mensaje: isEmergency 
+                            ? `El cliente ha enviado un SOS: ${newJobView.titulo} en la sucursal ${businessName}.`
+                            : `El cliente ha creado una nueva solicitud: ${newJobView.titulo} en la sucursal ${businessName}.`,
+                        enlace: `/menu/trabajo-detalle/${newJobView.id}`
+                    });
+                } catch (notiErr) {
+                    console.error("Error al notificar admin de nueva solicitud:", notiErr);
+                }
             } catch (error) {
                 console.error("Error creating record:", error);
-                alert("Hubo un error contactando al servidor.");
+                showAlert("Error", "Hubo un error contactando al servidor.", "error");
             }
         }
         setTimeout(() => {
             setIsRequestModalOpen(false);
             setIsEditingRequest(false);
+            setIsSOSRequest(false);
             setEditingRequestId(null);
             // Reset form
             setNewRequestData({
@@ -431,80 +502,58 @@ const TrabajoDetalle: React.FC = () => {
                 descripcion: ""
             });
             setTimeout(() => {
-                alert(isEditingRequest ? "Solicitud actualizada exitosamente." : "Solicitud creada exitosamente.");
+                if (isSOSRequest) {
+                    showAlert("SOS Enviado", "¡Emergencia enviada con éxito! El equipo ha sido notificado.", "success");
+                } else if (isEditingRequest) {
+                    showAlert("Actualizado", "Solicitud actualizada exitosamente.", "success");
+                } else {
+                    showAlert("Creado", "Solicitud creada exitosamente.", "success");
+                }
             }, 50);
         }, 0);
     };
 
     const handleSOSRequest = async () => {
-        if (window.confirm("¿Estás seguro de que deseas enviar una solicitud de EMERGENCIA (SOS)? Esto notificará al administrador inmediatamente.")) {
-            try {
-                const newJobPayload = {
-                    titulo: `🚨 EMERGENCIA SOS - ${businessName}`,
-                    descripcion: "Solicitud de emergencia generada por el cliente.",
-                    prioridad: "Alta",
-                    negocio_id: Number(id),
-                    fecha_programada: null
-                };
-                
-                const dbJob = await createTrabajo(newJobPayload);
-
-                const newJobView = {
-                    id: dbJob.id || Date.now(),
-                    titulo: dbJob.titulo,
-                    ubicacion: businessName,
-                    tecnico: "Sin asignar",
-                    fecha: new Date().toLocaleDateString('es-MX'),
-                    estado: "Solicitud",
-                    tipo: "SOS",
-                    descripcion: dbJob.descripcion,
-                    isEmergency: true
-                };
-                
-                saveJobs([newJobView as any, ...trabajosData]);
-
-                const adminNotifications = JSON.parse(localStorage.getItem('admin_notifications') || '[]');
-                adminNotifications.unshift({
-                    id: Date.now(),
-                    titulo: `🚨 NUEVA EMERGENCIA`,
-                    mensaje: `El cliente ${user?.name || 'desconocido'} de la sucursal ${businessName} ha solicitado ayuda de emergencia.`,
-                    fecha: new Date().toLocaleDateString('es-MX') + ' ' + new Date().toLocaleTimeString('es-MX'),
-                    leida: false,
-                    jobId: newJobView.id
-                });
-                localStorage.setItem('admin_notifications', JSON.stringify(adminNotifications));
-                window.dispatchEvent(new Event('storage'));
-
-                alert("Solicitud de emergencia enviada exitosamente. El administrador ha sido notificado.");
-            } catch (error) {
-                console.error("Error SOS:", error);
-                alert("Hubo un error contactando al servidor.");
-            }
-        }
-    };
-
-    const handleDeleteSOS = (jobId: number) => {
-        if (window.confirm("¿Estás seguro de que deseas cancelar esta solicitud de emergencia SOS?")) {
-            const updated = trabajosData.filter(job => job.id !== jobId);
-            saveJobs(updated);
-            alert("Solicitud de emergencia cancelada.");
-        }
+        setNewRequestData({
+            categoria: "Electricidad",
+            cliente: businessName,
+            fecha: new Date().toISOString().split('T')[0],
+            descripcion: ""
+        });
+        setIsSOSRequest(true);
+        setIsEditingRequest(false);
+        setIsRequestModalOpen(true);
     };
 
     const handleDeleteRequest = (e: React.MouseEvent, jobId: number) => {
         e.stopPropagation();
-        if (window.confirm("¿Estás seguro de que deseas borrar esta solicitud?")) {
-            const updated = trabajosData.filter(job => job.id !== jobId);
-            saveJobs(updated);
-            alert("Solicitud borrada exitosamente.");
-        }
+        showConfirm(
+            "Borrar Solicitud",
+            "¿Estás seguro de que deseas borrar esta solicitud?",
+            async () => {
+                try {
+                    await deleteTrabajo(jobId);
+                    const updated = trabajosData.filter(job => job.id !== jobId);
+                    saveJobs(updated);
+                    showAlert("Éxito", "Solicitud borrada exitosamente.", "success");
+                } catch (error) {
+                    console.error("Error al borrar solicitud:", error);
+                    showAlert("Error", "No se pudo borrar la solicitud en el servidor.", "error");
+                }
+            }
+        );
     };
 
     const handleOpenEditRequest = (e: React.MouseEvent, job: Trabajo) => {
         e.stopPropagation();
-        // Intentar deducir la categoría del título si es posible (Ej: "Plomeria - pokemon center")
-        const parts = job.titulo.split(' - ');
-        const cat = parts.length > 1 ? parts[0] : "Electricidad";
+        // Intentar deducir la categoría del título si es posible
+        const parts = (job.titulo || "").split(' - ');
+        let cat = parts.length > 1 ? parts[0] : "Electricidad";
+
+        if (!["Electricidad", "Plomeria", "Albañileria", "Limpieza", "Instalación", "Mantenimiento"].includes(cat)) {
+            if (job.titulo?.includes("Mantenimiento")) cat = "Mantenimiento";
+            else if (job.titulo?.includes("Instalación")) cat = "Instalación";
+        }
 
         setNewRequestData({
             categoria: cat,
@@ -525,24 +574,57 @@ const TrabajoDetalle: React.FC = () => {
             return job;
         });
         saveJobs(updated);
-        alert("Cotización aceptada. El administrador procederá a asignar a un técnico.");
+        showAlert("Cotización Aceptada", "Cotización aceptada. El administrador procederá a asignar a un técnico.", "success");
     };
 
     const handleRechazarCotizacion = (jobId: number) => {
-        if (window.confirm("¿Seguro que deseas rechazar la cotización?")) {
-            const updated = trabajosData.map(job => {
-                if (job.id === jobId) {
-                    return { ...job, estado: "Cotización Rechazada" as const };
-                }
-                return job;
-            });
-            saveJobs(updated);
-        }
+        showConfirm(
+            "Rechazar Cotización",
+            "¿Seguro que deseas rechazar la cotización?",
+            () => {
+                const updated = trabajosData.map(job => {
+                    if (job.id === jobId) {
+                        return { ...job, estado: "Cotización Rechazada" as const };
+                    }
+                    return job;
+                });
+                saveJobs(updated);
+                showAlert("Información", "Cotización rechazada.", "info");
+            }
+        );
     };
 
     const filteredTechnicians = tecnicosData.filter(t =>
         t.nombre.toLowerCase().includes(technicianSearch.toLowerCase())
     );
+
+    const renderStatusBar = (job: Trabajo) => {
+        const status = (job.estado || "").toLowerCase();
+        let barClass = styles.yellow;
+        let text: string = job.estado || "Pendiente";
+
+        if (status === "finalizado") {
+            barClass = styles.green;
+            text = "Finalizado";
+        } else if (job.tipo === "SOS") {
+            barClass = styles.red;
+            text = "¡ALERTA SOS!";
+        } else if (status.includes("cotizaci")) {
+            barClass = styles.blue;
+            text = user?.role === 'admin' ? "COTIZACIÓN ENVIADA" : "COTIZACIÓN DEL TRABAJO";
+        } else if (status === "asignado") {
+            barClass = styles.blue;
+            text = "Asignado";
+        }
+
+        return (
+            <div className={`${styles.statusBar} ${barClass}`}>
+                {text}
+            </div>
+        );
+    };
+
+    // sortedDates se calcula una sola vez antes del return final
 
     if (isHistorialTab) {
         return (
@@ -583,19 +665,51 @@ const TrabajoDetalle: React.FC = () => {
         );
     }
 
+    if (isEquiposTab) {
+        return (
+            <div className={menuStyles.dashboardLayout}>
+                <div style={{ width: '100%', maxWidth: '900px', margin: '0 auto' }}>
+                    <div className={styles.headerWrapper} style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                            <p className={styles.subTitle}>Equipos en la sucursal:</p>
+                            <h2 className={styles.businessName}>{businessName}</h2>
+                        </div>
+                        <button 
+                            onClick={() => setSearchParams({})}
+                            style={{ background: '#f1f5f9', color: '#334155', border: 'none', padding: '10px 15px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
+                        >
+                            ← Volver a Trabajos
+                        </button>
+                    </div>
+                    <EquiposNegocio businessId={Number(id)} />
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className={menuStyles.dashboardLayout}>
-            <div className={menuStyles.leftColumn}>
-
-                {/* HEADER / TITULO */}
-                <div className={styles.headerWrapper}>
-                    <p className={styles.subTitle}>Trabajos de la sucursal:</p>
-                    <h2 className={styles.businessName}>
-                        {businessName}
-                    </h2>
+            <div className={styles.mainContainer}>
+                {/* HEADER / BANNER PREMIUM */}
+                <div className={styles.premiumHeader}>
+                    {businessImage ? (
+                        <div className={styles.bannerWrapper}>
+                            <img src={businessImage} alt={businessName} className={styles.bannerImg} />
+                            <div className={styles.bannerOverlay}>
+                                <div className={styles.bannerContent}>
+                                    <span className={styles.bannerLabel}>TRABAJOS DE LA SUCURSAL</span>
+                                    <h1 className={styles.bannerTitle}>{businessName}</h1>
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className={styles.simpleHeader}>
+                             <h1 className={styles.businessTitle}>{businessName}</h1>
+                        </div>
+                    )}
                 </div>
 
-                {/* BUSCADOR */}
+                {/* SEARCH & ACTIONS */}
                 <div className={menuStyles.searchCard}>
                     <input
                         type="text"
@@ -629,6 +743,18 @@ const TrabajoDetalle: React.FC = () => {
                         </div>
                     )}
 
+                    {user?.role === 'admin' && (
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                            <button
+                                className={`${menuStyles.filterBtn}`}
+                                style={{ background: '#0284c7', color: 'white', fontWeight: 'bold', minWidth: '120px' }}
+                                onClick={() => setSearchParams({ tab: 'equipos' })}
+                            >
+                                📦 Equipos
+                            </button>
+                        </div>
+                    )}
+
                     {user?.role === 'tecnico' && (
                         <div style={{ display: 'flex', gap: '10px' }}>
                             <button
@@ -643,260 +769,177 @@ const TrabajoDetalle: React.FC = () => {
                 </div>
 
                 {/* LISTA DE TRABAJOS */}
-                <div className={styles.jobsSection}>
+                <div className={styles.jobsSection} onClick={() => setActiveMenuId(null)}>
                     {sortedDates.map(date => (
                         <div key={date}>
                             {groupedJobs[date].map(trabajo => {
-                                const isSos = trabajo.tipo === 'SOS' || trabajo.isEmergency || (trabajo.titulo && trabajo.titulo.includes('EMERGENCIA SOS'));
                                 return (
                                     <div
                                         key={trabajo.id}
                                         className={styles.jobCard}
                                         onClick={(e) => {
-                                            // Asegurar que no sea un clic en un botón interno (aunque ya tienen stopPropagation)
                                             if (!(e.target as HTMLElement).closest('button')) {
                                                 const basePath = user?.role === 'tecnico' ? '/tecnico' : (user?.role === 'cliente' ? '/cliente' : '/menu');
                                                 navigate(`${basePath}/trabajo-detalle/${trabajo.id}`);
                                             }
                                         }}
-                                        style={isSos && trabajo.estado !== 'Finalizado' ? { border: '2px solid #f44336', backgroundColor: '#fffafa', flexDirection: 'column', alignItems: 'stretch' } : {}}
                                     >
-                                        {user?.role === 'admin' && trabajo.estado === 'Solicitud' && !isSos && (
-                                            <div className={styles.nuevoBadge}>NUEVO</div>
-                                        )}
-                                        {isSos && trabajo.estado !== 'Finalizado' && (
-                                            <div style={{ background: '#ffebee', color: '#c62828', padding: '10px 15px', borderRadius: '10px', marginBottom: '15px', fontWeight: 'bold', border: '1px solid #ffcdd2' }}>
-                                                🚨 EMERGENCIA SOS: ATENCIÓN PRIORITARIA REQUERIDA
+                                        {/* BARRA DE ESTADO SUPERIOR */}
+                                        {renderStatusBar(trabajo)}
+
+                                        {/* INDICADOR FLOTANTE DE DIAGNÓSTICO (PREMIUM) */}
+                                        {!!trabajo.visitado && (trabajo.estado === 'Solicitud' || trabajo.estado === 'En Espera') && (
+                                            <div style={{ 
+                                                position: 'absolute', 
+                                                right: '-10px', 
+                                                top: '10px', 
+                                                background: '#00a699', 
+                                                color: 'white', 
+                                                padding: '6px 16px', 
+                                                borderRadius: '12px', 
+                                                fontSize: '11px', 
+                                                fontWeight: '900', 
+                                                textTransform: 'uppercase', 
+                                                boxShadow: '0 4px 12px rgba(0, 166, 153, 0.4)',
+                                                zIndex: 20,
+                                                letterSpacing: '0.5px'
+                                            }}>
+                                                DIAGNÓSTICO LISTO
                                             </div>
                                         )}
+
+                                        {/* BANNER DE DIAGNÓSTICO (Opcional - debajo de la barra si se desea mantener) */}
+                                        {trabajo.visitado && trabajo.estado === 'Solicitud' && (
+                                            <div className={styles.diagnosisBanner}>
+                                                <div className={styles.diagnosisIconWrapper}>🛡️</div>
+                                                <div className={styles.diagnosisTextGroup}>
+                                                    <p className={styles.diagnosisTitle}>AVISO DE DIAGNÓSTICO</p>
+                                                    <p className={styles.diagnosisText}>Diagnóstico listo para ser revisado.</p>
+                                                </div>
+                                            </div>
+                                        )}
+
                                         <div className={styles.cardContent}>
-
-                                            {/* ICONO */}
-                                            <div className={styles.cardIconStatus}>
-                                                {trabajo.estado === "Finalizado" ? "✅" : (trabajo.estado === "Solicitud" ? (
-                                                    trabajo.tipo === "SOS" ? (
-                                                        <div className={styles.requestBadgeContainer}>
-                                                            <div className={styles.requestBadge} style={{ background: '#ffebee', color: '#c62828' }}>
-                                                                🚨 SOS
-                                                            </div>
-                                                        </div>
-                                                    ) : (
-                                                        <div className={styles.requestBadgeContainer}>
-                                                            <div className={styles.requestBadge}>
-                                                                Solicitud
-                                                            </div>
-                                                        </div>
-                                                    )
-                                                ) : "")}
-                                            </div>
-
-                                            {/* INFO */}
-                                            <div className={styles.cardInfo}>
-                                                <div className={styles.cardDateWrapper}>
-                                                    <span className={styles.cardDate}>{trabajo.fecha}</span>
+                                            {/* FILA SUPERIOR: FECHA Y MENU */}
+                                            <div className={styles.headerRow}>
+                                                <div className={styles.dateGroup}>
+                                                    <p className={styles.strikingDate}>
+                                                        📅 {trabajo.fechaAsignada || trabajo.fecha}
+                                                    </p>
                                                 </div>
 
-                                                {user?.role === 'admin' && Boolean(trabajo.visitado) && (trabajo.estado === 'Solicitud' || trabajo.estado === 'En Espera') && !isSos ? (
-                                                    <div className={styles.diagnosisBanner}>
-                                                        <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
-                                                            <span className={styles.diagnosisIcon}>🛡️</span>
-                                                            <div>
-                                                                <p className={styles.diagnosisTitle}>AVISO DE DIAGNÓSTICO</p>
-                                                                <p className={styles.diagnosisText}>Esta sucursal ya fue visitada y tiene un diagnóstico listo para ser revisado.</p>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                ) : null}
-
-                                                {user?.role === 'admin' && (trabajo.estado === 'Cotización Aceptada' || trabajo.estado === 'Cotización Aprobada') ? (
-                                                    <div className={styles.diagnosisBanner} style={{ background: '#e8f5e9', border: '1px solid #c8e6c9', color: '#2e7d32', marginBottom: '15px' }}>
-                                                        <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
-                                                            <span className={styles.diagnosisIcon} style={{ background: '#c8e6c9', color: '#2e7d32' }}>✓</span>
-                                                            <div>
-                                                                <p className={styles.diagnosisTitle} style={{ color: '#2e7d32' }}>COTIZACIÓN ACEPTADA</p>
-                                                                <p className={styles.diagnosisText} style={{ color: '#388e3c', margin: 0 }}>El cliente ha aceptado la cotización. Asigne técnico para arrancar el trabajo.</p>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                ) : null}
-
-                                                {(user?.role === 'cliente' || user?.role === 'admin') &&
-                                                    ['Cotización Enviada', 'Cotización Aceptada', 'Cotización Rechazada'].includes(trabajo.estado) &&
-                                                    trabajo.cotizacion && (
-                                                        <div style={{ background: '#fff9e6', border: '1px solid #ffe0b2', borderRadius: '15px', padding: '20px', marginTop: '15px', marginBottom: '15px' }}>
-                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
-                                                                <span style={{ fontSize: '24px' }}>📄</span>
-                                                                <h4 style={{ margin: 0, color: '#e65100', fontSize: '18px' }}>
-                                                                    {trabajo.estado === 'Cotización Enviada' ? 'Cotización Recibida' :
-                                                                        trabajo.estado === 'Cotización Aceptada' ? 'Cotización Aceptada' :
-                                                                            'Cotización Rechazada'}
-                                                                </h4>
-                                                            </div>
-
-                                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', marginBottom: '20px' }}>
-                                                                <div style={{ flex: '1', minWidth: '200px' }}>
-                                                                    <p style={{ margin: '0 0 5px 0', fontSize: '14px', color: '#666' }}>Costo Estimado:</p>
-                                                                    <p style={{ margin: 0, fontSize: '24px', fontWeight: 'bold', color: '#333' }}>${trabajo.cotizacion.costo}</p>
-                                                                </div>
-                                                                <div style={{ flex: '2', minWidth: '300px' }}>
-                                                                    <p style={{ margin: '0 0 5px 0', fontSize: '14px', color: '#666' }}>Notas:</p>
-                                                                    <p style={{ margin: 0, fontSize: '15px', color: '#444' }}>{trabajo.cotizacion.notas || "Sin notas adicionales."}</p>
-                                                                </div>
-                                                            </div>
-
-                                                            <div style={{ marginBottom: '20px' }}>
-                                                                <a
-                                                                    href={trabajo.cotizacion.archivo}
-                                                                    target="_blank"
-                                                                    rel="noreferrer"
-                                                                    style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: '#fff', border: '1px solid #ccc', padding: '10px 20px', borderRadius: '25px', color: '#333', textDecoration: 'none', fontWeight: 'bold', fontSize: '14px' }}
-                                                                    onClick={(e) => e.stopPropagation()}
-                                                                >
-                                                                    📎 Ver Archivo Adjunto
-                                                                </a>
-                                                            </div>
-
-                                                            {user?.role === 'cliente' && trabajo.estado === 'Cotización Enviada' && (
-                                                                <div style={{ display: 'flex', gap: '10px' }}>
-                                                                    <button
-                                                                        style={{ flex: 1, background: '#4caf50', color: 'white', border: 'none', padding: '12px', borderRadius: '25px', fontWeight: 'bold', cursor: 'pointer' }}
-                                                                        onClick={(e) => { e.stopPropagation(); handleAceptarCotizacion(trabajo.id); }}
-                                                                    >
-                                                                        ✓ Aceptar Cotización
-                                                                    </button>
-                                                                    <button
-                                                                        style={{ flex: 1, background: '#f44336', color: 'white', border: 'none', padding: '12px', borderRadius: '25px', fontWeight: 'bold', cursor: 'pointer' }}
-                                                                        onClick={(e) => { e.stopPropagation(); handleRechazarCotizacion(trabajo.id); }}
-                                                                    >
-                                                                        ✕ Rechazar
-                                                                    </button>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    )}
-
-                                                <h3 className={styles.jobTitle}>{trabajo.titulo}</h3>
-                                                {trabajo.descripcion && (
-                                                    <p className={styles.jobDescription}>
-                                                        {trabajo.descripcion}
-                                                    </p>
-                                                )}
-                                                <p className={styles.technicianLabel}>Tecnico: <span className={styles.technicianName}>{trabajo.tecnico}</span></p>
-
-
-                                                {/* Mostrar Tipo si existe */}
-                                                {trabajo.tipo && (
-                                                    <p className={styles.jobTypeContainer}>
-                                                        Tipo: <span className={styles.jobTypeBadge} style={isSos ? { backgroundColor: '#ffebee', color: '#c62828', fontWeight: 'bold', border: '1px solid #ffcdd2' } : {}}>{trabajo.tipo}</span>
-                                                    </p>
-                                                )}
-                                            </div>
-
-                                            {/* ACCIONES - Solo Admin */}
-                                            <div className={styles.actionsContainer}>
-                                                {user?.role === 'admin' && trabajo.estado !== 'Finalizado' && (trabajo.asignaciones && trabajo.asignaciones.length > 0 || (trabajo.tecnico !== "Sin asignar" && trabajo.estado !== "Solicitud" && trabajo.tecnico)) ? (
-                                                    <button
-                                                        className={styles.statusBtn}
-                                                        style={{ background: '#eef8f1', color: '#137333', border: '1px solid #c8e6c9', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '5px' }}
-                                                        onClick={(e) => { e.stopPropagation(); openAssignmentModal(trabajo.id); }}
-                                                    >
-                                                        🧑‍🔧 Ver / Editar Asignaciones ({trabajo.asignaciones ? trabajo.asignaciones.length : trabajo.tecnico.split(',').length})
-                                                    </button>
-                                                ) : null}
-
-                                                {user?.role === 'admin' ? (
-                                                    (trabajo.tecnico === "Sin asignar" || trabajo.estado === "Solicitud") && trabajo.estado !== "En Espera" ? (
-                                                        <>
-                                                            {/* Solo permitir asignar si NO ha sido visitado o si es cotización aceptada (pero esas ya no son Solicitud) */}
-                                                            {(!Boolean(trabajo.visitado) || trabajo.estado === "Cotización Aceptada" || trabajo.estado === "Cotización Aprobada") && (
-                                                                <button
-                                                                    className={`${styles.statusBtn} ${styles.assignBtn}`}
-                                                                    onClick={(e) => { e.stopPropagation(); openAssignmentModal(trabajo.id); }}
-                                                                >
-                                                                    Asignar
-                                                                </button>
-                                                            )}
-                                                            {/* Mostrar el botón de cotizar si el trabajo ya fue visitado y sigue siendo Solicitud */}
-                                                            {(Boolean(trabajo.visitado) && trabajo.estado === "Solicitud") ? (
-                                                                <button
-                                                                    className={styles.btnCotizar}
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        navigate(`/menu/trabajo-detalle/${trabajo.id}?tab=cotizacion`);
-                                                                    }}
-                                                                >
-                                                                    📝 Realizar Cotización →
-                                                                </button>
-                                                            ) : null}
-                                                            <button
-                                                                className={`${styles.statusBtn} ${styles.statusBadge} ${trabajo.estado === "Solicitud" ? styles.statusSolicitud : styles.statusAsignado}`}
-                                                                onClick={(e) => e.stopPropagation()}
-                                                            >
-                                                                {trabajo.estado}
-                                                            </button>
-                                                        </>
-                                                    ) : (
-                                                        <>
-
-
-                                                            <button
-                                                                className={`${styles.statusBtn} ${styles.statusBadge} ${trabajo.estado === 'Finalizado' ? styles.statusFinalizado : styles.statusAsignado}`}
-                                                                onClick={(e) => e.stopPropagation()}
-                                                            >
-                                                                {trabajo.estado}
-                                                            </button>
-                                                        </>
-                                                    )
-                                                ) : (
-                                                    // Vista para Tecnico o Cliente (solo badge de estado)
-                                                    <>
-                                                        <button
-                                                            className={`${styles.statusBtn} ${styles.statusBadge} ${trabajo.estado === 'Finalizado' ? styles.statusFinalizado : ((trabajo.estado === 'Cotización Aceptada' || trabajo.estado === 'Cotización Aprobada') ? styles.statusAceptada : styles.statusAsignado)}`}
-                                                            onClick={(e) => e.stopPropagation()}
-                                                            style={{
-                                                                background: trabajo.estado === 'Cotización Enviada' ? '#ffe0b2' : undefined,
-                                                                color: trabajo.estado === 'Cotización Enviada' ? '#e65100' : undefined
-                                                            }}
+                                                {/* MENU DE TRES PUNTOS - Only for Admin or Cliente */}
+                                                {(user?.role === 'admin' || user?.role === 'cliente') && (
+                                                    <div className={styles.menuContainer} onClick={(e) => e.stopPropagation()}>
+                                                        <button 
+                                                            className={styles.dotsBtn}
+                                                            onClick={() => setActiveMenuId(activeMenuId === trabajo.id ? null : trabajo.id)}
                                                         >
-                                                            {trabajo.estado}
+                                                            <HiDotsVertical />
                                                         </button>
-                                                        {user?.role === 'cliente' && trabajo.estado === 'Solicitud' && (
-                                                            <>
-                                                                {trabajo.tipo === 'SOS' ? (
-                                                                    <button
-                                                                        className={`${styles.statusBtn}`}
-                                                                        onClick={(e) => { e.stopPropagation(); handleDeleteSOS(trabajo.id); }}
-                                                                        style={{ background: '#f44336', color: 'white', fontWeight: 'bold' }}
+
+                                                        {activeMenuId === trabajo.id && (
+                                                            <div className={styles.dropdownMenu}>
+                                                                {user?.role === 'cliente' && (
+                                                                    <button 
+                                                                        className={styles.menuItem}
+                                                                        onClick={(e) => handleOpenEditRequest(e, trabajo)}
                                                                     >
-                                                                        ❌ Cancelar SOS
+                                                                        <HiOutlinePencil /> Editar
                                                                     </button>
-                                                                ) : (
-                                                                    <>
-                                                                        <button
-                                                                            className={styles.statusBtn}
-                                                                            onClick={(e) => handleOpenEditRequest(e, trabajo)}
-                                                                            style={{ background: '#e3f2fd', color: '#1976d2', fontWeight: 'bold', border: '1px solid #bbdefb' }}
-                                                                        >
-                                                                            ✏️ Editar
-                                                                        </button>
-                                                                        <button
-                                                                            className={styles.statusBtn}
-                                                                            onClick={(e) => handleDeleteRequest(e, trabajo.id)}
-                                                                            style={{ background: '#ffebee', color: '#c62828', fontWeight: 'bold', border: '1px solid #ffcdd2' }}
-                                                                        >
-                                                                            🗑️ Borrar
-                                                                        </button>
-                                                                    </>
                                                                 )}
-                                                            </>
+                                                                
+                                                                {user?.role === 'admin' && (
+                                                                    <button 
+                                                                        className={styles.menuItem}
+                                                                        onClick={() => openAssignmentModal(trabajo.id)}
+                                                                    >
+                                                                        <HiOutlineClipboardDocumentList /> Asignar
+                                                                    </button>
+                                                                )}
+
+                                                                {user?.role === 'cliente' && (
+                                                                    <button 
+                                                                        className={`${styles.menuItem} ${styles.deleteItem}`}
+                                                                        onClick={(e) => handleDeleteRequest(e, trabajo.id)}
+                                                                    >
+                                                                        <HiOutlineTrash /> Borrar
+                                                                    </button>
+                                                                )}
+                                                            </div>
                                                         )}
-                                                    </>
+                                                    </div>
                                                 )}
                                             </div>
 
-                                            {/* INDICADOR ESTADO LATERAL */}
-                                            <div className={`${styles.cardIndicator} ${trabajo.estado === 'Finalizado' ? styles.green : styles.blue
-                                                } ${styles.cardIndicatorOverride}`} style={isSos && trabajo.estado !== 'Finalizado' ? { background: '#f44336' } : {}}></div>
+                                            {/* INFO PRINCIPAL */}
+                                            <div className={styles.cardInfo}>
+                                                <h3 className={styles.jobTitle}>
+                                                    {trabajo.estado === 'Finalizado' ? trabajo.titulo.replace('🚨 SOS: ', '').replace('SOS: ', '') : trabajo.titulo}
+                                                </h3>
+                                                
+                                                {/* CAJA DE DESCRIPCIÓN ELEGANTE */}
+                                                {trabajo.descripcion && (() => {
+                                                    const desc = trabajo.descripcion;
+                                                    const bracketMatch = desc.match(/\[(.*?)\]/);
+                                                    const mainText = desc.replace(/\[.*?\]/, '').trim();
+                                                    const extraInfo = bracketMatch ? bracketMatch[1] : null;
+
+                                                    return (
+                                                        <div className={styles.descriptionBox}>
+                                                            <p>{mainText || "Servicio solicitado sin descripción adicional."}</p>
+                                                            {extraInfo && (
+                                                                <div className={styles.equipmentBadge}>
+                                                                    📦 {extraInfo}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })()}
+
+                                                {/* INFO DE COTIZACIÓN (Solo si está enviada y es relevante) */}
+                                                {(['Cotización Enviada', 'Cotización Aceptada', 'Cotización Rechazada', 'Cotización'].includes(trabajo.estado) || status.includes("cotizaci")) && trabajo.cotizacion && (
+                                                     <div style={{ background: '#fef3c7', padding: '10px', borderRadius: '10px', marginTop: '10px', border: '1px solid #fcd34d' }}>
+                                                         <p style={{ fontWeight: 'bold', color: '#92400e', marginBottom: '5px' }}>
+                                                             {user?.role === 'admin' ? '💰 Cotización Enviada' : '💰 Cotización del Trabajo'}: ${trabajo.cotizacion.costo}
+                                                         </p>
+                                                         {user?.role === 'cliente' && trabajo.estado === 'Cotización Enviada' && (
+                                                             <div style={{ display: 'flex', gap: '5px' }}>
+                                                                 <button onClick={(e) => { e.stopPropagation(); handleAceptarCotizacion(trabajo.id); }} style={{ flex: 1, padding: '5px', background: '#22c55e', color: 'white', borderRadius: '5px', border: 'none', fontSize: '12px' }}>Aceptar</button>
+                                                                 <button onClick={(e) => { e.stopPropagation(); handleRechazarCotizacion(trabajo.id); }} style={{ flex: 1, padding: '5px', background: '#ef4444', color: 'white', borderRadius: '5px', border: 'none', fontSize: '12px' }}>Rechazar</button>
+                                                             </div>
+                                                         )}
+                                                     </div>
+                                                )}
+                                            </div>
+
+                                            {/* FOOTER DE LA TARJETA */}
+                                            <div className={styles.footerRow}>
+                                                <div className={styles.technicianInfo}>
+                                                    {trabajo.tecnico !== "Sin asignar" ? `👤 ${trabajo.tecnico}` : `🏢 ${trabajo.ubicacion}`}
+                                                </div>
+
+                                                <div className={styles.actionsCard}>
+                                                    {/* Botón rápido si es necesario (ej. Cotizar) */}
+                                                    {trabajo.visitado && !trabajo.cotizacion && user?.role === 'admin' && trabajo.estado === 'Solicitud' && (
+                                                        <button 
+                                                            className={styles.btnCotizar}
+                                                            onClick={(e) => { e.stopPropagation(); navigate(`/menu/admin-reporte/${trabajo.id}`); }}
+                                                        >
+                                                            💰 Cotizar
+                                                        </button>
+                                                    )}
+                                                        {/* Hide type label if unassigned or technician search matches */}
+                                                        {trabajo.tecnico && 
+                                                         !trabajo.tecnico.toLowerCase().includes("sin asignar") && 
+                                                         !trabajo.tecnico.toLowerCase().includes("pendiente") && 
+                                                         trabajo.tecnico.trim() !== "" && (
+                                                            <span className={styles.jobTypeBadge}>
+                                                                {trabajo.estado === 'Finalizado' && trabajo.tipo === "SOS" ? 'Finalizado' : trabajo.tipo}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                            </div>
                                         </div>
                                     </div>
                                 );
@@ -904,10 +947,7 @@ const TrabajoDetalle: React.FC = () => {
                         </div>
                     ))}
                 </div>
-
             </div>
-
-            <div className={styles.rightColumn}></div>
 
             {/* MODAL ASIGNAR TÉCNICO */}
             {isModalOpen && (
@@ -1059,7 +1099,9 @@ const TrabajoDetalle: React.FC = () => {
             {isRequestModalOpen && (
                 <div className={menuStyles.modalOverlay}>
                     <div className={`${menuStyles.modalContent} ${styles.modalContentMedium}`}>
-                        <h2 className={styles.modalTitle} style={{ fontWeight: '900', fontSize: '26px' }}>Nuevo Servicio</h2>
+                        <h2 className={styles.modalTitle} style={isSOSRequest ? { fontWeight: '900', fontSize: '26px', color: '#c62828' } : { fontWeight: '900', fontSize: '26px' }}>
+                            {isSOSRequest ? "🚨 Nueva Emergencia SOS" : (isEditingRequest ? "Editar Solicitud" : "Nuevo Servicio")}
+                        </h2>
 
                         <div className={styles.formGroup}>
                             <div className={styles.formField}>
@@ -1074,6 +1116,8 @@ const TrabajoDetalle: React.FC = () => {
                                     <option>Plomeria</option>
                                     <option>Albañileria</option>
                                     <option>Limpieza</option>
+                                    <option>Instalación</option>
+                                    <option>Mantenimiento</option>
                                 </select>
                             </div>
 
@@ -1110,7 +1154,10 @@ const TrabajoDetalle: React.FC = () => {
 
                         <div className={styles.requestModalActions}>
                             <button
-                                onClick={() => setIsRequestModalOpen(false)}
+                                onClick={() => {
+                                    setIsRequestModalOpen(false);
+                                    setIsSOSRequest(false);
+                                }}
                                 className={styles.cancelBtnLarge}
                             >
                                 Cancelar
@@ -1118,8 +1165,9 @@ const TrabajoDetalle: React.FC = () => {
                             <button
                                 onClick={handleConfirmRequest}
                                 className={styles.confirmBtnLarge}
+                                style={isSOSRequest ? { background: '#f44336', boxShadow: '0 4px 10px rgba(244, 67, 54, 0.3)' } : {}}
                             >
-                                Confirmar
+                                {isSOSRequest ? "Confirmar Emergencia" : "Confirmar"}
                             </button>
                         </div>
                     </div>

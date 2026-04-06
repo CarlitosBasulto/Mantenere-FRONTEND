@@ -16,20 +16,32 @@ interface AuthContextType {
     user: User | null;
     login: (userData: User) => void;
     logout: () => void;
+    loading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-    // Por defecto iniciamos como ADMIN para facilitar el desarrollo,
-    // pero en producción iniciaría en null (sin sesión).
+    const [loading, setLoading] = useState(true);
     const [user, setUser] = useState<User | null>(() => {
         const storedUser = localStorage.getItem("user");
-        return storedUser ? JSON.parse(storedUser) : null;
+        if (storedUser) {
+            const parsed = JSON.parse(storedUser);
+            // Normalizar rol al cargar de localStorage
+            if (parsed.role) {
+                parsed.role = parsed.role.toLowerCase() as UserRole;
+            }
+            return parsed;
+        }
+        return null;
     });
 
+    React.useEffect(() => {
+        // Marcamos como cargado inmediatamente ya que el localStorage es síncrono
+        setLoading(false);
+    }, []);
+
     const login = (userData: User) => {
-        // Garantizar que el rol siempre se guarde en minúsculas en todo el sistema
         const normalizedUser = { ...userData };
         if (normalizedUser.role) {
             normalizedUser.role = (normalizedUser.role as string).toLowerCase() as UserRole;
@@ -44,8 +56,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         localStorage.removeItem("user");
         localStorage.removeItem("token");
     };
+
     return (
-        <AuthContext.Provider value={{ user, login, logout }}>
+        <AuthContext.Provider value={{ user, login, logout, loading }}>
             {children}
         </AuthContext.Provider>
     );

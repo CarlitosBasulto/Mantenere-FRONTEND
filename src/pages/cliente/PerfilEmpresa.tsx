@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import styles from "./PerfilEmpresa.module.css";
 import { useAuth } from "../../context/AuthContext";
+import { useModal } from "../../context/ModalContext";
+
 import { createNegocio, updateNegocio, getNegocio } from "../../services/negociosService";
 
 
@@ -27,18 +29,28 @@ interface BusinessData {
     calleAv?: string;
     // Imagen de Perfil
     imagenPerfil?: string;
+    // Contactos Operativos
+    gerente?: string;
+    telefonoGerente?: string;
+    subgerente?: string;
+    telefonoSubgerente?: string;
 }
 
 const PerfilEmpresa: React.FC = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
+    const { showAlert } = useModal();
     const [formData, setFormData] = useState<BusinessData>({
         nombreSucursal: "",
         tipo: "FC",
         encargado: "", // Solicitado: Debe salir vacío por defecto
         estado: "Yucatán",
         ciudad: "Mérida",
-        nombrePlaza: ""
+        nombrePlaza: "",
+        gerente: "",
+        telefonoGerente: "",
+        subgerente: "",
+        telefonoSubgerente: ""
     });
 
     const [searchParams] = useSearchParams();
@@ -49,7 +61,25 @@ const PerfilEmpresa: React.FC = () => {
             if (editId) {
                 try {
                     const existing = await getNegocio(Number(editId));
-                    setFormData(prev => ({ ...prev, ...existing, nombreSucursal: existing.nombre }));
+                    // CARGA LOCAL: Combinar con datos de localStorage para ver campos nuevos
+                    const localData = JSON.parse(localStorage.getItem('local_negocios_info') || '{}');
+                    const localInfo = localData[editId] || {};
+                    
+                    setFormData(prev => ({ 
+                        ...prev, 
+                        ...existing, 
+                        nombreSucursal: existing.nombre,
+                        // Prioridad a lo local para campos nuevos no soportados por API aún
+                        gerente: localInfo.gerente || existing.gerente || "",
+                        telefonoGerente: localInfo.telefonoGerente || existing.telefonoGerente || "",
+                        subgerente: localInfo.subgerente || existing.subgerente || "",
+                        telefonoSubgerente: localInfo.telefonoSubgerente || existing.telefonoSubgerente || "",
+                        nombrePlaza: localInfo.nombrePlaza || existing.nombrePlaza || "",
+                        manzana: localInfo.manzana || existing.manzana || "",
+                        lote: localInfo.lote || existing.lote || "",
+                        calleAv: localInfo.calleAv || existing.calleAv || "",
+                        referencia: localInfo.referencia || existing.referencia || ""
+                    }));
                 } catch (error) {
                     console.error("Error fetching negocio:", error);
                 }
@@ -78,24 +108,66 @@ const PerfilEmpresa: React.FC = () => {
 
     const handleSave = async () => {
         // Validación básica
-        if (!formData.nombreSucursal) return alert("Por favor ingresa el nombre de la sucursal");
-        if (!formData.encargado) return alert(`Por favor ingresa el ${formData.tipo === 'FC' ? 'encargado' : 'dueño'} de la empresa`);
+        if (!formData.nombreSucursal) {
+            showAlert("Campo Requerido", "Por favor ingresa el nombre de la sucursal", "warning");
+            return;
+        }
+        if (!formData.encargado) {
+            showAlert("Campo Requerido", `Por favor ingresa el ${formData.tipo === 'FC' ? 'encargado' : 'dueño'} de la empresa`, "warning");
+            return;
+        }
 
         if (formData.tipo !== 'W/M') {
-            if (formData.tipo === 'FS' && !formData.calle) return alert("Por favor ingresa la calle principal");
-            if (formData.tipo !== 'FS' && !formData.nombrePlaza) return alert("Por favor ingresa el nombre de la plaza");
-            if (!formData.estado) return alert("Por favor ingresa el estado");
-            if (!formData.ciudad) return alert("Por favor ingresa la ciudad");
-            if (!formData.calle) return alert("Por favor ingresa la calle");
-            if (!formData.numero) return alert("Por favor ingresa el número");
-            if (!formData.colonia) return alert("Por favor ingresa la colonia");
-            if (formData.tipo === 'FS' && !formData.referencia) return alert("Por favor ingresa la referencia");
+            if (formData.tipo === 'FS' && !formData.calle) {
+                showAlert("Campo Requerido", "Por favor ingresa la calle principal", "warning");
+                return;
+            }
+            if (formData.tipo !== 'FS' && !formData.nombrePlaza) {
+                showAlert("Campo Requerido", "Por favor ingresa el nombre de la plaza", "warning");
+                return;
+            }
+            if (!formData.estado) {
+                showAlert("Campo Requerido", "Por favor ingresa el estado", "warning");
+                return;
+            }
+            if (!formData.ciudad) {
+                showAlert("Campo Requerido", "Por favor ingresa la ciudad", "warning");
+                return;
+            }
+            if (!formData.calle) {
+                showAlert("Campo Requerido", "Por favor ingresa la calle", "warning");
+                return;
+            }
+            if (!formData.numero) {
+                showAlert("Campo Requerido", "Por favor ingresa el número", "warning");
+                return;
+            }
+            if (!formData.colonia) {
+                showAlert("Campo Requerido", "Por favor ingresa la colonia", "warning");
+                return;
+            }
+            if (formData.tipo === 'FS' && !formData.referencia) {
+                showAlert("Campo Requerido", "Por favor ingresa la referencia", "warning");
+                return;
+            }
         } else {
-            if (!formData.calleAv) return alert("Por favor ingresa la calle/Av");
-            if (!formData.manzana) return alert("Por favor ingresa la manzana");
-            if (!formData.lote) return alert("Por favor ingresa el lote");
+            if (!formData.calleAv) {
+                showAlert("Campo Requerido", "Por favor ingresa la calle/Av", "warning");
+                return;
+            }
+            if (!formData.manzana) {
+                showAlert("Campo Requerido", "Por favor ingresa la manzana", "warning");
+                return;
+            }
+            if (!formData.lote) {
+                showAlert("Campo Requerido", "Por favor ingresa el lote", "warning");
+                return;
+            }
         }
-        if (!formData.cp) return alert("Por favor ingresa el código postal");
+        if (!formData.cp) {
+            showAlert("Campo Requerido", "Por favor ingresa el código postal", "warning");
+            return;
+        }
 
         try {
             const payload = {
@@ -114,20 +186,36 @@ const PerfilEmpresa: React.FC = () => {
                 lote: formData.lote,
                 calleAv: formData.calleAv,
                 imagenPerfil: formData.imagenPerfil,
-                nombrePlaza: formData.nombrePlaza
+                nombrePlaza: formData.nombrePlaza,
+                gerente: formData.gerente,
+                telefonoGerente: formData.telefonoGerente,
+                subgerente: formData.subgerente,
+                telefonoSubgerente: formData.telefonoSubgerente
             };
 
             if (editId) {
                 await updateNegocio(Number(editId), payload);
-                alert("Informaci?n actualizada correctamente (DB)");
+                // PERSISTENCIA LOCAL: Guardar también en localStorage para campos nuevos (gerente, etc)
+                const localData = JSON.parse(localStorage.getItem('local_negocios_info') || '{}');
+                localData[editId] = payload;
+                localStorage.setItem('local_negocios_info', JSON.stringify(localData));
+
+                showAlert("Éxito", "Información actualizada correctamente", "success");
             } else {
-                await createNegocio(payload);
-                alert("Informaci?n guardada correctamente (DB)");
+                const newNegocio = await createNegocio(payload);
+                // PERSISTENCIA LOCAL: Si la API devuelve el nuevo ID, lo guardamos localmente
+                if (newNegocio && newNegocio.id) {
+                    const localData = JSON.parse(localStorage.getItem('local_negocios_info') || '{}');
+                    localData[newNegocio.id] = payload;
+                    localStorage.setItem('local_negocios_info', JSON.stringify(localData));
+                }
+
+                showAlert("Éxito", "Información guardada correctamente", "success");
             }
             navigate('/cliente');
         } catch (error) {
             console.error("Error saving negocio:", error);
-            alert("Hubo un error al guardar la empresa en el servidor.");
+            showAlert("Error", "Hubo un error al guardar la empresa en el servidor.", "error");
         }
     };
 
@@ -228,6 +316,7 @@ const PerfilEmpresa: React.FC = () => {
                                             name={formData.tipo === 'FS' ? 'calle' : 'nombrePlaza'}
                                             className={styles.input}
                                             placeholder={formData.tipo === 'FS' ? 'Ej: Calle 60' : ''}
+                                            value={formData.tipo === 'FS' ? formData.calle : formData.nombrePlaza}
                                             onChange={handleChange}
                                         />
                                     </div>
@@ -247,15 +336,15 @@ const PerfilEmpresa: React.FC = () => {
                                 <div className={styles.formGrid}>
                                     <div className={styles.inputGroup}>
                                         <label className={styles.label}>Calle</label>
-                                        <input type="text" name="calle" className={styles.input} onChange={handleChange} />
+                                        <input type="text" name="calle" className={styles.input} value={formData.calle} onChange={handleChange} />
                                     </div>
                                     <div className={styles.inputGroup}>
                                         <label className={styles.label}>Numero</label>
-                                        <input type="text" name="numero" className={styles.input} onChange={handleChange} />
+                                        <input type="text" name="numero" className={styles.input} value={formData.numero} onChange={handleChange} />
                                     </div>
                                     <div className={styles.inputGroup}>
                                         <label className={styles.label}>Colonia</label>
-                                        <input type="text" name="colonia" className={styles.input} onChange={handleChange} />
+                                        <input type="text" name="colonia" className={styles.input} value={formData.colonia} onChange={handleChange} />
                                     </div>
                                 </div>
 
@@ -263,7 +352,7 @@ const PerfilEmpresa: React.FC = () => {
                                     <div className={styles.formGrid}>
                                         <div className={styles.inputGroup} style={{ gridColumn: 'span 3' }}>
                                             <label className={styles.label}>Referencia</label>
-                                            <input type="text" name="referencia" className={styles.input} placeholder="Entre calle X y Y" onChange={handleChange} />
+                                            <input type="text" name="referencia" className={styles.input} placeholder="Entre calle X y Y" value={formData.referencia} onChange={handleChange} />
                                         </div>
                                     </div>
                                 )}
@@ -275,15 +364,15 @@ const PerfilEmpresa: React.FC = () => {
                             <div className={styles.formGrid}>
                                 <div className={styles.inputGroup}>
                                     <label className={styles.label}>Calle/Av</label>
-                                    <input type="text" name="calleAv" className={styles.input} placeholder="Ej: Av. Principal" onChange={handleChange} />
+                                    <input type="text" name="calleAv" className={styles.input} placeholder="Ej: Av. Principal" value={formData.calleAv} onChange={handleChange} />
                                 </div>
                                 <div className={styles.inputGroup}>
                                     <label className={styles.label}>Manzana</label>
-                                    <input type="text" name="manzana" className={styles.input} placeholder="Ej: 45" onChange={handleChange} />
+                                    <input type="text" name="manzana" className={styles.input} placeholder="Ej: 45" value={formData.manzana} onChange={handleChange} />
                                 </div>
                                 <div className={styles.inputGroup}>
                                     <label className={styles.label}>Lote</label>
-                                    <input type="text" name="lote" className={styles.input} placeholder="Ej: 12" onChange={handleChange} />
+                                    <input type="text" name="lote" className={styles.input} placeholder="Ej: 12" value={formData.lote} onChange={handleChange} />
                                 </div>
                             </div>
                         )}
@@ -291,7 +380,60 @@ const PerfilEmpresa: React.FC = () => {
                         <div className={styles.formGrid}>
                             <div className={styles.inputGroup} style={{ maxWidth: '200px' }}>
                                 <label className={styles.label}>Codigo postal</label>
-                                <input type="text" name="cp" className={styles.input} placeholder="97000" onChange={handleChange} />
+                                <input type="text" name="cp" className={styles.input} placeholder="97000" value={formData.cp} onChange={handleChange} />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* CONTACTOS OPERATIVOS */}
+                    <div className={styles.section}>
+                        <h2 className={styles.sectionTitle}>Contactos operativos (Opcional)</h2>
+                        <div className={styles.formGrid}>
+                            <div className={styles.inputGroup} style={{ gridColumn: 'span 2' }}>
+                                <label className={styles.label}>Nombre del Gerente</label>
+                                <input
+                                    type="text"
+                                    name="gerente"
+                                    className={styles.input}
+                                    placeholder="Ej: Juan Pérez"
+                                    value={formData.gerente}
+                                    onChange={handleChange}
+                                />
+                            </div>
+                            <div className={styles.inputGroup}>
+                                <label className={styles.label}>Teléfono Gerente</label>
+                                <input
+                                    type="text"
+                                    name="telefonoGerente"
+                                    className={styles.input}
+                                    placeholder="Ej: 9991234567"
+                                    value={formData.telefonoGerente}
+                                    onChange={handleChange}
+                                />
+                            </div>
+                        </div>
+                        <div className={styles.formGrid}>
+                            <div className={styles.inputGroup} style={{ gridColumn: 'span 2' }}>
+                                <label className={styles.label}>Nombre del Subgerente</label>
+                                <input
+                                    type="text"
+                                    name="subgerente"
+                                    className={styles.input}
+                                    placeholder="Ej: María López"
+                                    value={formData.subgerente}
+                                    onChange={handleChange}
+                                />
+                            </div>
+                            <div className={styles.inputGroup}>
+                                <label className={styles.label}>Teléfono Subgerente</label>
+                                <input
+                                    type="text"
+                                    name="telefonoSubgerente"
+                                    className={styles.input}
+                                    placeholder="Ej: 9997654321"
+                                    value={formData.telefonoSubgerente}
+                                    onChange={handleChange}
+                                />
                             </div>
                         </div>
                     </div>

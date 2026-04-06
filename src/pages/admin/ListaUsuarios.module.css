@@ -1,0 +1,268 @@
+/* ListaUsuarios.module.css */
+.container {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    height: 100%;
+}
+
+.topActions {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    margin-top: 10px;
+    margin-bottom: 20px;
+}
+
+.searchCard {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: white;
+    padding: 12px 25px;
+    border-radius: 44px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    flex: 1;
+    max-width: 500px;
+    border: 1px solid #eee;
+}
+
+.searchIcon {
+    color: #FFB800;
+}
+
+.searchInput {
+    border: none;
+    outline: none;
+    flex: 1;
+    font-size: 15px;
+    color: #333;
+}
+
+.filterWrapper {
+    width: 200px;
+}
+
+.roleSelect {
+    width: 100%;
+    padding: 12px 20px;
+    border-radius: 44px;
+    border: 1px solid #eee;
+    background: white;
+    font-size: 14px;
+    color: #555;
+    outline: none;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.roleSelect:focus {
+    border-color: #FFB800;
+}
+
+.listGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+    overflow-y: auto;
+    padding-bottom: 30px;
+}
+
+.userCard {
+    background: white;
+    border-radius: 24px;
+    padding: 25px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    transition: transform 0.2s, box-shadow 0.2s;
+    border: 1px solid #f0f0f0;
+}
+
+.userCard:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    border-color: #FFB800;
+}
+
+.cardHeader {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.avatar {
+    width: 50px;
+    height: 50px;
+    background: #FFB80022;
+    color: #FFB800;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mainInfo {
+    flex: 1;
+}
+
+.mainInfo h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+    color: #111;
+}
+
+.roleBadge {
+    font-size: 11px;
+    font-weight: bold;
+    text-transform: uppercase;
+    background: #f0f0f0;
+    color: #666;
+    padding: 4px 10px;
+    border-radius: 20px;
+    display: inline-block;
+    margin-top: 4px;
+}
+
+.cardBody {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.infoRow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #555;
+    font-size: 14px;
+}
+
+.icon {
+    color: #888;
+}
+
+.cardFooter {
+    border-top: 1px solid #f0f0f0;
+    padding-top: 15px;
+    margin-top: 5px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: #999;
+}
+
+.loading, .noResults {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 50px;
+    color: #777;
+    font-size: 16px;
+    background: #fafafa;
+    border-radius: 20px;
+}
+
+@media (max-width: 768px) {
+    .topActions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .searchCard, .filterWrapper {
+        max-width: none;
+        width: 100%;
+    }
+    .listGrid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.actionButtons {
+    display: flex;
+    gap: 10px;
+}
+
+.iconBtn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+    color: #555;
+}
+
+.iconBtn:hover {
+    background: #f0f0f0;
+}
+
+.editBtn:hover {
+    color: #1a73e8;
+}
+
+.blockBtn:hover {
+    color: #d93025;
+}
+
+.unblockBtn:hover {
+    color: #1e8e3e;
+}
+
+.statusLabel {
+    font-size: 11px;
+    font-weight: bold;
+    padding: 2px 8px;
+    border-radius: 10px;
+    margin-right: 8px;
+}
+
+.statusActive {
+    background: #e6f4ea;
+    color: #1e8e3e;
+}
+
+.statusBlocked {
+    background: #fce8e6;
+    color: #d93025;
+}
+
+.userCard.blocked {
+    opacity: 0.7;
+    filter: grayscale(0.5);
+    border-left: 4px solid #d93025;
+}
+
+.editInput {
+    border: 1px solid #FFB800;
+    padding: 4px 8px;
+    border-radius: 8px;
+    font-size: 14px;
+    width: 100%;
+    outline: none;
+}
+
+.saveBtn {
+    background: #FFB800;
+    color: white;
+    border: none;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.cancelBtn {
+    background: #eee;
+    color: #666;
+    border: none;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    cursor: pointer;
+}
