@@ -22,6 +22,7 @@ import { getTrabajo, updateEstadoTrabajo, assignTrabajador } from "../../service
 import { createActividad, getActividadesByTrabajo, deleteActividad } from "../../services/actividadesService";
 import { getTrabajadores } from "../../services/trabajadoresService";
 import { saveCotizacion, updateCotizacion, deleteCotizacion, updateCotizacionStatus, getCotizacionesByTrabajoId, type Cotizacion } from "../../services/cotizacionesService";
+import { createNotificacionByRole } from "../../services/notificacionesService";
 import { useModal } from "../../context/ModalContext";
 
 export interface CotizacionData {
@@ -60,12 +61,13 @@ interface Trabajo {
     fechaAsignada?: string;
     horaAsignada?: string;
     cotizacion?: CotizacionData;
-    asignaciones?: {
+        asignaciones?: {
         tecnicoId: number;
         tecnicoNombre: string;
         fechaAsignada: string;
         horaAsignada: string;
     }[];
+    fechaSolicitud?: string;
 }
 
 interface SubTarea {
@@ -105,6 +107,16 @@ const AdminDetalleTrabajo: React.FC = () => {
     const initialTab = searchParams.get('tab') === 'cotizacion' ? 'Cotización' : (user?.role === 'cliente' ? "Historial" : "Datos");
     const [activeTab, setActiveTab] = useState<"Datos" | "Trabajo" | "Registro" | "Historial" | "Cotización">(initialTab);
 
+    // Sincronizar pestaña activa con parámetro de URL (Deep Linking)
+    useEffect(() => {
+        const tabParam = new URLSearchParams(location.search).get('tab');
+        if (tabParam === 'cotizacion') {
+            setActiveTab('Cotización');
+        } else if (tabParam === 'historial') {
+            setActiveTab('Historial');
+        }
+    }, [location.search]);
+
     // Modal Imagen Full-Screen
     const [selectedZoomImage, setSelectedZoomImage] = useState<string | null>(null);
 
@@ -120,7 +132,6 @@ const AdminDetalleTrabajo: React.FC = () => {
     // ESTADOS COTIZACIÓN (nueva cotización)
     const [costo, setCosto] = useState("");
     const [notas, setNotas] = useState("");
-    const [archivo, setArchivo] = useState<string | null>(null);
     const [archivoFile, setArchivoFile] = useState<File | null>(null);
     const [nombreArchivo, setNombreArchivo] = useState<string>("");
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -137,6 +148,12 @@ const AdminDetalleTrabajo: React.FC = () => {
     const [editNombreArchivo, setEditNombreArchivo] = useState("");
     const editFileInputRef = useRef<HTMLInputElement>(null);
     const [tecnicosData, setTecnicosData] = useState<Tecnico[]>([]);
+    const [showAddQuoteForm, setShowAddQuoteForm] = useState(false);
+
+    // ESTADOS RECHAZO CON MOTIVO
+    const [showRejectionModal, setShowRejectionModal] = useState(false);
+    const [rejectionReason, setRejectionReason] = useState("");
+    const [quoteToReject, setQuoteToReject] = useState<number | null>(null);
 
     useEffect(() => {
         const fetchTecnicos = async () => {
@@ -162,8 +179,7 @@ const AdminDetalleTrabajo: React.FC = () => {
             try {
                 const data = await getTrabajo(Number(id));
                 currentTech = data.trabajador?.nombre || "Sin Asignar";
-                const isTrabajoDefinitivo = ["Cotización Enviada", "Cotización Rechazada", "Cotización Aceptada", "Cotización Aprobada", "En Proceso", "Finalizado"].includes(data.estado) || data.visitado;
-                const calculatedTipo = isTrabajoDefinitivo ? "Trabajo" : "Visita";
+                const calculatedTipo = (["Cotización Enviada", "Cotización Aceptada", "Cotización Aprobada", "Cotización Rechazada", "En Proceso", "Finalizado"].includes(data.estado) || data.visitado) ? "Trabajo" : "Visita";
 
                 const mappedJob = {
                     id: data.id,
@@ -185,7 +201,11 @@ const AdminDetalleTrabajo: React.FC = () => {
                     calle: data.negocio?.calle || "Por definir",
                     numero: data.negocio?.numero || "S/N",
                     colonia: data.negocio?.colonia || "Por definir",
-                    cp: data.negocio?.cp || "S/N"
+                    cp: data.negocio?.cp || "S/N",
+                    manzana: data.negocio?.manzana || "Por definir",
+                    lote: data.negocio?.lote || "Por definir",
+                    referencias: data.negocio?.referencias || "Por definir",
+                    fechaSolicitud: data.created_at ? new Date(data.created_at).toLocaleDateString('es-MX') : "No registrada"
                 };
                 setTrabajo(mappedJob as any);
             } catch (error) {
@@ -265,20 +285,6 @@ const AdminDetalleTrabajo: React.FC = () => {
         fetchAll();
     }, [id]);
 
-    // Save tasks to local storage whenever they change
-    const saveTasks = (newTasks: SubTarea[]) => {
-        try {
-            localStorage.setItem(`tasks_${id}`, JSON.stringify(newTasks));
-            setSubTareas(newTasks);
-        } catch (error) {
-            showAlert(
-                'Error de Almacenamiento',
-                'No se pudo guardar la tarea. Es posible que el archivo adjunto sea demasiado pesado.',
-                'error'
-            );
-            throw error;
-        }
-    };
 
     // MODAL STATES
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -300,7 +306,6 @@ const AdminDetalleTrabajo: React.FC = () => {
     // ADD NEW TASK MODAL STATE
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
-    const [newTaskCategory, setNewTaskCategory] = useState("Plomeria"); // Default category
     const [newTaskDescription, setNewTaskDescription] = useState("");
     const [isQuoteIncluded, setIsQuoteIncluded] = useState(false);
     const [newQuoteAmount, setNewQuoteAmount] = useState("");
@@ -346,16 +351,18 @@ const AdminDetalleTrabajo: React.FC = () => {
                     const needsStateUpdate = trabajo.estado === "Solicitud" || trabajo.estado === "Cotización Aceptada" || trabajo.estado === "Cotización Aprobada";
                     const newEstado = needsStateUpdate ? "Asignado" : trabajo.estado;
 
-                    if (needsStateUpdate) {
-                        await updateEstadoTrabajo(trabajo.id, { estado: "Asignado" });
-                    }
+                    // Always sync visited status regardless of current state to allow reverting mistakes
+                    await updateEstadoTrabajo(trabajo.id, { 
+                        estado: newEstado,
+                        visitado: selectedType === "Trabajo" 
+                    });
 
                     const updatedJob = {
                         ...trabajo,
                         tecnico: assignedNames,
                         estado: newEstado,
                         tipo: selectedType,
-                        visitado: trabajo.visitado,
+                        visitado: selectedType === "Trabajo",
                         fechaAsignada: asignarFecha,
                         horaAsignada: asignarHora
                     };
@@ -503,32 +510,6 @@ const AdminDetalleTrabajo: React.FC = () => {
         setActiveTab("Trabajo");
     };
 
-    const handleAceptarCotizacion = async () => {
-        if (!trabajo) return;
-        try {
-            await updateEstadoTrabajo(trabajo.id, { estado: "Cotización Aceptada - Lista para asignar trabajador" });
-            setTrabajo((prev: any) => prev ? {
-                ...prev,
-                estado: "Cotización Aceptada - Lista para asignar trabajador"
-            } : prev);
-            showAlert('Éxito', 'Cotización aceptada - Lista para asignar trabajador.', 'success');
-        } catch (error) {
-            console.error("Error al aprobar cotización:", error);
-            showAlert('Error', 'No se pudo aprobar la cotización.', 'error');
-        }
-    };
-
-    const handleRechazarCotizacion = async () => {
-        if (!trabajo) return;
-        try {
-            await updateEstadoTrabajo(trabajo.id, { estado: 'Cotización Rechazada' });
-            setTrabajo((prev: any) => prev ? { ...prev, estado: 'Cotización Rechazada' } : prev);
-            showAlert('Info', 'La cotización ha sido rechazada.', 'info');
-        } catch (error) {
-            console.error("Error al rechazar cotización:", error);
-            showAlert('Error', 'No se pudo rechazar la cotización.', 'error');
-        }
-    };
 
     const handleDeleteTask = async (e: React.MouseEvent, taskId: number) => {
         e.stopPropagation();
@@ -583,7 +564,6 @@ const AdminDetalleTrabajo: React.FC = () => {
     const openEditModal = (e: React.MouseEvent, tarea: SubTarea) => {
         e.stopPropagation();
         setEditingTaskId(tarea.id);
-        setNewTaskCategory(tarea.titulo);
         setNewTaskDescription(tarea.descripcion);
         setIsAddModalOpen(true);
     };
@@ -638,6 +618,11 @@ const AdminDetalleTrabajo: React.FC = () => {
                         'Reporte confirmado y enviado al Administrador.',
                         'success'
                     );
+
+                    // Redirigir al técnico al menú para evitar que siga editando
+                    if (user?.role === 'tecnico') {
+                        navigate('/tecnico/solicitudes');
+                    }
                 } catch (error: any) {
                     showAlert(
                         'Error de Estado',
@@ -657,13 +642,13 @@ const AdminDetalleTrabajo: React.FC = () => {
             setArchivoFile(file); // Guarda el objeto puro File para enviarlo
             const reader = new FileReader();
             reader.onloadend = () => {
-                setArchivo(reader.result as string); // Sirve solo para mantener el string en UI (opcional)
+                // Sirve solo para mantener el string en UI (opcional)
             };
             reader.readAsDataURL(file);
         }
     };
 
-    const handleEnviarCotizacion = async () => {
+    const handleEnviarCotizacion = async (keepOpen: boolean = false) => {
         if (!costo || !archivoFile || !trabajo) {
             showAlert('Campos Incompletos', 'Por favor, ingresa el costo y sube un documento.', 'info');
             return;
@@ -681,8 +666,15 @@ const AdminDetalleTrabajo: React.FC = () => {
             formData.append('archivo', archivoFile);
             const savedCotiz = await saveCotizacion(formData as any);
             setCotizaciones(prev => [...prev, savedCotiz]);
-            setCosto(""); setNotas(""); setArchivo(null); setArchivoFile(null); setNombreArchivo("");
-            showAlert('Cotización Agregada', `Cotización #${cotizaciones.length + 1} agragada y enviada al cliente.`, 'success');
+            
+            // RESET FIELDS
+            setCosto(""); setNotas(""); setArchivoFile(null); setNombreArchivo("");
+            
+            if (!keepOpen) {
+                setShowAddQuoteForm(false);
+            }
+
+            showAlert('Cotización Agregada', `Cotización #${cotizaciones.length + 1} agregada y enviada al cliente.`, 'success');
         } catch (error: any) {
             showAlert('Error', error.response?.data?.message || error.message, 'error');
         }
@@ -740,17 +732,40 @@ const AdminDetalleTrabajo: React.FC = () => {
     };
 
     const handleClienteRechazarCotizacion = (cotizId: number) => {
-        showConfirm('¿Rechazar Cotización?', '¿Estás seguro? Aún podrás revisar las demás opciones.',
-            async () => {
-                try {
-                    await updateCotizacionStatus(cotizId, "Rechazada");
-                    setCotizaciones(prev => prev.map(c => c.id === cotizId ? { ...c, estado: "Rechazada" as const } : c));
-                    showAlert('Cotización Rechazada', 'Has rechazado esta opción.', 'info');
-                } catch (error: any) {
-                    showAlert('Error', error.response?.data?.message || error.message, 'error');
-                }
-            }
-        );
+        setQuoteToReject(cotizId);
+        setRejectionReason("");
+        setShowRejectionModal(true);
+    };
+
+    const handleSubmitRejection = async () => {
+        if (!quoteToReject || !rejectionReason.trim() || !trabajo) {
+            showAlert('Atención', 'Por favor ingresa un motivo para el rechazo.', 'warning');
+            return;
+        }
+
+        try {
+            // 1. Actualizar estado de la cotización individual
+            await updateCotizacionStatus(quoteToReject, "Rechazada");
+            
+            // 2. Notificar al administrador con el motivo
+            await createNotificacionByRole({
+                role: 'admin',
+                titulo: '🚫 Cotización Rechazada',
+                mensaje: `El cliente ha rechazado una opción de presupuesto para "${trabajo.sucursal || 'Servicio'}". Motivo: ${rejectionReason}`,
+                enlace: `/menu/trabajo-detalle/${trabajo.id}?tab=cotizacion`
+            });
+
+            // 3. Actualizar estado local
+            setCotizaciones(prev => prev.map(c => c.id === quoteToReject ? { ...c, estado: "Rechazada" as const } : c));
+            
+            setShowRejectionModal(false);
+            setRejectionReason("");
+            setQuoteToReject(null);
+            
+            showAlert('Enviado', 'Se ha notificado al administrador sobre el rechazo y tu motivo.', 'info');
+        } catch (error: any) {
+            showAlert('Error', error.response?.data?.message || error.message, 'error');
+        }
     };
 
 
@@ -936,9 +951,10 @@ const AdminDetalleTrabajo: React.FC = () => {
                             if (estado === "Finalizado") return 4;
                             if (["En Proceso"].includes(estado)) return 3;
                             const isAuthTech = user?.role === 'tecnico';
-                            if (["Cotización Enviada", "Cotización Aceptada", "Cotización Aprobada", "Cotización Rechazada", "Asignado"].includes(estado)) {
+                            // Usamos includes para manejar los estados que tienen texto extra
+                            if (estado.includes("Cotización") || estado.includes("Asignado")) {
                                 if (estado === "Asignado" && trabajo.visitado) return 3;
-                                if (["Cotización Aceptada", "Cotización Aprobada"].includes(estado)) {
+                                if (estado.includes("Cotización Aceptada") || estado.includes("Cotización Aprobada")) {
                                     if (isAuthTech || (trabajo.tecnico !== "Sin asignar" && trabajo.tecnico !== "Sin Asignar")) return 3;
                                 }
                                 return 2;
@@ -1034,6 +1050,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                                     className={`${styles.tabButton} ${activeTab === tabName ? styles.activeTab : styles.inactiveTab}`}
                                     onClick={() => setActiveTab(tabName as any)}
                                     title={tabName}
+                                    style={{ position: 'relative' }}
                                 >
                                     <span className={styles.tabIcon}>
                                         {tabName === 'Datos' ? <HiOutlineBuildingOffice2 size={22} /> :
@@ -1043,6 +1060,25 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                         tabName === 'Cotización' ? <HiOutlineCurrencyDollar size={22} /> : <HiOutlineInformationCircle size={22} />}
                                     </span>
                                     <span className={styles.tabText}>{tabName}</span>
+
+                                    {/* INDICADOR DE NOTIFICACIÓN (ROJO) PARA COTIZACIÓN PENDIENTE */}
+                                    {tabName === 'Cotización' && (
+                                        (trabajo?.visitado && cotizaciones.length === 0 && user?.role === 'admin') ||
+                                        (user?.role === 'cliente' && cotizaciones.some(c => c.estado === 'Pendiente'))
+                                    ) && (
+                                        <span style={{
+                                            position: 'absolute',
+                                            top: '2px',
+                                            right: '2px',
+                                            width: '10px',
+                                            height: '10px',
+                                            background: '#ef4444',
+                                            borderRadius: '50%',
+                                            border: '2px solid #fff',
+                                            boxShadow: '0 0 0 2px rgba(239, 68, 68, 0.2)',
+                                            animation: 'pulse 2s infinite'
+                                        }} />
+                                    )}
                                 </button>
                             ))}
                     </div>
@@ -1203,9 +1239,23 @@ const AdminDetalleTrabajo: React.FC = () => {
                                             <button
                                                 onClick={() => setActiveTab('Cotización')}
                                                 className={styles.actionButton}
-                                                style={{ flex: 1, padding: '12px', borderRadius: '12px', fontSize: '14px', background: '#f59e0b', color: '#fff' }}
+                                                style={{ flex: 1, padding: '12px', borderRadius: '12px', fontSize: '14px', background: '#f59e0b', color: '#fff', position: 'relative' }}
                                             >
                                                 💰 Crear Cotización
+                                                {cotizaciones.length === 0 && (
+                                                    <span style={{
+                                                        position: 'absolute',
+                                                        top: '-5px',
+                                                        right: '-5px',
+                                                        width: '12px',
+                                                        height: '12px',
+                                                        background: '#ef4444',
+                                                        borderRadius: '50%',
+                                                        border: '2px solid #fff',
+                                                        boxShadow: '0 0 10px rgba(239, 68, 68, 0.4)',
+                                                        animation: 'pulse 2s infinite'
+                                                    }} />
+                                                )}
                                             </button>
                                         )}
                                     </div>
@@ -1371,47 +1421,77 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                 </div>
                                             )}
 
-                                            {/* FORMULARIO NUEVA COTIZACIÓN */}
-                                            <div style={{ background: '#fff', borderRadius: '24px', padding: '28px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '22px', paddingBottom: '16px', borderBottom: '2px solid #f8fafc' }}>
-                                                    <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'linear-gradient(135deg, #FFB800, #f59e0b)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                        <HiOutlineCurrencyDollar size={20} color="white" />
+                                            {/* BOTÓN PARA DESPLEGAR NUEVA COTIZACIÓN */}
+                                            {!showAddQuoteForm ? (
+                                                <button
+                                                    onClick={() => setShowAddQuoteForm(true)}
+                                                    className={styles.addTaskButton}
+                                                    style={{ borderStyle: 'solid', background: '#fff', height: '100px', justifyContent: 'center' }}
+                                                >
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                                                        <div className={styles.addTaskIcon} style={{ width: '36px', height: '36px', fontSize: '20px' }}>+</div>
+                                                        <span style={{ fontSize: '18px', fontWeight: '800', color: '#1e293b' }}>
+                                                            Agregar nueva cotización
+                                                        </span>
                                                     </div>
-                                                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#1e293b' }}>
-                                                        {cotizaciones.length === 0 ? 'Nueva Cotización' : `+ Agregar Opción ${cotizaciones.length + 1}`}
-                                                    </h3>
-                                                </div>
-
-                                                <div style={{ marginBottom: '16px' }}>
-                                                    <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>Monto ($)</label>
-                                                    <div style={{ position: 'relative' }}>
-                                                        <span style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', fontSize: '18px', fontWeight: '900', color: '#FFB800' }}>$</span>
-                                                        <input type="number" placeholder="1500" value={costo} onChange={e => setCosto(e.target.value)}
-                                                            style={{ width: '100%', padding: '13px 16px 13px 36px', borderRadius: '14px', border: '2px solid #e2e8f0', fontSize: '17px', fontWeight: '700', color: '#1e293b', boxSizing: 'border-box' }} />
-                                                    </div>
-                                                </div>
-
-                                                <div style={{ marginBottom: '16px' }}>
-                                                    <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>Notas para el cliente</label>
-                                                    <textarea placeholder="Ej: Incluye mano de obra y materiales..." value={notas} onChange={e => setNotas(e.target.value)}
-                                                        style={{ width: '100%', padding: '13px 16px', borderRadius: '14px', border: '2px solid #e2e8f0', fontSize: '14px', color: '#475569', minHeight: '90px', resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit', lineHeight: '1.6' }} />
-                                                </div>
-
-                                                <input type="file" accept="image/*, .pdf" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileChange} />
-                                                <div onClick={() => fileInputRef.current?.click()}
-                                                    style={{ border: `2.5px dashed ${archivoFile ? '#10b981' : '#e2e8f0'}`, padding: '22px 16px', borderRadius: '16px', cursor: 'pointer', background: archivoFile ? '#f0fdf4' : '#f8fafc', textAlign: 'center', transition: 'all 0.3s', marginBottom: '16px' }}>
-                                                    <div style={{ fontSize: '28px', marginBottom: '8px' }}>{archivoFile ? '✅' : '📎'}</div>
-                                                    <p style={{ margin: 0, fontWeight: '700', fontSize: '13px', color: archivoFile ? '#059669' : '#64748b' }}>
-                                                        {archivoFile ? `✓ ${nombreArchivo}` : 'Adjuntar PDF o imagen'}
-                                                    </p>
-                                                    {!archivoFile && <p style={{ margin: '4px 0 0 0', fontSize: '11px', color: '#94a3b8' }}>PDF, PNG, JPG — Máx. 10MB</p>}
-                                                </div>
-
-                                                <button onClick={handleEnviarCotizacion}
-                                                    style={{ width: '100%', padding: '15px', background: 'linear-gradient(135deg, #FFB800, #f59e0b)', color: '#fff', border: 'none', borderRadius: '15px', fontSize: '15px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 8px 20px rgba(255,184,0,0.35)' }}>
-                                                    {cotizaciones.length === 0 ? 'Enviar Cotización al Cliente' : `➕ Agregar Opción ${cotizaciones.length + 1}`}
                                                 </button>
-                                            </div>
+                                            ) : (
+                                                /* FORMULARIO NUEVA COTIZACIÓN */
+                                                <div style={{ background: '#fff', borderRadius: '24px', padding: '28px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '22px', paddingBottom: '16px', borderBottom: '2px solid #f8fafc' }}>
+                                                        <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'linear-gradient(135deg, #FFB800, #f59e0b)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                            <HiOutlineCurrencyDollar size={20} color="white" />
+                                                        </div>
+                                                        <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#1e293b' }}>
+                                                            {cotizaciones.length === 0 ? 'Nueva Cotización' : `Configurando Opción ${cotizaciones.length + 1}`}
+                                                        </h3>
+                                                    </div>
+
+                                                    <div style={{ marginBottom: '16px' }}>
+                                                        <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>Monto ($)</label>
+                                                        <div style={{ position: 'relative' }}>
+                                                            <span style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', fontSize: '18px', fontWeight: '900', color: '#FFB800' }}>$</span>
+                                                            <input type="number" placeholder="1500" value={costo} onChange={e => setCosto(e.target.value)}
+                                                                style={{ width: '100%', padding: '13px 16px 13px 36px', borderRadius: '14px', border: '2px solid #e2e8f0', fontSize: '17px', fontWeight: '700', color: '#1e293b', boxSizing: 'border-box' }} />
+                                                        </div>
+                                                    </div>
+
+                                                    <div style={{ marginBottom: '16px' }}>
+                                                        <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>Notas para el cliente</label>
+                                                        <textarea placeholder="Ej: Incluye mano de obra y materiales..." value={notas} onChange={e => setNotas(e.target.value)}
+                                                            style={{ width: '100%', padding: '13px 16px', borderRadius: '14px', border: '2px solid #e2e8f0', fontSize: '14px', color: '#475569', minHeight: '90px', resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit', lineHeight: '1.6' }} />
+                                                    </div>
+
+                                                    <input type="file" accept="image/*, .pdf" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileChange} />
+                                                    <div onClick={() => fileInputRef.current?.click()}
+                                                        style={{ border: `2.5px dashed ${archivoFile ? '#10b981' : '#e2e8f0'}`, padding: '22px 16px', borderRadius: '16px', cursor: 'pointer', background: archivoFile ? '#f0fdf4' : '#f8fafc', textAlign: 'center', transition: 'all 0.3s', marginBottom: '16px' }}>
+                                                        <div style={{ fontSize: '28px', marginBottom: '8px' }}>{archivoFile ? '✅' : '📎'}</div>
+                                                        <p style={{ margin: 0, fontWeight: '700', fontSize: '13px', color: archivoFile ? '#059669' : '#64748b' }}>
+                                                            {archivoFile ? `✓ ${nombreArchivo}` : 'Adjuntar PDF o imagen'}
+                                                        </p>
+                                                        {!archivoFile && <p style={{ margin: '4px 0 0 0', fontSize: '11px', color: '#94a3b8' }}>PDF, PNG, JPG — Máx. 10MB</p>}
+                                                    </div>
+
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                        <div style={{ display: 'flex', gap: '12px' }}>
+                                                            <button onClick={() => handleEnviarCotizacion(false)}
+                                                                style={{ flex: 2, padding: '15.5px', background: 'linear-gradient(135deg, #FFB800, #f59e0b)', color: '#fff', border: 'none', borderRadius: '15px', fontSize: '14px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 8px 20px rgba(255,184,0,0.3) ', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                                                <span>Enviar Cotización</span>
+                                                            </button>
+                                                            <button onClick={() => setShowAddQuoteForm(false)}
+                                                                style={{ flex: 1, padding: '15px', background: '#f8fafc', border: '2px solid #e2e8f0', color: '#64748b', borderRadius: '15px', fontSize: '14px', fontWeight: '700', cursor: 'pointer' }}>
+                                                                Cancelar
+                                                            </button>
+                                                        </div>
+
+                                                        {/* BOTÓN SOLICITADO: Agregar otra y seguir en la hoja */}
+                                                        <button onClick={() => handleEnviarCotizacion(true)}
+                                                            style={{ width: '100%', padding: '15px', background: '#fff', border: '2.5px solid #FFB800', color: '#FFB800', borderRadius: '15px', fontSize: '14px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'all 0.2s' }}>
+                                                            ➕ Agregar nueva cotización
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
 
                                         {/* DERECHA: actividades del técnico */}
@@ -1504,7 +1584,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                     {
                         activeTab === 'Registro' && (
                             <div>
-                                {user?.role === 'tecnico' && trabajo.tipo === 'Visita' && (
+                                {(user?.role === 'tecnico' || user?.role === 'admin') && trabajo.tipo === 'Visita' && (
                                     <button
                                         onClick={() => setIsAddModalOpen(true)}
                                         className={styles.addTaskButton}
@@ -1514,7 +1594,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                                     </button>
                                 )}
 
-                                {user?.role === 'tecnico' && subTareas.length > 0 && trabajo.tipo === 'Visita' && (
+                                {(user?.role === 'tecnico' || user?.role === 'admin') && subTareas.length > 0 && trabajo.tipo === 'Visita' && (
                                     <div style={{ marginTop: '50px', textAlign: 'center' }}>
                                         <button
                                             onClick={handleFinishVisit}
@@ -1570,7 +1650,12 @@ const AdminDetalleTrabajo: React.FC = () => {
                 isModalOpen && (
                     <div className={styles.modalOverlay}>
                         <div className={styles.modalContent} style={{ width: '500px' }}>
-                            <h3 style={{ textAlign: 'center' }}>Asignar Tecnico</h3>
+                            <h3 style={{ textAlign: 'center', marginBottom: trabajo?.fechaSolicitud ? '5px' : '20px' }}>Asignar Tecnico</h3>
+                            {trabajo?.fechaSolicitud && (
+                                <p style={{ textAlign: 'center', color: '#64748b', fontSize: '12px', fontWeight: 'bold', marginBottom: '25px', marginTop: 0 }}>
+                                    📅 Solicitado el: {trabajo.fechaSolicitud}
+                                </p>
+                            )}
 
                             <div style={{ marginBottom: '20px', display: 'flex', gap: '20px', justifyContent: 'center' }}>
                                 <label className={styles.radioLabel}>
@@ -2090,6 +2175,77 @@ const AdminDetalleTrabajo: React.FC = () => {
                             style={{ maxWidth: '100%', maxHeight: '90vh', objectFit: 'contain', borderRadius: '15px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}
                             onClick={(e) => e.stopPropagation()}
                         />
+                    </div>
+                </div>
+            )}
+
+            {/* MODAL DE RECHAZO CON MOTIVO */}
+            {showRejectionModal && (
+                <div 
+                    style={{ 
+                        position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', 
+                        background: 'rgba(0, 0, 0, 0.6)', zIndex: 10001, display: 'flex', 
+                        alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' 
+                    }}
+                    onClick={() => setShowRejectionModal(false)}
+                >
+                    <div 
+                        style={{ 
+                            background: '#fff', borderRadius: '28px', padding: '35px', width: '92%', 
+                            maxWidth: '480px', boxShadow: '0 20px 50px rgba(0,0,0,0.15)',
+                            animation: 'modalSlideUp 0.3s ease-out'
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div style={{ textAlign: 'center', marginBottom: '25px' }}>
+                            <div style={{ 
+                                width: '60px', height: '60px', background: '#fef2f2', borderRadius: '50%', 
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 15px' 
+                            }}>
+                                <span style={{ fontSize: '30px' }}>📄</span>
+                            </div>
+                            <h3 style={{ margin: 0, color: '#1e293b', fontSize: '22px', fontWeight: '900' }}>Motivo de Rechazo</h3>
+                            <p style={{ margin: '8px 0 0 0', color: '#64748b', fontSize: '14px', fontWeight: '600' }}>
+                                Cuéntanos por qué no te convence esta opción para que podamos mejorarla.
+                            </p>
+                        </div>
+
+                        <textarea
+                            value={rejectionReason}
+                            onChange={(e) => setRejectionReason(e.target.value)}
+                            placeholder="Ej: El presupuesto es muy elevado / Los materiales no son los requeridos..."
+                            style={{ 
+                                width: '100%', minHeight: '130px', padding: '16px', borderRadius: '18px', 
+                                border: '2px solid #e2e8f0', fontSize: '15px', color: '#475569', 
+                                boxSizing: 'border-box', fontFamily: 'inherit', resize: 'none',
+                                outline: 'none', transition: 'border-color 0.2s'
+                            }}
+                            autoFocus
+                        />
+
+                        <div style={{ display: 'flex', gap: '12px', marginTop: '25px' }}>
+                            <button
+                                onClick={() => setShowRejectionModal(false)}
+                                style={{ 
+                                    flex: 1, padding: '14px', borderRadius: '15px', border: 'none', 
+                                    background: '#f1f5f9', color: '#64748b', fontWeight: '800', 
+                                    cursor: 'pointer', fontSize: '14px' 
+                                }}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={handleSubmitRejection}
+                                style={{ 
+                                    flex: 2, padding: '14px', borderRadius: '15px', border: 'none', 
+                                    background: 'linear-gradient(135deg, #ef4444, #dc2626)', color: '#fff', 
+                                    fontWeight: '800', cursor: 'pointer', fontSize: '14px',
+                                    boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)'
+                                }}
+                            >
+                                Confirmar Rechazo
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

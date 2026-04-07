@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { createTrabajo, getTrabajos, assignTrabajador, updateEstadoTrabajo, updateTrabajo, updateTrabajoPatch } from "../../services/trabajosService";
+import { createTrabajo, getTrabajos, updateEstadoTrabajo, assignTrabajador, updateTrabajo } from "../../services/trabajosService";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import menuStyles from "../../components/Menu.module.css";
 import styles from "./Trabajodetalles.module.css";
@@ -36,6 +36,7 @@ interface Trabajo {
     };
     isEmergency?: boolean;
     asignaciones?: AsignacionTecnico[];
+    fechaSolicitud?: string;
 }
 
 export interface AsignacionTecnico {
@@ -131,7 +132,8 @@ const TrabajoDetalle: React.FC = () => {
                         visitado: Boolean(j.visitado),
                         tipo: displayTipo,
                         descripcion: j.descripcion,
-                        isEmergency: isSOS
+                        isEmergency: isSOS,
+                        fechaSolicitud: j.created_at ? new Date(j.created_at).toLocaleDateString('es-MX') : "No registrada"
                     };
                 });
                 setTrabajosData(mapped);
@@ -341,47 +343,58 @@ const TrabajoDetalle: React.FC = () => {
 
     const handleConfirmAssignment = async () => {
         if (selectedJobId) {
+            const trabajo = trabajosData.find(j => j.id === selectedJobId);
+            const selectedTechnicians = selectedAssignments.map(a => a.tecnicoId);
+            
             const assignedNames = selectedAssignments.length > 0
                 ? selectedAssignments.map(a => a.tecnicoNombre).join(", ")
                 : "Sin asignar";
 
             const newEstado = (selectedAssignments.length > 0 ? "Asignado" : "Solicitud") as any;
 
-            try {
-                // Sincronizar con Backend (Si es vacío, enviamos null para desasignar)
-                const techIdToAssign = selectedAssignments.length > 0 ? selectedAssignments[0].tecnicoId : null;
-                
+            // Sincronizar con Backend
+            if (selectedJobId && selectedTechnicians.length > 0) {
                 try {
-                    await assignTrabajador(selectedJobId, techIdToAssign as any);
+                    await assignTrabajador(selectedJobId, selectedTechnicians[0]);
+                    
+                    const needsStateUpdate = trabajo?.estado === "Solicitud" || trabajo?.estado === "Cotización Aceptada" || trabajo?.estado === "Cotización Aprobada";
+                    const newEstado = (needsStateUpdate ? "Asignado" : trabajo?.estado || "Asignado") as any;
+
+                    // Always sync visited status regardless of current state to allow reverting mistakes
+                    await updateEstadoTrabajo(selectedJobId, { 
+                        estado: newEstado,
+                        visitado: selectedType === "Trabajo" 
+                    });
+                    showAlert("Asignación Exitosa", "Cambio guardado en el servidor.", "success");
+                } catch (error: any) {
+                    console.error("Error al asignar:", error);
+                    if (error.response && error.response.status === 422) {
+                        showAlert("Restricción del Sistema", "El servidor no permite dejar el trabajo sin un técnico asignado.", "warning");
+                    } else {
+                        showAlert("Error de Sincronización", "Hubo un error sincronizando el trabajador con la base de datos.", "error");
+                    }
+                    return;
+                }
+            } else {
+                // Intentar desasignar si es necesario
+                try {
+                    await assignTrabajador(selectedJobId, null as any);
+                    showAlert("Desasignación Exitosa", "Se retiró el técnico.", "success");
                 } catch (assignError: any) {
                     // PLAN B: Intentar con PUT general (si falla con 405/422 en la ruta específica)
-                    if (techIdToAssign === null && assignError.response && (assignError.response.status === 422 || assignError.response.status === 405)) {
+                    if (assignError.response && (assignError.response.status === 422 || assignError.response.status === 405)) {
                         console.log("Intentando Plan B: PUT general...");
                         try {
                             await updateTrabajo(selectedJobId, { trabajador_id: null });
-                        } catch (putError: any) {
-                            // PLAN C: Intentar con PATCH (si PUT dio 405 Method Not Allowed)
-                            if (putError.response && putError.response.status === 405) {
-                                console.log("Intentando Plan C: PATCH general...");
-                                await updateTrabajoPatch(selectedJobId, { trabajador_id: null });
-                            } else {
-                                throw putError;
-                            }
+                            showAlert("Desasignación Exitosa (B)", "Se actualizó el registro.", "success");
+                        } catch (e) {
+                            console.error("Plan B falló también:", e);
+                            showAlert("Error", "No se pudo desasignar.", "error");
                         }
                     } else {
-                        throw assignError;
+                        showAlert("Error", "Ocurrió un error al desasignar.", "error");
                     }
                 }
-                
-                showAlert("Asignación Exitosa", "Cambio guardado en el servidor.", "success");
-            } catch (error: any) {
-                console.error("Error al sincronizar asignación en la API:", error);
-                if (error.response && error.response.status === 422) {
-                    showAlert("Restricción del Sistema", "El servidor no permite dejar el trabajo sin un técnico asignado. Por favor, selecciona a un responsable o contacta al soporte técnico.", "warning");
-                } else {
-                    showAlert("Error de Sincronización", "Hubo un error sincronizando el trabajador con la base de datos.", "error");
-                }
-                return; // Detener para que el modal no se cierre y el usuario pueda elegir a alguien
             }
 
             const updated = trabajosData.map(job => {
@@ -391,7 +404,7 @@ const TrabajoDetalle: React.FC = () => {
                         tecnico: assignedNames,
                         estado: (job.estado === "Solicitud" || job.estado === "Asignado") ? newEstado : job.estado,
                         tipo: selectedType,
-                        visitado: job.visitado,
+                        visitado: selectedType === "Trabajo",
                         asignaciones: selectedAssignments.length > 0 ? selectedAssignments : [],
                         fechaAsignada: selectedAssignments.length > 0 ? selectedAssignments[0].fechaAsignada : "",
                         horaAsignada: selectedAssignments.length > 0 ? selectedAssignments[0].horaAsignada : ""
@@ -489,28 +502,18 @@ const TrabajoDetalle: React.FC = () => {
                 showAlert("Error", "Hubo un error contactando al servidor.", "error");
             }
         }
-        setTimeout(() => {
-            setIsRequestModalOpen(false);
-            setIsEditingRequest(false);
-            setIsSOSRequest(false);
-            setEditingRequestId(null);
-            // Reset form
-            setNewRequestData({
-                categoria: "Electricidad",
-                cliente: businessName,
-                fecha: "",
-                descripcion: ""
-            });
-            setTimeout(() => {
-                if (isSOSRequest) {
-                    showAlert("SOS Enviado", "¡Emergencia enviada con éxito! El equipo ha sido notificado.", "success");
-                } else if (isEditingRequest) {
-                    showAlert("Actualizado", "Solicitud actualizada exitosamente.", "success");
-                } else {
-                    showAlert("Creado", "Solicitud creada exitosamente.", "success");
-                }
-            }, 50);
-        }, 0);
+        
+        setIsRequestModalOpen(false);
+        setIsEditingRequest(false);
+        setIsSOSRequest(false);
+        setEditingRequestId(null);
+        // Reset form
+        setNewRequestData({
+            categoria: "Electricidad",
+            cliente: businessName,
+            fecha: "",
+            descripcion: ""
+        });
     };
 
     const handleSOSRequest = async () => {
@@ -611,10 +614,16 @@ const TrabajoDetalle: React.FC = () => {
             text = "¡ALERTA SOS!";
         } else if (status.includes("cotizaci")) {
             barClass = styles.blue;
-            text = user?.role === 'admin' ? "COTIZACIÓN ENVIADA" : "COTIZACIÓN DEL TRABAJO";
-        } else if (status === "asignado") {
+            // Si ya hay un técnico asignado (no es "Sin Asignar"), lo mostramos en el banner
+            const hasTech = job.tecnico && job.tecnico !== "Sin asignar" && job.tecnico !== "Sin Asignar";
+            if (hasTech) {
+                text = "TÉCNICO ASIGNADO";
+            } else {
+                text = user?.role === 'admin' ? "COTIZACIÓN ENVIADA" : "COTIZACIÓN DEL TRABAJO";
+            }
+        } else if (status === "asignado" || (job.tecnico && job.tecnico !== "Sin asignar" && job.tecnico !== "Sin Asignar")) {
             barClass = styles.blue;
-            text = "Asignado";
+            text = "TÉCNICO ASIGNADO";
         }
 
         return (
@@ -953,7 +962,12 @@ const TrabajoDetalle: React.FC = () => {
             {isModalOpen && (
                 <div className={styles.modalOverlay}>
                     <div className={`${styles.modalContent} ${styles.modalContentWide}`} style={{ maxHeight: '90vh', overflowY: 'auto' }}>
-                        <h3 className={styles.modalTitle}>Asignar Tecnico</h3>
+                        <h2 style={{ textAlign: 'center', marginBottom: '5px', fontSize: '28px', fontWeight: '800' }}>Asignar Tecnico</h2>
+                        {selectedJobId && trabajosData.find(j => j.id === selectedJobId)?.fechaSolicitud && (
+                            <p style={{ textAlign: 'center', color: '#64748b', fontSize: '13px', fontWeight: 'bold', marginBottom: '25px', marginTop: 0 }}>
+                                📅 Solicitado el: {trabajosData.find(j => j.id === selectedJobId)?.fechaSolicitud}
+                            </p>
+                        )}
 
                         {/* SELECCION TIPO DE TRABAJO */}
                         <div style={{ marginBottom: '20px', display: 'flex', gap: '20px', justifyContent: 'center' }}>

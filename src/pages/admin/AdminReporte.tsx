@@ -1,12 +1,18 @@
-
 import React, { useState, useRef } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import styles from './AdminReporte.module.css';
 import { createReporte, getReporteByTrabajoId } from '../../services/reportesService';
+import { getActividadesByTrabajo } from '../../services/actividadesService';
 import { updateEstadoTrabajo } from '../../services/trabajosService';
 import { createNotificacionByRole } from '../../services/notificacionesService';
 import { useAuth } from '../../context/AuthContext';
 import { useModal } from '../../context/ModalContext';
+import { 
+    HiOutlineCamera, 
+    HiOutlinePhoto, 
+    HiXMark,
+    HiOutlineArrowUpTray 
+} from 'react-icons/hi2';
 import jsPDF from 'jspdf';
 
 const compressImage = (file: File, callback: (compressedBase64: string) => void) => {
@@ -65,6 +71,7 @@ const AdminReporte: React.FC = () => {
     });
     const [imagenObservacion, setImagenObservacion] = useState<string | null>(null);
     const [firmaEmpresa, setFirmaEmpresa] = useState<string | null>(null);
+    const [reporteId, setReporteId] = useState<number | null>(null);
 
     const [involucraEquipo, setInvolucraEquipo] = useState(false);
     const [equipoInfo, setEquipoInfo] = useState({
@@ -80,6 +87,7 @@ const AdminReporte: React.FC = () => {
             try {
                 const report = await getReporteByTrabajoId(Number(id));
                 if (report) {
+                    setReporteId(report.id || null);
                     try {
                         const parsed = JSON.parse(report.solucion);
                         if (parsed.reporteTienda) setReporteTienda(parsed.reporteTienda);
@@ -107,6 +115,40 @@ const AdminReporte: React.FC = () => {
                     if (parsed.firmaEmpresa) setFirmaEmpresa(parsed.firmaEmpresa);
                     if (parsed.involucraEquipo !== undefined) setInvolucraEquipo(parsed.involucraEquipo);
                     if (parsed.equipoInfo) setEquipoInfo(parsed.equipoInfo);
+                }
+
+                // --- NUEVO: Sincronizar desde Actividades si no hay reporte guardado ---
+                if (!report || !equipoInfo.marca) {
+                    const acts = await getActividadesByTrabajo(Number(id));
+                    const serviceMarker = "|||SERVICE_DATA|||";
+                    const quoteMarker = "|||QUOTE_DATA|||";
+                    
+                    const activityWithEquipment = acts.find((a: any) => a.descripcion?.includes(serviceMarker));
+                    
+                    if (activityWithEquipment) {
+                        try {
+                            const parts = activityWithEquipment.descripcion.split(serviceMarker);
+                            // Tomar solo el JSON antes de cualquier otro marcador (como QUOTE_DATA)
+                            const jsonPart = parts[1].split(quoteMarker)[0].trim();
+                            const sData = JSON.parse(jsonPart);
+                            
+                            setInvolucraEquipo(true);
+                            setEquipoInfo({
+                                tipo: activityWithEquipment.tipo || 'Instalación',
+                                marca: sData.marca || '',
+                                modelo: sData.modelo || '',
+                                piezas: sData.piezas || '',
+                                garantia: sData.garantia || ''
+                            });
+
+                            if (!descripcion) {
+                                const cleanDesc = parts[0].split(quoteMarker)[0].trim();
+                                if (cleanDesc) setDescripcion(cleanDesc);
+                            }
+                        } catch (e) {
+                            console.error("Error al parsear datos de equipo desde actividades:", e);
+                        }
+                    }
                 }
             } catch (err) {
                 console.error("Error cargando reporte inicial:", err);
@@ -161,6 +203,18 @@ const AdminReporte: React.FC = () => {
         }
     };
 
+    const removeImage = (type: 'antes' | 'durante' | 'despues') => {
+        setImagenes(prev => ({ ...prev, [type]: null }));
+    };
+
+    const removeImagenObservacion = () => {
+        setImagenObservacion(null);
+    };
+
+    const removeFirma = () => {
+        setFirmaEmpresa(null);
+    };
+
     const handleGuardarInformacion = async () => {
         const safeId = trabajoId || id;
         if (!safeId) {
@@ -198,138 +252,157 @@ const AdminReporte: React.FC = () => {
 
     const handleGenerarPDF = async () => {
         try {
+            // PDF en blanco (doc), escala en milímetros (mm) y formato A4 [210 x 297]
             const doc = new jsPDF();
-            doc.setFontSize(16);
-            doc.text("Reporte de Mantenimiento", 105, 15, { align: "center" });
+            const dynamicFolio = reporteId ? `REP-${reporteId.toString().padStart(5, '0')}` : `TRB-${(trabajoId || id || '').toString().padStart(5, '0')}`;
 
+            // --- 1. CABECERA PROFESIONAL ---
+            // Dibujamos un rectángulo relleno (F) como barra superior
+            doc.setFillColor(30, 41, 59); // Color del menú #1e293b (RGB)
+            doc.rect(0, 0, 210, 40, 'F'); // (x, y, ancho, alto, estilo)
+
+            // Título Blanco
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(22);
+            doc.setFont("helvetica", "bold");
+            doc.text("REPORTE DE SERVICIO", 15, 20);
+
+            // Folio en un recuadro blanco dentro de la barra
+            doc.setFillColor(255, 255, 255);
+            doc.roundedRect(140, 12, 55, 12, 2, 2, 'F'); // Badge para el Folio
+            doc.setTextColor(30, 41, 59);
+            doc.setFontSize(12);
+            doc.text(`FOLIO: ${dynamicFolio}`, 145, 20);
+
+            // Fecha
+            doc.setTextColor(255, 255, 255);
             doc.setFontSize(10);
-            doc.text(`ID Tarea: ${id || "N/A"}`, 10, 25);
-            doc.text(`Fecha: ${new Date().toLocaleDateString('es-MX')}`, 10, 32);
-
-            doc.setFont("helvetica", "bold");
-            doc.text("Reporte de Tienda / Diagnóstico:", 10, 45);
             doc.setFont("helvetica", "normal");
-            const prepReporte = doc.splitTextToSize(reporteTienda || 'Sin especificar', 180);
-            doc.text(prepReporte, 10, 52);
+            doc.text(`Generado: ${new Date().toLocaleDateString('es-MX')}`, 15, 30);
 
-            let nextY = 55 + (prepReporte.length * 5); 
+            // Reestablecer color de texto a negro para el contenido
+            doc.setTextColor(0, 0, 0);
+            let nextY = 55;
 
-            doc.setFont("helvetica", "bold");
-            doc.text("Descripción del Trabajo y Solución:", 10, nextY);
-            doc.setFont("helvetica", "normal");
-            const prepDesc = doc.splitTextToSize(descripcion || 'Sin especificar', 180);
-            nextY += 7;
-            doc.text(prepDesc, 10, nextY);
+            // --- 2. SECCIÓN: DATOS GENERALES ---
+            const drawSectionHeader = (title: string, y: number) => {
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(14);
+                doc.text(title, 15, y);
+                doc.setDrawColor(230, 230, 230);
+                doc.line(15, y + 2, 195, y + 2); // Línea decorativa
+                return y + 10;
+            };
+
+            nextY = drawSectionHeader("Detalles del Servicio", nextY);
             
-            nextY += (prepDesc.length * 5) + 5;
+            // Cuerpo del Reporte (splitTextToSize permite saltos de línea automáticos)
+            doc.setFontSize(10);
+            doc.setFont("helvetica", "bold");
+            doc.text("Diagnóstico Inicial:", 15, nextY);
+            doc.setFont("helvetica", "normal");
+            const prepReporte = doc.splitTextToSize(reporteTienda || 'Sin diagnóstico especificado', 180);
+            doc.text(prepReporte, 15, nextY + 5);
+            nextY += (prepReporte.length * 5) + 12;
 
             doc.setFont("helvetica", "bold");
-            doc.text("Materiales Utilizados:", 10, nextY);
+            doc.text("Trabajo Realizado:", 15, nextY);
             doc.setFont("helvetica", "normal");
-            const prepMat = doc.splitTextToSize(materiales || 'Ninguno', 180);
-            nextY += 7;
-            doc.text(prepMat, 10, nextY);
-
-            nextY += (prepMat.length * 5) + 5;
+            const prepDesc = doc.splitTextToSize(descripcion || 'Sin descripción del trabajo', 180);
+            doc.text(prepDesc, 15, nextY + 5);
+            nextY += (prepDesc.length * 5) + 12;
 
             doc.setFont("helvetica", "bold");
-            doc.text("Observaciones Adicionales:", 10, nextY);
+            doc.text("Materiales y Refacciones:", 15, nextY);
             doc.setFont("helvetica", "normal");
-            const prepObs = doc.splitTextToSize(observaciones || 'Ninguna', 180);
-            nextY += 7;
-            doc.text(prepObs, 10, nextY);
+            const prepMat = doc.splitTextToSize(materiales || 'No se registraron materiales adicionales', 180);
+            doc.text(prepMat, 15, nextY + 5);
+            nextY += (prepMat.length * 5) + 15;
 
-            nextY += (prepObs.length * 5) + 10;
-
-            // --- NUEVA SECCIÓN: EQUIPOS INVOLUCRADOS ---
+            // --- 3. SECCIÓN: EQUIPOS (Si aplica) ---
             if (involucraEquipo) {
-                if (nextY > 260) { doc.addPage(); nextY = 20; }
+                // Si ya no cabe en esta hoja, creamos una nueva
+                if (nextY > 240) { doc.addPage(); nextY = 20; }
                 
-                doc.setFillColor(245, 245, 245);
-                doc.rect(10, nextY, 190, 35, 'F');
+                doc.setFillColor(248, 250, 252);
+                doc.roundedRect(15, nextY, 180, 25, 3, 3, 'F'); // Recuadro sombreado
                 
                 doc.setFont("helvetica", "bold");
-                doc.text("Equipos Involucrados:", 15, nextY + 8);
+                doc.text("EQUIPO INVOLUCRADO:", 20, nextY + 8);
                 
                 doc.setFontSize(9);
-                doc.text(`Tipo: ${equipoInfo.tipo}`, 15, nextY + 15);
-                doc.text(`Marca: ${equipoInfo.marca || 'N/A'}`, 15, nextY + 22);
-                doc.text(`Modelo: ${equipoInfo.modelo || 'N/A'}`, 15, nextY + 29);
+                doc.text(`Tipo: ${equipoInfo.tipo}`, 20, nextY + 16);
+                doc.text(`Marca: ${equipoInfo.marca || 'N/A'}`, 70, nextY + 16);
+                doc.text(`Modelo: ${equipoInfo.modelo || 'N/A'}`, 120, nextY + 16);
                 
                 if (equipoInfo.tipo === 'Instalación') {
-                    doc.text(`Piezas: ${equipoInfo.piezas || '1'}`, 90, nextY + 15);
-                    doc.text(`Garantía: ${equipoInfo.garantia || '0'} meses`, 90, nextY + 22);
+                    doc.text(`Cantidad: ${equipoInfo.piezas}`, 20, nextY + 21);
+                    doc.text(`Garantía: ${equipoInfo.garantia} meses`, 70, nextY + 21);
                 }
-                
-                doc.setFontSize(10);
-                nextY += 45;
+                nextY += 35;
             }
 
-            let currentY = nextY + 5;
+            // --- 4. SECCIÓN: EVIDENCIA ---
+            if (nextY > 180) { doc.addPage(); nextY = 20; }
+            nextY = drawSectionHeader("Evidencia Fotográfica", nextY);
 
-            if (currentY > 230) {
-                doc.addPage();
-                currentY = 20;
-            }
-
+            let rowX = 15;
+            const imgSize = 55; // Tamaño de cada foto cuadrada (55mm)
+            
             if (imagenes.antes || imagenes.durante || imagenes.despues) {
-                doc.setFont("helvetica", "bold");
-                doc.text("Evidencia Fotográfica:", 10, currentY);
-                currentY += 10;
-                
-                let x = 15;
+                // Antes
                 if (imagenes.antes) {
-                    doc.text("Antes", x + 15, currentY);
-                    doc.addImage(imagenes.antes, 'JPEG', x, currentY + 5, 45, 45);
-                    x += 60;
+                    doc.addImage(imagenes.antes, 'JPEG', rowX, nextY, imgSize, imgSize);
+                    doc.setFontSize(8);
+                    doc.text("ANTES", rowX + (imgSize/2), nextY + imgSize + 5, { align: 'center' });
+                    rowX += 65;
                 }
+                // Durante
                 if (imagenes.durante) {
-                    doc.text("Durante", x + 15, currentY);
-                    doc.addImage(imagenes.durante, 'JPEG', x, currentY + 5, 45, 45);
-                    x += 60;
+                    doc.addImage(imagenes.durante, 'JPEG', rowX, nextY, imgSize, imgSize);
+                    doc.setFontSize(8);
+                    doc.text("DURANTE", rowX + (imgSize/2), nextY + imgSize + 5, { align: 'center' });
+                    rowX += 65;
                 }
+                // Después
                 if (imagenes.despues) {
-                    doc.text("Después", x + 15, currentY);
-                    doc.addImage(imagenes.despues, 'JPEG', x, currentY + 5, 45, 45);
+                    doc.addImage(imagenes.despues, 'JPEG', rowX, nextY, imgSize, imgSize);
+                    doc.setFontSize(8);
+                    doc.text("DESPUÉS", rowX + (imgSize/2), nextY + imgSize + 5, { align: 'center' });
                 }
-                currentY += 65;
+                nextY += 75;
             }
 
-            if (imagenObservacion) {
-                if (currentY > 180) {
-                    doc.addPage();
-                    currentY = 20;
-                }
-                doc.setFont("helvetica", "bold");
-                doc.text("Evidencia Adicional (Observaciones):", 10, currentY);
-                doc.addImage(imagenObservacion, 'JPEG', 10, currentY + 10, 80, 80);
-                currentY += 100;
-            }
-
+            // --- 5. FIRMA DE CONFORMIDAD ---
             if (firmaEmpresa) {
-                if (currentY > 230) {
-                    doc.addPage();
-                    currentY = 20;
-                }
-                doc.setFont("helvetica", "bold");
-                doc.text("Firma de Conformidad de la Empresa:", 10, currentY);
+                if (nextY > 230) { doc.addPage(); nextY = 20; }
                 
                 if (firmaEmpresa.startsWith('data:application/pdf')) {
-                    doc.setFont("helvetica", "normal");
-                    doc.text("[ Documento PDF Adjunto cargado en Base de Datos ]", 10, currentY + 15);
+                    // Si es PDF no podemos dibujarlo directo en jsPDF fácilmente
+                    doc.text("[ Firma adjunta en archivo separado ]", 105, nextY + 20, { align: 'center' });
                 } else {
-                    doc.addImage(firmaEmpresa, 'JPEG', 10, currentY + 5, 60, 40);
-                    doc.setDrawColor(0);
-                    doc.line(10, currentY + 50, 70, currentY + 50);
-                    doc.setFont("helvetica", "normal");
-                    doc.text("Sello / Firma Autorizada", 25, currentY + 55);
+                    doc.addImage(firmaEmpresa, 'JPEG', (210/2) - 30, nextY, 60, 40);
+                    doc.setDrawColor(200);
+                    doc.line(75, nextY + 45, 135, nextY + 45); // Línea de firma
+                    doc.setFontSize(10);
+                    doc.text("Firma de Conformidad / Sello", 105, nextY + 50, { align: 'center' });
                 }
             }
 
-            doc.save(`Reporte_Mantenimiento_T${id}.pdf`);
+            // Pie de página (Número de página)
+            const pages = doc.internal.pages.length;
+            for (let j = 1; j < pages; j++) {
+                doc.setPage(j);
+                doc.setFontSize(8);
+                doc.setTextColor(150);
+                doc.text(`Página ${j} de ${pages - 1} | Sistema de Gestión Automatizado`, 105, 285, { align: 'center' });
+            }
+
+            // Descargar
+            doc.save(`${dynamicFolio}_Reporte.pdf`);
         } catch (error) {
             console.error(error);
-            showAlert("Error PDF", "Hubo un error al generar el PDF. Asegúrate de que las fotos no sean demasiado grandes o corruptas.", "error");
+            showAlert("Error PDF", "Hubo un error al generar el PDF. Revisa las imágenes.", "error");
         }
     };
 
@@ -406,212 +479,268 @@ const AdminReporte: React.FC = () => {
                 <div className={styles.contentWrapper}>
                     <div className={styles.scrollableContent}>
                         <div className={styles.header}>
-                            <h1 className={styles.pageTitle}>Reporte</h1>
+                            <h1 className={styles.pageTitle}>Reporte de Servicio</h1>
                             <div className={styles.metaInfo}>
-                                <div>Folio <span className={styles.metaValue}>15676577</span></div>
-                                <div>Fecha: <span className={styles.metaValue}>{new Date().toLocaleDateString()}</span></div>
+                                <div className={styles.folioBadge}>
+                                    FOLIO: {reporteId ? `REP-${reporteId.toString().padStart(5, '0')}` : `TRB-${(trabajoId || id || '').toString().padStart(5, '0')}`}
+                                </div>
+                                <div className={styles.metaValue}>Fecha: {new Date().toLocaleDateString()}</div>
                             </div>
                         </div>
 
-                        <div className={styles.infoSectionCard}>
-                            <h3 className={styles.sectionTitle}>Datos del Reporte</h3>
-                            <div className={styles.inputGroup}>
-                                <label className={styles.label}>Reporte de tienda:</label>
-                                <input
-                                    type="text"
-                                    className={styles.input}
-                                    value={reporteTienda}
-                                    onChange={(e) => setReporteTienda(e.target.value)}
-                                />
-                            </div>
-
-                            <div className={styles.inputGroup}>
-                                <label className={styles.label}>Descripción:</label>
-                                <input
-                                    type="text"
-                                    className={styles.input}
-                                    value={descripcion}
-                                    onChange={(e) => setDescripcion(e.target.value)}
-                                />
-                            </div>
-
-                            <div className={styles.inputGroup}>
-                                <label className={styles.label}>Materiales Utilizados:</label>
-                                <input
-                                    type="text"
-                                    className={styles.input}
-                                    value={materiales}
-                                    onChange={(e) => setMateriales(e.target.value)}
-                                />
-                            </div>
-                        </div>
-
-                        <div className={styles.infoSectionCard}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <h3 className={styles.sectionTitle}>Equipos Involucrados</h3>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 'bold' }}>
-                                    <input 
-                                        type="checkbox" 
-                                        checked={involucraEquipo} 
-                                        onChange={(e) => setInvolucraEquipo(e.target.checked)} 
-                                        style={{ width: '18px', height: '18px' }}
+                        <div className={styles.mainGrid}>
+                            <div className={styles.infoSectionCard}>
+                                <h3 className={styles.sectionTitle}>Datos del Reporte</h3>
+                                <div className={styles.inputGroup}>
+                                    <label className={styles.label}>Reporte de tienda / Diagnóstico:</label>
+                                    <textarea
+                                        className={styles.textarea}
+                                        value={reporteTienda}
+                                        onChange={(e) => setReporteTienda(e.target.value)}
+                                        placeholder="Ej. Falla en compresor..."
                                     />
-                                    Registrar un equipo
-                                </label>
+                                </div>
+
+                                <div className={styles.inputGroup}>
+                                    <label className={styles.label}>Descripción del Trabajo:</label>
+                                    <textarea
+                                        className={styles.textarea}
+                                        value={descripcion}
+                                        onChange={(e) => setDescripcion(e.target.value)}
+                                        placeholder="Ej. Se realizó cambio de capacitor..."
+                                    />
+                                </div>
+
+                                <div className={styles.inputGroup}>
+                                    <label className={styles.label}>Materiales Utilizados:</label>
+                                    <textarea
+                                        className={styles.textarea}
+                                        style={{ height: '80px' }}
+                                        value={materiales}
+                                        onChange={(e) => setMateriales(e.target.value)}
+                                        placeholder="Ej. 1 Filtro, 2m Cable..."
+                                    />
+                                </div>
                             </div>
 
-                            {involucraEquipo && (
-                                <div style={{ marginTop: '20px' }}>
-                                    <div style={{ display: 'flex', gap: '15px', marginBottom: '20px' }}>
-                                        <button 
-                                            type="button"
-                                            onClick={() => handleEquipoInfoChange('tipo', 'Instalación')}
-                                            style={{ 
-                                                flex: 1, padding: '10px', borderRadius: '8px', fontWeight: 'bold', border: 'none',
-                                                background: equipoInfo.tipo === 'Instalación' ? '#1976d2' : '#e0e0e0',
-                                                color: equipoInfo.tipo === 'Instalación' ? 'white' : '#333'
-                                            }}
-                                        >
-                                            Instalación
-                                        </button>
-                                        <button 
-                                            type="button"
-                                            onClick={() => handleEquipoInfoChange('tipo', 'Mantenimiento')}
-                                            style={{ 
-                                                flex: 1, padding: '10px', borderRadius: '8px', fontWeight: 'bold', border: 'none',
-                                                background: equipoInfo.tipo === 'Mantenimiento' ? '#1976d2' : '#e0e0e0',
-                                                color: equipoInfo.tipo === 'Mantenimiento' ? 'white' : '#333'
-                                            }}
-                                        >
-                                            Mantenimiento
-                                        </button>
-                                    </div>
-
-                                    <div className={styles.inputGroup}>
-                                        <label className={styles.label}>Marca:</label>
-                                        <input
-                                            type="text"
-                                            className={styles.input}
-                                            value={equipoInfo.marca}
-                                            onChange={(e) => handleEquipoInfoChange('marca', e.target.value)}
-                                            placeholder="Ej. Samsung, Truper..."
+                            <div className={styles.infoSectionCard}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <h3 className={styles.sectionTitle}>Equipos Involucrados</h3>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 'bold' }}>
+                                        <input 
+                                            type="checkbox" 
+                                            checked={involucraEquipo} 
+                                            onChange={(e) => setInvolucraEquipo(e.target.checked)} 
+                                            style={{ width: '18px', height: '18px' }}
                                         />
-                                    </div>
-                                    <div className={styles.inputGroup}>
-                                        <label className={styles.label}>Modelo / Detalles:</label>
-                                        <input
-                                            type="text"
-                                            className={styles.input}
-                                            value={equipoInfo.modelo}
-                                            onChange={(e) => handleEquipoInfoChange('modelo', e.target.value)}
-                                        />
-                                    </div>
+                                        Registrar un equipo
+                                    </label>
+                                </div>
 
-                                    {equipoInfo.tipo === 'Instalación' && (
-                                        <div style={{ display: 'flex', gap: '15px' }}>
-                                            <div className={styles.inputGroup} style={{ flex: 1 }}>
-                                                <label className={styles.label}>No. de Piezas/Instalados:</label>
+                                {involucraEquipo && (
+                                    <div style={{ marginTop: '5px' }}>
+                                        <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
+                                            <button 
+                                                type="button"
+                                                onClick={() => handleEquipoInfoChange('tipo', 'Instalación')}
+                                                style={{ 
+                                                    flex: 1, padding: '8px', borderRadius: '8px', fontWeight: 'bold', border: 'none', fontSize: '13px',
+                                                    background: equipoInfo.tipo === 'Instalación' ? '#1e293b' : '#f1f5f9',
+                                                    color: equipoInfo.tipo === 'Instalación' ? 'white' : '#64748b'
+                                                }}
+                                            >
+                                                Instalación
+                                            </button>
+                                            <button 
+                                                type="button"
+                                                onClick={() => handleEquipoInfoChange('tipo', 'Mantenimiento')}
+                                                style={{ 
+                                                    flex: 1, padding: '8px', borderRadius: '8px', fontWeight: 'bold', border: 'none', fontSize: '13px',
+                                                    background: equipoInfo.tipo === 'Mantenimiento' ? '#1e293b' : '#f1f5f9',
+                                                    color: equipoInfo.tipo === 'Mantenimiento' ? 'white' : '#64748b'
+                                                }}
+                                            >
+                                                Mantenimiento
+                                            </button>
+                                        </div>
+
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                                            <div className={styles.inputGroup}>
+                                                <label className={styles.label}>Marca:</label>
                                                 <input
-                                                    type="number"
+                                                    type="text"
                                                     className={styles.input}
-                                                    value={equipoInfo.piezas}
-                                                    onChange={(e) => handleEquipoInfoChange('piezas', e.target.value)}
-                                                    min="1"
+                                                    value={equipoInfo.marca}
+                                                    onChange={(e) => handleEquipoInfoChange('marca', e.target.value)}
+                                                    placeholder="Samsung..."
                                                 />
                                             </div>
-                                            <div className={styles.inputGroup} style={{ flex: 1 }}>
-                                                <label className={styles.label}>Garantía (Meses):</label>
+                                            <div className={styles.inputGroup}>
+                                                <label className={styles.label}>Modelo:</label>
                                                 <input
-                                                    type="number"
+                                                    type="text"
                                                     className={styles.input}
-                                                    value={equipoInfo.garantia}
-                                                    onChange={(e) => handleEquipoInfoChange('garantia', e.target.value)}
-                                                    placeholder="Ej. 12"
-                                                    min="0"
+                                                    value={equipoInfo.modelo}
+                                                    onChange={(e) => handleEquipoInfoChange('modelo', e.target.value)}
+                                                    placeholder="AR12..."
                                                 />
                                             </div>
                                         </div>
-                                    )}
-                                </div>
-                            )}
+
+                                        {equipoInfo.tipo === 'Instalación' && (
+                                            <div style={{ display: 'flex', gap: '15px' }}>
+                                                <div className={styles.inputGroup} style={{ flex: 1 }}>
+                                                    <label className={styles.label}>Piezas:</label>
+                                                    <input
+                                                        type="number"
+                                                        className={styles.input}
+                                                        value={equipoInfo.piezas}
+                                                        onChange={(e) => handleEquipoInfoChange('piezas', e.target.value)}
+                                                        min="1"
+                                                    />
+                                                </div>
+                                                <div className={styles.inputGroup} style={{ flex: 1 }}>
+                                                    <label className={styles.label}>Garantía (Meses):</label>
+                                                    <input
+                                                        type="number"
+                                                        className={styles.input}
+                                                        value={equipoInfo.garantia}
+                                                        onChange={(e) => handleEquipoInfoChange('garantia', e.target.value)}
+                                                        placeholder="12"
+                                                        min="0"
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                                {!involucraEquipo && (
+                                    <div style={{ background: '#f8fafc', padding: '15px', borderRadius: '12px', textAlign: 'center', color: '#94a3b8', border: '1px dashed #e2e8f0', fontSize: '13px' }}>
+                                        No se ha registrado información de equipos en este reporte.
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                         <div className={styles.infoSectionCard}>
                             <h3 className={styles.sectionTitle}>Evidencia y Observaciones</h3>
-                            <div className={styles.evidenceSection}>
-                                <label className={styles.label}>Evidencia Fotográfica:</label>
-                                <div className={styles.evidenceGrid}>
-                                    <div className={styles.evidenceItem} onClick={() => antesInputRef.current?.click()}>
-                                        <span className={styles.evidenceLabel}>Antes</span>
-                                        <div className={styles.squareBox} style={{ cursor: 'pointer', overflow: 'hidden' }}>
-                                            {imagenes.antes ? <img src={imagenes.antes} alt="Antes" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : '🖼️'}
+                            <div className={styles.evidenceSubGrid}>
+                                <div className={styles.evidenceSection}>
+                                    <label className={styles.label}>Fotografías de Respaldo:</label>
+                                    <div className={styles.evidenceGrid}>
+                                        <div className={styles.evidenceItem}>
+                                            <span className={styles.evidenceLabel}>Antes</span>
+                                            <div className={styles.squareBox} onClick={() => antesInputRef.current?.click()}>
+                                                {imagenes.antes ? (
+                                                    <>
+                                                        <img src={imagenes.antes} alt="Antes" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '10px' }} />
+                                                        <button 
+                                                            className={styles.deletePhotoBtn} 
+                                                            onClick={(e) => { e.stopPropagation(); removeImage('antes'); }}
+                                                            title="Eliminar foto"
+                                                        >
+                                                            <HiXMark />
+                                                        </button>
+                                                    </>
+                                                ) : <HiOutlinePhoto />}
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div className={styles.evidenceItem} onClick={() => duranteInputRef.current?.click()}>
-                                        <span className={styles.evidenceLabel}>Durante</span>
-                                        <div className={styles.squareBox} style={{ cursor: 'pointer', overflow: 'hidden' }}>
-                                            {imagenes.durante ? <img src={imagenes.durante} alt="Durante" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : '🖼️'}
+                                        <div className={styles.evidenceItem}>
+                                            <span className={styles.evidenceLabel}>Durante</span>
+                                            <div className={styles.squareBox} onClick={() => duranteInputRef.current?.click()}>
+                                                {imagenes.durante ? (
+                                                    <>
+                                                        <img src={imagenes.durante} alt="Durante" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '10px' }} />
+                                                        <button 
+                                                            className={styles.deletePhotoBtn} 
+                                                            onClick={(e) => { e.stopPropagation(); removeImage('durante'); }}
+                                                            title="Eliminar foto"
+                                                        >
+                                                            <HiXMark />
+                                                        </button>
+                                                    </>
+                                                ) : <HiOutlinePhoto />}
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div className={styles.evidenceItem} onClick={() => despuesInputRef.current?.click()}>
-                                        <span className={styles.evidenceLabel}>Después</span>
-                                        <div className={styles.squareBox} style={{ cursor: 'pointer', overflow: 'hidden' }}>
-                                            {imagenes.despues ? <img src={imagenes.despues} alt="Despues" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : '🖼️'}
+                                        <div className={styles.evidenceItem}>
+                                            <span className={styles.evidenceLabel}>Después</span>
+                                            <div className={styles.squareBox} onClick={() => despuesInputRef.current?.click()}>
+                                                {imagenes.despues ? (
+                                                    <>
+                                                        <img src={imagenes.despues} alt="Despues" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '10px' }} />
+                                                        <button 
+                                                            className={styles.deletePhotoBtn} 
+                                                            onClick={(e) => { e.stopPropagation(); removeImage('despues'); }}
+                                                            title="Eliminar foto"
+                                                        >
+                                                            <HiXMark />
+                                                        </button>
+                                                    </>
+                                                ) : <HiOutlinePhoto />}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            <div className={styles.inputGroup}>
-                                <label className={styles.label}>Observaciones Adicionales:</label>
-                                <textarea
-                                    className={styles.textarea}
-                                    value={observaciones}
-                                    onChange={(e) => setObservaciones(e.target.value)}
-                                ></textarea>
-                                <div style={{ marginTop: '15px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                    <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#555', display: 'block', marginBottom: '15px', width: '100%', textAlign: 'left' }}>Evidencia Fotográfica:</span>
-                                    <div className={styles.evidenceItem} onClick={() => observacionInputRef.current?.click()}>
-                                        <div
-                                            className={styles.squareBox}
-                                            style={{
-                                                width: '120px',
-                                                height: '120px',
-                                                cursor: 'pointer',
-                                                overflow: 'hidden',
-                                                flexDirection: 'column'
-                                            }}
-                                        >
-                                            {imagenObservacion ? (
-                                                <img src={imagenObservacion} alt="Evidencia Observación" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                            ) : (
-                                                <>
-                                                    <span style={{ fontSize: '28px', marginBottom: '5px' }}>📸</span>
-                                                    <span style={{ fontSize: '13px', textAlign: 'center', fontWeight: 'normal', color: 'inherit' }}>Añadir Foto</span>
-                                                </>
-                                            )}
+                                <div className={styles.inputGroup} style={{ marginBottom: 0 }}>
+                                    <label className={styles.label}>Observaciones Adicionales:</label>
+                                    <div style={{ display: 'flex', gap: '20px' }}>
+                                        <textarea
+                                            className={styles.textarea}
+                                            style={{ flex: 1, height: '90px' }}
+                                            value={observaciones}
+                                            onChange={(e) => setObservaciones(e.target.value)}
+                                            placeholder="Notas internas u observaciones para el cliente..."
+                                        ></textarea>
+                                        
+                                        <div className={styles.evidenceItem}>
+                                            <span className={styles.evidenceLabel}>Foto Extra</span>
+                                            <div className={styles.squareBox} onClick={() => observacionInputRef.current?.click()} style={{ width: '90px', height: '90px' }}>
+                                                {imagenObservacion ? (
+                                                    <>
+                                                        <img src={imagenObservacion} alt="Obs" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '10px' }} />
+                                                        <button 
+                                                            className={styles.deletePhotoBtn} 
+                                                            onClick={(e) => { e.stopPropagation(); removeImagenObservacion(); }}
+                                                            title="Eliminar foto"
+                                                        >
+                                                            <HiXMark />
+                                                        </button>
+                                                    </>
+                                                ) : <HiOutlineCamera />}
+                                            </div>
                                         </div>
                                     </div>
-                                    {imagenObservacion && (
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); setImagenObservacion(null); }}
-                                            style={{ marginTop: '12px', background: 'none', border: 'none', color: '#d32f2f', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}>
-                                            Eliminar Foto
-                                        </button>
-                                    )}
                                 </div>
                             </div>
                         </div>
 
                         <div className={styles.infoSectionCard}>
-                            <h3 className={styles.sectionTitle}>Validación</h3>
+                            <h3 className={styles.sectionTitle}>Validación Final</h3>
                             <div className={styles.validationSection}>
                                 <div className={styles.validationGrid}>
-                                    <div className={styles.evidenceItem} onClick={() => firmaInputRef.current?.click()}>
-                                        <div className={styles.squareBox} style={{ cursor: 'pointer', overflow: 'hidden', width: '250px', height: '120px', margin: '0 auto', marginBottom: '8px' }}>
-                                            {firmaEmpresa ? <img src={firmaEmpresa} alt="Firma Empresa" style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <span style={{ fontSize: '14px', color: '#666', fontWeight: 'normal', textAlign: 'center', padding: '10px' }}>📸 Cargar Firma<br /><small>(Obligatorio)</small></span>}
+                                    <div className={styles.evidenceItem}>
+                                        <div className={styles.squareBox} onClick={() => firmaInputRef.current?.click()} style={{ width: '300px', height: '120px', margin: '0 auto' }}>
+                                            {firmaEmpresa ? (
+                                                <>
+                                                    <img src={firmaEmpresa} alt="Firma" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                                                    <button 
+                                                        className={styles.deletePhotoBtn} 
+                                                        onClick={(e) => { e.stopPropagation(); removeFirma(); }}
+                                                        style={{ top: '5px', right: '5px' }}
+                                                    >
+                                                        <HiXMark />
+                                                    </button>
+                                                </>
+                                            ) : (
+                                                <div style={{ textAlign: 'center', color: '#64748b' }}>
+                                                    <HiOutlineArrowUpTray style={{ fontSize: '28px', marginBottom: '8px' }} />
+                                                    <div style={{ fontSize: '13px', fontWeight: '600' }}>Cargar Firma de Conformidad</div>
+                                                    <div style={{ fontSize: '11px', opacity: 0.7 }}>(Obligatorio para finalizar)</div>
+                                                </div>
+                                            )}
                                         </div>
-                                        <span className={styles.signatureLabel}>Validación de servicio<br />(Firma de la Empresa)</span>
+                                        <span className={styles.signatureLabel} style={{ marginTop: '10px', display: 'block', fontSize: '12px', color: '#64748b' }}>Sello o Firma Autorizada de la Empresa</span>
                                     </div>
                                 </div>
                             </div>

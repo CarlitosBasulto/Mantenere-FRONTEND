@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import styles from "./Cotizaciones.module.css";
 import { HiOutlineDocumentText, HiOutlineCheckCircle, HiOutlineXCircle } from "react-icons/hi2";
 import { useAuth } from "../../context/AuthContext";
@@ -38,6 +39,8 @@ interface CotizacionesProps {
 
 const Cotizaciones: React.FC<CotizacionesProps> = ({ businessId }) => {
     const { user } = useAuth();
+    const navigate = useNavigate();
+    const location = useLocation();
     const [rawCotizaciones, setRawCotizaciones] = useState<TrabajoCotizado[]>([]);
 
     const [searchText, setSearchText] = useState("");
@@ -50,34 +53,7 @@ const Cotizaciones: React.FC<CotizacionesProps> = ({ businessId }) => {
     const [reportData, setReportData] = useState<any>(null); // Datos del reporte centralizado
     const [selectedZoomImage, setSelectedZoomImage] = useState<string | null>(null);
 
-    const openCotizacionModal = async (cotizacion: TrabajoCotizado) => {
-        setSelectedCotizacion(cotizacion);
-        setReportData(null); // Reset
-        
-        try {
-            // 1. Cargar Tareas (Actividades) desde API
-            const acts = await getActividadesByTrabajo(cotizacion.id);
-            setCotizacionTasks(acts.map((a: any) => ({
-                id: a.id,
-                titulo: a.tipo,
-                descripcion: a.descripcion,
-                estado: "Nueva"
-            })));
-
-            // 2. Cargar Reporte General del Trabajo
-            const report = await getReporteByTrabajoId(cotizacion.id);
-            if (report && report.solucion) {
-                try {
-                    setReportData(JSON.parse(report.solucion));
-                } catch (e) {
-                    setReportData({ descripcion: report.descripcion });
-                }
-            }
-        } catch (error) {
-            console.error("Error al cargar detalles de cotización:", error);
-            setCotizacionTasks([]);
-        }
-    };
+    // Eliminado el modal local en favor de la navegación al detalle del trabajo
 
     useEffect(() => {
         if (!user) return;
@@ -111,13 +87,14 @@ const Cotizaciones: React.FC<CotizacionesProps> = ({ businessId }) => {
                     if (!cotizacionData && ["Cotización Enviada", "Cotización Aceptada", "Cotización Rechazada", "Asignado", "En Proceso", "Finalizado"].includes(job.estado)) {
                         try {
                             const coti = await getCotizacionByTrabajoId(job.id);
-                            if (coti) {
+                            if (coti && coti.length > 0) {
+                                const mainCoti = coti[0];
                                 cotizacionData = {
-                                    id: coti.id,
-                                    costo: coti.monto,
-                                    notas: coti.descripcion,
-                                    archivo: coti.archivo,
-                                    fecha: coti.updated_at ? new Date(coti.updated_at).toLocaleDateString('es-MX') : (job.fecha_programada || new Date(job.created_at).toLocaleDateString('es-MX'))
+                                    id: mainCoti.id,
+                                    costo: mainCoti.monto,
+                                    notas: mainCoti.descripcion,
+                                    archivo: mainCoti.archivo,
+                                    fecha: mainCoti.updated_at ? new Date(mainCoti.updated_at).toLocaleDateString('es-MX') : (job.fecha_programada || new Date(job.created_at).toLocaleDateString('es-MX'))
                                 };
                             }
                         } catch (e) {
@@ -233,8 +210,11 @@ const Cotizaciones: React.FC<CotizacionesProps> = ({ businessId }) => {
                                 {cotizacionesAgrupadas[empresa].map((cotizacion) => {
                                     const estatusInfo = getEstatusInfo(cotizacion.estado);
 
+                                    const basePath = location.pathname.startsWith('/admin') || location.pathname.startsWith('/menu') ? '/menu' : '/cliente';
                                     return (
-                                        <div key={cotizacion.id} className={styles.card} onClick={() => openCotizacionModal(cotizacion)} style={{ cursor: 'pointer' }}>
+                                        <div key={cotizacion.id} className={styles.card} 
+                                            onClick={() => navigate(`${basePath}/trabajo-detalle/${cotizacion.id}?tab=cotizacion`)} 
+                                            style={{ cursor: 'pointer' }}>
                                             <div className={styles.cardContent}>
                                                 <div className={styles.cardIcon}>
                                                     <HiOutlineDocumentText className={styles.iconDoc} />
@@ -246,28 +226,12 @@ const Cotizaciones: React.FC<CotizacionesProps> = ({ businessId }) => {
                                                             <h3 className={styles.concepto}>{cotizacion.titulo}</h3>
                                                             <span className={styles.negocio}>{cotizacion.ubicacion}</span>
                                                         </div>
-                                                        <div className={styles.montoContainer}>
-                                                            <span className={styles.monto}>${cotizacion.cotizacion?.costo}</span>
-                                                        </div>
                                                     </div>
 
                                                     <div className={styles.cardFooter}>
                                                         <span className={styles.fecha}>Actualizada: {cotizacion.cotizacion?.fecha || cotizacion.fecha}</span>
 
                                                         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                                                            {/* Link al archivo PDF */}
-                                                            {cotizacion.cotizacion?.archivo && (
-                                                                <a
-                                                                    href={cotizacion.cotizacion.archivo.startsWith('http') || cotizacion.cotizacion.archivo.startsWith('data:') ? cotizacion.cotizacion.archivo : `http://127.0.0.1:8085/storage/${cotizacion.cotizacion.archivo}`}
-                                                                    target="_blank"
-                                                                    rel="noreferrer"
-                                                                    style={{ fontSize: '12px', fontWeight: 'bold', color: '#007bff', textDecoration: 'none' }}
-                                                                    onClick={(e) => e.stopPropagation()}
-                                                                >
-                                                                    Ver PDF 📎
-                                                                </a>
-                                                            )}
-
                                                             <div className={`${styles.statusBadge} ${estatusInfo.cssClass}`}>
                                                                 {estatusInfo.text === "Aceptada" ? (
                                                                     <HiOutlineCheckCircle className={styles.statusIcon} />

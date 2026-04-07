@@ -76,7 +76,17 @@ const ListaNegocios: React.FC = () => {
 
         // FILTRO POR ROL: El técnico solo ve los negocios donde tiene trabajos asignados
         if (user?.role === 'tecnico') {
-            const hasAssignedJobs = globalJobs.some((j: any) => j.negocio_id === negocio.id && j.trabajador?.user_id === user.id);
+            const hasAssignedJobs = globalJobs.some((j: any) => {
+                const isMine = j.trabajador_id === user.id || j.trabajador?.user_id === user.id;
+                if (!isMine) return false;
+
+                const status = (j.estado || "").toLowerCase();
+                // Ocultar si ya fue visitado (En Espera) o si ya finalizó
+                const isProcessedVisita = j.tipo === "Visita" && (j.visitado || status === 'en espera');
+                const isFinalizado = status === 'finalizado';
+
+                return !isProcessedVisita && !isFinalizado;
+            });
             return matchesSearch && hasAssignedJobs;
         }
 
@@ -167,8 +177,8 @@ const ListaNegocios: React.FC = () => {
                                                 Estado: {negocio.estado_geografico}
                                             </p>
 
-                                            {/* ALERTA DE COTIZACIÓN */}
-                                            {globalJobs.some(j => j.negocio_id === negocio.id && (j.estado || "").toLowerCase().includes("cotizaci")) && (
+                                            {/* ALERTA DE COTIZACIÓN - Solo visible para Admin/Cliente, no para técnico */}
+                                            {user?.role !== 'tecnico' && globalJobs.some(j => j.negocio_id === negocio.id && (j.estado || "").toLowerCase().includes("cotizaci")) && (
                                                 <div className={styles.quoteBadge} style={{ marginTop: '10px' }}>
                                                     💰 Cotización Recibida
                                                 </div>

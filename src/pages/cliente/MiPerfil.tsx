@@ -114,12 +114,18 @@ const MiPerfil: React.FC = () => {
         try {
             // 1. GUARDAR EN EL SERVIDOR (Si es técnico y tenemos su ID)
             if (user?.role === 'tecnico' && workerId) {
-                await updateTrabajador(workerId, {
+                const updateData: any = {
                     nombre: formData.nombre,
                     correo: formData.email,
                     telefono: formData.telefono,
-                    avatar: formData.imagenPerfil
-                });
+                };
+
+                // Solo enviamos el avatar si es una imagen en base64 (nueva carga)
+                if (formData.imagenPerfil && formData.imagenPerfil.startsWith('data:image')) {
+                    updateData.avatar = formData.imagenPerfil;
+                }
+
+                await updateTrabajador(workerId, updateData);
             }
 
             // 2. Guardar perfil en storage local para persistencia inmediata

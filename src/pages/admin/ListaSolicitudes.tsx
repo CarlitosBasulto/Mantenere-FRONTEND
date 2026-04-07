@@ -87,7 +87,7 @@ const ListaSolicitudes: React.FC = () => {
                     tecnicoUserId: j.trabajador?.user_id || j.trabajador_id || null,
                     fecha: j.fecha_programada ? (j.fecha_programada.includes('-') ? j.fecha_programada.split('-').reverse().join('/') : j.fecha_programada) : new Date(j.created_at).toLocaleDateString('es-MX'),
                     estado: j.estado === "Pendiente" ? "Solicitud" : j.estado,
-                    tipo: j.tipo || (j.prioridad === 'Alta' || j.titulo?.includes('SOS') ? "SOS" : "Nueva Solicitud"),
+                    tipo: (["Cotización Enviada", "Cotización Aceptada", "Cotización Aprobada", "Cotización Rechazada", "En Proceso", "Finalizado"].includes(j.estado) || j.visitado) ? "Trabajo" : "Visita",
                     sucursal: j.negocio?.nombre || "Por definir",
                     visitado: !!j.visitado,
                 }));
@@ -174,12 +174,10 @@ const ListaSolicitudes: React.FC = () => {
         } else if (job.tipo === "SOS") {
             barClass = styles.red;
             text = "¡ALERTA SOS!";
-        } else if (status.includes("cotizaci")) {
+        } else if (status.includes("cotizaci") || status === "asignado" || (job.tecnico && job.tecnico !== "Sin asignar" && job.tecnico !== "Sin Asignar")) {
             barClass = styles.blue;
-            text = "Cotización";
-        } else if (status === "asignado") {
-            barClass = styles.blue;
-            text = "Asignado";
+            const hasTech = job.tecnico && job.tecnico !== "Sin asignar" && job.tecnico !== "Sin Asignar";
+            text = hasTech ? "TÉCNICO ASIGNADO" : "Cotización Enviada";
         } else {
             text = job.estado;
         }
