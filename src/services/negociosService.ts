@@ -1,5 +1,14 @@
 import api from "./api";
 
+export const uploadImage = async (file: File): Promise<string> => {
+    const formData = new FormData();
+    formData.append("foto", file);
+    const response = await api.post("/upload-imagen", formData, {
+        headers: { "Content-Type": "multipart/form-data" }
+    });
+    return response.data.url;
+};
+
 // Obtener todos los negocios
 export const getNegocios = async () => {
     const res = await api.get(`/negocios`);

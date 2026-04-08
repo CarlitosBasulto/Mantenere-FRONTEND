@@ -7,7 +7,6 @@ import { useModal } from "../../context/ModalContext";
 import { getNegocios } from "../../services/negociosService";
 import { getTrabajos } from "../../services/trabajosService";
 
-import { HiOutlinePencil } from "react-icons/hi2";
 import { FaImage } from "react-icons/fa6";
 
 interface Negocio {
@@ -99,10 +98,9 @@ const ListaNegocios: React.FC = () => {
     };
 
     const handleEditClick = (e: React.MouseEvent, id: number) => {
-        e.stopPropagation(); // Evitar navegar al detalle del trabajo
-        if (user?.role === 'cliente') {
-            navigate(`/cliente/perfil-empresa?id=${id}`);
-        }
+        e.stopPropagation();
+        const basePath = user?.role === 'cliente' ? '/cliente' : '/menu';
+        navigate(`${basePath}/perfil-empresa?id=${id}`);
     };
 
     return (
@@ -157,7 +155,12 @@ const ListaNegocios: React.FC = () => {
                                     style={hasSOS ? { border: '2px solid #f44336', backgroundColor: '#fffafa' } : (hasDiagnosis ? { border: '2px solid #00a699', backgroundColor: '#f0fdfc' } : {})}
                                 >
                                     <div className={styles.cardContent}>
-                                        <div className={styles.cardIcon}>
+                                        <div 
+                                            className={styles.cardIcon} 
+                                            onClick={(e) => handleEditClick(e, negocio.id)}
+                                            style={{ cursor: (user?.role === 'cliente' || user?.role === 'admin') ? 'pointer' : 'default' }}
+                                            title={(user?.role === 'cliente' || user?.role === 'admin') ? "Editar Perfil" : ""}
+                                        >
                                             {negocio.imagenPerfil ? (
                                                 <img
                                                     src={negocio.imagenPerfil}
@@ -185,15 +188,6 @@ const ListaNegocios: React.FC = () => {
                                             )}
                                         </div>
 
-                                        {user?.role === 'cliente' && (
-                                            <button
-                                                className={styles.editBtn}
-                                                onClick={(e) => handleEditClick(e, negocio.id)}
-                                                title="Editar Registro"
-                                            >
-                                                <HiOutlinePencil size={20} />
-                                            </button>
-                                        )}
 
                                         <div className={`${styles.cardIndicator} ${negocio.status === 'Finalizado' ? styles.blue : ''}`}></div>
                                     </div>

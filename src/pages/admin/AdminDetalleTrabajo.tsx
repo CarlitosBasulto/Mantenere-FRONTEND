@@ -16,7 +16,8 @@ import {
     HiOutlineBolt,
     HiOutlineCog6Tooth,
     HiOutlineSquare3Stack3D, // For masonry
-    HiOutlinePencilSquare // For general categories
+    HiOutlinePencilSquare, // For general categories
+    HiOutlineXMark
 } from "react-icons/hi2";
 import { getTrabajo, updateEstadoTrabajo, assignTrabajador } from "../../services/trabajosService";
 import { createActividad, getActividadesByTrabajo, deleteActividad } from "../../services/actividadesService";
@@ -24,6 +25,9 @@ import { getTrabajadores } from "../../services/trabajadoresService";
 import { saveCotizacion, updateCotizacion, deleteCotizacion, updateCotizacionStatus, getCotizacionesByTrabajoId, type Cotizacion } from "../../services/cotizacionesService";
 import { createNotificacionByRole } from "../../services/notificacionesService";
 import { useModal } from "../../context/ModalContext";
+import { getNegocio } from "../../services/negociosService";
+import LevantamientoModal from "../../components/LevantamientoModal";
+
 
 export interface CotizacionData {
     id?: number;
@@ -129,6 +133,30 @@ const AdminDetalleTrabajo: React.FC = () => {
     const [isSecurityModalOpen, setIsSecurityModalOpen] = useState(false);
     const [selectedTaskForReport, setSelectedTaskForReport] = useState<SubTarea | null>(null);
 
+    // MODAL DATOS SUCURSAL
+    const [isSucursalModalOpen, setIsSucursalModalOpen] = useState(false);
+
+    // MODAL EQUIPOS = LEVANTAMIENTO TÉCNICO
+    const [isAdminLevantamientoModalOpen, setIsAdminLevantamientoModalOpen] = useState(false);
+    const [adminLevantamientoData, setAdminLevantamientoData] = useState<any[]>([]);
+
+    const handleOpenEquipos = async () => {
+        if (!(trabajo as any).businessId) {
+            showAlert("Error", "Este trabajo no tiene una empresa asociada válida.", "error");
+            return;
+        }
+        try {
+            const negocioResponse = await getNegocio((trabajo as any).businessId);
+            const negocio = negocioResponse.data || negocioResponse;
+            // Manejar si el arreglo es null
+            setAdminLevantamientoData(negocio.areas || []);
+            setIsAdminLevantamientoModalOpen(true);
+        } catch (error) {
+            showAlert("Error", "No se pudo cargar la información de equipos.", "error");
+        }
+    };
+
+
     // ESTADOS COTIZACIÓN (nueva cotización)
     const [costo, setCosto] = useState("");
     const [notas, setNotas] = useState("");
@@ -205,7 +233,8 @@ const AdminDetalleTrabajo: React.FC = () => {
                     manzana: data.negocio?.manzana || "Por definir",
                     lote: data.negocio?.lote || "Por definir",
                     referencias: data.negocio?.referencias || "Por definir",
-                    fechaSolicitud: data.created_at ? new Date(data.created_at).toLocaleDateString('es-MX') : "No registrada"
+                    fechaSolicitud: data.created_at ? new Date(data.created_at).toLocaleDateString('es-MX') : "No registrada",
+                    businessId: data.negocio_id || data.negocio?.id
                 };
                 setTrabajo(mappedJob as any);
             } catch (error) {
@@ -1081,6 +1110,18 @@ const AdminDetalleTrabajo: React.FC = () => {
                                     )}
                                 </button>
                             ))}
+                        {(trabajo as any).businessId && user?.role === 'admin' && (
+                            <button
+                                className={`${styles.tabButton} ${styles.inactiveTab}`}
+                                onClick={handleOpenEquipos}
+                                title="Ver Equipos"
+                            >
+                                <span className={styles.tabIcon}>
+                                    <HiOutlineClipboardDocumentList size={22} />
+                                </span>
+                                <span className={styles.tabText}>Ver Equipos</span>
+                            </button>
+                        )}
                     </div>
                 </div>
 
@@ -1088,7 +1129,12 @@ const AdminDetalleTrabajo: React.FC = () => {
                     {activeTab === 'Datos' && (
                         <div className={styles.bentoGrid}>
                             {/* Card 1: Información General (8/12) */}
-                            <div className={`${styles.bentoCard} ${styles.colSpan8}`}>
+                            <div 
+                                className={`${styles.bentoCard} ${styles.colSpan8}`}
+                                onClick={() => setIsSucursalModalOpen(true)}
+                                style={{ cursor: 'pointer', transition: 'transform 0.2s', ':hover': { transform: 'scale(1.02)' } } as any}
+                                title="Ver detalles de contacto y ubicación"
+                            >
                                 <div className={styles.cardHeader}>
                                     <div className={`${styles.iconBox} ${styles.bgBlue}`}>
                                         <HiOutlineBuildingOffice2 size={20} />
@@ -1103,14 +1149,6 @@ const AdminDetalleTrabajo: React.FC = () => {
                                             <span className={styles.badge} style={{ marginTop: '5px' }}>{trabajo.tipo || "Trabajo"}</span>
                                         </div>
                                         <div style={{ textAlign: 'right' }}>
-                                            {(trabajo as any).businessId && user?.role === 'admin' && (
-                                                <button
-                                                    onClick={() => navigate(`/menu/trabajo/${(trabajo as any).businessId}`)}
-                                                    style={{ border: 'none', background: '#334155', color: '#fff', padding: '8px 12px', borderRadius: '10px', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer' }}
-                                                >
-                                                    🕒 Historial
-                                                </button>
-                                            )}
                                         </div>
                                     </div>
 
@@ -1141,87 +1179,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                                 </div>
                             </div>
 
-                            {/* Card 3: Contactos (6/12) */}
-                            <div className={`${styles.bentoCard} ${styles.colSpan6}`}>
-                                <div className={styles.cardHeader}>
-                                    <div className={`${styles.iconBox} ${styles.bgPurple}`}>
-                                        <HiOutlineUser size={18} />
-                                    </div>
-                                    <h3 className={styles.cardTitle}>Contactos</h3>
-                                </div>
-                                <div className={styles.contactGrid}>
-                                    <div className={styles.contactBlock}>
-                                        <span className={styles.contactName}>{trabajo.encargado === "Calle 37" ? "Jesus Antonio Dzul" : trabajo.encargado}</span>
-                                        <span className={styles.bentoLabel}>Gerente</span>
-                                        <div className={styles.contactActions}>
-                                            <a href={`tel:${trabajo.telefonoEncargado}`} className={styles.actionIconLink} title="Llamar">
-                                                <HiOutlinePhone className={styles.phone} />
-                                            </a>
-                                            <a
-                                                href={`https://wa.me/52${trabajo.telefonoEncargado?.replace(/\D/g, '')}`}
-                                                target="_blank" rel="noreferrer" className={styles.actionIconLink}
-                                            >
-                                                <HiOutlineChatBubbleLeftRight className={styles.whatsapp} />
-                                            </a>
-                                        </div>
-                                    </div>
-
-                                    {trabajo.subgerente && (
-                                        <div className={styles.contactBlock}>
-                                            <span className={styles.contactName}>{trabajo.subgerente}</span>
-                                            <span className={styles.bentoLabel}>Subgerente</span>
-                                            <div className={styles.contactActions}>
-                                                {trabajo.telefonoSubgerente && trabajo.telefonoSubgerente !== "S/N" && (
-                                                    <>
-                                                        <a href={`tel:${trabajo.telefonoSubgerente}`} className={styles.actionIconLink}>
-                                                            <HiOutlinePhone className={styles.phone} />
-                                                        </a>
-                                                        <a href={`https://wa.me/52${trabajo.telefonoSubgerente.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className={styles.actionIconLink}>
-                                                            <HiOutlineChatBubbleLeftRight className={styles.whatsapp} />
-                                                        </a>
-                                                    </>
-                                                )}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Card 4: Ubicación (6/12) */}
-                            <div className={`${styles.bentoCard} ${styles.colSpan6}`}>
-                                <div className={styles.cardHeader}>
-                                    <div className={`${styles.iconBox} ${styles.bgGreen}`}>
-                                        <HiOutlineMapPin size={18} />
-                                    </div>
-                                    <h3 className={styles.cardTitle}>Ubicación</h3>
-                                </div>
-                                <div className={styles.addressGrid}>
-                                    <div className={styles.addressItem}>
-                                        <span className={styles.bentoLabel}>Plaza</span>
-                                        <span className={styles.bentoValue} style={{ fontSize: '13px' }}>{trabajo.plaza || "---"}</span>
-                                    </div>
-                                    <div className={styles.addressItem}>
-                                        <span className={styles.bentoLabel}>Calle</span>
-                                        <span className={styles.bentoValue} style={{ fontSize: '13px' }}>{trabajo.calle} #{trabajo.numero}</span>
-                                    </div>
-                                    <div className={styles.addressItem}>
-                                        <span className={styles.bentoLabel}>Colonia</span>
-                                        <span className={styles.bentoValue} style={{ fontSize: '13px' }}>{trabajo.colonia}</span>
-                                    </div>
-                                    <div className={styles.addressItem}>
-                                        <span className={styles.bentoLabel}>Ciudad</span>
-                                        <span className={styles.bentoValue} style={{ fontSize: '13px' }}>{trabajo.ciudad || "Mérida"}</span>
-                                    </div>
-                                </div>
-
-                                {trabajo.referencias && (
-                                    <div style={{ background: '#f0fdf4', padding: '8px 12px', borderRadius: '10px', marginTop: '5px' }}>
-                                        <span className={styles.bentoLabel} style={{ color: '#166534' }}>Ref</span>
-                                        <p style={{ margin: 0, fontSize: '11px', color: '#14532d', fontWeight: '600' }}>{trabajo.referencias}</p>
-                                    </div>
-                                )}
-                            </div>
-
+                            {/* CONTACTS AND LOCATION CARDS WERE MOVED TO MODAL */}
                             {/* Card 5: Acciones (12/12) */}
                             {user?.role === 'admin' && (
                                 <div className={`${styles.colSpan12}`} style={{ marginTop: '5px' }}>
@@ -2248,6 +2206,123 @@ const AdminDetalleTrabajo: React.FC = () => {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* MODAL SUCURSAL */}
+            {isSucursalModalOpen && (
+                <div className={styles.modalOverlay} onClick={() => setIsSucursalModalOpen(false)}>
+                    <div className={styles.modalContent} onClick={(e) => e.stopPropagation()} style={{ maxWidth: '800px', width: '90%' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #f1f5f9', paddingBottom: '16px', marginBottom: '20px' }}>
+                            <h2 style={{ margin: 0, fontSize: '24px', fontWeight: '800', color: '#1e293b' }}>Contacto y Ubicación</h2>
+                            <button 
+                                onClick={() => setIsSucursalModalOpen(false)}
+                                style={{ 
+                                    background: '#fef2f2', color: '#ef4444', border: 'none', 
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', 
+                                    padding: '8px', borderRadius: '50%', cursor: 'pointer',
+                                    transition: 'background 0.2s'
+                                }}
+                                title="Cerrar"
+                            >
+                                <HiOutlineXMark size={24} strokeWidth={2.5} />
+                            </button>
+                        </div>
+                        
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px' }}>
+                            {/* Contactos */}
+                            <div className={styles.bentoCard} style={{ margin: 0, border: '1.5px solid #e2e8f0', boxShadow: '0 4px 20px rgba(0,0,0,0.03)', height: '100%' }}>
+                                <div className={styles.cardHeader}>
+                                    <div className={`${styles.iconBox} ${styles.bgPurple}`}>
+                                        <HiOutlineUser size={18} />
+                                    </div>
+                                    <h3 className={styles.cardTitle}>Contactos</h3>
+                                </div>
+                                <div className={styles.contactGrid} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                    <div className={styles.contactBlock} style={{ background: '#f8fafc', padding: '16px', borderRadius: '14px', border: '1px solid #f1f5f9' }}>
+                                        <span className={styles.contactName} style={{ display: 'block', fontSize: '15px', fontWeight: '800', color: '#1e293b', marginBottom: '4px' }}>{trabajo.encargado === "Calle 37" ? "Jesus Antonio Dzul" : trabajo.encargado}</span>
+                                        <span className={styles.bentoLabel} style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '12px' }}>Gerente</span>
+                                        <div className={styles.contactActions} style={{ display: 'flex', gap: '10px' }}>
+                                            <a href={`tel:${trabajo.telefonoEncargado}`} className={styles.actionIconLink} title="Llamar" style={{ background: '#eff6ff', color: '#3b82f6', border: '1px solid #bfdbfe', padding: '10px', borderRadius: '10px', display: 'flex' }}>
+                                                <HiOutlinePhone size={20} />
+                                            </a>
+                                            <a
+                                                href={`https://wa.me/52${trabajo.telefonoEncargado?.replace(/\D/g, '')}`}
+                                                target="_blank" rel="noreferrer" className={styles.actionIconLink}
+                                                style={{ background: '#ecfdf5', color: '#10b981', border: '1px solid #a7f3d0', padding: '10px', borderRadius: '10px', display: 'flex' }}
+                                            >
+                                                <HiOutlineChatBubbleLeftRight size={20} />
+                                            </a>
+                                        </div>
+                                    </div>
+
+                                    {trabajo.subgerente && (
+                                        <div className={styles.contactBlock} style={{ background: '#f8fafc', padding: '16px', borderRadius: '14px', border: '1px solid #f1f5f9' }}>
+                                            <span className={styles.contactName} style={{ display: 'block', fontSize: '15px', fontWeight: '800', color: '#1e293b', marginBottom: '4px' }}>{trabajo.subgerente}</span>
+                                            <span className={styles.bentoLabel} style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '12px' }}>Subgerente</span>
+                                            <div className={styles.contactActions} style={{ display: 'flex', gap: '10px' }}>
+                                                {trabajo.telefonoSubgerente && trabajo.telefonoSubgerente !== "S/N" && (
+                                                    <>
+                                                        <a href={`tel:${trabajo.telefonoSubgerente}`} className={styles.actionIconLink} style={{ background: '#eff6ff', color: '#3b82f6', border: '1px solid #bfdbfe', padding: '10px', borderRadius: '10px', display: 'flex' }}>
+                                                            <HiOutlinePhone size={20} />
+                                                        </a>
+                                                        <a href={`https://wa.me/52${trabajo.telefonoSubgerente.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className={styles.actionIconLink} style={{ background: '#ecfdf5', color: '#10b981', border: '1px solid #a7f3d0', padding: '10px', borderRadius: '10px', display: 'flex' }}>
+                                                            <HiOutlineChatBubbleLeftRight size={20} />
+                                                        </a>
+                                                    </>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Ubicación */}
+                            <div className={styles.bentoCard} style={{ margin: 0, border: '1.5px solid #e2e8f0', boxShadow: '0 4px 20px rgba(0,0,0,0.03)', height: '100%', display: 'flex', flexDirection: 'column' }}>
+                                <div className={styles.cardHeader}>
+                                    <div className={`${styles.iconBox} ${styles.bgGreen}`}>
+                                        <HiOutlineMapPin size={18} />
+                                    </div>
+                                    <h3 className={styles.cardTitle}>Ubicación</h3>
+                                </div>
+                                <div className={styles.addressGrid} style={{ display: 'flex', flexDirection: 'column', gap: '16px', flex: 1 }}>
+                                    <div className={styles.addressItem}>
+                                        <span className={styles.bentoLabel} style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '2px' }}>Plaza</span>
+                                        <span className={styles.bentoValue} style={{ fontSize: '15px', color: '#1e293b', fontWeight: '700' }}>{trabajo.plaza || "---"}</span>
+                                    </div>
+                                    <div className={styles.addressItem}>
+                                        <span className={styles.bentoLabel} style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '2px' }}>Calle</span>
+                                        <span className={styles.bentoValue} style={{ fontSize: '15px', color: '#1e293b', fontWeight: '700' }}>{trabajo.calle} #{trabajo.numero}</span>
+                                    </div>
+                                    <div className={styles.addressItem}>
+                                        <span className={styles.bentoLabel} style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '2px' }}>Colonia</span>
+                                        <span className={styles.bentoValue} style={{ fontSize: '15px', color: '#1e293b', fontWeight: '700' }}>{trabajo.colonia}</span>
+                                    </div>
+                                    <div className={styles.addressItem}>
+                                        <span className={styles.bentoLabel} style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '2px' }}>Ciudad</span>
+                                        <span className={styles.bentoValue} style={{ fontSize: '15px', color: '#1e293b', fontWeight: '700' }}>{trabajo.ciudad || "Mérida"}</span>
+                                    </div>
+                                </div>
+
+                                {trabajo.referencias && (
+                                    <div style={{ background: '#f0fdf4', padding: '12px 16px', borderRadius: '12px', marginTop: '16px', border: '1px solid #dcfce3' }}>
+                                        <span className={styles.bentoLabel} style={{ display: 'block', color: '#166534', fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', marginBottom: '4px' }}>Referencias</span>
+                                        <p style={{ margin: 0, fontSize: '13px', color: '#14532d', fontWeight: '600', lineHeight: '1.5' }}>{trabajo.referencias}</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {isAdminLevantamientoModalOpen && (
+                <LevantamientoModal
+                    isOpen={isAdminLevantamientoModalOpen}
+                    onClose={() => setIsAdminLevantamientoModalOpen(false)}
+                    data={adminLevantamientoData}
+                    onSave={() => {}} 
+                    isReadOnly={true}
+                />
             )}
         </div>
     );

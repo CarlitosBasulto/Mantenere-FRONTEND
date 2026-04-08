@@ -65,6 +65,7 @@ function App() {
                             <Route path="verificacion-tarea/:id" element={<AdminVerificacionEquipo />} />
                             <Route path="reporte-tarea/:id" element={<AdminReporte />} />
                             <Route path="mi-perfil" element={<MiPerfil />} />
+                            <Route path="perfil-empresa" element={<PerfilEmpresa />} />
                         </Route>
 
                         {/* CLIENTE ROUTES */}
