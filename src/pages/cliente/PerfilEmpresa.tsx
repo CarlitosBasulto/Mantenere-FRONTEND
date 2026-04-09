@@ -7,7 +7,7 @@ import { useModal } from "../../context/ModalContext";
 import { createNegocio, updateNegocio, getNegocio, uploadImage } from "../../services/negociosService";
 import LevantamientoModal from "../../components/LevantamientoModal";
 import DetalleEquipoModal from "../../components/DetalleEquipoModal";
-import { saveSafeLocalInfo } from "../../utils/storageHelper";
+import { saveSafeLocalInfo, stripBlobUrls } from "../../utils/storageHelper";
 
 
 type BusinessType = "FC" | "FS" | "MALL" | "W/M";
@@ -66,6 +66,11 @@ const PerfilEmpresa: React.FC = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
     const { showAlert } = useModal();
+    const canEdit = user?.role === 'cliente';
+    
+    // Debug log to identify why canEdit might be true for an admin
+    console.log("PERFIL_EMPRESA - User:", user?.name, "Role:", user?.role, "CanEdit:", canEdit);
+
     const [formData, setFormData] = useState<BusinessData>({
         nombreSucursal: "",
         tipo: "FC",
@@ -98,11 +103,11 @@ const PerfilEmpresa: React.FC = () => {
                     setIsLevantamientoModalOpen(false);
                     // CARGA LOCAL: Combinar con datos de localStorage para ver campos nuevos
                     const localData = JSON.parse(localStorage.getItem('local_negocios_info') || '{}');
-                    const localInfo = localData[editId] || {};
-                    
-                    setFormData(prev => ({ 
-                        ...prev, 
-                        ...existing, 
+                    const localInfo = stripBlobUrls(localData[editId] || {});
+
+                    setFormData(prev => ({
+                        ...prev,
+                        ...existing,
                         nombreSucursal: existing.nombre,
                         // Prioridad a lo local para campos nuevos no soportados por API aún
                         gerente: localInfo.gerente || existing.gerente || "",
@@ -118,14 +123,14 @@ const PerfilEmpresa: React.FC = () => {
                         levantamiento: Array.isArray(localInfo.areas) && localInfo.areas.length > 0
                             ? localInfo.areas
                             : Array.isArray((existing as any).areas) && (existing as any).areas.length > 0
-                                ? (existing as any).areas 
-                                : Array.isArray(existing.levantamiento) 
-                                    ? existing.levantamiento 
+                                ? (existing as any).areas
+                                : Array.isArray(existing.levantamiento)
+                                    ? existing.levantamiento
                                     : (existing.levantamiento && typeof existing.levantamiento === 'object')
                                         ? [
                                             { id: 'fria', nombreArea: 'Área Fría', equipos: (existing.levantamiento as any).areaFria || [] },
                                             { id: 'caliente', nombreArea: 'Área Caliente', equipos: (existing.levantamiento as any).areaCaliente || [] }
-                                          ]
+                                        ]
                                         : []
                     }));
                 } catch (error) {
@@ -139,17 +144,32 @@ const PerfilEmpresa: React.FC = () => {
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        if (!canEdit) return; // Prevent any state change if not authorized
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!canEdit) return;
         const file = e.target.files?.[0];
         if (file) {
+            // Revocar URL anterior si existía para evitar fugas de memoria
+            if (formData.imagenPerfil && formData.imagenPerfil.startsWith('blob:')) {
+                URL.revokeObjectURL(formData.imagenPerfil);
+            }
             const tempUrl = URL.createObjectURL(file);
             setFormData(prev => ({ ...prev, imagenPerfil: tempUrl, imagenPerfilFile: file }));
         }
     };
+
+    // Cleanup de blobs al desmontar componente
+    React.useEffect(() => {
+        return () => {
+            if (formData.imagenPerfil && formData.imagenPerfil.startsWith('blob:')) {
+                URL.revokeObjectURL(formData.imagenPerfil);
+            }
+        };
+    }, [formData.imagenPerfil]);
 
     const handleSave = async () => {
         // Validación básica
@@ -219,28 +239,28 @@ const PerfilEmpresa: React.FC = () => {
             let finalImagenPerfil = formData.imagenPerfil;
             if (formData.imagenPerfilFile) {
                 try {
-                     finalImagenPerfil = await uploadImage(formData.imagenPerfilFile);
-                } catch(ign) {}
+                    finalImagenPerfil = await uploadImage(formData.imagenPerfilFile);
+                } catch (ign) { }
             }
 
             const finalLevantamiento = await Promise.all((formData.levantamiento || []).map(async (section) => {
                 const finalEquipos = await Promise.all(section.equipos.map(async (eq) => {
-                     let eqFoto = eq.foto;
-                     if (eq.fotoFile) {
-                          try {
-                              eqFoto = await uploadImage(eq.fotoFile);
-                          } catch (ign) {}
-                     }
-                     return {
-                          id: eq.id,
-                          nombre: eq.nombre,
-                          marca: eq.marca,
-                          modelo: eq.modelo,
-                          serie: eq.serie,
-                          anioFabricacion: eq.anioFabricacion,
-                          anioUso: eq.anioUso,
-                          foto: eqFoto
-                     };
+                    let eqFoto = eq.foto;
+                    if (eq.fotoFile) {
+                        try {
+                            eqFoto = await uploadImage(eq.fotoFile);
+                        } catch (ign) { }
+                    }
+                    return {
+                        id: eq.id,
+                        nombre: eq.nombre,
+                        marca: eq.marca,
+                        modelo: eq.modelo,
+                        serie: eq.serie,
+                        anioFabricacion: eq.anioFabricacion,
+                        anioUso: eq.anioUso,
+                        foto: eqFoto
+                    };
                 }));
                 return { ...section, equipos: finalEquipos };
             }));
@@ -280,7 +300,7 @@ const PerfilEmpresa: React.FC = () => {
             if (editId) {
                 // Actualizar en servidor (Solo campos seguros)
                 await updateNegocio(Number(editId), apiPayload);
-                
+
                 // Guardar TODO localmente para que se vea reflejado de inmediato (Seguro contra Cuota)
                 saveSafeLocalInfo('local_negocios_info', editId, fullLocalData, showAlert);
 
@@ -288,7 +308,7 @@ const PerfilEmpresa: React.FC = () => {
             } else {
                 // Crear en servidor
                 const newNegocio = await createNegocio(apiPayload);
-                
+
                 if (newNegocio) {
                     const actualId = newNegocio.data?.id || newNegocio.id;
                     if (actualId) {
@@ -330,18 +350,6 @@ const PerfilEmpresa: React.FC = () => {
                                 <h1 className={styles.pageTitle}>
                                     {editId ? "Editar Sucursal/Negocio" : "Registrar Sucursal/Negocio"}
                                 </h1>
-                                {editId && (
-                                    <button 
-                                        className={styles.levantamientoButton} 
-                                        style={{ background: '#0f172a', fontSize: '12px', padding: '8px 16px' }}
-                                        onClick={() => {
-                                            const basePath = user?.role === 'cliente' ? '/cliente' : '/menu';
-                                            navigate(`${basePath}/trabajo/${editId}`);
-                                        }}
-                                    >
-                                        🛠️ Ver Servicios
-                                    </button>
-                                )}
                             </div>
 
                             {/* Hidden Input File */}
@@ -359,23 +367,27 @@ const PerfilEmpresa: React.FC = () => {
                                 ) : (
                                     "🏢"
                                 )}
-                                <div className={styles.editOverlay} onClick={() => fileInputRef.current?.click()}>Editar</div>
+                                {canEdit && (
+                                    <div className={styles.editOverlay} onClick={() => fileInputRef.current?.click()}>
+                                        Editar
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
 
                     {/* TABS */}
                     <div className={styles.tabsContainer}>
-                        <button 
+                        <button
                             type="button"
-                            onClick={() => setActiveTab('info')} 
+                            onClick={() => setActiveTab('info')}
                             className={`${styles.tab} ${activeTab === 'info' ? styles.activeTab : ''}`}
                         >
                             Información de la empresa
                         </button>
-                        <button 
+                        <button
                             type="button"
-                            onClick={() => setActiveTab('levantamiento')} 
+                            onClick={() => setActiveTab('levantamiento')}
                             className={`${styles.tab} ${activeTab === 'levantamiento' ? styles.activeTab : ''}`}
                         >
                             Levantamiento Técnico
@@ -384,278 +396,288 @@ const PerfilEmpresa: React.FC = () => {
 
                     {activeTab === 'info' && (
                         <>
-                    {/* INFORMACION GENERAL */}
-                    <div className={styles.section}>
-                        <h2 className={styles.sectionTitle}>Información general</h2>
-                        <div className={styles.formGrid}>
-                            <div className={styles.inputGroup} style={{ gridColumn: 'span 2' }}>
-                                <label className={styles.label}>Nombre de la sucursal</label>
-                                <input
-                                    type="text"
-                                    name="nombreSucursal"
-                                    className={styles.input}
-                                    value={formData.nombreSucursal || ''}
-                                    onChange={handleChange}
-                                />
-                            </div>
-                            <div className={styles.inputGroup}>
-                                <label className={styles.label}>Tipo</label>
-                                <select
-                                    name="tipo"
-                                    className={styles.select}
-                                    value={formData.tipo}
-                                    onChange={handleChange}
-                                >
-                                    <option value="FC">FC</option>
-                                    <option value="FS">FS</option>
-                                    <option value="MALL">MALL</option>
-                                    <option value="W/M">W/M</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div className={styles.formGrid}>
-                            <div className={styles.inputGroup} style={{ gridColumn: 'span 2' }}>
-                                <label className={styles.label}>
-                                    {formData.tipo === 'FC' ? 'Encargado de la empresa' : 'Dueño de la empresa'}
-                                </label>
-                                <input
-                                    type="text"
-                                    name="encargado"
-                                    className={styles.input}
-                                    value={formData.encargado || ''}
-                                    onChange={handleChange}
-                                />
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* DATOS DE UBICACION DINAMICOS */}
-                    <div className={styles.section}>
-                        <h2 className={styles.sectionTitle}>Datos de ubicación</h2>
-
-                        {/* CASO FC / FS / MALL */}
-                        {formData.tipo !== 'W/M' && (
-                            <>
+                            {/* INFORMACION GENERAL */}
+                            <div className={styles.section}>
+                                <h2 className={styles.sectionTitle}>Información general</h2>
                                 <div className={styles.formGrid}>
-                                    <div className={styles.inputGroup} style={{ gridColumn: 'span 3' }}>
+                                    <div className={styles.inputGroup} style={{ gridColumn: 'span 2' }}>
+                                        <label className={styles.label}>Nombre de la sucursal</label>
+                                        <input
+                                            type="text"
+                                            name="nombreSucursal"
+                                            className={styles.input}
+                                            value={formData.nombreSucursal || ''}
+                                            onChange={handleChange}
+                                            disabled={!canEdit}
+                                        />
+                                    </div>
+                                    <div className={styles.inputGroup}>
+                                        <label className={styles.label}>Tipo</label>
+                                        <select
+                                            name="tipo"
+                                            className={styles.select}
+                                            value={formData.tipo}
+                                            onChange={handleChange}
+                                            disabled={!canEdit}
+                                        >
+                                            <option value="FC">FC</option>
+                                            <option value="FS">FS</option>
+                                            <option value="MALL">MALL</option>
+                                            <option value="W/M">W/M</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div className={styles.formGrid}>
+                                    <div className={styles.inputGroup} style={{ gridColumn: 'span 2' }}>
                                         <label className={styles.label}>
-                                            {formData.tipo === 'FS' ? 'Calle principal' : 'Nombre de la plaza'}
+                                            {formData.tipo === 'FC' ? 'Encargado de la empresa' : 'Dueño de la empresa'}
                                         </label>
                                         <input
                                             type="text"
-                                            name={formData.tipo === 'FS' ? 'calle' : 'nombrePlaza'}
+                                            name="encargado"
                                             className={styles.input}
-                                            placeholder={formData.tipo === 'FS' ? 'Ej: Calle 60' : ''}
-                                            value={(formData.tipo === 'FS' ? formData.calle : formData.nombrePlaza) || ''}
+                                            value={formData.encargado || ''}
                                             onChange={handleChange}
+                                            disabled={!canEdit}
                                         />
                                     </div>
                                 </div>
+                            </div>
 
-                                <div className={styles.formGrid}>
-                                    <div className={styles.inputGroup}>
-                                        <label className={styles.label}>Estado</label>
-                                        <input type="text" name="estado" className={styles.input} value={formData.estado || ''} onChange={handleChange} />
-                                    </div>
-                                    <div className={styles.inputGroup}>
-                                        <label className={styles.label}>Ciudad</label>
-                                        <input type="text" name="ciudad" className={styles.input} value={formData.ciudad || ''} onChange={handleChange} />
-                                    </div>
-                                </div>
+                            {/* DATOS DE UBICACION DINAMICOS */}
+                            <div className={styles.section}>
+                                <h2 className={styles.sectionTitle}>Datos de ubicación</h2>
 
-                                <div className={styles.formGrid}>
-                                    <div className={styles.inputGroup}>
-                                        <label className={styles.label}>Calle</label>
-                                        <input type="text" name="calle" className={styles.input} value={formData.calle || ''} onChange={handleChange} />
-                                    </div>
-                                    <div className={styles.inputGroup}>
-                                        <label className={styles.label}>Numero</label>
-                                        <input type="text" name="numero" className={styles.input} value={formData.numero || ''} onChange={handleChange} />
-                                    </div>
-                                    <div className={styles.inputGroup}>
-                                        <label className={styles.label}>Colonia</label>
-                                        <input type="text" name="colonia" className={styles.input} value={formData.colonia || ''} onChange={handleChange} />
-                                    </div>
-                                </div>
+                                {/* CASO FC / FS / MALL */}
+                                {formData.tipo !== 'W/M' && (
+                                    <>
+                                        <div className={styles.formGrid}>
+                                            <div className={styles.inputGroup} style={{ gridColumn: 'span 3' }}>
+                                                <label className={styles.label}>
+                                                    {formData.tipo === 'FS' ? 'Calle principal' : 'Nombre de la plaza'}
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    name={formData.tipo === 'FS' ? 'calle' : 'nombrePlaza'}
+                                                    className={styles.input}
+                                                    placeholder={formData.tipo === 'FS' ? 'Ej: Calle 60' : ''}
+                                                    value={(formData.tipo === 'FS' ? formData.calle : formData.nombrePlaza) || ''}
+                                                    onChange={handleChange}
+                                                    disabled={!canEdit}
+                                                />
+                                            </div>
+                                        </div>
 
-                                {formData.tipo === 'FS' && (
+                                        <div className={styles.formGrid}>
+                                            <div className={styles.inputGroup}>
+                                                <label className={styles.label}>Estado</label>
+                                                <input type="text" name="estado" className={styles.input} value={formData.estado || ''} onChange={handleChange} disabled={!canEdit} />
+                                            </div>
+                                            <div className={styles.inputGroup}>
+                                                <label className={styles.label}>Ciudad</label>
+                                                <input type="text" name="ciudad" className={styles.input} value={formData.ciudad || ''} onChange={handleChange} disabled={!canEdit} />
+                                            </div>
+                                        </div>
+
+                                        <div className={styles.formGrid}>
+                                            <div className={styles.inputGroup}>
+                                                <label className={styles.label}>Calle</label>
+                                                <input type="text" name="calle" className={styles.input} value={formData.calle || ''} onChange={handleChange} disabled={!canEdit} />
+                                            </div>
+                                            <div className={styles.inputGroup}>
+                                                <label className={styles.label}>Numero</label>
+                                                <input type="text" name="numero" className={styles.input} value={formData.numero || ''} onChange={handleChange} disabled={!canEdit} />
+                                            </div>
+                                            <div className={styles.inputGroup}>
+                                                <label className={styles.label}>Colonia</label>
+                                                <input type="text" name="colonia" className={styles.input} value={formData.colonia || ''} onChange={handleChange} disabled={!canEdit} />
+                                            </div>
+                                        </div>
+
+                                        {formData.tipo === 'FS' && (
+                                            <div className={styles.formGrid}>
+                                                <div className={styles.inputGroup} style={{ gridColumn: 'span 3' }}>
+                                                    <label className={styles.label}>Referencia</label>
+                                                    <input type="text" name="referencia" className={styles.input} placeholder="Entre calle X y Y" value={formData.referencia || ''} onChange={handleChange} disabled={!canEdit} />
+                                                </div>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+
+                                {/* CASO W/M */}
+                                {formData.tipo === 'W/M' && (
                                     <div className={styles.formGrid}>
-                                        <div className={styles.inputGroup} style={{ gridColumn: 'span 3' }}>
-                                            <label className={styles.label}>Referencia</label>
-                                            <input type="text" name="referencia" className={styles.input} placeholder="Entre calle X y Y" value={formData.referencia || ''} onChange={handleChange} />
+                                        <div className={styles.inputGroup}>
+                                            <label className={styles.label}>Calle/Av</label>
+                                            <input type="text" name="calleAv" className={styles.input} placeholder="Ej: Av. Principal" value={formData.calleAv || ''} onChange={handleChange} disabled={!canEdit} />
+                                        </div>
+                                        <div className={styles.inputGroup}>
+                                            <label className={styles.label}>Manzana</label>
+                                            <input type="text" name="manzana" className={styles.input} placeholder="Ej: 45" value={formData.manzana || ''} onChange={handleChange} disabled={!canEdit} />
+                                        </div>
+                                        <div className={styles.inputGroup}>
+                                            <label className={styles.label}>Lote</label>
+                                            <input type="text" name="lote" className={styles.input} placeholder="Ej: 12" value={formData.lote || ''} onChange={handleChange} disabled={!canEdit} />
                                         </div>
                                     </div>
                                 )}
-                            </>
-                        )}
 
-                        {/* CASO W/M */}
-                        {formData.tipo === 'W/M' && (
-                            <div className={styles.formGrid}>
-                                <div className={styles.inputGroup}>
-                                    <label className={styles.label}>Calle/Av</label>
-                                    <input type="text" name="calleAv" className={styles.input} placeholder="Ej: Av. Principal" value={formData.calleAv || ''} onChange={handleChange} />
-                                </div>
-                                <div className={styles.inputGroup}>
-                                    <label className={styles.label}>Manzana</label>
-                                    <input type="text" name="manzana" className={styles.input} placeholder="Ej: 45" value={formData.manzana || ''} onChange={handleChange} />
-                                </div>
-                                <div className={styles.inputGroup}>
-                                    <label className={styles.label}>Lote</label>
-                                    <input type="text" name="lote" className={styles.input} placeholder="Ej: 12" value={formData.lote || ''} onChange={handleChange} />
+                                <div className={styles.formGrid}>
+                                    <div className={styles.inputGroup} style={{ maxWidth: '200px' }}>
+                                        <label className={styles.label}>Codigo postal</label>
+                                        <input type="text" name="cp" className={styles.input} placeholder="97000" value={formData.cp || ''} onChange={handleChange} disabled={!canEdit} />
+                                    </div>
                                 </div>
                             </div>
-                        )}
 
-                        <div className={styles.formGrid}>
-                            <div className={styles.inputGroup} style={{ maxWidth: '200px' }}>
-                                <label className={styles.label}>Codigo postal</label>
-                                <input type="text" name="cp" className={styles.input} placeholder="97000" value={formData.cp || ''} onChange={handleChange} />
+                            {/* CONTACTOS OPERATIVOS */}
+                            <div className={styles.section}>
+                                <h2 className={styles.sectionTitle}>Contactos operativos (Opcional)</h2>
+                                <div className={styles.formGrid}>
+                                    <div className={styles.inputGroup} style={{ gridColumn: 'span 2' }}>
+                                        <label className={styles.label}>Nombre del Gerente</label>
+                                        <input
+                                            type="text"
+                                            name="gerente"
+                                            className={styles.input}
+                                            placeholder="Ej: Juan Pérez"
+                                            value={formData.gerente || ''}
+                                            onChange={handleChange}
+                                            disabled={!canEdit}
+                                        />
+                                    </div>
+                                    <div className={styles.inputGroup}>
+                                        <label className={styles.label}>Teléfono Gerente</label>
+                                        <input
+                                            type="text"
+                                            name="telefonoGerente"
+                                            className={styles.input}
+                                            placeholder="Ej: 9991234567"
+                                            value={formData.telefonoGerente || ''}
+                                            onChange={handleChange}
+                                            disabled={!canEdit}
+                                        />
+                                    </div>
+                                </div>
+                                <div className={styles.formGrid}>
+                                    <div className={styles.inputGroup} style={{ gridColumn: 'span 2' }}>
+                                        <label className={styles.label}>Nombre del Subgerente</label>
+                                        <input
+                                            type="text"
+                                            name="subgerente"
+                                            className={styles.input}
+                                            placeholder="Ej: María López"
+                                            value={formData.subgerente || ''}
+                                            onChange={handleChange}
+                                            disabled={!canEdit}
+                                        />
+                                    </div>
+                                    <div className={styles.inputGroup}>
+                                        <label className={styles.label}>Teléfono Subgerente</label>
+                                        <input
+                                            type="text"
+                                            name="telefonoSubgerente"
+                                            className={styles.input}
+                                            placeholder="Ej: 9997654321"
+                                            value={formData.telefonoSubgerente || ''}
+                                            onChange={handleChange}
+                                            disabled={!canEdit}
+                                        />
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                    </div>
-
-                    {/* CONTACTOS OPERATIVOS */}
-                    <div className={styles.section}>
-                        <h2 className={styles.sectionTitle}>Contactos operativos (Opcional)</h2>
-                        <div className={styles.formGrid}>
-                            <div className={styles.inputGroup} style={{ gridColumn: 'span 2' }}>
-                                <label className={styles.label}>Nombre del Gerente</label>
-                                <input
-                                    type="text"
-                                    name="gerente"
-                                    className={styles.input}
-                                    placeholder="Ej: Juan Pérez"
-                                    value={formData.gerente || ''}
-                                    onChange={handleChange}
-                                />
-                            </div>
-                            <div className={styles.inputGroup}>
-                                <label className={styles.label}>Teléfono Gerente</label>
-                                <input
-                                    type="text"
-                                    name="telefonoGerente"
-                                    className={styles.input}
-                                    placeholder="Ej: 9991234567"
-                                    value={formData.telefonoGerente || ''}
-                                    onChange={handleChange}
-                                />
-                            </div>
-                        </div>
-                        <div className={styles.formGrid}>
-                            <div className={styles.inputGroup} style={{ gridColumn: 'span 2' }}>
-                                <label className={styles.label}>Nombre del Subgerente</label>
-                                <input
-                                    type="text"
-                                    name="subgerente"
-                                    className={styles.input}
-                                    placeholder="Ej: María López"
-                                    value={formData.subgerente || ''}
-                                    onChange={handleChange}
-                                />
-                            </div>
-                            <div className={styles.inputGroup}>
-                                <label className={styles.label}>Teléfono Subgerente</label>
-                                <input
-                                    type="text"
-                                    name="telefonoSubgerente"
-                                    className={styles.input}
-                                    placeholder="Ej: 9997654321"
-                                    value={formData.telefonoSubgerente || ''}
-                                    onChange={handleChange}
-                                />
-                            </div>
-                        </div>
-                    </div>
-                    </>
+                        </>
                     )}
 
                     {/* SECCION LEVANTAMIENTO */}
                     {activeTab === 'levantamiento' && (
-                    <div className={styles.section} style={{ padding: '30px', background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)', borderRadius: '30px', border: '1px solid #e2e8f0' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                        <h2 className={styles.sectionTitle} style={{ marginBottom: '8px' }}>Levantamiento Técnico</h2>
-                        <p style={{ fontSize: '14px', color: '#64748b', margin: 0 }}>
-                            Registra los equipos de tu sucursal organizados por áreas personalizadas.
-                        </p>
-                    </div>
-                    <button 
-                        className={styles.levantamientoButton} 
-                        onClick={() => { setActiveSectionId(null); setIsLevantamientoModalOpen(true); }}
-                        type="button"
-                    >
-                        {(formData.levantamiento?.length || 0) > 0 ? "Gestionar Levantamiento" : "Iniciar Levantamiento"}
-                    </button>
-                </div>
-
-                {/* DETALLES DEL LEVANTAMIENTO DINÁMICO */}
-                {(formData.levantamiento?.length || 0) > 0 && (
-                    <div style={{ marginTop: '25px', display: 'flex', flexDirection: 'column', gap: '20px', borderTop: '1px solid #e2e8f0', paddingTop: '20px' }}>
-                        {formData.levantamiento?.map((seccion) => (
-                            <div key={seccion.id} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                    <span style={{ fontSize: '12px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                        📂 {seccion.nombreArea}
-                                    </span>
-                                    <span style={{ height: '1px', flex: 1, background: '#f1f5f9' }}></span>
+                        <div className={styles.section} style={{ padding: '30px', background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)', borderRadius: '30px', border: '1px solid #e2e8f0' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div>
+                                    <h2 className={styles.sectionTitle} style={{ marginBottom: '8px' }}>Levantamiento Técnico</h2>
+                                    <p style={{ fontSize: '14px', color: '#64748b', margin: 0 }}>
+                                        Registra los equipos de tu sucursal organizados por áreas personalizadas.
+                                    </p>
                                 </div>
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                                    {seccion.equipos.length === 0 ? (
-                                        <span style={{ fontSize: '12px', color: '#94a3b8', fontStyle: 'italic' }}>Sin equipos en esta área</span>
-                                    ) : (
-                                        seccion.equipos.map((item, idx) => (
-                                            <div 
-                                                key={item.id || idx} 
-                                                onClick={() => { 
-                                                    setSelectedEquipment(item);
-                                                    setSelectedSectionId(seccion.id);
-                                                }}
-                                                style={{ 
-                                                    padding: '8px 16px', 
-                                                    background: 'white', 
-                                                    border: '1px solid #e2e8f0', 
-                                                    borderRadius: '12px', 
-                                                    fontSize: '13px', 
-                                                    color: '#1e293b', 
-                                                    fontWeight: '600', 
-                                                    cursor: 'pointer', 
-                                                    transition: 'all 0.2s',
-                                                    boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
-                                                }}
-                                                onMouseEnter={(e) => { 
-                                                    e.currentTarget.style.borderColor = '#3b82f6'; 
-                                                    e.currentTarget.style.transform = 'translateY(-1.5px)'; 
-                                                    e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.05)';
-                                                }}
-                                                onMouseLeave={(e) => { 
-                                                    e.currentTarget.style.borderColor = '#e2e8f0'; 
-                                                    e.currentTarget.style.transform = 'translateY(0)'; 
-                                                    e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.02)';
-                                                }}
-                                                title={`${item.nombre} - ${item.marca} (${item.modelo})`}
-                                            >
-                                                {item.nombre || item.marca}
-                                            </div>
-                                        ))
-                                    )}
-                                </div>
+                                <button
+                                    className={styles.levantamientoButton}
+                                    onClick={() => { setActiveSectionId(null); setIsLevantamientoModalOpen(true); }}
+                                    type="button"
+                                >
+                                    {(formData.levantamiento?.length || 0) > 0 ? (canEdit ? "Gestionar Levantamiento" : "Ver Levantamiento") : "Iniciar Levantamiento"}
+                                </button>
                             </div>
-                        ))}
-                    </div>
-                )}
-            </div>
-            )}
+
+                            {/* DETALLES DEL LEVANTAMIENTO DINÁMICO */}
+                            {(formData.levantamiento?.length || 0) > 0 && (
+                                <div style={{ marginTop: '25px', display: 'flex', flexDirection: 'column', gap: '20px', borderTop: '1px solid #e2e8f0', paddingTop: '20px' }}>
+                                    {formData.levantamiento?.map((seccion) => (
+                                        <div key={seccion.id} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                <span style={{ fontSize: '12px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                                    📂 {seccion.nombreArea}
+                                                </span>
+                                                <span style={{ height: '1px', flex: 1, background: '#f1f5f9' }}></span>
+                                            </div>
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                                {seccion.equipos.length === 0 ? (
+                                                    <span style={{ fontSize: '12px', color: '#94a3b8', fontStyle: 'italic' }}>Sin equipos en esta área</span>
+                                                ) : (
+                                                    seccion.equipos.map((item, idx) => (
+                                                        <div
+                                                            key={item.id || idx}
+                                                            onClick={() => {
+                                                                setSelectedEquipment(item);
+                                                                setSelectedSectionId(seccion.id);
+                                                            }}
+                                                            style={{
+                                                                padding: '8px 16px',
+                                                                background: 'white',
+                                                                border: '1px solid #e2e8f0',
+                                                                borderRadius: '12px',
+                                                                fontSize: '13px',
+                                                                color: '#1e293b',
+                                                                fontWeight: '600',
+                                                                cursor: 'pointer',
+                                                                transition: 'all 0.2s',
+                                                                boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
+                                                            }}
+                                                            onMouseEnter={(e) => {
+                                                                e.currentTarget.style.borderColor = '#3b82f6';
+                                                                e.currentTarget.style.transform = 'translateY(-1.5px)';
+                                                                e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.05)';
+                                                            }}
+                                                            onMouseLeave={(e) => {
+                                                                e.currentTarget.style.borderColor = '#e2e8f0';
+                                                                e.currentTarget.style.transform = 'translateY(0)';
+                                                                e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.02)';
+                                                            }}
+                                                            title={`${item.nombre} - ${item.marca} (${item.modelo})`}
+                                                        >
+                                                            {item.nombre || item.marca}
+                                                        </div>
+                                                    ))
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     {/* BOTON GUARDAR */}
-                    <div className={styles.footer}>
-                        <button className={styles.saveButton} onClick={handleSave}>
-                            Guardar
-                        </button>
-                    </div>
+                    {canEdit && (
+                        <div className={styles.footer}>
+                            <button className={styles.saveButton} onClick={handleSave}>
+                                Guardar
+                            </button>
+                        </div>
+                    )}
 
                     {/* MODAL LEVANTAMIENTO */}
-                    <LevantamientoModal 
+                    <LevantamientoModal
                         isOpen={isLevantamientoModalOpen}
                         onClose={() => setIsLevantamientoModalOpen(false)}
                         data={formData.levantamiento || []}
@@ -663,17 +685,18 @@ const PerfilEmpresa: React.FC = () => {
                         onSave={(newData) => {
                             setFormData(prev => ({ ...prev, levantamiento: newData }));
                         }}
+                        isReadOnly={!canEdit}
                     />
 
                     {/* MODAL DETALLE EQUIPO */}
-                    <DetalleEquipoModal 
+                    <DetalleEquipoModal
                         isOpen={!!selectedEquipment}
                         onClose={() => setSelectedEquipment(null)}
                         equipment={selectedEquipment}
-                        onEdit={() => {
+                        onEdit={canEdit ? () => {
                             setActiveSectionId(selectedSectionId);
                             setIsLevantamientoModalOpen(true);
-                        }}
+                        } : undefined}
                     />
                 </div>
             </div>

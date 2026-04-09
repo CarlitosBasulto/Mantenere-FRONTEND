@@ -131,12 +131,22 @@ const LevantamientoModal: React.FC<LevantamientoModalProps> = ({ isOpen, onClose
     const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
+            // Revocar URL anterior de la vista previa si era un blob temporal
+            if (equipmentForm.foto && equipmentForm.foto.startsWith('blob:')) {
+                URL.revokeObjectURL(equipmentForm.foto);
+            }
             const tempUrl = URL.createObjectURL(file);
             setEquipmentForm(prev => ({ ...prev, foto: tempUrl, fotoFile: file }));
         }
     };
 
     const deleteEquipment = (eqId: string) => {
+        // Encontrar el equipo para revocar su foto si es un blob
+        const equipmentToDelete = activeSection?.equipos.find(e => e.id === eqId);
+        if (equipmentToDelete?.foto && equipmentToDelete.foto.startsWith('blob:')) {
+            URL.revokeObjectURL(equipmentToDelete.foto);
+        }
+
         const updatedSections = sections.map((section: LevantamientoSeccion) => {
             if (section.id === activeSectionId) {
                 return { ...section, equipos: section.equipos.filter((e: Equipment) => e.id !== eqId) };
