@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { getNegocio } from '../../services/negociosService';
 import { getMantenimientoSolicitudes } from '../../services/mantenimientoService';
+import { getTrabajos } from '../../services/trabajosService';
+import { getReporteByTrabajoId } from '../../services/reportesService';
 import HistorialEquipoModal from '../../components/modals/HistorialEquipoModal';
 import { 
     HiOutlineCube, 
@@ -32,20 +34,82 @@ const EquiposNegocio: React.FC<EquiposNegocioProps> = ({ businessId }) => {
                     negocio.areas.forEach((area: any) => {
                         if (area.equipos) {
                             area.equipos.forEach((equipo: any) => {
-                                allRegisteredEquipments.push({
-                                    ...equipo,
-                                    areaNombre: area.nombreArea
-                                });
+                                allRegisteredEquipments.push({ ...equipo, areaNombre: area.nombreArea });
                             });
                         }
                     });
                 }
 
-                // 2. Obtener todo el historial de solicitudes de mantenimiento listadas en el sistema para este negocio
+                // 2. Obtener solicitudes nativas de mantenimiento
                 const solicitudesBackend = await getMantenimientoSolicitudes(businessId);
+                const mappedSolicitudesBackend = solicitudesBackend.map((sol: any) => {
+                    const mappedReportes = [];
+                    
+                    if (sol.visita_trabajo?.reporte?.solucion) {
+                        try {
+                            const parsed = JSON.parse(sol.visita_trabajo.reporte.solucion);
+                            if (parsed.descripcion || parsed.reporteTienda || parsed.observaciones) {
+                                mappedReportes.push({
+                                    falla_encontrada: parsed.descripcion || parsed.reporteTienda || 'Diagnóstico de visita (Cotización)',
+                                    solucion: parsed.observaciones || parsed.reporteTienda || 'Revisión técnica terminada.'
+                                });
+                            }
+                        } catch(e) {}
+                    }
+                    
+                    if (sol.reparacion_trabajo?.reporte?.solucion) {
+                         try {
+                            const parsed = JSON.parse(sol.reparacion_trabajo.reporte.solucion);
+                            if (parsed.descripcion || parsed.reporteTienda || parsed.observaciones) {
+                                mappedReportes.push({
+                                    falla_encontrada: parsed.descripcion || parsed.reporteTienda || 'Problema diagnosticado',
+                                    solucion: parsed.observaciones || parsed.reporteTienda || 'Reparación técnica terminada.'
+                                });
+                            }
+                        } catch(e) {}
+                    }
+                    
+                    return {
+                        ...sol,
+                        reportes: mappedReportes
+                    };
+                });
+
+                // 3. Rescatar trabajos genéricos antiguos que contenían reportes manuales vinculados al ID del equipo
+                const trabajos = await getTrabajos();
+                const trabajosGenericos = trabajos.filter((t: any) => t.negocio_id === businessId && t.estado === 'Finalizado');
+
+                const mappedGenericJobs: any[] = [];
+                for (const job of trabajosGenericos) {
+                    try {
+                        const reporte = await getReporteByTrabajoId(job.id);
+                        if (reporte && reporte.solucion) {
+                            const reportDataRaw = JSON.parse(reporte.solucion);
+                            if (reportDataRaw.involucraEquipo && reportDataRaw.equipoInfo && reportDataRaw.equipoInfo.id) {
+                                mappedGenericJobs.push({
+                                    id: `gen-${job.id}`,
+                                    levantamiento_equipo_id: reportDataRaw.equipoInfo.id,
+                                    descripcion_problema: job.titulo,
+                                    estado: job.estado,
+                                    created_at: job.created_at,
+                                    visitas: [],
+                                    reportes: [
+                                        {
+                                            falla_encontrada: reportDataRaw.problema || 'Mantenimiento General',
+                                            solucion: "Finalizado: Revisa el reporte físico final firmado."
+                                        }
+                                    ]
+                                });
+                            }
+                        }
+                    } catch (e) {
+                         // Falló el parseo o no tenía reporte
+                    }
+                }
 
                 setEquipos(allRegisteredEquipments);
-                setSolicitudes(solicitudesBackend);
+                // Unimos ambas listas para que el modal tenga un historial ultra-completo
+                setSolicitudes([...mappedSolicitudesBackend, ...mappedGenericJobs]);
             } catch (error) {
                 console.error("Error fetching data for Equipos:", error);
             } finally {
@@ -99,7 +163,7 @@ const EquiposNegocio: React.FC<EquiposNegocioProps> = ({ businessId }) => {
         <div style={{ marginTop: '25px', animation: 'fadeIn 0.5s ease-out' }}>
             <div style={{ display: 'grid', gap: '25px', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))' }}>
                 {equipos.map((equipo, idx) => {
-                    const maintenanceCount = solicitudes.filter(r => r.levantamiento_equipo_id === equipo.id).length;
+                    const maintenanceCount = solicitudes.filter(r => String(r.levantamiento_equipo_id) === String(equipo.id)).length;
 
                     return (
                         <div key={idx} 
@@ -195,7 +259,7 @@ const EquiposNegocio: React.FC<EquiposNegocioProps> = ({ businessId }) => {
                 isOpen={modalOpen} 
                 onClose={() => setModalOpen(false)} 
                 equipo={selectedEquipo} 
-                historial={selectedEquipo ? solicitudes.filter(req => req.levantamiento_equipo_id === selectedEquipo.id) : []} 
+                historial={selectedEquipo ? solicitudes.filter(req => String(req.levantamiento_equipo_id) === String(selectedEquipo.id)) : []} 
             />
 
             <style>{`
