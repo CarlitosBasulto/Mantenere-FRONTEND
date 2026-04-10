@@ -7,7 +7,9 @@ import { useModal } from "../../context/ModalContext";
 import { createNegocio, updateNegocio, getNegocio, uploadImage } from "../../services/negociosService";
 import LevantamientoModal from "../../components/LevantamientoModal";
 import DetalleEquipoModal from "../../components/DetalleEquipoModal";
+import ReportarProblemaModal from "../../components/ReportarProblemaModal";
 import { saveSafeLocalInfo, stripBlobUrls } from "../../utils/storageHelper";
+import { createMantenimientoSolicitud } from "../../services/mantenimientoService";
 
 
 type BusinessType = "FC" | "FS" | "MALL" | "W/M";
@@ -90,6 +92,7 @@ const PerfilEmpresa: React.FC = () => {
     const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
     const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
     const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null);
+    const [reportingEquipment, setReportingEquipment] = useState<Equipment | null>(null);
 
     const [searchParams] = useSearchParams();
     const editId = searchParams.get('id');
@@ -299,7 +302,12 @@ const PerfilEmpresa: React.FC = () => {
 
             if (editId) {
                 // Actualizar en servidor (Solo campos seguros)
-                await updateNegocio(Number(editId), apiPayload);
+                const updateRes = await updateNegocio(Number(editId), apiPayload);
+
+                // Si el servidor nos devolvió las áreas con sus IDs reales, las usamos
+                if (updateRes?.data?.areas) {
+                    fullLocalData.areas = updateRes.data.areas;
+                }
 
                 // Guardar TODO localmente para que se vea reflejado de inmediato (Seguro contra Cuota)
                 saveSafeLocalInfo('local_negocios_info', editId, fullLocalData, showAlert);
@@ -316,7 +324,10 @@ const PerfilEmpresa: React.FC = () => {
                         // Forzamos una actualización inmediatamente después de crear para que guarde las áreas en la BD.
                         if (apiPayload.levantamiento && apiPayload.levantamiento.length > 0) {
                             try {
-                                await updateNegocio(actualId, apiPayload);
+                                const finalUpdateRes = await updateNegocio(actualId, apiPayload);
+                                if (finalUpdateRes?.data?.areas) {
+                                    fullLocalData.areas = finalUpdateRes.data.areas;
+                                }
                             } catch (e) {
                                 console.error("Error al sincronizar áreas tras creación", e);
                             }
@@ -332,6 +343,29 @@ const PerfilEmpresa: React.FC = () => {
         } catch (error) {
             console.error("Error saving negocio:", error);
             showAlert("Error", "Hubo un error al guardar en el servidor. Prueba de nuevo.", "error");
+        }
+    };
+
+    const handleReportarProblemaSubmit = async (descripcion: string) => {
+        if (!reportingEquipment || !user?.id || !editId) return;
+
+        // Validar que el equipo haya sido guardado en BD antes de reportarlo
+        if (String(reportingEquipment.id).startsWith('temp_')) {
+            showAlert("Atención", "Por favor primero guarda el levantamiento de la empresa antes de reportar un problema para un equipo nuevo.", "warning");
+            return;
+        }
+
+        try {
+            await createMantenimientoSolicitud({
+                cliente_id: user.id,
+                negocio_id: Number(editId),
+                levantamiento_equipo_id: reportingEquipment.id!,
+                descripcion_problema: descripcion
+            });
+            showAlert("Reporte Enviado", "El problema ha sido reportado exitosamente. El administrador revisará y agendará una visita técnica.", "success");
+        } catch (error) {
+            console.error(error);
+            showAlert("Error", "No se pudo enviar el reporte de mantenimiento. Intenta de nuevo.", "error");
         }
     };
 
@@ -676,7 +710,6 @@ const PerfilEmpresa: React.FC = () => {
                         </div>
                     )}
 
-                    {/* MODAL LEVANTAMIENTO */}
                     <LevantamientoModal
                         isOpen={isLevantamientoModalOpen}
                         onClose={() => setIsLevantamientoModalOpen(false)}
@@ -686,6 +719,16 @@ const PerfilEmpresa: React.FC = () => {
                             setFormData(prev => ({ ...prev, levantamiento: newData }));
                         }}
                         isReadOnly={!canEdit}
+                        onReportMaintenance={(eq) => setReportingEquipment(eq)}
+                    />
+
+                    {/* MODAL REPORTAR PROBLEMA */}
+                    <ReportarProblemaModal 
+                        isOpen={!!reportingEquipment}
+                        onClose={() => setReportingEquipment(null)}
+                        equipment={reportingEquipment}
+                        negocioId={editId || ''}
+                        onSubmit={handleReportarProblemaSubmit}
                     />
 
                     {/* MODAL DETALLE EQUIPO */}

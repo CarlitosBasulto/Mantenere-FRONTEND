@@ -1,14 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { getTrabajos } from '../../services/trabajosService';
-import { getReporteByTrabajoId } from '../../services/reportesService';
-import { getActividadesByTrabajo } from '../../services/actividadesService';
+import { getNegocio } from '../../services/negociosService';
+import { getMantenimientoSolicitudes } from '../../services/mantenimientoService';
+import HistorialEquipoModal from '../../components/modals/HistorialEquipoModal';
 import { 
-    HiOutlineWrenchScrewdriver, 
-    HiOutlineUser, 
-    HiOutlineCalendarDays, 
     HiOutlineCube, 
-    HiOutlineShieldCheck,
-    HiOutlineClock
+    HiOutlineShieldCheck
 } from "react-icons/hi2";
 
 interface EquiposNegocioProps {
@@ -17,100 +13,59 @@ interface EquiposNegocioProps {
 
 const EquiposNegocio: React.FC<EquiposNegocioProps> = ({ businessId }) => {
     const [equipos, setEquipos] = useState<any[]>([]);
+    const [solicitudes, setSolicitudes] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
+    // Modal state
+    const [modalOpen, setModalOpen] = useState(false);
+    const [selectedEquipo, setSelectedEquipo] = useState<any>(null);
+
     useEffect(() => {
-        const fetchEquipos = async () => {
+        const fetchData = async () => {
             setLoading(true);
             try {
-                const trabajos = await getTrabajos();
-                const trabajosSucursal = trabajos.filter((t: any) => t.negocio_id === businessId && t.estado === 'Finalizado');
-
-                const equiposEncontrados: any[] = [];
-
-                for (const job of trabajosSucursal) {
-                    // --- ESTRATEGIA DE RESCATE DE TÉCNICO ---
-                    // 1. Técnico actual del trabajo
-                    // 2. Último técnico asignado en el array de asignaciones
-                    // 3. Fallback: "Sin asignar"
-                    let techLabel = "Desconocido";
-                    if (job.trabajador && job.trabajador.nombre) {
-                        techLabel = job.trabajador.nombre;
-                    } else if (job.asignaciones && job.asignaciones.length > 0) {
-                        // Tomamos el último técnico asignado históricamente
-                        techLabel = job.asignaciones[job.asignaciones.length - 1].tecnicoNombre || "Desconocido";
-                    }
-
-                    // -- A. Buscar en el reporte final --
-                    try {
-                        const reporte = await getReporteByTrabajoId(job.id);
-                        if (reporte && reporte.solucion) {
-                            const reportDataRaw = JSON.parse(reporte.solucion);
-                            if (reportDataRaw.involucraEquipo && reportDataRaw.equipoInfo) {
-                                equiposEncontrados.push({
-                                    ...reportDataRaw.equipoInfo,
-                                    reporteId: reportDataRaw.id || job.id,
-                                    tecnico: techLabel, 
-                                    fechaInstalacion: reportDataRaw.fecha || new Date(job.created_at).toLocaleDateString(),
-                                    tituloTrabajo: job.titulo
-                                });
-                            }
-                        }
-                    } catch (e) {}
-
-                    // -- B. Buscar en actividades individuales --
-                    try {
-                        const acts = await getActividadesByTrabajo(job.id);
-                        acts.forEach((act: any) => {
-                            if (act.equipo) {
-                                // Prioridad: Técnico de la actividad > Rescate (techLabel)
-                                const activityTech = act.trabajador ? act.trabajador.nombre : techLabel;
-                                
-                                equiposEncontrados.push({
-                                    ...act.equipo,
-                                    reporteId: act.id,
-                                    tecnico: activityTech,
-                                    fechaInstalacion: new Date(act.created_at || job.created_at).toLocaleDateString(),
-                                    tituloTrabajo: `${job.titulo} (${act.tipo})`
-                                });
-                            }
-                        });
-                    } catch (e) {
-                        console.error("Error fetching activities for equipment list", e);
-                    }
-                }
+                // 1. Obtener todas las áreas y equipos registrados del negocio
+                const negocio = await getNegocio(businessId);
+                const allRegisteredEquipments: any[] = [];
                 
-                setEquipos(equiposEncontrados);
+                if (negocio && negocio.areas) {
+                    negocio.areas.forEach((area: any) => {
+                        if (area.equipos) {
+                            area.equipos.forEach((equipo: any) => {
+                                allRegisteredEquipments.push({
+                                    ...equipo,
+                                    areaNombre: area.nombreArea
+                                });
+                            });
+                        }
+                    });
+                }
+
+                // 2. Obtener todo el historial de solicitudes de mantenimiento listadas en el sistema para este negocio
+                const solicitudesBackend = await getMantenimientoSolicitudes(businessId);
+
+                setEquipos(allRegisteredEquipments);
+                setSolicitudes(solicitudesBackend);
             } catch (error) {
-                console.error("Error fetching equipos:", error);
+                console.error("Error fetching data for Equipos:", error);
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchEquipos();
+        fetchData();
     }, [businessId]);
 
-    // Función auxiliar para calcular vencimiento
-    const calcularVencimiento = (fechaInst: string, mesesGar: string) => {
-        try {
-            const parts = fechaInst.includes('/') ? fechaInst.split('/') : fechaInst.split('-');
-            const dateInst = parts.length === 3 
-                ? new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0])) 
-                : new Date(fechaInst);
-            
-            if (isNaN(dateInst.getTime())) return null;
-            
-            dateInst.setMonth(dateInst.getMonth() + parseInt(mesesGar));
-            return dateInst.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
-        } catch { return null; }
+    const handleCardClick = (equipo: any) => {
+        setSelectedEquipo(equipo);
+        setModalOpen(true);
     };
 
     if (loading) {
         return (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '100px 0' }}>
                 <div className="loader-premium"></div>
-                <p style={{ marginTop: '20px', color: '#64748b', fontWeight: '500', letterSpacing: '0.5px' }}>Sincronizando inventario de equipos...</p>
+                <p style={{ marginTop: '20px', color: '#64748b', fontWeight: '500', letterSpacing: '0.5px' }}>Cargando inventario registrado...</p>
                 <style>{`
                     .loader-premium {
                         width: 48px;
@@ -134,7 +89,7 @@ const EquiposNegocio: React.FC<EquiposNegocioProps> = ({ businessId }) => {
                 <div style={{ fontSize: '60px', marginBottom: '20px' }}>🌫️</div>
                 <h3 style={{ color: '#1e293b', fontSize: '22px', fontWeight: 'bold' }}>Sin equipos registrados</h3>
                 <p style={{ color: '#64748b', maxWidth: '400px', margin: '15px auto 0', lineHeight: '1.6' }}>
-                    Aún no hay registros de instalaciones o mantenimientos detallados para esta sucursal.
+                    Esta sucursal no cuenta con equipos dados de alta en su levantamiento inicial.
                 </p>
             </div>
         );
@@ -144,12 +99,12 @@ const EquiposNegocio: React.FC<EquiposNegocioProps> = ({ businessId }) => {
         <div style={{ marginTop: '25px', animation: 'fadeIn 0.5s ease-out' }}>
             <div style={{ display: 'grid', gap: '25px', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))' }}>
                 {equipos.map((equipo, idx) => {
-                    const vencimiento = equipo.tipo === 'Instalación' && equipo.garantia 
-                        ? calcularVencimiento(equipo.fechaInstalacion, equipo.garantia)
-                        : null;
+                    const maintenanceCount = solicitudes.filter(r => r.levantamiento_equipo_id === equipo.id).length;
 
                     return (
-                        <div key={idx} style={{ 
+                        <div key={idx} 
+                        onClick={() => handleCardClick(equipo)}
+                        style={{ 
                             background: '#ffffff', 
                             border: '1px solid #f1f5f9', 
                             borderRadius: '24px', 
@@ -159,7 +114,7 @@ const EquiposNegocio: React.FC<EquiposNegocioProps> = ({ businessId }) => {
                             display: 'flex',
                             flexDirection: 'column',
                             gap: '18px',
-                            cursor: 'default'
+                            cursor: 'pointer'
                         }}
                         onMouseEnter={(e) => {
                             e.currentTarget.style.transform = 'translateY(-5px)';
@@ -171,13 +126,18 @@ const EquiposNegocio: React.FC<EquiposNegocioProps> = ({ businessId }) => {
                         }}
                         >
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                <div>
-                                    <h4 style={{ margin: 0, fontSize: '20px', fontWeight: '800', color: '#1e293b', textTransform: 'capitalize' }}>
-                                        {equipo.marca}
-                                    </h4>
-                                    <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: '#64748b', fontWeight: '500' }}>
-                                        Modelo: {equipo.modelo}
-                                    </p>
+                                <div style={{ display: 'flex', gap: '15px' }}>
+                                    {equipo.foto && (
+                                        <img src={equipo.foto} alt="equipo" style={{ width: '60px', height: '60px', borderRadius: '12px', objectFit: 'cover' }} />
+                                    )}
+                                    <div>
+                                        <h4 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: '#1e293b', textTransform: 'capitalize' }}>
+                                            {equipo.marca}
+                                        </h4>
+                                        <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#64748b', fontWeight: '600' }}>
+                                            {equipo.nombre}
+                                        </p>
+                                    </div>
                                 </div>
                                 <span style={{ 
                                     padding: '6px 14px', 
@@ -186,81 +146,58 @@ const EquiposNegocio: React.FC<EquiposNegocioProps> = ({ businessId }) => {
                                     fontWeight: '800',
                                     textTransform: 'uppercase',
                                     letterSpacing: '0.5px',
-                                    background: equipo.tipo === 'Instalación' ? '#eff6ff' : '#fffbeb',
-                                    color: equipo.tipo === 'Instalación' ? '#2563eb' : '#d97706',
-                                    border: `1px solid ${equipo.tipo === 'Instalación' ? '#dbeafe' : '#fef3c7'}`
+                                    background: '#f8fafc',
+                                    color: '#64748b',
+                                    border: '1px solid #e2e8f0'
                                 }}>
-                                    {equipo.tipo}
+                                    {equipo.areaNombre}
                                 </span>
                             </div>
 
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '16px', background: '#f8fafc', borderRadius: '18px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                    <HiOutlineWrenchScrewdriver style={{ color: '#94a3b8', fontSize: '18px' }} />
-                                    <div style={{ fontSize: '13px', color: '#334155' }}>
-                                        <span style={{ color: '#64748b', display: 'block', fontSize: '11px', fontWeight: '600' }}>TAREA</span>
-                                        <span style={{ fontWeight: '600' }}>{equipo.tituloTrabajo}</span>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '5px' }}>
+                                <div style={{ padding: '12px', border: '1px solid #f1f5f9', borderRadius: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <HiOutlineCube style={{ color: '#3b82f6', fontSize: '16px' }} />
+                                    <div style={{ fontSize: '12px' }}>
+                                        <span style={{ color: '#64748b', display: 'block', fontSize: '10px' }}>MODELO</span>
+                                        <span style={{ fontWeight: '700', color: '#1e293b' }}>{equipo.modelo}</span>
                                     </div>
                                 </div>
-
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                    <HiOutlineUser style={{ color: '#94a3b8', fontSize: '18px' }} />
-                                    <div style={{ fontSize: '13px', color: '#334155' }}>
-                                        <span style={{ color: '#64748b', display: 'block', fontSize: '11px', fontWeight: '600' }}>TÉCNICO RESPONSABLE</span>
-                                        <span style={{ fontWeight: '600' }}>{equipo.tecnico}</span>
-                                    </div>
-                                </div>
-
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                    <HiOutlineCalendarDays style={{ color: '#94a3b8', fontSize: '18px' }} />
-                                    <div style={{ fontSize: '13px', color: '#334155' }}>
-                                        <span style={{ color: '#64748b', display: 'block', fontSize: '11px', fontWeight: '600' }}>FECHA DE ACTIVIDAD</span>
-                                        <span style={{ fontWeight: '600' }}>{equipo.fechaInstalacion}</span>
+                                <div style={{ padding: '12px', border: '1px solid #f1f5f9', borderRadius: '15px', display: 'flex', alignItems: 'center', gap: '8px', background: maintenanceCount > 0 ? '#f0fdf4' : 'transparent', borderColor: maintenanceCount > 0 ? '#bbf7d0' : '#f1f5f9' }}>
+                                    <HiOutlineShieldCheck style={{ color: maintenanceCount > 0 ? '#16a34a' : '#10b981', fontSize: '16px' }} />
+                                    <div style={{ fontSize: '12px' }}>
+                                        <span style={{ color: maintenanceCount > 0 ? '#15803d' : '#64748b', display: 'block', fontSize: '10px' }}>INTERVENCIONES</span>
+                                        <span style={{ fontWeight: '700', color: maintenanceCount > 0 ? '#166534' : '#1e293b' }}>{maintenanceCount}</span>
                                     </div>
                                 </div>
                             </div>
-                            
-                            {equipo.tipo === 'Instalación' && (
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                                    <div style={{ padding: '12px', border: '1px solid #f1f5f9', borderRadius: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <HiOutlineCube style={{ color: '#3b82f6', fontSize: '16px' }} />
-                                        <div style={{ fontSize: '12px' }}>
-                                            <span style={{ color: '#64748b', display: 'block', fontSize: '10px' }}>CANTIDAD</span>
-                                            <span style={{ fontWeight: '700', color: '#1e293b' }}>{equipo.piezas} pz</span>
-                                        </div>
-                                    </div>
-                                    <div style={{ padding: '12px', border: '1px solid #f1f5f9', borderRadius: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <HiOutlineShieldCheck style={{ color: '#10b981', fontSize: '16px' }} />
-                                        <div style={{ fontSize: '12px' }}>
-                                            <span style={{ color: '#64748b', display: 'block', fontSize: '10px' }}>GARANTÍA</span>
-                                            <span style={{ fontWeight: '700', color: '#1e293b' }}>{equipo.garantia} Meses</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
 
-                            {vencimiento && (
-                                <div style={{ 
-                                    marginTop: 'auto',
-                                    padding: '12px 16px', 
-                                    background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)', 
-                                    borderRadius: '15px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'space-between',
-                                    border: '1px solid #bbfc0420'
-                                }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <HiOutlineClock style={{ color: '#16a34a', fontSize: '18px' }} />
-                                        <span style={{ fontSize: '12px', fontWeight: '700', color: '#166534' }}>Vencimiento de Garantía</span>
-                                    </div>
-                                    <span style={{ fontSize: '13px', fontWeight: '800', color: '#15803d' }}>{vencimiento}</span>
-                                </div>
-                            )}
+                            <button style={{
+                                width: '100%',
+                                padding: '10px',
+                                background: maintenanceCount > 0 ? '#0284c7' : '#f8fafc',
+                                color: maintenanceCount > 0 ? 'white' : '#64748b',
+                                border: maintenanceCount > 0 ? 'none' : '1px solid #e2e8f0',
+                                borderRadius: '12px',
+                                fontWeight: 'bold',
+                                marginTop: '5px',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s ease'
+                            }}>
+                                {maintenanceCount > 0 ? 'Ver Historial Completo' : 'Ver Detalles de Registro'}
+                            </button>
                         </div>
                     );
                 })}
             </div>
+
+            {/* Modal de Historial */}
+            <HistorialEquipoModal 
+                isOpen={modalOpen} 
+                onClose={() => setModalOpen(false)} 
+                equipo={selectedEquipo} 
+                historial={selectedEquipo ? solicitudes.filter(req => req.levantamiento_equipo_id === selectedEquipo.id) : []} 
+            />
+
             <style>{`
                 @keyframes fadeIn {
                     from { opacity: 0; transform: translateY(10px); }

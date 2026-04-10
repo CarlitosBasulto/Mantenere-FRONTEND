@@ -596,20 +596,24 @@
 .formGroup {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 24px;
 }
 
 .formField {
     display: flex;
-    align-items: center;
-    gap: 15px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    width: 100%;
 }
 
 .formLabel {
-    font-weight: 800;
-    font-size: 16px;
-    min-width: 120px;
-    color: #111;
+    font-weight: 700;
+    font-size: 13.5px;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-left: 4px;
 }
 
 .formInput {
@@ -669,36 +673,45 @@
 .newServiceInput {
     width: 100%;
     padding: 14px 20px;
-    border-radius: 25px;
-    border: 1px solid #e2e2e2;
+    border-radius: 16px;
+    border: 2px solid #f1f5f9;
     font-size: 15px;
-    color: #333;
-    background: white;
+    color: #1e293b;
+    background: #f8fafc;
     outline: none;
-    transition: border-color 0.2s;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02) inset;
+    box-sizing: border-box;
+    font-family: inherit;
 }
 
 .newServiceInput:focus {
     border-color: #fbbc04;
+    background: #fff;
+    box-shadow: 0 0 0 4px rgba(251, 188, 4, 0.15);
 }
 
 .newServiceTextArea {
     width: 100%;
-    padding: 15px 20px;
-    border-radius: 20px;
-    border: 1px solid #e2e2e2;
+    padding: 16px 20px;
+    border-radius: 16px;
+    border: 2px solid #f1f5f9;
     font-size: 15px;
-    color: #333;
-    background: white;
+    color: #1e293b;
+    background: #f8fafc;
     outline: none;
-    transition: border-color 0.2s;
+    transition: all 0.3s ease;
     height: 120px;
     resize: none;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02) inset;
+    box-sizing: border-box;
     font-family: inherit;
 }
 
 .newServiceTextArea:focus {
     border-color: #fbbc04;
+    background: #fff;
+    box-shadow: 0 0 0 4px rgba(251, 188, 4, 0.15);
 }
 
 .btnCotizar {

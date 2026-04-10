@@ -179,22 +179,22 @@
 }
 
 .saveButton {
-    background: #ffffff;
-    color: rgb(105, 105, 105);
-    border: 2px solid #6e6e6e3f;
+    background: #f9ab0f;
+    color: white;
+    border: none;
     padding: 15px 60px;
     border-radius: 30px;
     font-size: 16px;
     font-weight: bold;
     cursor: pointer;
     transition: all 0.2s;
-    box-shadow: 0 4px 15px rgba(255, 255, 255, 0);
+    box-shadow: 0 4px 15px rgba(249, 171, 15, 0.3);
 }
 
 .saveButton:hover {
-    background: #b4d4ff;
+    background: #e59a0d;
     transform: translateY(-2px);
-    border-color: #b4d4ff;
+    box-shadow: 0 6px 20px rgba(249, 171, 15, 0.5);
 }
 
 .saveButton:active {

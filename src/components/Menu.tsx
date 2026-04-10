@@ -114,7 +114,7 @@ const MenuLayout: React.FC = () => {
         let baseOptions: string[] = [];
 
         if (user.role === 'admin') {
-            baseOptions = ["Dashboard", "Negocios", "Trabajadores", "Usuarios", "Solicitudes", "Trabajos Realizados"];
+            baseOptions = ["Dashboard", "Negocios", "Trabajadores", "Usuarios", "Solicitudes", "Reportes Mantenimiento", "Trabajos Realizados"];
         } else if (user.role === 'cliente') {
             baseOptions = ["Mis Negocios", "Cotizaciones", "Historial"];
         } else if (user.role === 'tecnico') {
@@ -138,6 +138,7 @@ const MenuLayout: React.FC = () => {
                 else if (path.includes("trabajadores")) setActiveOption("Trabajadores");
                 else if (path.includes("usuarios")) setActiveOption("Usuarios");
                 else if (path.includes("solicitudes")) setActiveOption("Solicitudes");
+                else if (path.includes("mantenimiento")) setActiveOption("Reportes Mantenimiento");
                 else if (path.includes("trabajos-realizados")) setActiveOption("Trabajos Realizados");
                 else setActiveOption("Negocios");
             } else if (path.startsWith("/cliente")) {
@@ -160,6 +161,7 @@ const MenuLayout: React.FC = () => {
         if (option === "Trabajadores") navigate("/menu/trabajadores");
         if (option === "Usuarios") navigate("/menu/usuarios");
         if (option === "Solicitudes") navigate("/menu/solicitudes");
+        if (option === "Reportes Mantenimiento") navigate("/menu/mantenimiento");
         if (option === "Trabajos Realizados") navigate("/menu/trabajos-realizados");
 
         if (option === "Mis Negocios") navigate("/cliente");
@@ -206,6 +208,7 @@ const MenuLayout: React.FC = () => {
                 return <HiOutlineCurrencyDollar size={22} />;
             case "Trabajos":
             case "Mis Trabajos":
+            case "Reportes Mantenimiento":
                 return <HiOutlineWrench size={22} />;
             default:
                 return <HiOutlineDocumentText size={22} />;

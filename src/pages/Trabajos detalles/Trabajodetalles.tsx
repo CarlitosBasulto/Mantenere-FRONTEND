@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { createTrabajo, getTrabajos, updateEstadoTrabajo, assignTrabajador, updateTrabajo } from "../../services/trabajosService";
+import { createMantenimientoSolicitud } from "../../services/mantenimientoService";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import menuStyles from "../../components/Menu.module.css";
 import styles from "./Trabajodetalles.module.css";
@@ -65,6 +66,7 @@ const TrabajoDetalle: React.FC = () => {
     // Obtener nombre del negocio desde localStorage
     const [businessName, setBusinessName] = useState("Cargando...");
     const [businessImage, setBusinessImage] = useState<string | null>(null);
+    const [businessAreas, setBusinessAreas] = useState<any[]>([]);
 
     React.useEffect(() => {
         const fetchBusiness = async () => {
@@ -72,6 +74,12 @@ const TrabajoDetalle: React.FC = () => {
                 // Intenta obtener de la lista global que Laravel nos de
                 const all = await getNegocios();
                 const current = all.find((n: any) => n.id === Number(id));
+                
+                // Fetch individual to securely get 'areas' array
+                const individual = await getNegocio(Number(id));
+                if (individual && individual.areas) {
+                    setBusinessAreas(individual.areas);
+                }
                 
                 if (current) {
                     setBusinessName(current.nombre);
@@ -212,7 +220,8 @@ const TrabajoDetalle: React.FC = () => {
         categoria: "Electricidad",
         cliente: "",
         fecha: "",
-        descripcion: ""
+        descripcion: "",
+        equipoSeleccionado: ""
     });
 
     // Modal Filtro
@@ -360,11 +369,25 @@ const TrabajoDetalle: React.FC = () => {
                     const needsStateUpdate = trabajo?.estado === "Solicitud" || trabajo?.estado === "Cotización Aceptada" || trabajo?.estado === "Cotización Aprobada";
                     const newEstado = (needsStateUpdate ? "Asignado" : trabajo?.estado || "Asignado") as any;
 
+                    let nuevoTitulo = trabajo?.titulo || "";
+                    if (selectedType === "Trabajo" && nuevoTitulo.includes("(Visita)")) {
+                        nuevoTitulo = nuevoTitulo.replace("(Visita)", "(Reparación)");
+                    } else if (selectedType === "Visita" && nuevoTitulo.includes("(Reparación)")) {
+                        nuevoTitulo = nuevoTitulo.replace("(Reparación)", "(Visita)");
+                    }
+
                     // Always sync visited status regardless of current state to allow reverting mistakes
                     await updateEstadoTrabajo(selectedJobId, { 
                         estado: newEstado,
                         visitado: selectedType === "Trabajo" 
                     });
+
+                    // Sync the type and title explicitly
+                    await updateTrabajo(selectedJobId, {
+                        tipo: selectedType,
+                        titulo: nuevoTitulo
+                    });
+
                     showAlert("Asignación Exitosa", "Cambio guardado en el servidor.", "success");
                 } catch (error: any) {
                     console.error("Error al asignar:", error);
@@ -399,9 +422,17 @@ const TrabajoDetalle: React.FC = () => {
 
             const updated = trabajosData.map(job => {
                 if (job.id === selectedJobId) {
+                    let nuevoTitulo = job.titulo || "";
+                    if (selectedType === "Trabajo" && nuevoTitulo.includes("(Visita)")) {
+                        nuevoTitulo = nuevoTitulo.replace("(Visita)", "(Reparación)");
+                    } else if (selectedType === "Visita" && nuevoTitulo.includes("(Reparación)")) {
+                        nuevoTitulo = nuevoTitulo.replace("(Reparación)", "(Visita)");
+                    }
+
                     return {
                         ...job,
                         tecnico: assignedNames,
+                        titulo: nuevoTitulo,
                         estado: (job.estado === "Solicitud" || job.estado === "Asignado") ? newEstado : job.estado,
                         tipo: selectedType,
                         visitado: selectedType === "Trabajo",
@@ -452,12 +483,28 @@ const TrabajoDetalle: React.FC = () => {
         } else {
             // Create new request (Normal or SOS)
             try {
+                if (newRequestData.categoria === 'Mantenimiento' && newRequestData.equipoSeleccionado) {
+                    // Si se seleccionó equipo, se va flujo especializado de mantenimiento
+                    await createMantenimientoSolicitud({
+                        cliente_id: user?.id || 1,
+                        negocio_id: Number(id),
+                        levantamiento_equipo_id: newRequestData.equipoSeleccionado,
+                        descripcion_problema: newRequestData.descripcion || "Mantenimiento general programado"
+                    });
+                    
+                    showAlert("Solicitud Exitosa", "Tu reporte se ha creado correctamente y ya es visible en la sección de Reportes de Mantenimiento para la administración.", "success");
+                    setIsRequestModalOpen(false);
+                    return;
+                }
+
                 const isEmergency = isSOSRequest;
                 const newJobPayload = {
                     titulo: isEmergency 
                         ? `🚨 SOS: ${newRequestData.categoria} - ${businessName}`
                         : `${newRequestData.categoria} - ${newRequestData.cliente || businessName}`,
-                    descripcion: newRequestData.descripcion,
+                    descripcion: (newRequestData.categoria === 'Mantenimiento' && newRequestData.equipoSeleccionado) 
+                        ? `[Equipo: ${newRequestData.equipoSeleccionado}]\n${newRequestData.descripcion}` 
+                        : newRequestData.descripcion,
                     prioridad: isEmergency ? "Alta" : "Media",
                     negocio_id: Number(id),
                     fecha_programada: newRequestData.fecha || null
@@ -512,7 +559,8 @@ const TrabajoDetalle: React.FC = () => {
             categoria: "Electricidad",
             cliente: businessName,
             fecha: "",
-            descripcion: ""
+            descripcion: "",
+            equipoSeleccionado: ""
         });
     };
 
@@ -521,7 +569,8 @@ const TrabajoDetalle: React.FC = () => {
             categoria: "Electricidad",
             cliente: businessName,
             fecha: new Date().toISOString().split('T')[0],
-            descripcion: ""
+            descripcion: "",
+            equipoSeleccionado: ""
         });
         setIsSOSRequest(true);
         setIsEditingRequest(false);
@@ -562,7 +611,8 @@ const TrabajoDetalle: React.FC = () => {
             categoria: cat,
             cliente: businessName,
             fecha: job.fecha,
-            descripcion: job.descripcion || ""
+            descripcion: job.descripcion || "",
+            equipoSeleccionado: ""
         });
         setIsEditingRequest(true);
         setEditingRequestId(job.id);
@@ -1118,52 +1168,78 @@ const TrabajoDetalle: React.FC = () => {
                         </h2>
 
                         <div className={styles.formGroup}>
-                            <div className={styles.formField}>
-                                <label className={styles.formLabel}>Categoria</label>
-                                <select
-                                    className={styles.newServiceInput}
-                                    style={{ flex: 1 }}
-                                    value={newRequestData.categoria}
-                                    onChange={(e) => setNewRequestData({ ...newRequestData, categoria: e.target.value })}
-                                >
-                                    <option>Electricidad</option>
-                                    <option>Plomeria</option>
-                                    <option>Albañileria</option>
-                                    <option>Limpieza</option>
-                                    <option>Instalación</option>
-                                    <option>Mantenimiento</option>
-                                </select>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', width: '100%' }}>
+                                <div className={styles.formField}>
+                                    <label className={styles.formLabel}>Categoría</label>
+                                    <select
+                                        className={styles.newServiceInput}
+                                        value={newRequestData.categoria}
+                                        onChange={(e) => setNewRequestData({ ...newRequestData, categoria: e.target.value })}
+                                    >
+                                        <option>Electricidad</option>
+                                        <option>Plomeria</option>
+                                        <option>Albañileria</option>
+                                        <option>Limpieza</option>
+                                        <option>Instalación</option>
+                                        <option>Mantenimiento</option>
+                                    </select>
+                                </div>
+
+                                <div className={styles.formField}>
+                                    <label className={styles.formLabel}>Fecha Estimada</label>
+                                    <input
+                                        type="date"
+                                        className={styles.newServiceInput}
+                                        value={newRequestData.fecha}
+                                        onChange={(e) => setNewRequestData({ ...newRequestData, fecha: e.target.value })}
+                                    />
+                                </div>
                             </div>
 
+                            {newRequestData.categoria === 'Mantenimiento' && businessAreas.length > 0 && (
+                                <div className={styles.formField}>
+                                    <label className={styles.formLabel}>Equipo a mantener</label>
+                                    <div className={styles.selectWrapper}>
+                                        <select
+                                            className={styles.newServiceInput}
+                                            value={newRequestData.equipoSeleccionado}
+                                            onChange={(e) => setNewRequestData({ ...newRequestData, equipoSeleccionado: e.target.value })}
+                                        >
+                                            <option value="">-- Seleccionar Equipo (Opcional) --</option>
+                                            {businessAreas.map((area: any) => (
+                                                <optgroup key={area.id} label={area.nombreArea}>
+                                                    {area.equipos && area.equipos.map((eq: any) => (
+                                                        <option key={eq.id} value={eq.id}>
+                                                            {eq.nombre} - {eq.marca} {eq.modelo}
+                                                        </option>
+                                                    ))}
+                                                </optgroup>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+                            )}
+
                             <div className={styles.formField}>
-                                <label className={styles.formLabel}>Cliente</label>
+                                <label className={styles.formLabel}>Sucursal / Cliente</label>
                                 <input
                                     type="text"
                                     className={styles.newServiceInput}
-                                    placeholder="pokemon center"
-                                    style={{ flex: 1 }}
+                                    placeholder="Ej: Pokémon Center"
                                     value={newRequestData.cliente}
                                     onChange={(e) => setNewRequestData({ ...newRequestData, cliente: e.target.value })}
                                 />
                             </div>
 
                             <div className={styles.formField}>
-                                <label className={styles.formLabel}>Fecha</label>
-                                <input
-                                    type="date"
-                                    className={styles.newServiceInput}
-                                    style={{ flex: 1 }}
-                                    value={newRequestData.fecha}
-                                    onChange={(e) => setNewRequestData({ ...newRequestData, fecha: e.target.value })}
+                                <label className={styles.formLabel}>Descripción del problema</label>
+                                <textarea
+                                    className={styles.newServiceTextArea}
+                                    placeholder="Detalla lo que sucede o los requerimientos del servicio..."
+                                    value={newRequestData.descripcion}
+                                    onChange={(e) => setNewRequestData({ ...newRequestData, descripcion: e.target.value })}
                                 />
                             </div>
-
-                            <textarea
-                                className={styles.newServiceTextArea}
-                                placeholder="Descripción del problema"
-                                value={newRequestData.descripcion}
-                                onChange={(e) => setNewRequestData({ ...newRequestData, descripcion: e.target.value })}
-                            />
                         </div>
 
                         <div className={styles.requestModalActions}>

@@ -19,7 +19,7 @@ import {
     HiOutlinePencilSquare, // For general categories
     HiOutlineXMark
 } from "react-icons/hi2";
-import { getTrabajo, updateEstadoTrabajo, assignTrabajador } from "../../services/trabajosService";
+import { getTrabajo, updateEstadoTrabajo, assignTrabajador, updateTrabajo } from "../../services/trabajosService";
 import { createActividad, getActividadesByTrabajo, deleteActividad } from "../../services/actividadesService";
 import { getTrabajadores } from "../../services/trabajadoresService";
 import { saveCotizacion, updateCotizacion, deleteCotizacion, updateCotizacionStatus, getCotizacionesByTrabajoId, type Cotizacion } from "../../services/cotizacionesService";
@@ -27,6 +27,7 @@ import { createNotificacionByRole } from "../../services/notificacionesService";
 import { useModal } from "../../context/ModalContext";
 import { getNegocio } from "../../services/negociosService";
 import LevantamientoModal from "../../components/LevantamientoModal";
+import api from "../../services/api";
 
 
 export interface CotizacionData {
@@ -236,6 +237,36 @@ const AdminDetalleTrabajo: React.FC = () => {
                     fechaSolicitud: data.created_at ? new Date(data.created_at).toLocaleDateString('es-MX') : "No registrada",
                     businessId: data.negocio_id || data.negocio?.id
                 };
+                
+                // Autofill Marca and Modelo if there is a linked MantenimientoSolicitud
+                const solicitud = data.mantenimiento_solicitud_visita ||  data.mantenimientoSolicitudVisita || data.mantenimiento_solicitud_reparacion || data.mantenimientoSolicitudReparacion;
+                const equipo = solicitud ? (solicitud.levantamiento_equipo || solicitud.levantamientoEquipo) : null;
+                
+                if (equipo) {
+                    setServiceMarca(equipo.marca || "");
+                    setServiceModelo(equipo.modelo || "");
+                    setServiceEquipoId(equipo.id);
+                } else if (data.descripcion && typeof data.descripcion === 'string' && data.descripcion.includes('[Equipo:')) {
+                    const match = data.descripcion.match(/\[Equipo:\s*(.+?)\]/);
+                    if (match && match[1]) {
+                        const equipoNombre = match[1].trim();
+                        try {
+                            const bizId = data.negocio_id || data.negocio?.id;
+                            if (bizId) {
+                                const resEq = await api.get(`/negocios/${bizId}/equipos`);
+                                const foundEq = resEq.data.find((e: any) => e.nombre.toLowerCase().trim() === equipoNombre.toLowerCase());
+                                if (foundEq) {
+                                    setServiceMarca(foundEq.marca || "");
+                                    setServiceModelo(foundEq.modelo || "");
+                                    setServiceEquipoId(foundEq.id);
+                                }
+                            }
+                        } catch (err) {
+                            console.error("Error fetching fallback equipment:", err);
+                        }
+                    }
+                }
+
                 setTrabajo(mappedJob as any);
             } catch (error) {
                 console.error("No se pudo hallar el trabajo en servidor:", error);
@@ -345,8 +376,10 @@ const AdminDetalleTrabajo: React.FC = () => {
     const [activeServiceType, setActiveServiceType] = useState<"Mantenimiento" | "Instalacion">("Mantenimiento");
     const [serviceMarca, setServiceMarca] = useState("");
     const [serviceModelo, setServiceModelo] = useState("");
+    const [serviceEquipoId, setServiceEquipoId] = useState<number | null>(null);
     const [servicePieza, setServicePieza] = useState("");
     const [serviceGarantia, setServiceGarantia] = useState("");
+    const [refacciones, setRefacciones] = useState<{pieza: string, cantidad: number, costo_estimado?: string}[]>([]);
 
 
     const handleNewQuoteFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -380,10 +413,23 @@ const AdminDetalleTrabajo: React.FC = () => {
                     const needsStateUpdate = trabajo.estado === "Solicitud" || trabajo.estado === "Cotización Aceptada" || trabajo.estado === "Cotización Aprobada";
                     const newEstado = needsStateUpdate ? "Asignado" : trabajo.estado;
 
+                    let nuevoTitulo = trabajo.titulo || "";
+                    if (selectedType === "Trabajo" && nuevoTitulo.includes("(Visita)")) {
+                        nuevoTitulo = nuevoTitulo.replace("(Visita)", "(Reparación)");
+                    } else if (selectedType === "Visita" && nuevoTitulo.includes("(Reparación)")) {
+                        nuevoTitulo = nuevoTitulo.replace("(Reparación)", "(Visita)");
+                    }
+
                     // Always sync visited status regardless of current state to allow reverting mistakes
                     await updateEstadoTrabajo(trabajo.id, { 
                         estado: newEstado,
                         visitado: selectedType === "Trabajo" 
+                    });
+
+                    // Sync the type and title explicitly
+                    await updateTrabajo(trabajo.id, {
+                        tipo: selectedType,
+                        titulo: nuevoTitulo
                     });
 
                     const updatedJob = {
@@ -391,6 +437,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                         tecnico: assignedNames,
                         estado: newEstado,
                         tipo: selectedType,
+                        titulo: nuevoTitulo,
                         visitado: selectedType === "Trabajo",
                         fechaAsignada: asignarFecha,
                         horaAsignada: asignarHora
@@ -459,10 +506,18 @@ const AdminDetalleTrabajo: React.FC = () => {
                     desc += ` \n|||QUOTE_DATA||| ${JSON.stringify(quotePayload)}`;
                 }
 
+                const payloadRefacciones = refacciones.map(r => ({
+                    pieza: r.pieza,
+                    cantidad: Number(r.cantidad),
+                    costo_estimado: r.costo_estimado ? Number(r.costo_estimado) : undefined,
+                    levantamiento_equipo_id: serviceEquipoId || undefined
+                }));
+
                 const body = {
                     trabajo_id: Number(id),
                     tipo: activeServiceType, // Usamos Mantenimiento o Instalación como tipo principal
-                    descripcion: desc
+                    descripcion: desc,
+                    refacciones: payloadRefacciones
                 };
                 await createActividad(body);
                 const acts = await getActividadesByTrabajo(Number(id));
@@ -536,6 +591,7 @@ const AdminDetalleTrabajo: React.FC = () => {
         setServiceModelo("");
         setServicePieza("");
         setServiceGarantia("");
+        setRefacciones([]);
         setActiveTab("Trabajo");
     };
 
@@ -613,6 +669,13 @@ const AdminDetalleTrabajo: React.FC = () => {
                 try {
                     if (isVisita) {
                         await updateEstadoTrabajo(trabajo.id, { estado: "En Espera", visitado: true });
+                        try {
+                            await assignTrabajador(trabajo.id, null as any);
+                        } catch (e: any) {
+                            if (e.response && (e.response.status === 422 || e.response.status === 405)) {
+                                try { await updateTrabajo(trabajo.id, { trabajador_id: null }); } catch (e2) {}
+                            }
+                        }
                         const updatedJob = {
                             ...trabajo,
                             estado: "En Espera" as any,
@@ -1727,6 +1790,8 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                 value={serviceMarca}
                                                 onChange={(e) => setServiceMarca(e.target.value)}
                                                 placeholder="Ej. Daikin, York..."
+                                                disabled={!!serviceEquipoId}
+                                                style={{ background: serviceEquipoId ? '#f1f5f9' : 'white', cursor: serviceEquipoId ? 'not-allowed' : 'text' }}
                                             />
                                         </div>
                                         <div className={styles.serviceInputGroup}>
@@ -1736,6 +1801,8 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                 value={serviceModelo}
                                                 onChange={(e) => setServiceModelo(e.target.value)}
                                                 placeholder="Ej. R-410A..."
+                                                disabled={!!serviceEquipoId}
+                                                style={{ background: serviceEquipoId ? '#f1f5f9' : 'white', cursor: serviceEquipoId ? 'not-allowed' : 'text' }}
                                             />
                                         </div>
                                         {activeServiceType === 'Instalacion' && (
@@ -1764,6 +1831,62 @@ const AdminDetalleTrabajo: React.FC = () => {
                                     </div>
                                 )}
 
+                                {activeServiceType === 'Mantenimiento' && (
+                                    <div style={{ marginTop: '20px', background: '#f8fafc', padding: '15px', borderRadius: '12px', border: '1px solid #e2e8f0', marginBottom: '20px' }}>
+                                        <h4 style={{ fontSize: '14px', fontWeight: 'bold', color: '#475569', marginBottom: '10px' }}>Refacciones y Piezas (Historial de Equipo)</h4>
+                                        {refacciones.map((ref, i) => (
+                                            <div key={i} style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+                                                <input
+                                                    placeholder="Nombre de la pieza"
+                                                    value={ref.pieza}
+                                                    onChange={(e) => {
+                                                        const newR = [...refacciones];
+                                                        newR[i].pieza = e.target.value;
+                                                        setRefacciones(newR);
+                                                    }}
+                                                    style={{ flex: 1, padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                                                />
+                                                <input
+                                                    type="number"
+                                                    placeholder="Cant."
+                                                    value={ref.cantidad}
+                                                    onChange={(e) => {
+                                                        const newR = [...refacciones];
+                                                        newR[i].cantidad = Number(e.target.value);
+                                                        setRefacciones(newR);
+                                                    }}
+                                                    style={{ width: '80px', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                                                />
+                                                {user?.role === 'admin' && (
+                                                    <input
+                                                        type="number"
+                                                        placeholder="Costo Est. ($)"
+                                                        value={ref.costo_estimado || ""}
+                                                        onChange={(e) => {
+                                                            const newR = [...refacciones];
+                                                            newR[i].costo_estimado = e.target.value;
+                                                            setRefacciones(newR);
+                                                        }}
+                                                        style={{ width: '120px', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                                                    />
+                                                )}
+                                                <button
+                                                    onClick={() => setRefacciones(refacciones.filter((_, idx) => idx !== i))}
+                                                    style={{ background: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca', padding: '0 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+                                                >
+                                                    X
+                                                </button>
+                                            </div>
+                                        ))}
+                                        <button
+                                            onClick={() => setRefacciones([...refacciones, { pieza: '', cantidad: 1 }])}
+                                            style={{ background: 'transparent', color: '#FFB800', border: '1px dashed #FFB800', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold', width: '100%', marginTop: '5px' }}
+                                        >
+                                            + Agregar Pieza/Refacción
+                                        </button>
+                                    </div>
+                                )}
+
                                 <div style={{ marginBottom: '20px' }}>
                                     <textarea
                                         placeholder="Especifica tarea"
@@ -1773,7 +1896,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                                     />
                                 </div>
 
-                                {trabajo?.tipo === "Visita" && user?.role === 'tecnico' && (
+                                { (
                                     <div style={{ marginTop: '20px', background: '#f9f9f9', padding: '15px', borderRadius: '15px', border: '1px solid #eee' }}>
                                         <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontWeight: 'bold', cursor: 'pointer' }}>
                                             <input

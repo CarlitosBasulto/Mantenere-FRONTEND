@@ -19,6 +19,13 @@ export interface Actividad {
         detalles?: string;
     };
     cotizacion?: any; // Para la relación que regresa el backend
+    refacciones?: {
+        id?: number;
+        pieza: string;
+        cantidad: number;
+        costo_estimado?: number;
+        levantamiento_equipo_id?: number | null;
+    }[];
     created_at?: string;
     updated_at?: string;
 }

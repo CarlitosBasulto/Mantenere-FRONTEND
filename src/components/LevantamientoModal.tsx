@@ -11,7 +11,8 @@ import {
     HiOutlineCheckCircle,
     HiOutlineCamera,
     HiOutlinePhoto,
-    HiOutlineEye
+    HiOutlineEye,
+    HiOutlineExclamationTriangle
 } from "react-icons/hi2";
 import type { Equipment, LevantamientoData, LevantamientoSeccion } from '../pages/cliente/PerfilEmpresa';
 import DetalleEquipoModal from './DetalleEquipoModal';
@@ -24,9 +25,10 @@ interface LevantamientoModalProps {
     initialSectionId?: string | null;
     onSave: (newData: LevantamientoData) => void;
     isReadOnly?: boolean;
+    onReportMaintenance?: (eq: Equipment) => void;
 }
 
-const LevantamientoModal: React.FC<LevantamientoModalProps> = ({ isOpen, onClose, data, initialSectionId, onSave, isReadOnly = false }) => {
+const LevantamientoModal: React.FC<LevantamientoModalProps> = ({ isOpen, onClose, data, initialSectionId, onSave, isReadOnly = false, onReportMaintenance }) => {
     const { showConfirm } = useModal();
     const [sections, setSections] = useState<LevantamientoData>([]);
     const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
@@ -276,10 +278,15 @@ const LevantamientoModal: React.FC<LevantamientoModalProps> = ({ isOpen, onClose
                                                     </div>
                                                     <div className={styles.eqActions}>
                                                         <button onClick={() => setViewingEquipment(eq)} title="Ver Ficha Técncia"><HiOutlineEye size={18} color="#2563eb" /></button>
+                                                        {onReportMaintenance && (
+                                                            <button onClick={() => onReportMaintenance(eq)} title="Reportar Problema de Mantenimiento" style={{ backgroundColor: '#fffbeb', border: '1px solid #fef3c7', padding: '4px 8px', borderRadius: '4px' }}>
+                                                                <HiOutlineExclamationTriangle size={18} color="#f59e0b" />
+                                                            </button>
+                                                        )}
                                                         {!isReadOnly && (
                                                             <>
                                                                 <button onClick={() => startEditEquipment(eq)} title="Editar"><HiOutlinePencilSquare size={18} color="#64748b" /></button>
-                                                                <button onClick={() => deleteEquipment(eq.id!)} className={styles.btnDanger} title="Borrar"><HiOutlineTrash size={18} color="#64748b" /></button>
+                                                                <button onClick={() => deleteEquipment(eq.id!)} className={styles.btnDanger} title="Borrar"><HiOutlineTrash size={18} color="#ef4444" /></button>
                                                             </>
                                                         )}
                                                     </div>

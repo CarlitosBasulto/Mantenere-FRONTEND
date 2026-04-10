@@ -29,7 +29,8 @@ import Cotizaciones from "./pages/cliente/Cotizaciones";
 import Historial from "./pages/cliente/Historial";
 import AdminHistorial from "./pages/admin/AdminHistorial";
 import ListaUsuarios from "./pages/admin/ListaUsuarios";
-
+import ListaMantenimiento from "./pages/admin/ListaMantenimiento";
+import MantenimientoDetalle from "./pages/admin/MantenimientoDetalle";
 
 function App() {
     return (
@@ -59,6 +60,8 @@ function App() {
                             <Route path="trabajos-realizados" element={<AdminHistorial />} />
                             <Route path="trabajador/:id" element={<AdminPerfilTrabajador />} />
                             <Route path="solicitudes" element={<ListaSolicitudes />} />
+                            <Route path="mantenimiento" element={<ListaMantenimiento />} />
+                            <Route path="mantenimiento-detalle/:id" element={<MantenimientoDetalle />} />
                             <Route path="trabajo/:id" element={<TrabajoDetalle />} />
                             <Route path="trabajo-detalle/:id" element={<AdminDetalleTrabajo />} />
                             <Route path="cotizacion/:id" element={<AdminCotizacion />} />

@@ -1,0 +1,8 @@
+ El volumen de la unidad C es Windows
+ El n£mero de serie del volumen es: B272-19DC
+
+ Directorio de C:\Users\jdzul\Mantenere-BACKEND\mantenere-backend\database\migrations
+
+08/04/2026  11:07 p. m.               951 2026_04_09_050618_create_equipo_historial_refaccions_table.php
+               1 archivos            951 bytes
+               0 dirs  98,450,292,736 bytes libres
