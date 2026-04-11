@@ -14,16 +14,16 @@ const HistorialEquipoModal: React.FC<HistorialEquipoModalProps> = ({ isOpen, onC
     if (!isOpen || !equipo) return null;
 
     const toggleExpand = (index: number) => {
-        setExpandedIds(prev => 
+        setExpandedIds(prev =>
             prev.includes(index) ? prev.filter(id => id !== index) : [...prev, index]
         );
     };
 
     return (
         <div style={{
-            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
             backgroundColor: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(4px)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', 
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
             zIndex: 9999, padding: '20px'
         }} onClick={onClose}>
             <div style={{
@@ -31,24 +31,24 @@ const HistorialEquipoModal: React.FC<HistorialEquipoModalProps> = ({ isOpen, onC
                 maxHeight: '85vh', overflowY: 'auto', position: 'relative',
                 boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', border: '1px solid #e2e8f0', padding: '35px'
             }} onClick={e => e.stopPropagation()}>
-                
+
                 <button onClick={onClose} style={{
                     position: 'absolute', top: '25px', right: '25px', background: '#f1f5f9', border: 'none',
                     width: '36px', height: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center',
                     justifyContent: 'center', cursor: 'pointer', color: '#64748b', transition: 'all 0.2s ease'
                 }}
-                onMouseEnter={e => { e.currentTarget.style.background = '#e2e8f0'; e.currentTarget.style.color = '#0f172a'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#64748b'; }}
+                    onMouseEnter={e => { e.currentTarget.style.background = '#e2e8f0'; e.currentTarget.style.color = '#0f172a'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#64748b'; }}
                 >
                     <HiXMark size={20} />
                 </button>
 
                 <div style={{ display: 'flex', gap: '25px', flexWrap: 'wrap', marginBottom: '30px' }}>
                     {equipo.foto && (
-                        <img 
-                            src={equipo.foto} 
-                            alt={equipo.nombre} 
-                            style={{ width: '130px', height: '130px', objectFit: 'cover', borderRadius: '20px', border: '2px solid #e2e8f0' }} 
+                        <img
+                            src={equipo.foto}
+                            alt={equipo.nombre}
+                            style={{ width: '130px', height: '130px', objectFit: 'cover', borderRadius: '20px', border: '2px solid #e2e8f0' }}
                         />
                     )}
                     <div style={{ flex: 1, minWidth: '250px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
@@ -91,7 +91,7 @@ const HistorialEquipoModal: React.FC<HistorialEquipoModalProps> = ({ isOpen, onC
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                             {historial.map((req, idx) => {
                                 const isExpanded = expandedIds.includes(idx);
-                                
+
                                 // Extraer reportes en tiempo real del JSON anidado por si el mapping superior falló
                                 let finalReports = [...(req.reportes || [])];
                                 [req.visita_trabajo, req.reparacion_trabajo].forEach(t => {
@@ -104,17 +104,17 @@ const HistorialEquipoModal: React.FC<HistorialEquipoModalProps> = ({ isOpen, onC
                                                     solucion: p.observaciones || p.reporteTienda || 'Finalizado'
                                                 });
                                             }
-                                        } catch(e) {}
+                                        } catch (e) { }
                                     }
                                 });
 
                                 return (
-                                    <div key={idx} 
+                                    <div key={idx}
                                         onClick={() => toggleExpand(idx)}
-                                        style={{ 
-                                            padding: '24px', 
-                                            border: '1px solid #e2e8f0', 
-                                            borderRadius: '20px', 
+                                        style={{
+                                            padding: '24px',
+                                            border: '1px solid #e2e8f0',
+                                            borderRadius: '20px',
                                             background: '#ffffff',
                                             position: 'relative',
                                             overflow: 'hidden',
@@ -123,24 +123,24 @@ const HistorialEquipoModal: React.FC<HistorialEquipoModalProps> = ({ isOpen, onC
                                             boxShadow: isExpanded ? '0 10px 25px -5px rgba(0,0,0,0.05)' : 'none'
                                         }}>
                                         <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '4px', background: req.estado === 'Finalizado' || req.estado?.includes('Aceptada') ? '#10b981' : '#3b82f6' }}></div>
-                                        
+
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
                                             <span style={{ fontSize: '14px', fontWeight: '700', color: '#475569', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                 <HiOutlineCalendarDays style={{ color: '#94a3b8' }} /> {new Date(req.created_at).toLocaleDateString()}
                                             </span>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                <span style={{ 
+                                                <span style={{
                                                     padding: '6px 14px', borderRadius: '30px', fontSize: '11px', fontWeight: '800', textTransform: 'uppercase',
-                                                    background: req.estado === 'Finalizado' || req.estado?.includes('Aceptada') ? '#ecfdf5' : '#eff6ff', 
+                                                    background: req.estado === 'Finalizado' || req.estado?.includes('Aceptada') ? '#ecfdf5' : '#eff6ff',
                                                     color: req.estado === 'Finalizado' || req.estado?.includes('Aceptada') ? '#059669' : '#2563eb',
                                                     border: `1px solid ${req.estado === 'Finalizado' || req.estado?.includes('Aceptada') ? '#a7f3d0' : '#bfdbfe'}`
                                                 }}>
                                                     {req.estado}
                                                 </span>
-                                                {isExpanded ? <HiChevronUp size={20} color="#94a3b8"/> : <HiChevronDown size={20} color="#94a3b8"/>}
+                                                {isExpanded ? <HiChevronUp size={20} color="#94a3b8" /> : <HiChevronDown size={20} color="#94a3b8" />}
                                             </div>
                                         </div>
-                                        
+
                                         <div style={{ fontSize: '15px', color: '#1e293b', margin: '0', display: 'flex', alignItems: 'flex-start', gap: '10px', lineHeight: '1.5' }}>
                                             <HiOutlineWrenchScrewdriver style={{ marginTop: '3px', flexShrink: 0, color: '#f59e0b', fontSize: '18px' }} />
                                             <div>
@@ -151,7 +151,7 @@ const HistorialEquipoModal: React.FC<HistorialEquipoModalProps> = ({ isOpen, onC
 
                                         {isExpanded && (
                                             <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px dashed #e2e8f0', animation: 'fadeIn 0.3s ease-out' }}>
-                                                
+
                                                 {/* Detalle Técnico */}
                                                 {!finalReports.length && (!req.visitas || req.visitas.length === 0) ? (
                                                     <div style={{ textAlign: 'center', padding: '15px', background: '#f8fafc', borderRadius: '12px' }}>
@@ -183,11 +183,11 @@ const HistorialEquipoModal: React.FC<HistorialEquipoModalProps> = ({ isOpen, onC
                                                                     {finalReports.map((rep: any, i: number) => (
                                                                         <div key={i} style={{ fontSize: '13px', color: '#475569', background: '#f0fdf4', padding: '15px', borderRadius: '12px', border: '1px solid #bbf7d0' }}>
                                                                             <p style={{ margin: '0 0 8px', display: 'flex', gap: '8px' }}>
-                                                                                <strong style={{ color: '#166534', minWidth: '80px', flexShrink: 0 }}>Hallazgo:</strong> 
+                                                                                <strong style={{ color: '#166534', minWidth: '80px', flexShrink: 0 }}>Hallazgo:</strong>
                                                                                 <span style={{ color: '#14532d' }}>{rep.falla_encontrada}</span>
                                                                             </p>
                                                                             <p style={{ margin: '0', display: 'flex', gap: '8px' }}>
-                                                                                <strong style={{ color: '#166534', minWidth: '80px', flexShrink: 0 }}>Solución:</strong> 
+                                                                                <strong style={{ color: '#166534', minWidth: '80px', flexShrink: 0 }}>Solución:</strong>
                                                                                 <span style={{ color: '#14532d' }}>{rep.solucion}</span>
                                                                             </p>
                                                                         </div>

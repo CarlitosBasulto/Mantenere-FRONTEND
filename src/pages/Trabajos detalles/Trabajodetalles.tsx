@@ -74,13 +74,13 @@ const TrabajoDetalle: React.FC = () => {
                 // Intenta obtener de la lista global que Laravel nos de
                 const all = await getNegocios();
                 const current = all.find((n: any) => n.id === Number(id));
-                
+
                 // Fetch individual to securely get 'areas' array
                 const individual = await getNegocio(Number(id));
                 if (individual && individual.areas) {
                     setBusinessAreas(individual.areas);
                 }
-                
+
                 if (current) {
                     setBusinessName(current.nombre);
                     setBusinessImage(current.imagenPerfil || null);
@@ -125,7 +125,7 @@ const TrabajoDetalle: React.FC = () => {
                         // Si el estado tiene que ver con la cotización ya completada o en proceso, 
                         // automáticamente es la fase de Trabajo (haya presionado terminar visita o no).
                         const isTrabajoDefinitivo = ["Cotización Enviada", "Cotización Rechazada", "Cotización Aceptada", "Cotización Aprobada", "En Proceso", "Finalizado"].includes(j.estado) || j.visitado;
-                        
+
                         displayTipo = isTrabajoDefinitivo ? "Trabajo" : "Visita";
                     }
 
@@ -320,7 +320,7 @@ const TrabajoDetalle: React.FC = () => {
 
         // Reset search
         setTechnicianSearch("");
-        
+
         // Logic for pre-filling or resetting assignments
         if (job?.estado === "Solicitud" || job?.estado === "En Espera" || job?.tecnico === "Sin asignar") {
             // If it's a new request or coming back from a visit, we want it empty to avoid auto-assigning old tech
@@ -354,7 +354,7 @@ const TrabajoDetalle: React.FC = () => {
         if (selectedJobId) {
             const trabajo = trabajosData.find(j => j.id === selectedJobId);
             const selectedTechnicians = selectedAssignments.map(a => a.tecnicoId);
-            
+
             const assignedNames = selectedAssignments.length > 0
                 ? selectedAssignments.map(a => a.tecnicoNombre).join(", ")
                 : "Sin asignar";
@@ -365,7 +365,7 @@ const TrabajoDetalle: React.FC = () => {
             if (selectedJobId && selectedTechnicians.length > 0) {
                 try {
                     await assignTrabajador(selectedJobId, selectedTechnicians[0]);
-                    
+
                     const needsStateUpdate = trabajo?.estado === "Solicitud" || trabajo?.estado === "Cotización Aceptada" || trabajo?.estado === "Cotización Aprobada";
                     const newEstado = (needsStateUpdate ? "Asignado" : trabajo?.estado || "Asignado") as any;
 
@@ -377,9 +377,9 @@ const TrabajoDetalle: React.FC = () => {
                     }
 
                     // Always sync visited status regardless of current state to allow reverting mistakes
-                    await updateEstadoTrabajo(selectedJobId, { 
+                    await updateEstadoTrabajo(selectedJobId, {
                         estado: newEstado,
-                        visitado: selectedType === "Trabajo" 
+                        visitado: selectedType === "Trabajo"
                     });
 
                     // Sync the type and title explicitly
@@ -491,7 +491,7 @@ const TrabajoDetalle: React.FC = () => {
                         levantamiento_equipo_id: newRequestData.equipoSeleccionado,
                         descripcion_problema: newRequestData.descripcion || "Mantenimiento general programado"
                     });
-                    
+
                     showAlert("Solicitud Exitosa", "Tu reporte se ha creado correctamente y ya es visible en la sección de Reportes de Mantenimiento para la administración.", "success");
                     setIsRequestModalOpen(false);
                     return;
@@ -499,17 +499,17 @@ const TrabajoDetalle: React.FC = () => {
 
                 const isEmergency = isSOSRequest;
                 const newJobPayload = {
-                    titulo: isEmergency 
+                    titulo: isEmergency
                         ? `🚨 SOS: ${newRequestData.categoria} - ${businessName}`
                         : `${newRequestData.categoria} - ${newRequestData.cliente || businessName}`,
-                    descripcion: (newRequestData.categoria === 'Mantenimiento' && newRequestData.equipoSeleccionado) 
-                        ? `[Equipo: ${newRequestData.equipoSeleccionado}]\n${newRequestData.descripcion}` 
+                    descripcion: (newRequestData.categoria === 'Mantenimiento' && newRequestData.equipoSeleccionado)
+                        ? `[Equipo: ${newRequestData.equipoSeleccionado}]\n${newRequestData.descripcion}`
                         : newRequestData.descripcion,
                     prioridad: isEmergency ? "Alta" : "Media",
                     negocio_id: Number(id),
                     fecha_programada: newRequestData.fecha || null
                 };
-                
+
                 const dbJob = await createTrabajo(newJobPayload);
 
                 // Update purely visual UI State immediately
@@ -524,7 +524,7 @@ const TrabajoDetalle: React.FC = () => {
                     descripcion: dbJob.descripcion,
                     isEmergency: isEmergency
                 };
-                
+
                 if (isEmergency) {
                     saveJobs([newJobView as any, ...trabajosData]);
                 } else {
@@ -536,7 +536,7 @@ const TrabajoDetalle: React.FC = () => {
                     await createNotificacionByRole({
                         role: 'admin',
                         titulo: isEmergency ? '🚨 NUEVA EMERGENCIA' : 'NUEVA SOLICITUD ✨',
-                        mensaje: isEmergency 
+                        mensaje: isEmergency
                             ? `El cliente ha enviado un SOS: ${newJobView.titulo} en la sucursal ${businessName}.`
                             : `El cliente ha creado una nueva solicitud: ${newJobView.titulo} en la sucursal ${businessName}.`,
                         enlace: `/menu/trabajo-detalle/${newJobView.id}`
@@ -549,7 +549,7 @@ const TrabajoDetalle: React.FC = () => {
                 showAlert("Error", "Hubo un error contactando al servidor.", "error");
             }
         }
-        
+
         setIsRequestModalOpen(false);
         setIsEditingRequest(false);
         setIsSOSRequest(false);
@@ -733,7 +733,7 @@ const TrabajoDetalle: React.FC = () => {
                             <p className={styles.subTitle}>Equipos en la sucursal:</p>
                             <h2 className={styles.businessName}>{businessName}</h2>
                         </div>
-                        <button 
+                        <button
                             onClick={() => setSearchParams({})}
                             style={{ background: '#f1f5f9', color: '#334155', border: 'none', padding: '10px 15px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
                         >
@@ -763,7 +763,7 @@ const TrabajoDetalle: React.FC = () => {
                         </div>
                     ) : (
                         <div className={styles.simpleHeader}>
-                             <h1 className={styles.businessTitle}>{businessName}</h1>
+                            <h1 className={styles.businessTitle}>{businessName}</h1>
                         </div>
                     )}
                 </div>
@@ -848,17 +848,17 @@ const TrabajoDetalle: React.FC = () => {
 
                                         {/* INDICADOR FLOTANTE DE DIAGNÓSTICO (PREMIUM) */}
                                         {!!trabajo.visitado && (trabajo.estado === 'Solicitud' || trabajo.estado === 'En Espera') && (
-                                            <div style={{ 
-                                                position: 'absolute', 
-                                                right: '-10px', 
-                                                top: '10px', 
-                                                background: '#00a699', 
-                                                color: 'white', 
-                                                padding: '6px 16px', 
-                                                borderRadius: '12px', 
-                                                fontSize: '11px', 
-                                                fontWeight: '900', 
-                                                textTransform: 'uppercase', 
+                                            <div style={{
+                                                position: 'absolute',
+                                                right: '-10px',
+                                                top: '10px',
+                                                background: '#00a699',
+                                                color: 'white',
+                                                padding: '6px 16px',
+                                                borderRadius: '12px',
+                                                fontSize: '11px',
+                                                fontWeight: '900',
+                                                textTransform: 'uppercase',
                                                 boxShadow: '0 4px 12px rgba(0, 166, 153, 0.4)',
                                                 zIndex: 20,
                                                 letterSpacing: '0.5px'
@@ -890,7 +890,7 @@ const TrabajoDetalle: React.FC = () => {
                                                 {/* MENU DE TRES PUNTOS - Only for Admin or Cliente */}
                                                 {(user?.role === 'admin' || user?.role === 'cliente') && (
                                                     <div className={styles.menuContainer} onClick={(e) => e.stopPropagation()}>
-                                                        <button 
+                                                        <button
                                                             className={styles.dotsBtn}
                                                             onClick={() => setActiveMenuId(activeMenuId === trabajo.id ? null : trabajo.id)}
                                                         >
@@ -900,16 +900,16 @@ const TrabajoDetalle: React.FC = () => {
                                                         {activeMenuId === trabajo.id && (
                                                             <div className={styles.dropdownMenu}>
                                                                 {user?.role === 'cliente' && (
-                                                                    <button 
+                                                                    <button
                                                                         className={styles.menuItem}
                                                                         onClick={(e) => handleOpenEditRequest(e, trabajo)}
                                                                     >
                                                                         <HiOutlinePencil /> Editar
                                                                     </button>
                                                                 )}
-                                                                
+
                                                                 {user?.role === 'admin' && (
-                                                                    <button 
+                                                                    <button
                                                                         className={styles.menuItem}
                                                                         onClick={() => openAssignmentModal(trabajo.id)}
                                                                     >
@@ -918,7 +918,7 @@ const TrabajoDetalle: React.FC = () => {
                                                                 )}
 
                                                                 {user?.role === 'cliente' && (
-                                                                    <button 
+                                                                    <button
                                                                         className={`${styles.menuItem} ${styles.deleteItem}`}
                                                                         onClick={(e) => handleDeleteRequest(e, trabajo.id)}
                                                                     >
@@ -936,7 +936,7 @@ const TrabajoDetalle: React.FC = () => {
                                                 <h3 className={styles.jobTitle}>
                                                     {trabajo.estado === 'Finalizado' ? trabajo.titulo.replace('🚨 SOS: ', '').replace('SOS: ', '') : trabajo.titulo}
                                                 </h3>
-                                                
+
                                                 {/* CAJA DE DESCRIPCIÓN ELEGANTE */}
                                                 {trabajo.descripcion && (() => {
                                                     const desc = trabajo.descripcion;
@@ -958,17 +958,17 @@ const TrabajoDetalle: React.FC = () => {
 
                                                 {/* INFO DE COTIZACIÓN (Solo si está enviada y es relevante) */}
                                                 {(['Cotización Enviada', 'Cotización Aceptada', 'Cotización Rechazada', 'Cotización'].includes(trabajo.estado) || status.includes("cotizaci")) && trabajo.cotizacion && (
-                                                     <div style={{ background: '#fef3c7', padding: '10px', borderRadius: '10px', marginTop: '10px', border: '1px solid #fcd34d' }}>
-                                                         <p style={{ fontWeight: 'bold', color: '#92400e', marginBottom: '5px' }}>
-                                                             {user?.role === 'admin' ? '💰 Cotización Enviada' : '💰 Cotización del Trabajo'}: ${trabajo.cotizacion.costo}
-                                                         </p>
-                                                         {user?.role === 'cliente' && trabajo.estado === 'Cotización Enviada' && (
-                                                             <div style={{ display: 'flex', gap: '5px' }}>
-                                                                 <button onClick={(e) => { e.stopPropagation(); handleAceptarCotizacion(trabajo.id); }} style={{ flex: 1, padding: '5px', background: '#22c55e', color: 'white', borderRadius: '5px', border: 'none', fontSize: '12px' }}>Aceptar</button>
-                                                                 <button onClick={(e) => { e.stopPropagation(); handleRechazarCotizacion(trabajo.id); }} style={{ flex: 1, padding: '5px', background: '#ef4444', color: 'white', borderRadius: '5px', border: 'none', fontSize: '12px' }}>Rechazar</button>
-                                                             </div>
-                                                         )}
-                                                     </div>
+                                                    <div style={{ background: '#fef3c7', padding: '10px', borderRadius: '10px', marginTop: '10px', border: '1px solid #fcd34d' }}>
+                                                        <p style={{ fontWeight: 'bold', color: '#92400e', marginBottom: '5px' }}>
+                                                            {user?.role === 'admin' ? '💰 Cotización Enviada' : '💰 Cotización del Trabajo'}: ${trabajo.cotizacion.costo}
+                                                        </p>
+                                                        {user?.role === 'cliente' && trabajo.estado === 'Cotización Enviada' && (
+                                                            <div style={{ display: 'flex', gap: '5px' }}>
+                                                                <button onClick={(e) => { e.stopPropagation(); handleAceptarCotizacion(trabajo.id); }} style={{ flex: 1, padding: '5px', background: '#22c55e', color: 'white', borderRadius: '5px', border: 'none', fontSize: '12px' }}>Aceptar</button>
+                                                                <button onClick={(e) => { e.stopPropagation(); handleRechazarCotizacion(trabajo.id); }} style={{ flex: 1, padding: '5px', background: '#ef4444', color: 'white', borderRadius: '5px', border: 'none', fontSize: '12px' }}>Rechazar</button>
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 )}
                                             </div>
 
@@ -981,23 +981,23 @@ const TrabajoDetalle: React.FC = () => {
                                                 <div className={styles.actionsCard}>
                                                     {/* Botón rápido si es necesario (ej. Cotizar) */}
                                                     {trabajo.visitado && !trabajo.cotizacion && user?.role === 'admin' && trabajo.estado === 'Solicitud' && (
-                                                        <button 
+                                                        <button
                                                             className={styles.btnCotizar}
                                                             onClick={(e) => { e.stopPropagation(); navigate(`/menu/admin-reporte/${trabajo.id}`); }}
                                                         >
                                                             💰 Cotizar
                                                         </button>
                                                     )}
-                                                        {/* Hide type label if unassigned or technician search matches */}
-                                                        {trabajo.tecnico && 
-                                                         !trabajo.tecnico.toLowerCase().includes("sin asignar") && 
-                                                         !trabajo.tecnico.toLowerCase().includes("pendiente") && 
-                                                         trabajo.tecnico.trim() !== "" && (
+                                                    {/* Hide type label if unassigned or technician search matches */}
+                                                    {trabajo.tecnico &&
+                                                        !trabajo.tecnico.toLowerCase().includes("sin asignar") &&
+                                                        !trabajo.tecnico.toLowerCase().includes("pendiente") &&
+                                                        trabajo.tecnico.trim() !== "" && (
                                                             <span className={styles.jobTypeBadge}>
                                                                 {trabajo.estado === 'Finalizado' && trabajo.tipo === "SOS" ? 'Finalizado' : trabajo.tipo}
                                                             </span>
                                                         )}
-                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
