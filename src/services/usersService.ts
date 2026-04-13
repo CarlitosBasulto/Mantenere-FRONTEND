@@ -19,6 +19,12 @@ export const updateUser = async (id: number, data: any) => {
     return res.data;
 };
 
+// Obtener un usuario específico por ID
+export const getUserById = async (id: number) => {
+    const res = await api.get(`/users/${id}`);
+    return res.data;
+};
+
 // Eliminar un usuario (o dar de baja)
 export const deleteUser = async (id: number) => {
     const res = await api.delete(`/users/${id}`);

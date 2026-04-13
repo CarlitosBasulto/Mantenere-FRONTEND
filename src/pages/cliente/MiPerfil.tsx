@@ -4,6 +4,7 @@ import styles from "./PerfilEmpresa.module.css";
 import { useAuth } from "../../context/AuthContext";
 import { useModal } from "../../context/ModalContext";
 import { getTrabajadores, updateTrabajador } from "../../services/trabajadoresService";
+import { getUserById, updateUser } from "../../services/usersService";
 
 
 interface UserProfile {
@@ -44,7 +45,7 @@ const MiPerfil: React.FC = () => {
             if (user?.role === 'tecnico') {
                 try {
                     const data = await getTrabajadores();
-                    const worker = data.find((w: any) => 
+                    const worker = data.find((w: any) =>
                         w.correo === user.email || w.nombre === user.name || w.user_id === user.id
                     );
                     if (worker) {
@@ -58,6 +59,24 @@ const MiPerfil: React.FC = () => {
                     }
                 } catch (err) {
                     console.error("Error fetching worker data:", err);
+                }
+            } else if (user?.id) {
+                // 1.5. Si es cliente u otro, obtener datos de la tabla users
+                try {
+                    const userData = await getUserById(user.id);
+                    if (userData) {
+                        adminData = {
+                            nombre: userData.name,
+                            email: userData.email,
+                            telefono: userData.telefono || "",
+                            rfc: userData.rfc || "",
+                            razonSocial: userData.razon_social || "",
+                            direccionFiscal: userData.direccion_fiscal || "",
+                            imagenPerfil: userData.avatar || ""
+                        };
+                    }
+                } catch (err) {
+                    console.error("Error fetching user data:", err);
                 }
             }
 
@@ -128,7 +147,27 @@ const MiPerfil: React.FC = () => {
                 await updateTrabajador(workerId, updateData);
             }
 
-            // 2. Guardar perfil en storage local para persistencia inmediata
+            // 1.5. GUARDAR EN EL SERVIDOR (Para el usuario en sí, especialmente clientes)
+            if (user?.id) {
+                const userUpdateData: any = {
+                    name: formData.nombre || user.name,
+                    email: formData.email || user.email,
+                };
+
+                // Solo agregar si tienen valor para evitar validaciones fallidas
+                if (formData.telefono) userUpdateData.telefono = formData.telefono;
+                if (formData.rfc) userUpdateData.rfc = formData.rfc;
+                if (formData.razonSocial) userUpdateData.razon_social = formData.razonSocial;
+                if (formData.direccionFiscal) userUpdateData.direccion_fiscal = formData.direccionFiscal;
+
+                if (formData.imagenPerfil && formData.imagenPerfil.startsWith('data:image')) {
+                    userUpdateData.avatar = formData.imagenPerfil;
+                }
+
+                await updateUser(user.id, userUpdateData);
+            }
+
+            // 2. Guardar perfil en storage local para persistencia inmediata (legacy support)
             localStorage.setItem(profileKey, JSON.stringify(formData));
 
             // También actualizar la lista local de trabajadores (para compatibilidad de vistas legacy)
