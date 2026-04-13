@@ -14,7 +14,7 @@ import { getTrabajadores } from "../../services/trabajadoresService";
 import { createNotificacion, createNotificacionByRole } from "../../services/notificacionesService";
 import { deleteTrabajo } from "../../services/trabajosService";
 import { HiDotsVertical } from "react-icons/hi";
-import { HiOutlinePencil, HiOutlineTrash, HiOutlineClipboardDocumentList } from "react-icons/hi2";
+import { HiOutlinePencil, HiOutlineTrash, HiOutlineClipboardDocumentList, HiOutlineArchiveBox, HiOutlineClock } from "react-icons/hi2";
 
 interface Trabajo {
     id: number;
@@ -805,11 +805,11 @@ const TrabajoDetalle: React.FC = () => {
                     {user?.role === 'admin' && (
                         <div style={{ display: 'flex', gap: '10px' }}>
                             <button
-                                className={`${menuStyles.filterBtn}`}
-                                style={{ background: '#0284c7', color: 'white', fontWeight: 'bold', minWidth: '120px' }}
+                                className={styles.equiposBtn}
                                 onClick={() => setSearchParams({ tab: 'equipos' })}
                             >
-                                📦 Equipos
+                                <HiOutlineArchiveBox size={20} />
+                                Equipos
                             </button>
                         </div>
                     )}
@@ -817,10 +817,10 @@ const TrabajoDetalle: React.FC = () => {
                     {user?.role === 'tecnico' && (
                         <div style={{ display: 'flex', gap: '10px' }}>
                             <button
-                                className={`${menuStyles.filterBtn} ${styles.newRequestBtn}`}
-                                style={{ background: '#4caf50', color: 'white', fontWeight: 'bold' }}
+                                className={styles.historialBtn}
                                 onClick={() => setSearchParams({ tab: 'historial' })}
                             >
+                                <HiOutlineClock size={20} />
                                 Ver Historial
                             </button>
                         </div>

@@ -2,14 +2,15 @@ import React, { useEffect, useState } from 'react';
 import styles from './Dashboard.module.css';
 import { 
     XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
-    AreaChart, Area, PieChart, Pie, Cell 
+    AreaChart, Area, PieChart, Pie, Cell, BarChart, Bar, Legend, LineChart, Line
 } from 'recharts';
-import { HiOutlineUsers, HiOutlineBriefcase, HiOutlineDocumentText, HiOutlineClipboardDocumentCheck } from 'react-icons/hi2';
+import { HiOutlineUsers, HiOutlineBriefcase, HiOutlineDocumentText, HiOutlineClipboardDocumentCheck, HiOutlineWrenchScrewdriver, HiOutlineChartBarSquare } from 'react-icons/hi2';
 
 // Servicios
 import { getUsers } from '../../services/usersService';
 import { getNegocios } from '../../services/negociosService';
 import { getTrabajos } from '../../services/trabajosService';
+import { getCotizacionesByTrabajoId } from '../../services/cotizacionesService';
 
 const Dashboard: React.FC = () => {
     const [stats, setStats] = useState({
@@ -20,6 +21,9 @@ const Dashboard: React.FC = () => {
     });
     const [trendData, setTrendData] = useState<any[]>([]);
     const [statusData, setStatusData] = useState<any[]>([]);
+    const [techLoadData, setTechLoadData] = useState<any[]>([]);
+    const [serviceTypeData, setServiceTypeData] = useState<any[]>([]);
+    const [financialData, setFinancialData] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -95,6 +99,75 @@ const Dashboard: React.FC = () => {
                     { name: 'En Progreso', value: counts['En Progreso'], color: '#3b82f6' },
                     { name: 'Finalizados', value: counts.Finalizados, color: '#10b981' },
                 ]);
+                
+                // 4. Procesar Carga de Técnicos
+                const techMap: Record<string, number> = {};
+                t.forEach((job: any) => {
+                    if (job.trabajador?.nombre) {
+                        const name = job.trabajador.nombre;
+                        techMap[name] = (techMap[name] || 0) + 1;
+                    }
+                });
+                setTechLoadData(Object.entries(techMap).map(([name, count]) => ({ name, trabajos: count })));
+
+                // 5. Procesar Tipos de Servicio
+                const typeMap: Record<string, number> = { 'Mantenimiento': 0, 'Reparación': 0, 'Otros': 0 };
+                t.forEach((job: any) => {
+                    const desc = (job.titulo + job.descripcion || "").toLowerCase();
+                    if (desc.includes('mantenimiento')) typeMap['Mantenimiento']++;
+                    else if (desc.includes('reparación') || desc.includes('sos')) typeMap['Reparación']++;
+                    else typeMap['Otros']++;
+                });
+                setServiceTypeData([
+                    { name: 'Mantenimiento', value: typeMap['Mantenimiento'], color: '#6366f1' },
+                    { name: 'Reparación', value: typeMap['Reparación'], color: '#ef4444' },
+                    { name: 'Otros', value: typeMap['Otros'], color: '#94a3b8' }
+                ]);
+
+                // 6. Datos Financieros (Estimado de Cotizaciones)
+                // Primero obtenemos cotizaciones para los trabajos del periodo relevante para tener montos reales
+                const relevantJobs = t.filter((job: any) => {
+                    const jobDate = new Date(job.created_at);
+                    return last4Months.some(m => jobDate.getMonth() === m.monthIndex && jobDate.getFullYear() === m.year);
+                });
+
+                // Fetch paralelo de cotizaciones
+                const quoteResults = await Promise.all(
+                    relevantJobs.map(async (job: any) => {
+                        try {
+                            const quotes = await getCotizacionesByTrabajoId(job.id);
+                            if (quotes && quotes.length > 0) {
+                                // Buscamos la primera aprobada o la última pendiente
+                                const topQuote = quotes.find(q => q.estado === 'Aprobada') || quotes[0];
+                                return { id: job.id, monto: Number(topQuote.monto || 0) };
+                            }
+                        } catch (e) { }
+                        return { id: job.id, monto: 0 };
+                    })
+                );
+
+                const quoteMap: Record<number, number> = {};
+                quoteResults.forEach(res => {
+                    quoteMap[res.id] = res.monto;
+                });
+
+                const finData = last4Months.map(m => {
+                    let totalPendiente = 0;
+                    let totalAceptado = 0;
+                    t.forEach((job: any) => {
+                        const jobDate = new Date(job.created_at);
+                        if (jobDate.getMonth() === m.monthIndex && jobDate.getFullYear() === m.year) {
+                            const monto = quoteMap[job.id] || 0;
+                            if (job.estado === 'Cotización Aceptada' || job.estado === 'Finalizado' || job.estado === 'Logrado (Confirmado)') {
+                                totalAceptado += monto;
+                            } else {
+                                totalPendiente += monto;
+                            }
+                        }
+                    });
+                    return { name: m.name, "Venta en Espera": totalPendiente, "Logrado (Confirmado)": totalAceptado };
+                });
+                setFinancialData(finData);
 
             } catch (error) {
                 console.error("Error cargando estadísticas del dashboard", error);
@@ -210,6 +283,62 @@ const Dashboard: React.FC = () => {
                                 ))}
                             </div>
                         </div>
+                </div>
+
+                {/* NUEVAS GRÁFICAS */}
+                <div className={styles.chartCard} style={{ gridColumn: 'span 2' }}>
+                    <h3>Carga de Trabajo por Técnico</h3>
+                    <div className={styles.chartWrapper}>
+                        <ResponsiveContainer width="100%" height={300}>
+                            <BarChart data={techLoadData} layout="vertical" margin={{ left: 40, right: 40 }}>
+                                <XAxis type="number" hide />
+                                <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{fill: '#475569', fontSize: 12, fontWeight: 700}} width={120} />
+                                <Tooltip cursor={{fill: 'transparent'}} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                                <Bar dataKey="trabajos" fill="#6366f1" radius={[0, 10, 10, 0]} barSize={25} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+
+                <div className={styles.chartCard}>
+                    <h3>Proyeccción Financiera ($)</h3>
+                    <div className={styles.chartWrapper}>
+                        <ResponsiveContainer width="100%" height={300}>
+                            <BarChart data={financialData}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 11}} />
+                                <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 11}} />
+                                <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                                <Legend iconType="circle" />
+                                <Bar dataKey="Logrado (Confirmado)" stackId="a" fill="#059669" radius={[0, 0, 0, 0]} />
+                                <Bar dataKey="Venta en Espera" stackId="a" fill="#d97706" radius={[10, 10, 0, 0]} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+
+                <div className={styles.chartCard}>
+                    <h3>Composición de Servicio</h3>
+                    <div className={styles.chartWrapper}>
+                        <ResponsiveContainer width="100%" height={300}>
+                            <PieChart>
+                                <Pie
+                                    data={serviceTypeData}
+                                    cx="50%"
+                                    cy="50%"
+                                    innerRadius={0}
+                                    outerRadius={80}
+                                    dataKey="value"
+                                >
+                                    {serviceTypeData.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={entry.color} />
+                                    ))}
+                                </Pie>
+                                <Tooltip />
+                                <Legend />
+                            </PieChart>
+                        </ResponsiveContainer>
+                    </div>
                 </div>
             </div>
             

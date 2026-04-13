@@ -3,7 +3,7 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import styles from './AdminReporte.module.css';
 import { createReporte, getReporteByTrabajoId } from '../../services/reportesService';
 import { getActividadesByTrabajo } from '../../services/actividadesService';
-import { updateEstadoTrabajo } from '../../services/trabajosService';
+import { updateEstadoTrabajo, getTrabajo } from '../../services/trabajosService';
 import { createNotificacionByRole } from '../../services/notificacionesService';
 import { useAuth } from '../../context/AuthContext';
 import { useModal } from '../../context/ModalContext';
@@ -84,6 +84,24 @@ const AdminReporte: React.FC = () => {
 
     React.useEffect(() => {
         const loadReportData = async () => {
+            // --- RESET: Limpiar estados previos para evitar fugas entre reportes ---
+            setReporteTienda('');
+            setDescripcion('');
+            setMateriales('');
+            setObservaciones('');
+            setImagenes({ antes: null, durante: null, despues: null });
+            setImagenObservacion(null);
+            setFirmaEmpresa(null);
+            setReporteId(null);
+            setInvolucraEquipo(false);
+            setEquipoInfo({
+                tipo: 'Instalación',
+                marca: '',
+                modelo: '',
+                piezas: '',
+                garantia: ''
+            });
+
             try {
                 const report = await getReporteByTrabajoId(Number(id));
                 if (report) {
@@ -117,36 +135,58 @@ const AdminReporte: React.FC = () => {
                     if (parsed.equipoInfo) setEquipoInfo(parsed.equipoInfo);
                 }
 
-                // --- NUEVO: Sincronizar desde Actividades si no hay reporte guardado ---
-                if (!report || !equipoInfo.marca) {
-                    const acts = await getActividadesByTrabajo(Number(id));
-                    const serviceMarker = "|||SERVICE_DATA|||";
-                    const quoteMarker = "|||QUOTE_DATA|||";
-                    
-                    const activityWithEquipment = acts.find((a: any) => a.descripcion?.includes(serviceMarker));
-                    
-                    if (activityWithEquipment) {
-                        try {
-                            const parts = activityWithEquipment.descripcion.split(serviceMarker);
-                            // Tomar solo el JSON antes de cualquier otro marcador (como QUOTE_DATA)
-                            const jsonPart = parts[1].split(quoteMarker)[0].trim();
-                            const sData = JSON.parse(jsonPart);
-                            
-                            setInvolucraEquipo(true);
-                            setEquipoInfo({
-                                tipo: activityWithEquipment.tipo || 'Instalación',
-                                marca: sData.marca || '',
-                                modelo: sData.modelo || '',
-                                piezas: sData.piezas || '',
-                                garantia: sData.garantia || ''
-                            });
+                // --- NUEVO: Sincronizar desde el Trabajo (Fuente de Verdad de Mantenimiento) ---
+                let equipmentFromJob: any = null;
+                try {
+                    const jobData = await getTrabajo(Number(id));
+                    const solicitud = jobData.mantenimiento_solicitud_visita || jobData.mantenimientoSolicitudVisita || jobData.mantenimiento_solicitud_reparacion || jobData.mantenimientoSolicitudReparacion;
+                    equipmentFromJob = solicitud ? (solicitud.levantamiento_equipo || solicitud.levantamientoEquipo) : null;
+                } catch (err) {
+                    console.error("Error al obtener datos del trabajo para el reporte:", err);
+                }
 
-                            if (!descripcion) {
-                                const cleanDesc = parts[0].split(quoteMarker)[0].trim();
-                                if (cleanDesc) setDescripcion(cleanDesc);
+                if (!report || !equipoInfo.marca) {
+                    // Si el trabajo tiene un equipo vinculado oficialmente, PRIORIDAD #1
+                    if (equipmentFromJob) {
+                        setInvolucraEquipo(true);
+                        setEquipoInfo({
+                            tipo: 'Mantenimiento',
+                            marca: equipmentFromJob.marca || '',
+                            modelo: equipmentFromJob.modelo || '',
+                            piezas: '',
+                            garantia: ''
+                        });
+                    } 
+                    // Si no, buscar en Actividades (Fallback / Instalaciones) PRIORIDAD #2
+                    else {
+                        const acts = await getActividadesByTrabajo(Number(id));
+                        const serviceMarker = "|||SERVICE_DATA|||";
+                        const quoteMarker = "|||QUOTE_DATA|||";
+                        
+                        const activityWithEquipment = acts.find((a: any) => a.descripcion?.includes(serviceMarker));
+                        
+                        if (activityWithEquipment) {
+                            try {
+                                const parts = activityWithEquipment.descripcion.split(serviceMarker);
+                                const jsonPart = parts[1].split(quoteMarker)[0].trim();
+                                const sData = JSON.parse(jsonPart);
+                                
+                                setInvolucraEquipo(true);
+                                setEquipoInfo({
+                                    tipo: activityWithEquipment.tipo || 'Instalación',
+                                    marca: sData.marca || '',
+                                    modelo: sData.modelo || '',
+                                    piezas: sData.piezas || '',
+                                    garantia: sData.garantia || ''
+                                });
+
+                                if (!descripcion) {
+                                    const cleanDesc = parts[0].split(quoteMarker)[0].trim();
+                                    if (cleanDesc) setDescripcion(cleanDesc);
+                                }
+                            } catch (e) {
+                                console.error("Error al parsear datos de equipo desde actividades:", e);
                             }
-                        } catch (e) {
-                            console.error("Error al parsear datos de equipo desde actividades:", e);
                         }
                     }
                 }

@@ -18,13 +18,17 @@ import {
     HiOutlineSquare3Stack3D, // For masonry
     HiOutlinePencilSquare, // For general categories
     HiOutlineXMark,
-    HiOutlineIdentification
+    HiOutlineIdentification,
+    HiOutlineCheckCircle,
+    HiOutlineXCircle,
+    HiOutlineDocumentText
 } from "react-icons/hi2";
 import { getTrabajo, updateEstadoTrabajo, assignTrabajador, updateTrabajo } from "../../services/trabajosService";
 import { createActividad, getActividadesByTrabajo, deleteActividad } from "../../services/actividadesService";
 import { getTrabajadores } from "../../services/trabajadoresService";
 import { saveCotizacion, updateCotizacion, deleteCotizacion, updateCotizacionStatus, getCotizacionesByTrabajoId, type Cotizacion } from "../../services/cotizacionesService";
 import { createNotificacionByRole } from "../../services/notificacionesService";
+import { getReporteByTrabajoId, type Reporte as ReporteFinal } from "../../services/reportesService";
 import { useModal } from "../../context/ModalContext";
 import { getNegocio } from "../../services/negociosService";
 import LevantamientoModal from "../../components/LevantamientoModal";
@@ -129,6 +133,7 @@ const AdminDetalleTrabajo: React.FC = () => {
     // MOCK DATA
     const [trabajo, setTrabajo] = useState<Trabajo | null>(null);
     const [subTareas, setSubTareas] = useState<SubTarea[]>([]);
+    const [reporteFinal, setReporteFinal] = useState<any>(null);
     // const [isFromNewReq, setIsFromNewReq] = useState(false);
 
     // MODAL DE SEGURIDAD
@@ -266,6 +271,23 @@ const AdminDetalleTrabajo: React.FC = () => {
                             console.error("Error fetching fallback equipment:", err);
                         }
                     }
+                }
+
+                // FETCH REPORTE FINAL DESDE DB
+                try {
+                    const dbReport = await getReporteByTrabajoId(Number(id));
+                    if (dbReport && dbReport.solucion) {
+                        if (dbReport.solucion.trim().startsWith('{')) {
+                            try {
+                                const parsed = JSON.parse(dbReport.solucion);
+                                setReporteFinal({ ...parsed, dbId: dbReport.id });
+                            } catch (e) {
+                                console.error("Error parsing report JSON:", e);
+                            }
+                        }
+                    }
+                } catch (reportErr) {
+                    console.error("Error fetching report from DB:", reportErr);
                 }
 
                 setTrabajo(mappedJob as any);
@@ -1293,9 +1315,9 @@ const AdminDetalleTrabajo: React.FC = () => {
 
                                 {/* VISTA CLIENTE: lista de cotizaciones con aceptar/rechazar individual */}
                                 {user?.role === 'cliente' && (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                    <div className={styles.clientQuoteList}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '8px' }}>
-                                            <div style={{ width: '44px', height: '44px', borderRadius: '14px', background: 'linear-gradient(135deg, #FFB800, #f59e0b)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            <div style={{ width: '44px', height: '44px', borderRadius: '14px', background: 'linear-gradient(135deg, #FFB800, #f59e0b)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(255, 184, 0, 0.2)' }}>
                                                 <HiOutlineCurrencyDollar size={22} color="white" />
                                             </div>
                                             <div>
@@ -1305,65 +1327,84 @@ const AdminDetalleTrabajo: React.FC = () => {
                                         </div>
 
                                         {cotizaciones.length === 0 ? (
-                                            <div style={{ background: '#fff', borderRadius: '20px', padding: '40px', textAlign: 'center', border: '1px solid #f1f5f9' }}>
-                                                <div style={{ fontSize: '36px', marginBottom: '12px' }}>📭</div>
-                                                <p style={{ margin: 0, color: '#94a3b8', fontWeight: '600' }}>Aún no hay cotizaciones disponibles.</p>
+                                            <div style={{ background: '#fff', borderRadius: '24px', padding: '60px 40px', textAlign: 'center', border: '1.5px solid #f1f5f9', boxShadow: '0 4px 20px rgba(0,0,0,0.02)' }}>
+                                                <div style={{ fontSize: '48px', marginBottom: '16px' }}>📭</div>
+                                                <p style={{ margin: 0, color: '#94a3b8', fontWeight: '700', fontSize: '16px' }}>Aún no hay cotizaciones disponibles.</p>
+                                                <p style={{ margin: '8px 0 0 0', color: '#cbd5e1', fontSize: '14px' }}>Te notificaremos en cuanto el administrador envíe una propuesta.</p>
                                             </div>
                                         ) : (
                                             cotizaciones.map((cotiz, idx) => {
-                                                const estadoColors: Record<string, { bg: string; color: string; border: string }> = {
-                                                    'Pendiente': { bg: '#fffbeb', color: '#92400e', border: '#fde68a' },
-                                                    'Aprobada': { bg: '#ecfdf5', color: '#065f46', border: '#a7f3d0' },
-                                                    'Rechazada': { bg: '#fef2f2', color: '#7f1d1d', border: '#fecaca' },
-                                                };
-                                                const sc = estadoColors[cotiz.estado || 'Pendiente'];
+                                                const isApproved = cotiz.estado === 'Aprobada';
+                                                const isRejected = cotiz.estado === 'Rechazada';
+                                                const isPending = cotiz.estado === 'Pendiente';
+
+                                                const statusClass = isApproved ? styles.statusAprobada : (isRejected ? styles.statusRechazada : styles.statusPendiente);
+                                                const cardClass = `${styles.clientQuoteCard} ${isApproved ? styles.cardApproved : (isRejected ? styles.cardRejected : styles.cardPending)}`;
+
                                                 return (
-                                                    <div key={cotiz.id} style={{ background: '#fff', borderRadius: '22px', padding: '26px', boxShadow: '0 4px 20px rgba(0,0,0,0.06)', border: `1.5px solid ${cotiz.estado === 'Aprobada' ? '#a7f3d0' : cotiz.estado === 'Rechazada' ? '#fecaca' : '#f1f5f9'}` }}>
-                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '18px' }}>
+                                                    <div key={cotiz.id} className={cardClass}>
+                                                        <div className={styles.quoteCardHeader}>
                                                             <div>
-                                                                <p style={{ margin: '0 0 6px 0', fontSize: '12px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px' }}>Opción {idx + 1}</p>
-                                                                <p style={{ margin: 0, fontSize: '34px', fontWeight: '900', color: '#1e293b' }}>${Number(cotiz.monto).toLocaleString('es-MX')}</p>
+                                                                <p className={styles.quoteOptionLabel}>Propuesta Técnica {idx + 1}</p>
+                                                                <p className={styles.quotePriceValue}>${Number(cotiz.monto).toLocaleString('es-MX')}</p>
                                                             </div>
-                                                            <span style={{ padding: '6px 14px', borderRadius: '20px', fontSize: '12px', fontWeight: '800', background: sc.bg, color: sc.color, border: `1px solid ${sc.border}` }}>
+                                                            <span className={`${styles.quoteStatusBadge} ${statusClass}`}>
                                                                 {cotiz.estado}
                                                             </span>
                                                         </div>
 
                                                         {cotiz.descripcion && (
-                                                            <div style={{ background: '#f8fafc', borderRadius: '14px', padding: '16px', marginBottom: '18px' }}>
-                                                                <p style={{ margin: '0 0 4px 0', fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.8px' }}>Notas</p>
-                                                                <p style={{ margin: 0, fontSize: '14px', color: '#475569', lineHeight: '1.6' }}>{cotiz.descripcion}</p>
+                                                            <div className={styles.quoteNotesBox}>
+                                                                <p className={styles.notesLabel}>Descripción y Alcance</p>
+                                                                <p className={styles.notesText}>{cotiz.descripcion}</p>
                                                             </div>
                                                         )}
 
-                                                        {cotiz.archivo && (
-                                                            <a href={cotiz.archivo.startsWith('http') ? cotiz.archivo : `http://127.0.0.1:8085/storage/${cotiz.archivo}`} target="_blank" rel="noreferrer"
-                                                                style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: '#f8fafc', border: '1px solid #e2e8f0', padding: '10px 16px', borderRadius: '12px', color: '#475569', textDecoration: 'none', fontWeight: '700', fontSize: '13px', marginBottom: '18px' }}>
-                                                                <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                                    <span style={{ color: 'white', fontSize: '10px', fontWeight: '900' }}>PDF</span>
-                                                                </div>
-                                                                Ver Documento
-                                                            </a>
+                                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                                                            {cotiz.archivo && (
+                                                                <a href={cotiz.archivo.startsWith('http') ? cotiz.archivo : `http://127.0.0.1:8085/storage/${cotiz.archivo}`} 
+                                                                   target="_blank" 
+                                                                   rel="noreferrer"
+                                                                   className={styles.attachmentLink}
+                                                                >
+                                                                    <div className={styles.pdfIconBox}>
+                                                                        <HiOutlineDocumentText size={20} color="white" />
+                                                                    </div>
+                                                                    <span>Descargar Presupuesto Detallado.pdf</span>
+                                                                </a>
+                                                            )}
+                                                        </div>
+
+                                                        {isPending && (
+                                                            <div className={styles.quoteActions}>
+                                                                <button 
+                                                                    onClick={() => handleClienteAceptarCotizacion(cotiz.id!)} 
+                                                                    className={styles.btnAccept}
+                                                                >
+                                                                    <HiOutlineCheckCircle size={22} />
+                                                                    Aceptar Propuesta
+                                                                </button>
+                                                                <button 
+                                                                    onClick={() => handleClienteRechazarCotizacion(cotiz.id!)} 
+                                                                    className={styles.btnReject}
+                                                                >
+                                                                    <HiOutlineXCircle size={22} />
+                                                                    Rechazar
+                                                                </button>
+                                                            </div>
                                                         )}
 
-                                                        {cotiz.estado === 'Pendiente' && (
-                                                            <div style={{ display: 'flex', gap: '10px' }}>
-                                                                <button onClick={() => handleClienteAceptarCotizacion(cotiz.id!)} style={{ flex: 1, background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', padding: '14px', borderRadius: '14px', fontWeight: '800', fontSize: '14px', cursor: 'pointer', boxShadow: '0 6px 16px rgba(16,185,129,0.3)' }}>
-                                                                    ✓ Aceptar esta opción
-                                                                </button>
-                                                                <button onClick={() => handleClienteRechazarCotizacion(cotiz.id!)} style={{ flex: 1, background: '#f8fafc', color: '#ef4444', border: '2px solid #fecaca', padding: '14px', borderRadius: '14px', fontWeight: '800', fontSize: '14px', cursor: 'pointer' }}>
-                                                                    ✕ Rechazar
-                                                                </button>
+                                                        {isApproved && (
+                                                            <div className={styles.approvedMsg}>
+                                                                <HiOutlineCheckCircle size={22} style={{ verticalAlign: 'middle', marginRight: '10px' }} />
+                                                                <strong>Propuesta Aceptada:</strong> El administrador ha sido notificado y procederá con la asignación.
                                                             </div>
                                                         )}
-                                                        {cotiz.estado === 'Aprobada' && (
-                                                            <div style={{ padding: '14px', background: '#ecfdf5', color: '#065f46', borderRadius: '12px', fontWeight: '700', textAlign: 'center', fontSize: '14px', border: '1px solid #a7f3d0' }}>
-                                                                ✓ Cotización Aceptada — Lista para asignar trabajador.
-                                                            </div>
-                                                        )}
-                                                        {cotiz.estado === 'Rechazada' && (
-                                                            <div style={{ padding: '14px', background: '#fef2f2', color: '#7f1d1d', borderRadius: '12px', fontWeight: '700', textAlign: 'center', fontSize: '14px', border: '1px solid #fecaca' }}>
-                                                                ✕ Rechazada — revisa las demás opciones.
+
+                                                        {isRejected && (
+                                                            <div className={styles.rejectedMsg}>
+                                                                <HiOutlineXCircle size={22} style={{ verticalAlign: 'middle', marginRight: '10px' }} />
+                                                                <strong>Propuesta Rechazada:</strong> Tu respuesta ha sido enviada para revisión administrativa.
                                                             </div>
                                                         )}
                                                     </div>
@@ -1975,10 +2016,13 @@ const AdminDetalleTrabajo: React.FC = () => {
             {/* MODAL HISTORIAL DETALLADO */}
             {
                 selectedHistoryTask && (() => {
-                    const reportDataRaw = localStorage.getItem(`report_data_${selectedHistoryTask.id}`);
-                    const temporalReportDataRaw = localStorage.getItem(`report_data_temporal_${selectedHistoryTask.id}`);
-                    const reportData = reportDataRaw ? JSON.parse(reportDataRaw) : (temporalReportDataRaw ? JSON.parse(temporalReportDataRaw) : null);
-                    const isPreReport = !reportDataRaw && !!temporalReportDataRaw;
+                    const fallbackReportDataRaw = localStorage.getItem(`report_data_${trabajo?.id}`);
+                    const temporalReportDataRaw = localStorage.getItem(`report_data_temporal_${trabajo?.id}`);
+                    const fallbackReportData = fallbackReportDataRaw ? JSON.parse(fallbackReportDataRaw) : (temporalReportDataRaw ? JSON.parse(temporalReportDataRaw) : null);
+                    
+                    // Prioridad: 1. DB (reporteFinal), 2. Local Final (fallbackReportData), 3. Temporal
+                    const reportData = reporteFinal || fallbackReportData;
+                    const isPreReport = !reporteFinal && !fallbackReportDataRaw && !!temporalReportDataRaw;
 
                     return (
                         <div className={styles.premiumModalOverlay} onClick={(e) => {
@@ -1996,7 +2040,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                                             className={styles.editReportBtn}
                                             onClick={() => {
                                                 const baseRoute = user?.role === 'tecnico' ? '/tecnico' : '/menu';
-                                                navigate(`${baseRoute}/reporte-tarea/${selectedHistoryTask.id}`, { state: { trabajoId: trabajo?.id } });
+                                                navigate(`${baseRoute}/reporte-tarea/${trabajo?.id}`, { state: { trabajoId: trabajo?.id, actividadId: selectedHistoryTask.id } });
                                             }}
                                         >
                                             <HiOutlinePencilSquare size={18} />
@@ -2227,10 +2271,10 @@ const AdminDetalleTrabajo: React.FC = () => {
                             </button>
                             <button
                                 onClick={() => {
-                                    if (selectedTaskForReport) {
+                                    if (selectedTaskForReport && trabajo) {
                                         setIsSecurityModalOpen(false);
                                         const baseRoute = user?.role === 'tecnico' ? '/tecnico' : '/menu';
-                                        navigate(`${baseRoute}/reporte-tarea/${selectedTaskForReport.id}`, { state: { trabajoId: trabajo?.id } });
+                                        navigate(`${baseRoute}/reporte-tarea/${trabajo.id}`, { state: { trabajoId: trabajo.id, actividadId: selectedTaskForReport.id } });
                                     }
                                 }}
                                 style={{ padding: '12px 30px', borderRadius: '30px', border: 'none', background: '#fbbc04', color: '#fff', fontWeight: 'bold', cursor: 'pointer', fontSize: '16px', boxShadow: '0 4px 10px rgba(251, 188, 4, 0.3)' }}
