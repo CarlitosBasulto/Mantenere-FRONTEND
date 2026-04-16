@@ -79,7 +79,7 @@ const AuthPage: React.FC = () => {
 
             {/* --- LOGO FUERA DE LA CARD --- */}
             <div className={styles.logoContainer}>
-                <img src="src/assets/imagenes/logo.png" alt="logo" className={styles.externalLogo} />
+                <img src="src/assets/imagenes/logo-agente-business.png" alt="Agente Business" className={styles.externalLogo} />
             </div>
 
             <div className={`${styles.container} ${isRightPanelActive ? styles.rightPanelActive : ''}`} id="container">

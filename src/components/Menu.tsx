@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import styles from "./Menu.module.css";
 // Asegúrate de que la ruta al logo sea correcta
-import logo from "../assets/imagenes/nuevologo.png";
+import logo from "../assets/imagenes/logo-agente-business.png";
 import { useAuth } from "../context/AuthContext";
 import { 
     HiOutlineUser, HiOutlineBell, HiOutlineBriefcase, 
@@ -288,7 +288,17 @@ const MenuLayout: React.FC = () => {
                                                         setMostrarNotificaciones(false);
                                                     }}>
                                                         <div className={styles.notificationIcon}>
-                                                            {(noti.titulo || '').includes('Cotización') ? '📄' : '✅'}
+                                                            {(() => {
+                                                                const t = (noti.titulo || '').toLowerCase();
+                                                                if (t.includes('sos') || t.includes('emergencia')) return '🚨';
+                                                                if (t.includes('sucursal') || t.includes('negocio')) return '🏢';
+                                                                if (t.includes('visita') && t.includes('finaliz')) return '🔍';
+                                                                if (t.includes('finalizado') || t.includes('reporte')) return '✅';
+                                                                if (t.includes('cotizaci')) return '📄';
+                                                                if (t.includes('trabajo') && t.includes('asign')) return '🛠️';
+                                                                if (t.includes('solicitud')) return '📋';
+                                                                return '🔔';
+                                                            })()}
                                                         </div>
                                                         <div className={styles.notificationContent}>
                                                             <div className={styles.notificationTitle}>{noti.titulo}</div>

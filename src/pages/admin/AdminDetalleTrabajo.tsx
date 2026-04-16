@@ -27,7 +27,7 @@ import { getTrabajo, updateEstadoTrabajo, assignTrabajador, updateTrabajo } from
 import { createActividad, getActividadesByTrabajo, deleteActividad } from "../../services/actividadesService";
 import { getTrabajadores } from "../../services/trabajadoresService";
 import { saveCotizacion, updateCotizacion, deleteCotizacion, updateCotizacionStatus, getCotizacionesByTrabajoId, type Cotizacion } from "../../services/cotizacionesService";
-import { createNotificacionByRole } from "../../services/notificacionesService";
+import { createNotificacionByRole, createNotificacion } from "../../services/notificacionesService";
 import { getReporteByTrabajoId, type Reporte as ReporteFinal } from "../../services/reportesService";
 import { useModal } from "../../context/ModalContext";
 import { getNegocio } from "../../services/negociosService";
@@ -78,6 +78,7 @@ interface Trabajo {
         horaAsignada: string;
     }[];
     fechaSolicitud?: string;
+    clienteUserId?: number;  // user_id del negocio (cliente) para notificaciones
 }
 
 interface SubTarea {
@@ -241,7 +242,8 @@ const AdminDetalleTrabajo: React.FC = () => {
                     lote: data.negocio?.lote || "Por definir",
                     referencias: data.negocio?.referencias || "Por definir",
                     fechaSolicitud: data.created_at ? new Date(data.created_at).toLocaleDateString('es-MX') : "No registrada",
-                    businessId: data.negocio_id || data.negocio?.id
+                    businessId: data.negocio_id || data.negocio?.id,
+                    clienteUserId: data.negocio?.user_id || null
                 };
                 
                 // Autofill Marca and Modelo if there is a linked MantenimientoSolicitud
@@ -615,7 +617,7 @@ const AdminDetalleTrabajo: React.FC = () => {
         setServicePieza("");
         setServiceGarantia("");
         setRefacciones([]);
-        setActiveTab("Trabajo");
+        setActiveTab("Registro");
     };
 
 
@@ -707,18 +709,17 @@ const AdminDetalleTrabajo: React.FC = () => {
                         };
                         setTrabajo(updatedJob);
 
-                        // Notificar al Admin
-                        const notifs = JSON.parse(localStorage.getItem('admin_notifications') || '[]');
-                        notifs.unshift({
-                            id: Date.now(),
-                            titulo: 'Visita Finalizada',
-                            mensaje: `El técnico ${user?.name || 'Sistema'} ha concluido la visita en ${trabajo.sucursal}. La solicitud ahora espera cotización.`,
-                            fecha: new Date().toLocaleDateString('es-MX', { hour: '2-digit', minute: '2-digit' }),
-                            leida: false,
-                            enlace: `/menu/trabajo-detalle/${trabajo.id}`
-                        });
-                        localStorage.setItem('admin_notifications', JSON.stringify(notifs));
-                        window.dispatchEvent(new Event('storage'));
+                        // Notificar al Admin via BD
+                        try {
+                            await createNotificacionByRole({
+                                role: 'admin',
+                                titulo: '🔍 Visita Finalizada',
+                                mensaje: `El técnico ${user?.name || 'Sistema'} ha concluido la visita en ${trabajo.sucursal || 'la sucursal'}. Ya puede enviar cotización al cliente.`,
+                                enlace: `/menu/trabajo-detalle/${trabajo.id}`
+                            });
+                        } catch (notiErr) {
+                            console.error("Error enviando notificación de visita finalizada:", notiErr);
+                        }
                     } else {
                         await updateEstadoTrabajo(trabajo.id, { estado: "Finalizado" });
                         const updatedJob = {
@@ -727,7 +728,19 @@ const AdminDetalleTrabajo: React.FC = () => {
                             tecnico: trabajo.tecnico
                         };
                         setTrabajo(updatedJob);
-                    }
+
+                        // Notificar al Admin que el trabajo fue finalizado
+                        try {
+                            await createNotificacionByRole({
+                                role: 'admin',
+                                titulo: '✅ Trabajo Finalizado',
+                                mensaje: `El técnico ${user?.name || 'Sistema'} finalizó el trabajo en ${trabajo.sucursal || 'la sucursal'}. El reporte ya está disponible.`,
+                                enlace: `/menu/trabajo-detalle/${trabajo.id}`
+                            });
+                        } catch (notiErr) {
+                            console.error("Error enviando notificación de trabajo finalizado:", notiErr);
+                        }
+                    } // end else (Trabajo)
                     showAlert(
                         'Éxito',
                         'Reporte confirmado y enviado al Administrador.',
@@ -781,7 +794,22 @@ const AdminDetalleTrabajo: React.FC = () => {
             formData.append('archivo', archivoFile);
             const savedCotiz = await saveCotizacion(formData as any);
             setCotizaciones(prev => [...prev, savedCotiz]);
-            
+
+            // Notificar al cliente que recibió una cotización
+            const clientUserId = (trabajo as any).clienteUserId;
+            if (clientUserId) {
+                try {
+                    await createNotificacion({
+                        user_id: clientUserId,
+                        titulo: '📄 Cotización Recibida',
+                        mensaje: `Has recibido una propuesta de presupuesto para tu sucursal "${trabajo.sucursal || 'tu sucursal'}". Revísala en la sección de Cotizaciones.`,
+                        enlace: `/cliente/cotizaciones`
+                    });
+                } catch (notiErr) {
+                    console.error("Error notificando al cliente de cotización:", notiErr);
+                }
+            }
+
             // RESET FIELDS
             setCosto(""); setNotas(""); setArchivoFile(null); setNombreArchivo("");
             
@@ -837,10 +865,21 @@ const AdminDetalleTrabajo: React.FC = () => {
         if (!trabajo) return;
         try {
             await updateCotizacionStatus(cotizId, "Aprobada");
-            await updateEstadoTrabajo(trabajo.id, { estado: "Cotización Aceptada - Lista para asignar trabajador" });
+            await updateEstadoTrabajo(trabajo.id, { estado: "Cotización Aprobada" });
             setCotizaciones(prev => prev.map(c => c.id === cotizId ? { ...c, estado: "Aprobada" as const } : c));
-            setTrabajo((prev: any) => prev ? { ...prev, estado: "Cotización Aceptada - Lista para asignar trabajador" } : prev);
-            showAlert('Cotización Aceptada', 'Cotización aceptada - Lista para asignar trabajador.', 'success');
+            setTrabajo((prev: any) => prev ? { ...prev, estado: "Cotización Aprobada" } : prev);
+            // Notificar al Admin
+            try {
+                await createNotificacionByRole({
+                    role: 'admin',
+                    titulo: '📄 Cotización Aceptada',
+                    mensaje: `El cliente aceptó la propuesta de presupuesto para "${trabajo.sucursal || 'la sucursal'}". Ya puede asignar un técnico para el trabajo.`,
+                    enlace: `/menu/trabajo-detalle/${trabajo.id}`
+                });
+            } catch (notiErr) {
+                console.error("Error enviando notificación de cotización aceptada:", notiErr);
+            }
+            showAlert('Cotización Aceptada', 'Propuesta aceptada. El administrador será notificado para asignar al técnico.', 'success');
         } catch (error: any) {
             showAlert('Error', error.response?.data?.message || error.message, 'error');
         }
@@ -1623,23 +1662,13 @@ const AdminDetalleTrabajo: React.FC = () => {
                     {
                         activeTab === 'Trabajo' && (
                             <div>
-                                {/* LISTA DE TAREAS / SUBTAREAS */}
-                                {/* DIAGNOSTICO DE LA VISITA (Si aplica) */}
-                                <div className={styles.taskList}>
-                                    {subTareas.map(tarea => renderTaskCard(tarea, true))}
-                                </div>
-
-                                {user?.role === 'tecnico' && trabajo.tipo === 'Visita' && subTareas.length > 0 && (
-                                    <div style={{ marginTop: '30px', textAlign: 'center' }}>
-                                        <button
-                                            onClick={handleFinishVisit}
-                                            style={{ background: '#333', color: 'white', border: 'none', padding: '15px 40px', borderRadius: '30px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', width: '100%', maxWidth: '400px' }}
-                                        >
-                                            Confirmar y Guardar
-                                        </button>
+                                {/* LISTA DE TAREAS / SUBTAREAS — Solo para trabajos que NO son de tipo Visita */}
+                                {/* Las Visitas gestionan sus actividades desde la pestaña Registro */}
+                                {trabajo.tipo !== 'Visita' && (
+                                    <div className={styles.taskList}>
+                                        {subTareas.map(tarea => renderTaskCard(tarea, true))}
                                     </div>
                                 )}
-
                             </div>
                         )
                     }
@@ -1655,6 +1684,13 @@ const AdminDetalleTrabajo: React.FC = () => {
                                         <div className={styles.addTaskIcon}>+</div>
                                         Agregar
                                     </button>
+                                )}
+
+                                {/* LISTADO DE ACTIVIDADES REGISTRADAS — para tipo Visita */}
+                                {(user?.role === 'tecnico' || user?.role === 'admin') && trabajo.tipo === 'Visita' && subTareas.length > 0 && (
+                                    <div className={styles.taskList}>
+                                        {subTareas.map(tarea => renderTaskCard(tarea, true))}
+                                    </div>
                                 )}
 
                                 {(user?.role === 'tecnico' || user?.role === 'admin') && subTareas.length > 0 && trabajo.tipo === 'Visita' && (

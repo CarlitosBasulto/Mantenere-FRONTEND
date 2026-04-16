@@ -42,6 +42,7 @@ interface Trabajo {
 
 export interface AsignacionTecnico {
     tecnicoId: number;
+    userId?: number;       // user_id del usuario asociado al trabajador
     tecnicoNombre: string;
     fechaAsignada: string;
     horaAsignada: string;
@@ -49,6 +50,7 @@ export interface AsignacionTecnico {
 
 interface Tecnico {
     id: number;
+    userId?: number;       // user_id del usuario asociado al trabajador
     nombre: string;
     avatar?: string;
 }
@@ -169,6 +171,7 @@ const TrabajoDetalle: React.FC = () => {
                 const techList = data.filter((t: any) => t.estado?.toLowerCase() === 'activo' || t.estado === 'Activo');
                 setTecnicosData(techList.map((t: any) => ({
                     id: t.id,
+                    userId: t.user_id || null,   // user_id para notificaciones
                     nombre: t.nombre
                 })));
             } catch (error) {
@@ -197,6 +200,7 @@ const TrabajoDetalle: React.FC = () => {
                 ...selectedAssignments,
                 {
                     tecnicoId: tech.id,
+                    userId: tech.userId ?? undefined,  // user_id para notificaciones
                     tecnicoNombre: tech.nombre,
                     fechaAsignada: "",
                     horaAsignada: ""
@@ -448,12 +452,13 @@ const TrabajoDetalle: React.FC = () => {
             // --- NOTIFICACIONES EN BD ---
             if (selectedJobId && selectedAssignments.length > 0) {
                 try {
-                    // Notificar a cada técnico asignado
+                    // Notificar a cada técnico asignado usando user_id (no trabajador.id)
                     for (const asig of selectedAssignments) {
+                        const notifUserId = asig.userId || asig.tecnicoId;
                         await createNotificacion({
-                            user_id: asig.tecnicoId,
-                            titulo: 'Nuevo Trabajo Asignado 🛠️',
-                            mensaje: `Te han asignado un nuevo trabajo: ${assignedNames} en la sucursal ${businessName}.`,
+                            user_id: notifUserId,
+                            titulo: selectedType === 'Trabajo' ? 'Se te asignó este trabajo 🛠️' : '📋 Se te asignó una visita',
+                            mensaje: `Te han asignado: ${assignedNames} en la sucursal ${businessName}.`,
                             enlace: `/tecnico/trabajo-detalle/${selectedJobId}`
                         });
                     }
@@ -667,13 +672,17 @@ const TrabajoDetalle: React.FC = () => {
             // Si ya hay un técnico asignado (no es "Sin Asignar"), lo mostramos en el banner
             const hasTech = job.tecnico && job.tecnico !== "Sin asignar" && job.tecnico !== "Sin Asignar";
             if (hasTech) {
-                text = "TÉCNICO ASIGNADO";
+                text = (user?.role === 'tecnico' && (job.visitado || job.tipo === 'Trabajo'))
+                    ? "Se te asignó este trabajo 🛠️"
+                    : "TÉCNICO ASIGNADO";
             } else {
                 text = user?.role === 'admin' ? "COTIZACIÓN ENVIADA" : "COTIZACIÓN DEL TRABAJO";
             }
         } else if (status === "asignado" || (job.tecnico && job.tecnico !== "Sin asignar" && job.tecnico !== "Sin Asignar")) {
             barClass = styles.blue;
-            text = "TÉCNICO ASIGNADO";
+            text = (user?.role === 'tecnico' && (job.visitado || job.tipo === 'Trabajo'))
+            ? "Se te asignó este trabajo 🛠️"
+            : "TÉCNICO ASIGNADO";
         }
 
         return (

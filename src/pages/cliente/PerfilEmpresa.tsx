@@ -16,6 +16,7 @@ import {
 } from "react-icons/hi2";
 
 import { createNegocio, updateNegocio, getNegocio, uploadImage } from "../../services/negociosService";
+import { createNotificacionByRole } from "../../services/notificacionesService";
 import LevantamientoModal from "../../components/LevantamientoModal";
 import DetalleEquipoModal from "../../components/DetalleEquipoModal";
 import ReportarProblemaModal from "../../components/ReportarProblemaModal";
@@ -204,6 +205,17 @@ const PerfilEmpresa: React.FC = () => {
                             } catch (e) { console.error("Error al sincronizar áreas tras creación", e); }
                         }
                         saveSafeLocalInfo('local_negocios_info', actualId, fullLocalData, showAlert);
+                    }
+                    // Notificar al admin que hay una nueva sucursal
+                    try {
+                        await createNotificacionByRole({
+                            role: 'admin',
+                            titulo: '🏢 Nueva Sucursal Registrada',
+                            mensaje: `El cliente ${user?.name || 'un usuario'} registró una nueva sucursal: "${formData.nombreSucursal}".`,
+                            enlace: `/menu/negocios`
+                        });
+                    } catch (notiErr) {
+                        console.error("Error notificando al admin de nueva sucursal:", notiErr);
                     }
                 }
                 showAlert("Éxito", "Información guardada correctamente", "success");

@@ -177,7 +177,11 @@ const ListaSolicitudes: React.FC = () => {
         } else if (status.includes("cotizaci") || status === "asignado" || (job.tecnico && job.tecnico !== "Sin asignar" && job.tecnico !== "Sin Asignar")) {
             barClass = styles.blue;
             const hasTech = job.tecnico && job.tecnico !== "Sin asignar" && job.tecnico !== "Sin Asignar";
-            text = hasTech ? "TÉCNICO ASIGNADO" : "Cotización Enviada";
+            text = hasTech
+                ? ((user?.role === 'tecnico' && (job.visitado || job.tipo === 'Trabajo'))
+                    ? "Se te asignó este trabajo 🛠️"
+                    : "TÉCNICO ASIGNADO")
+                : "Cotización Enviada";
         } else {
             text = job.estado;
         }

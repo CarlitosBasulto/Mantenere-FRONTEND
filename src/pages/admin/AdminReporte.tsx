@@ -4,7 +4,7 @@ import styles from './AdminReporte.module.css';
 import { createReporte, getReporteByTrabajoId } from '../../services/reportesService';
 import { getActividadesByTrabajo } from '../../services/actividadesService';
 import { updateEstadoTrabajo, getTrabajo } from '../../services/trabajosService';
-import { createNotificacionByRole } from '../../services/notificacionesService';
+import { createNotificacionByRole, createNotificacion } from '../../services/notificacionesService';
 import { useAuth } from '../../context/AuthContext';
 import { useModal } from '../../context/ModalContext';
 import { 
@@ -488,9 +488,21 @@ const AdminReporte: React.FC = () => {
                 console.error("Error al notificar admins en BD:", notiErr);
             }
 
-            // 2. Notificar al Cliente (si existe el user_id del cliente en el trabajo)
-            // Nota: En una versión futura, el trabajo debería tener el user_id del cliente asociado.
-            // Por ahora, solo notificamos al Administrador que es el flujo principal.
+            // 2. Notificar al Cliente a través del negocio asociado al trabajo
+            try {
+                const jobData = await getTrabajo(Number(safeTrabajoId));
+                const clienteUserId = jobData?.negocio?.user_id;
+                if (clienteUserId) {
+                    await createNotificacion({
+                        user_id: clienteUserId,
+                        titulo: '¡Tu trabajo ha sido completado! ✅',
+                        mensaje: `El servicio "${jobData.titulo || jobTitle}" ha sido finalizado. Puedes revisar el reporte en tu historial.`,
+                        enlace: `/cliente/historial`
+                    });
+                }
+            } catch (clienteNotiErr) {
+                console.error("Error al notificar al cliente en BD:", clienteNotiErr);
+            }
 
             showAlert("Éxito", "Reporte guardado con éxito en la Base de Datos.", "success");
 

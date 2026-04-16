@@ -9,7 +9,7 @@ const Home: React.FC = () => {
         <section className="home">
             <div className="home-overlay"></div>
             <div className="home-content">
-                <h1>Bienvenido a Mantenere</h1>
+                <h1>Bienvenido a Agente Business</h1>
 
                 <p>
                     Soluciones integrales para el mantenimiento y gestión de tus espacios.

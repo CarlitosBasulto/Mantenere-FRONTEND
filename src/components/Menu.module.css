@@ -18,12 +18,21 @@
     padding: 20px;
 }
 
-.logo {
-    margin-bottom: 30px;
-    width: 200px;
-    height: auto;
-    transform: scale(1.4);
+.logoContainer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 24px;
+    padding: 8px 0;
+    cursor: pointer;
 }
+
+.logo {
+    width: 100%;
+    max-width: 260px;
+    height: auto;
+}
+
 
 .menu {
     display: flex;
