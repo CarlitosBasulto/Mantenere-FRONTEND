@@ -11,9 +11,10 @@ import {
 
 interface EquiposNegocioProps {
     businessId: number;
+    onViewReport?: (trabajoId: number) => void;
 }
 
-const EquiposNegocio: React.FC<EquiposNegocioProps> = ({ businessId }) => {
+const EquiposNegocio: React.FC<EquiposNegocioProps> = ({ businessId, onViewReport }) => {
     const [equipos, setEquipos] = useState<any[]>([]);
     const [solicitudes, setSolicitudes] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -50,6 +51,7 @@ const EquiposNegocio: React.FC<EquiposNegocioProps> = ({ businessId }) => {
                             const parsed = JSON.parse(sol.visita_trabajo.reporte.solucion);
                             if (parsed.descripcion || parsed.reporteTienda || parsed.observaciones) {
                                 mappedReportes.push({
+                                    id: sol.visita_trabajo?.id || sol.visita_trabajo_id,
                                     falla_encontrada: parsed.descripcion || parsed.reporteTienda || 'Diagnóstico de visita (Cotización)',
                                     solucion: parsed.observaciones || parsed.reporteTienda || 'Revisión técnica terminada.'
                                 });
@@ -62,6 +64,7 @@ const EquiposNegocio: React.FC<EquiposNegocioProps> = ({ businessId }) => {
                             const parsed = JSON.parse(sol.reparacion_trabajo.reporte.solucion);
                             if (parsed.descripcion || parsed.reporteTienda || parsed.observaciones) {
                                 mappedReportes.push({
+                                    id: sol.reparacion_trabajo?.id || sol.reparacion_trabajo_id,
                                     falla_encontrada: parsed.descripcion || parsed.reporteTienda || 'Problema diagnosticado',
                                     solucion: parsed.observaciones || parsed.reporteTienda || 'Reparación técnica terminada.'
                                 });
@@ -71,7 +74,10 @@ const EquiposNegocio: React.FC<EquiposNegocioProps> = ({ businessId }) => {
                     
                     return {
                         ...sol,
-                        reportes: mappedReportes
+                        reportes: mappedReportes,
+                        // El ID real que buscaremos en la tabla de trabajos para el reporte detallado
+                        // Buscamos en varias posibles ubicaciones según la estructura del backend
+                        actualTrabajoId: sol.reparacion_trabajo?.id || sol.reparacion_trabajo_id || sol.visita_trabajo?.id || sol.visita_trabajo_id
                     };
                 });
 
@@ -88,6 +94,7 @@ const EquiposNegocio: React.FC<EquiposNegocioProps> = ({ businessId }) => {
                             if (reportDataRaw.involucraEquipo && reportDataRaw.equipoInfo && reportDataRaw.equipoInfo.id) {
                                 mappedGenericJobs.push({
                                     id: `gen-${job.id}`,
+                                    actualTrabajoId: `gen-${job.id}`,
                                     levantamiento_equipo_id: reportDataRaw.equipoInfo.id,
                                     descripcion_problema: job.titulo,
                                     estado: job.estado,
@@ -110,8 +117,10 @@ const EquiposNegocio: React.FC<EquiposNegocioProps> = ({ businessId }) => {
                 setEquipos(allRegisteredEquipments);
                 // Unimos ambas listas para que el modal tenga un historial ultra-completo
                 setSolicitudes([...mappedSolicitudesBackend, ...mappedGenericJobs]);
-            } catch (error) {
-                console.error("Error fetching data for Equipos:", error);
+            } catch (error: any) {
+                console.error("Error al cargar reporte:", error);
+                const errorMsg = error.response?.status === 404 ? "El reporte aún no ha sido finalizado en el sistema." : "No se pudo cargar el detalle del reporte.";
+                alert(errorMsg);
             } finally {
                 setLoading(false);
             }
@@ -235,7 +244,7 @@ const EquiposNegocio: React.FC<EquiposNegocioProps> = ({ businessId }) => {
                                 </div>
                             </div>
 
-                            <button style={{
+                            <button type="button" style={{
                                 width: '100%',
                                 padding: '10px',
                                 background: maintenanceCount > 0 ? '#0284c7' : '#f8fafc',
@@ -246,7 +255,7 @@ const EquiposNegocio: React.FC<EquiposNegocioProps> = ({ businessId }) => {
                                 marginTop: '5px',
                                 cursor: 'pointer',
                                 transition: 'all 0.2s ease'
-                            }}>
+                            }} onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleCardClick(equipo); }}>
                                 {maintenanceCount > 0 ? 'Ver Historial Completo' : 'Ver Detalles de Registro'}
                             </button>
                         </div>
@@ -254,12 +263,12 @@ const EquiposNegocio: React.FC<EquiposNegocioProps> = ({ businessId }) => {
                 })}
             </div>
 
-            {/* Modal de Historial */}
             <HistorialEquipoModal 
                 isOpen={modalOpen} 
                 onClose={() => setModalOpen(false)} 
                 equipo={selectedEquipo} 
                 historial={selectedEquipo ? solicitudes.filter(req => String(req.levantamiento_equipo_id) === String(selectedEquipo.id)) : []} 
+                onViewReport={onViewReport}
             />
 
             <style>{`

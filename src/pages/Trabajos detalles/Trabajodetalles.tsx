@@ -12,6 +12,9 @@ import EquiposNegocio from "../admin/EquiposNegocio";
 import { getNegocios, getNegocio } from "../../services/negociosService";
 import { getTrabajadores } from "../../services/trabajadoresService";
 import { createNotificacion, createNotificacionByRole } from "../../services/notificacionesService";
+import { getReporteByTrabajoId } from "../../services/reportesService";
+import ReporteDetailModal from "../../components/modals/ReporteDetailModal";
+import { getTrabajo } from "../../services/trabajosService";
 import { deleteTrabajo } from "../../services/trabajosService";
 import { HiDotsVertical } from "react-icons/hi";
 import { HiOutlinePencil, HiOutlineTrash, HiOutlineClipboardDocumentList, HiOutlineArchiveBox, HiOutlineClock } from "react-icons/hi2";
@@ -233,6 +236,82 @@ const TrabajoDetalle: React.FC = () => {
     const [filterStatus, setFilterStatus] = useState<string>("Todos");
     const [dateFrom, setDateFrom] = useState("");
     const [dateTo, setDateTo] = useState("");
+
+    // --- MODAL DE REPORTE DETALLADO (PARA HISTORIAL EQUIPOS) ---
+    const [selectedReportId, setSelectedReportId] = useState<number | null>(null);
+    const [reporteModalOpen, setReporteModalOpen] = useState(false);
+    const [reporteData, setReporteData] = useState<any>(null);
+    const [reporteTrabajo, setReporteTrabajo] = useState<any>(null);
+    const [reporteTaskInfo, setReporteTaskInfo] = useState<any>(null);
+
+    const handleOpenReportDetail = async (trabajoId: number) => {
+        try {
+            setReporteModalOpen(true);
+            setReporteData(null);
+            setReporteTrabajo(null);
+            setReporteTaskInfo(null);
+
+            const cleanId = String(trabajoId).startsWith('gen-')
+                ? Number(String(trabajoId).replace('gen-', ''))
+                : trabajoId;
+
+            let reporte = null;
+            let jobDetails = null;
+
+            // Fetch reporte
+            try {
+                reporte = await getReporteByTrabajoId(cleanId);
+            } catch (err: any) {
+                console.warn("No formal report found in DB, using fallback if available.");
+            }
+
+            if (reporte) {
+                let parsedSolucion = reporte.solucion;
+                if (typeof reporte.solucion === 'string') {
+                    try {
+                        parsedSolucion = JSON.parse(reporte.solucion);
+                    } catch (e) {
+                        console.error("Error al parsear reporte:", e);
+                    }
+                }
+                setReporteData(parsedSolucion || reporte);
+            } else {
+                const fallback = localStorage.getItem(`report_data_${cleanId}`);
+                if (fallback) setReporteData(JSON.parse(fallback));
+            }
+
+            // Fetch job details
+            try {
+                jobDetails = await getTrabajo(cleanId);
+            } catch (err) {
+                console.warn("Could not fetch job details for ID", cleanId);
+            }
+
+            if (jobDetails) {
+                setReporteTrabajo({
+                    id: jobDetails.id,
+                    sucursal: jobDetails.negocio?.nombre || businessName,
+                    tecnico: jobDetails.tecnico?.name || jobDetails.trabajador?.nombre || 'Técnico asignado',
+                    encargado: jobDetails.contactos?.[0]?.nombre || jobDetails.negocio?.encargado || 'No asignado',
+                    cotizacion: jobDetails.cotizacion_aceptada ? {
+                        costo: jobDetails.cotizacion_aceptada.monto,
+                        archivo: jobDetails.cotizacion_aceptada.archivo_url,
+                        notas: jobDetails.cotizacion_aceptada.notas
+                    } : jobDetails.cotizacion
+                });
+
+                setReporteTaskInfo({
+                    id: jobDetails.id,
+                    titulo: jobDetails.titulo || 'Mantenimiento General',
+                    fecha: new Date(jobDetails.created_at).toLocaleDateString()
+                });
+            }
+        } catch (error: any) {
+            console.error("Error al abrir modal detalle:", error);
+            showAlert("Error", "Ocurrió un error inesperado al preparar el reporte.");
+            setReporteModalOpen(false);
+        }
+    };
 
     // --- LÓGICA DE FILTRADO Y AGRUPACIÓN ---
     const getGroupedJobs = () => {
@@ -681,8 +760,8 @@ const TrabajoDetalle: React.FC = () => {
         } else if (status === "asignado" || (job.tecnico && job.tecnico !== "Sin asignar" && job.tecnico !== "Sin Asignar")) {
             barClass = styles.blue;
             text = (user?.role === 'tecnico' && (job.visitado || job.tipo === 'Trabajo'))
-            ? "Se te asignó este trabajo 🛠️"
-            : "TÉCNICO ASIGNADO";
+                ? "Se te asignó este trabajo 🛠️"
+                : "TÉCNICO ASIGNADO";
         }
 
         return (
@@ -749,8 +828,22 @@ const TrabajoDetalle: React.FC = () => {
                             ← Volver a Trabajos
                         </button>
                     </div>
-                    <EquiposNegocio businessId={Number(id)} />
+                    <EquiposNegocio
+                        businessId={Number(id)}
+                        onViewReport={handleOpenReportDetail}
+                    />
                 </div>
+                {/* MODAL DE REPORTE DETALLES (USA PORTAL) */}
+                {reporteModalOpen && (
+                    <ReporteDetailModal
+                        isOpen={reporteModalOpen}
+                        onClose={() => setReporteModalOpen(false)}
+                        trabajo={reporteTrabajo}
+                        task={reporteTaskInfo}
+                        reporte={reporteData}
+                        userRole={user?.role}
+                    />
+                )}
             </div>
         );
     }
@@ -1271,6 +1364,17 @@ const TrabajoDetalle: React.FC = () => {
                         </div>
                     </div>
                 </div>
+            )}
+            {/* MODAL DE REPORTE DETALLES (USA PORTAL) */}
+            {reporteModalOpen && (
+                <ReporteDetailModal
+                    isOpen={reporteModalOpen}
+                    onClose={() => setReporteModalOpen(false)}
+                    trabajo={reporteTrabajo}
+                    task={reporteTaskInfo}
+                    reporte={reporteData}
+                    userRole={user?.role}
+                />
             )}
         </div>
     );

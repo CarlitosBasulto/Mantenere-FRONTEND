@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import styles from "./AdminDetalleTrabajo.module.css";
 import { useAuth } from "../../context/AuthContext";
-import {
+import { 
     HiOutlineInformationCircle,
     HiOutlineWrench,
     HiOutlineClipboardDocumentList,
@@ -23,6 +23,7 @@ import {
     HiOutlineXCircle,
     HiOutlineDocumentText
 } from "react-icons/hi2";
+import ReporteDetailModal from "../../components/modals/ReporteDetailModal";
 import { getTrabajo, updateEstadoTrabajo, assignTrabajador, updateTrabajo } from "../../services/trabajosService";
 import { createActividad, getActividadesByTrabajo, deleteActividad } from "../../services/actividadesService";
 import { getTrabajadores } from "../../services/trabajadoresService";
@@ -33,6 +34,8 @@ import { useModal } from "../../context/ModalContext";
 import { getNegocio } from "../../services/negociosService";
 import LevantamientoModal from "../../components/LevantamientoModal";
 import api from "../../services/api";
+import { generateMaintenanceReportPDF } from "../../utils/pdfGenerator";
+import { HiOutlineArrowDownTray } from "react-icons/hi2";
 
 
 export interface CotizacionData {
@@ -99,12 +102,34 @@ interface SubTarea {
         pieza?: string;
         garantia?: string;
     };
+    refacciones?: { pieza: string, cantidad: number, costo_estimado?: string }[];
 }
 
 interface Tecnico {
     id: number;
     nombre: string;
 }
+
+const getAvatarForTech = (nombre: string) => {
+    if (!nombre || nombre.toLowerCase() === "sin asignar") return null;
+    const profileKey = `profile_${nombre.replace(/\s+/g, '')}`;
+    const profileData = localStorage.getItem(profileKey);
+    if (profileData) {
+        try {
+            const data = JSON.parse(profileData);
+            if (data.imagenPerfil) return data.imagenPerfil;
+        } catch(e) {}
+    }
+    const stored = localStorage.getItem('trabajadores_list');
+    if (stored) {
+        try {
+            const list = JSON.parse(stored);
+            const worker = list.find((w: any) => w.nombre === nombre);
+            if (worker && worker.avatar) return worker.avatar;
+        } catch(e) {}
+    }
+    return `https://ui-avatars.com/api/?name=${encodeURIComponent(nombre)}&background=0e7490&color=fff&bold=true`;
+};
 
 const AdminDetalleTrabajo: React.FC = () => {
     const { id } = useParams();
@@ -251,26 +276,20 @@ const AdminDetalleTrabajo: React.FC = () => {
                 const equipo = solicitud ? (solicitud.levantamiento_equipo || solicitud.levantamientoEquipo) : null;
                 
                 if (equipo) {
-                    setServiceMarca(equipo.marca || "");
+                    setServiceMarca(equipo.marca || equipo.nombre || "");
                     setServiceModelo(equipo.modelo || "");
                     setServiceEquipoId(equipo.id);
                 } else if (data.descripcion && typeof data.descripcion === 'string' && data.descripcion.includes('[Equipo:')) {
                     const match = data.descripcion.match(/\[Equipo:\s*(.+?)\]/);
                     if (match && match[1]) {
                         const equipoNombre = match[1].trim();
-                        try {
-                            const bizId = data.negocio_id || data.negocio?.id;
-                            if (bizId) {
-                                const resEq = await api.get(`/negocios/${bizId}/equipos`);
-                                const foundEq = resEq.data.find((e: any) => e.nombre.toLowerCase().trim() === equipoNombre.toLowerCase());
-                                if (foundEq) {
-                                    setServiceMarca(foundEq.marca || "");
-                                    setServiceModelo(foundEq.modelo || "");
-                                    setServiceEquipoId(foundEq.id);
-                                }
-                            }
-                        } catch (err) {
-                            console.error("Error fetching fallback equipment:", err);
+                        let cleanName = equipoNombre.replace(/\(.*?\)/g, '').trim();
+                        let parts = cleanName.split(' ');
+                        if (parts.length >= 3) {
+                            setServiceMarca([parts[0], parts[1]].join(' '));
+                            setServiceModelo(parts.slice(2).join(' '));
+                        } else {
+                            setServiceMarca(equipoNombre);
                         }
                     }
                 }
@@ -309,19 +328,37 @@ const AdminDetalleTrabajo: React.FC = () => {
                     const quoteMarker = "|||QUOTE_DATA|||";
                     const serviceMarker = "|||SERVICE_DATA|||";
 
-                    let displayDesc = finalDesc.split(serviceMarker)[0].split(quoteMarker)[0].trim();
+                    const techMarker = "|||TECH_NAME|||";
+                    let authorName = currentTech !== "Sin Asignar" ? currentTech : (user?.name || "Sin Asignar");
+                    if (finalDesc.includes(techMarker)) {
+                        const tParts = finalDesc.split(techMarker);
+                        try {
+                            authorName = tParts[1].split('\n')[0].split('|||')[0].trim();
+                        } catch(e) {}
+                    }
+
+                    // Limpiamos la descripción mostrada de todos los marcadores técnicos
+                    let displayDesc = finalDesc
+                        .split(serviceMarker)[0]
+                        .split(quoteMarker)[0]
+                        .split(techMarker)[0]
+                        .trim();
 
                     if (finalDesc.includes(serviceMarker)) {
                         const parts = finalDesc.split(serviceMarker);
                         try {
-                            sData = JSON.parse(parts[1].split(quoteMarker)[0].trim());
+                            // Limpiamos cualquier marcador que venga después del JSON del servicio
+                            const jsonContent = parts[1].split(quoteMarker)[0].split(techMarker)[0].trim();
+                            sData = JSON.parse(jsonContent);
                         } catch (e) { }
                     }
 
                     if (finalDesc.includes(quoteMarker)) {
                         const parts = finalDesc.split(quoteMarker);
                         try {
-                            const qData = JSON.parse(parts[1].split(serviceMarker)[0].trim());
+                            // Limpiamos cualquier marcador que venga después del JSON de la cotización
+                            const jsonContent = parts[1].split(serviceMarker)[0].split(techMarker)[0].trim();
+                            const qData = JSON.parse(jsonContent);
                             if (qData.monto) parsedMonto = qData.monto;
                             if (qData.detalles) displayDesc += "\n\nNotas de cotización:\n" + qData.detalles;
                         } catch (e) { }
@@ -332,13 +369,14 @@ const AdminDetalleTrabajo: React.FC = () => {
                         titulo: act.tipo,
                         descripcion: displayDesc,
                         estado: "Nueva",
-                        tecnicoNombre: currentTech,
+                        tecnicoNombre: authorName,
                         esCotizacion: esCot,
                         cotizacionMonto: parsedMonto,
                         cotizacionDetalles: displayDesc,
                         cotizacionArchivo: "",
                         cotizacionEstado: "Sugerencia de Técnico",
-                        serviceData: sData
+                        serviceData: sData,
+                        refacciones: act.refacciones
                     };
                 });
                 setSubTareas(mappedSubTareas as any);
@@ -531,6 +569,9 @@ const AdminDetalleTrabajo: React.FC = () => {
                     desc += ` \n|||QUOTE_DATA||| ${JSON.stringify(quotePayload)}`;
                 }
 
+                const techNamePayload = user?.name || "Sin Asignar";
+                desc += ` \n|||TECH_NAME||| ${techNamePayload}`;
+
                 const payloadRefacciones = refacciones.map(r => ({
                     pieza: r.pieza,
                     cantidad: Number(r.cantidad),
@@ -584,7 +625,8 @@ const AdminDetalleTrabajo: React.FC = () => {
                         cotizacionDetalles: displayDesc,
                         cotizacionArchivo: "",
                         cotizacionEstado: "Sugerencia de Técnico",
-                        serviceData: sData
+                        serviceData: sData,
+                        refacciones: act.refacciones
                     };
                 });
                 setSubTareas(mappedSubTareas as any);
@@ -761,6 +803,7 @@ const AdminDetalleTrabajo: React.FC = () => {
             }
         );
     };
+
 
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1056,6 +1099,31 @@ const AdminDetalleTrabajo: React.FC = () => {
                         </div>
                     )}
 
+                    {tarea.refacciones && tarea.refacciones.length > 0 && (
+                        <div style={{
+                            marginTop: '15px',
+                            background: '#f8fafc',
+                            padding: '12px 15px',
+                            borderRadius: '12px',
+                            border: '1px solid #e2e8f0'
+                        }}>
+                            <span style={{ display: 'block', fontSize: '11px', textTransform: 'uppercase', color: '#64748b', fontWeight: '800', marginBottom: '8px' }}>Refacciones Registradas</span>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                {tarea.refacciones.map((ref, idx) => (
+                                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff', padding: '8px 12px', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
+                                        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                            <span style={{ background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold' }}>x{ref.cantidad}</span>
+                                            <span style={{ fontSize: '13px', color: '#334155', fontWeight: '600' }}>{ref.pieza}</span>
+                                        </div>
+                                        {ref.costo_estimado && (
+                                            <span style={{ fontSize: '13px', color: '#059669', fontWeight: '700' }}>${ref.costo_estimado}</span>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
                     {canEdit && isInteractive && (
                         <div style={{ display: 'flex', gap: '10px', marginTop: '15px' }}>
                             <button
@@ -1070,6 +1138,50 @@ const AdminDetalleTrabajo: React.FC = () => {
                             >
                                 🗑️ Eliminar
                             </button>
+                        </div>
+                    )}
+                </div>
+
+                {/* Técnico que realizó la actividad */}
+                <div style={{ 
+                    marginTop: 'auto', 
+                    paddingTop: '15px', 
+                    borderTop: '1.5px solid #f1f5f9', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'space-between'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{ 
+                            width: '32px', 
+                            height: '32px', 
+                            borderRadius: '50%', 
+                            overflow: 'hidden', 
+                            background: '#f8fafc', 
+                            border: '1.5px solid #e2e8f0',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}>
+                            {getAvatarForTech((tarea.tecnicoNombre && tarea.tecnicoNombre !== "Sin Asignar") ? tarea.tecnicoNombre : '') ? (
+                                <img 
+                                    src={getAvatarForTech((tarea.tecnicoNombre && tarea.tecnicoNombre !== "Sin Asignar") ? tarea.tecnicoNombre : '') || undefined} 
+                                    alt="Tech" 
+                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                                />
+                            ) : (
+                                <HiOutlineUser size={14} color="#64748b" />
+                            )}
+                        </div>
+                        <span style={{ fontSize: '12px', fontWeight: '700', color: '#475569' }}>
+                            {(tarea.tecnicoNombre && tarea.tecnicoNombre !== "Sin Asignar") ? tarea.tecnicoNombre : "Técnico (Registro Antiguo)"}
+                        </span>
+                    </div>
+
+                    {tarea.refacciones && tarea.refacciones.length > 0 && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#f0fdf4', color: '#166534', padding: '3px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: '800' }}>
+                            <HiOutlineWrench size={12} />
+                            <span>{tarea.refacciones.length} piezas</span>
                         </div>
                     )}
                 </div>
@@ -1612,8 +1724,12 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                             <div key={tarea.id} style={{ background: '#fafafa', border: '1.5px solid #f1f5f9', borderRadius: '16px', padding: '16px' }}>
                                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
                                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                                        <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#f8fafc', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                                            <HiOutlineUser size={16} color="#64748b" />
+                                                                        <div style={{ width: '36px', height: '36px', borderRadius: '10px', overflow: 'hidden', background: '#f8fafc', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                            {getAvatarForTech(tarea.tecnicoNombre || '') ? (
+                                                                                <img src={getAvatarForTech(tarea.tecnicoNombre || '') || undefined} alt="Tech" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                                            ) : (
+                                                                                <HiOutlineUser size={16} color="#64748b" />
+                                                                            )}
                                                                         </div>
                                                                         <div>
                                                                             <p style={{ margin: 0, fontSize: '13px', fontWeight: '800', color: '#1e293b' }}>{tarea.tecnicoNombre || 'Técnico'}</p>
@@ -1862,14 +1978,14 @@ const AdminDetalleTrabajo: React.FC = () => {
                                 {(activeServiceType === 'Mantenimiento' || activeServiceType === 'Instalacion') && (
                                     <div className={styles.serviceFieldGrid}>
                                         <div className={styles.serviceInputGroup}>
-                                            <label className={styles.serviceLabel}>Marca</label>
+                                            <label className={styles.serviceLabel}>Marca / Nombre del Equipo</label>
                                             <input
                                                 className={styles.serviceInput}
                                                 value={serviceMarca}
                                                 onChange={(e) => setServiceMarca(e.target.value)}
                                                 placeholder="Ej. Daikin, York..."
-                                                disabled={!!serviceEquipoId}
-                                                style={{ background: serviceEquipoId ? '#f1f5f9' : 'white', cursor: serviceEquipoId ? 'not-allowed' : 'text' }}
+                                                disabled={!!serviceEquipoId && !!serviceMarca && serviceMarca !== "S/N"}
+                                                style={{ background: (!!serviceEquipoId && !!serviceMarca && serviceMarca !== "S/N") ? '#f1f5f9' : 'white', cursor: (!!serviceEquipoId && !!serviceMarca && serviceMarca !== "S/N") ? 'not-allowed' : 'text' }}
                                             />
                                         </div>
                                         <div className={styles.serviceInputGroup}>
@@ -1879,8 +1995,8 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                 value={serviceModelo}
                                                 onChange={(e) => setServiceModelo(e.target.value)}
                                                 placeholder="Ej. R-410A..."
-                                                disabled={!!serviceEquipoId}
-                                                style={{ background: serviceEquipoId ? '#f1f5f9' : 'white', cursor: serviceEquipoId ? 'not-allowed' : 'text' }}
+                                                disabled={!!serviceEquipoId && !!serviceModelo && serviceModelo !== "S/N"}
+                                                style={{ background: (!!serviceEquipoId && !!serviceModelo && serviceModelo !== "S/N") ? '#f1f5f9' : 'white', cursor: (!!serviceEquipoId && !!serviceModelo && serviceModelo !== "S/N") ? 'not-allowed' : 'text' }}
                                             />
                                         </div>
                                         {activeServiceType === 'Instalacion' && (
@@ -1935,19 +2051,17 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                     }}
                                                     style={{ width: '80px', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
                                                 />
-                                                {user?.role === 'admin' && (
-                                                    <input
-                                                        type="number"
-                                                        placeholder="Costo Est. ($)"
-                                                        value={ref.costo_estimado || ""}
-                                                        onChange={(e) => {
-                                                            const newR = [...refacciones];
-                                                            newR[i].costo_estimado = e.target.value;
-                                                            setRefacciones(newR);
-                                                        }}
-                                                        style={{ width: '120px', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                                                    />
-                                                )}
+                                                <input
+                                                    type="number"
+                                                    placeholder="Precio ($)"
+                                                    value={ref.costo_estimado || ""}
+                                                    onChange={(e) => {
+                                                        const newR = [...refacciones];
+                                                        newR[i].costo_estimado = e.target.value;
+                                                        setRefacciones(newR);
+                                                    }}
+                                                    style={{ width: '120px', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                                                />
                                                 <button
                                                     onClick={() => setRefacciones(refacciones.filter((_, idx) => idx !== i))}
                                                     style={{ background: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca', padding: '0 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
@@ -2031,7 +2145,20 @@ const AdminDetalleTrabajo: React.FC = () => {
 
                             <div style={{ marginTop: '40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <button
-                                    onClick={() => { setIsAddModalOpen(false); setEditingTaskId(null); setNewTaskDescription(""); setIsQuoteIncluded(false); setNewQuoteAmount(""); setNewQuoteDetails(""); setNewQuoteFileName(""); }}
+                                    onClick={() => { 
+                                        setIsAddModalOpen(false); 
+                                        setEditingTaskId(null); 
+                                        setNewTaskDescription(""); 
+                                        setIsQuoteIncluded(false); 
+                                        setNewQuoteAmount(""); 
+                                        setNewQuoteDetails(""); 
+                                        setNewQuoteFileName(""); 
+                                        setServiceMarca("");
+                                        setServiceModelo("");
+                                        setServicePieza("");
+                                        setServiceGarantia("");
+                                        setRefacciones([]);
+                                    }}
                                     style={{ background: '#eee', color: '#555', border: 'none', padding: '15px 40px', borderRadius: '30px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer' }}
                                 >
                                     Cancelar
@@ -2049,244 +2176,24 @@ const AdminDetalleTrabajo: React.FC = () => {
                     </div>
                 )
             }
-            {/* MODAL HISTORIAL DETALLADO */}
-            {
-                selectedHistoryTask && (() => {
-                    const fallbackReportDataRaw = localStorage.getItem(`report_data_${trabajo?.id}`);
-                    const temporalReportDataRaw = localStorage.getItem(`report_data_temporal_${trabajo?.id}`);
-                    const fallbackReportData = fallbackReportDataRaw ? JSON.parse(fallbackReportDataRaw) : (temporalReportDataRaw ? JSON.parse(temporalReportDataRaw) : null);
-                    
-                    // Prioridad: 1. DB (reporteFinal), 2. Local Final (fallbackReportData), 3. Temporal
-                    const reportData = reporteFinal || fallbackReportData;
-                    const isPreReport = !reporteFinal && !fallbackReportDataRaw && !!temporalReportDataRaw;
-
-                    return (
-                        <div className={styles.premiumModalOverlay} onClick={(e) => {
-                            if (e.target === e.currentTarget) setSelectedHistoryTask(null);
-                        }}>
-                            <div className={styles.premiumModalContent}>
-                                <div className={styles.premiumModalHeader}>
-                                    <h2>
-                                        <HiOutlineClipboardDocumentList size={26} color="#3b82f6" />
-                                        Detalles del Reporte
-                                        {isPreReport && <span style={{ color: '#f59e0b', fontSize: '13px', background: '#fffbeb', padding: '4px 10px', borderRadius: '10px', border: '1px solid #fef3c7' }}>Pre-Reporte</span>}
-                                    </h2>
-                                    <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
-                                        <button
-                                            className={styles.editReportBtn}
-                                            onClick={() => {
-                                                const baseRoute = user?.role === 'tecnico' ? '/tecnico' : '/menu';
-                                                navigate(`${baseRoute}/reporte-tarea/${trabajo?.id}`, { state: { trabajoId: trabajo?.id, actividadId: selectedHistoryTask.id } });
-                                            }}
-                                        >
-                                            <HiOutlinePencilSquare size={18} />
-                                            Editar Reporte
-                                        </button>
-                                        <button
-                                            className={styles.closeButtonCircle}
-                                            onClick={() => setSelectedHistoryTask(null)}
-                                        >
-                                            <HiOutlineXMark size={22} />
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div className={styles.premiumModalBody}>
-                                    <div className={styles.infoGrid}>
-                                        <div className={styles.reportDetailCard} style={{ margin: 0 }}>
-                                            <div className={styles.detailSectionTitle}>
-                                                <HiOutlineIdentification size={18} />
-                                                Identificación
-                                            </div>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                <div>
-                                                    <span className={styles.dataLabel}>Folio de Reporte</span>
-                                                    <span className={styles.folioBadge}>#{reportData?.id || selectedHistoryTask.id}</span>
-                                                </div>
-                                                <div style={{ textAlign: 'right' }}>
-                                                    <span className={styles.dataLabel}>Estatus</span>
-                                                    <span style={{ 
-                                                        fontSize: '11px', 
-                                                        fontWeight: '800', 
-                                                        color: isPreReport ? '#b45309' : '#059669',
-                                                        background: isPreReport ? '#fffbeb' : '#ecfdf5',
-                                                        padding: '4px 10px',
-                                                        borderRadius: '8px',
-                                                        border: `1px solid ${isPreReport ? '#fef3c7' : '#d1fae5'}`
-                                                    }}>
-                                                        {isPreReport ? 'PENDIENTE DE FIRMA' : 'FINALIZADO'}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className={styles.reportDetailCard} style={{ margin: 0 }}>
-                                            <div className={styles.detailSectionTitle}>
-                                                <HiOutlineClock size={18} />
-                                                Cronología
-                                            </div>
-                                            <span className={styles.dataLabel}>Fecha de Registro</span>
-                                            <span className={styles.dataText}>{reportData?.fecha || 'No registrada'}</span>
-                                        </div>
-                                    </div>
-
-                                    <div className={styles.reportDetailCard}>
-                                        <div className={styles.detailSectionTitle}>
-                                            <HiOutlineBuildingOffice2 size={18} />
-                                            Información de Servicio
-                                        </div>
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-                                            <div className={styles.dataBlock}>
-                                                <span className={styles.dataLabel}>Sucursal</span>
-                                                <span className={styles.dataText}>{trabajo.sucursal}</span>
-                                            </div>
-                                            <div className={styles.dataBlock}>
-                                                <span className={styles.dataLabel}>Tipo de Trabajo</span>
-                                                <span className={styles.dataText}>{selectedHistoryTask.titulo}</span>
-                                            </div>
-                                            <div className={styles.dataBlock}>
-                                                <span className={styles.dataLabel}>Técnico</span>
-                                                <span className={styles.dataText}>{trabajo.tecnico}</span>
-                                            </div>
-                                            <div className={styles.dataBlock}>
-                                                <span className={styles.dataLabel}>Gerente / Encargado</span>
-                                                <span className={styles.dataText}>{trabajo.encargado}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className={styles.reportDetailCard}>
-                                        <div className={styles.detailSectionTitle}>
-                                            <HiOutlineClipboardDocumentList size={18} />
-                                            Datos del Reporte
-                                        </div>
-                                        
-                                        <div className={styles.dataBlock}>
-                                            <span className={styles.dataLabel}>Reporte de Tienda / Hallazgo</span>
-                                            <div className={styles.dataBox}>{reportData?.reporteTienda || 'N/A'}</div>
-                                        </div>
-
-                                        <div className={styles.dataBlock}>
-                                            <span className={styles.dataLabel}>Descripción del Trabajo Realizado</span>
-                                            <div className={styles.dataBox}>{reportData?.descripcion || 'N/A'}</div>
-                                        </div>
-
-                                        <div className={styles.dataBlock}>
-                                            <span className={styles.dataLabel}>Materiales y Refacciones</span>
-                                            <div className={styles.dataBox}>{reportData?.materiales || 'No se utilizaron materiales.'}</div>
-                                        </div>
-
-                                        <div className={styles.dataBlock}>
-                                            <span className={styles.dataLabel}>Observaciones Adicionales</span>
-                                            <div className={styles.dataBox}>{reportData?.observaciones || 'Sin observaciones adicionales.'}</div>
-                                        </div>
-                                    </div>
-
-                                    {(reportData?.imagenes?.antes || reportData?.imagenes?.durante || reportData?.imagenes?.despues || reportData?.imagenObservacion) && (
-                                        <div className={styles.reportDetailCard}>
-                                            <div className={styles.detailSectionTitle}>
-                                                <HiOutlineWrench size={18} />
-                                                Evidencia Fotográfica
-                                            </div>
-                                            <div className={styles.evidenceGrid}>
-                                                {reportData.imagenes.antes && (
-                                                    <div className={styles.evidenceItem}>
-                                                        <img
-                                                            src={reportData.imagenes.antes}
-                                                            alt="Antes"
-                                                            className={styles.evidenceThumb}
-                                                            onClick={() => setSelectedZoomImage(reportData.imagenes.antes)}
-                                                        />
-                                                        <span className={styles.evidenceLabel}>Antes</span>
-                                                    </div>
-                                                )}
-                                                {reportData.imagenes.durante && (
-                                                    <div className={styles.evidenceItem}>
-                                                        <img
-                                                            src={reportData.imagenes.durante}
-                                                            alt="Durante"
-                                                            className={styles.evidenceThumb}
-                                                            onClick={() => setSelectedZoomImage(reportData.imagenes.durante)}
-                                                        />
-                                                        <span className={styles.evidenceLabel}>Durante</span>
-                                                    </div>
-                                                )}
-                                                {reportData.imagenes.despues && (
-                                                    <div className={styles.evidenceItem}>
-                                                        <img
-                                                            src={reportData.imagenes.despues}
-                                                            alt="Después"
-                                                            className={styles.evidenceThumb}
-                                                            onClick={() => setSelectedZoomImage(reportData.imagenes.despues)}
-                                                        />
-                                                        <span className={styles.evidenceLabel}>Después</span>
-                                                    </div>
-                                                )}
-                                                {reportData.imagenObservacion && (
-                                                    <div className={styles.evidenceItem}>
-                                                        <img
-                                                            src={reportData.imagenObservacion}
-                                                            alt="Obs"
-                                                            className={styles.evidenceThumb}
-                                                            onClick={() => setSelectedZoomImage(reportData.imagenObservacion)}
-                                                        />
-                                                        <span className={styles.evidenceLabel}>Extra</span>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {trabajo.cotizacion && (
-                                        <div className={styles.approvedQuoteBox}>
-                                            <div className={styles.quoteHeader}>
-                                                <div className={styles.quoteTitle}>
-                                                    <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#f59e0b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                        <HiOutlineCurrencyDollar size={20} color="white" />
-                                                    </div>
-                                                    Cotización Aprobada
-                                                </div>
-                                                <div className={styles.quoteAmount}>${trabajo.cotizacion.costo}</div>
-                                            </div>
-                                            
-                                            <div className={styles.dataBlock}>
-                                                <span className={styles.dataLabel} style={{ color: '#b45309' }}>Notas Administrativas</span>
-                                                <p style={{ margin: 0, fontSize: '14px', color: '#92400e', fontStyle: 'italic', lineHeight: '1.6' }}>
-                                                    "{trabajo.cotizacion.notas || "Sin notas adicionales."}"
-                                                </p>
-                                            </div>
-
-                                            <a
-                                                href={trabajo.cotizacion.archivo}
-                                                target="_blank"
-                                                rel="noreferrer"
-                                                className={styles.quoteDocBtn}
-                                            >
-                                                <HiOutlineClipboardDocumentList size={18} />
-                                                Ver Documento de Cotización Original
-                                            </a>
-                                        </div>
-                                    )}
-
-                                    {reportData?.firmaEmpresa && (
-                                        <div className={styles.reportDetailCard} style={{ marginTop: '20px', textAlign: 'center' }}>
-                                            <span className={styles.dataLabel}>Firma de Validación (Cliente)</span>
-                                            <div style={{ background: '#f8fafc', padding: '15px', borderRadius: '15px', display: 'inline-block', marginTop: '10px', border: '1px solid #f1f5f9' }}>
-                                                <img
-                                                    src={reportData.firmaEmpresa}
-                                                    alt="Firma"
-                                                    style={{ height: '70px', objectFit: 'contain', cursor: 'zoom-in' }}
-                                                    onClick={() => setSelectedZoomImage(reportData.firmaEmpresa)}
-                                                />
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    );
-                })()
-            }
+            {trabajo && selectedHistoryTask && (
+                <ReporteDetailModal
+                    isOpen={!!selectedHistoryTask}
+                    onClose={() => setSelectedHistoryTask(null)}
+                    trabajo={trabajo as any}
+                    task={selectedHistoryTask}
+                    reporte={reporteFinal || (() => {
+                        const fallbackReportDataRaw = localStorage.getItem(`report_data_${trabajo?.id}`);
+                        const temporalReportDataRaw = localStorage.getItem(`report_data_temporal_${trabajo?.id}`);
+                        return fallbackReportDataRaw ? JSON.parse(fallbackReportDataRaw) : (temporalReportDataRaw ? JSON.parse(temporalReportDataRaw) : null);
+                    })()}
+                    userRole={user?.role}
+                    onEdit={() => {
+                        const baseRoute = user?.role === 'tecnico' ? '/tecnico' : '/menu';
+                        navigate(`${baseRoute}/reporte-tarea/${trabajo?.id}`, { state: { trabajoId: trabajo?.id, actividadId: (selectedHistoryTask as any).id } });
+                    }}
+                />
+            )}
 
             {/* MODAL RECORDATORIO DE SEGURIDAD */}
             {isSecurityModalOpen && selectedTaskForReport && (

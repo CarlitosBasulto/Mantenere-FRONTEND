@@ -27,15 +27,35 @@ const ListaTrabajadores: React.FC = () => {
         try {
             const data = await getTrabajadores();
             
-            const mapped: Trabajador[] = data.map((t: any) => ({
-                id: t.id,
-                nombre: t.nombre,
-                fecha: new Date(t.created_at).toLocaleDateString("es-ES"),
-                puesto: t.puesto || "General",
-                correo: t.correo,
-                avatar: t.avatar, // <-- Añadido campo avatar
-                estado: t.estado === "Activo" || t.estado?.toLowerCase() === "activo" ? "Activo" : "Baja"
-            }));
+            const stored = localStorage.getItem('trabajadores_list');
+            const localList = stored ? JSON.parse(stored) : [];
+
+            const mapped: Trabajador[] = data.map((t: any) => {
+                let localAvatar = t.avatar;
+                if (!localAvatar) {
+                    const localWorker = localList.find((w: any) => w.nombre === t.nombre || w.correo === t.correo);
+                    if (localWorker && localWorker.avatar) {
+                        localAvatar = localWorker.avatar;
+                    } else {
+                        // Check profile key directly just in case
+                        const profileKey = `profile_${t.nombre?.replace(/\s+/g, '') || 'default'}`;
+                        const profileData = localStorage.getItem(profileKey);
+                        if (profileData) {
+                            localAvatar = JSON.parse(profileData).imagenPerfil;
+                        }
+                    }
+                }
+
+                return {
+                    id: t.id,
+                    nombre: t.nombre,
+                    fecha: new Date(t.created_at).toLocaleDateString("es-ES"),
+                    puesto: t.puesto || "General",
+                    correo: t.correo,
+                    avatar: localAvatar, // Usa el local si la API falló en guardarlo
+                    estado: t.estado === "Activo" || t.estado?.toLowerCase() === "activo" ? "Activo" : "Baja"
+                };
+            });
             
             setTrabajadoresData(mapped);
         } catch (error) {

@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
-import { HiOutlineCalendarDays, HiOutlineWrenchScrewdriver, HiOutlineCheckCircle, HiXMark, HiChevronDown, HiChevronUp } from "react-icons/hi2";
+import { createPortal } from "react-dom";
+import { HiOutlineCalendarDays, HiOutlineWrenchScrewdriver, HiOutlineCheckCircle, HiXMark, HiChevronDown, HiChevronUp, HiOutlineClipboardDocumentList } from "react-icons/hi2";
 
 interface HistorialEquipoModalProps {
     isOpen: boolean;
     onClose: () => void;
     equipo: any;
     historial: any[];
+    onViewReport?: (trabajoId: number) => void;
 }
 
-const HistorialEquipoModal: React.FC<HistorialEquipoModalProps> = ({ isOpen, onClose, equipo, historial }) => {
+const HistorialEquipoModal: React.FC<HistorialEquipoModalProps> = ({ isOpen, onClose, equipo, historial, onViewReport }) => {
     const [expandedIds, setExpandedIds] = useState<number[]>([]);
 
     if (!isOpen || !equipo) return null;
@@ -19,12 +21,12 @@ const HistorialEquipoModal: React.FC<HistorialEquipoModalProps> = ({ isOpen, onC
         );
     };
 
-    return (
+    return createPortal(
         <div style={{
             position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
             backgroundColor: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(4px)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            zIndex: 9999, padding: '20px'
+            zIndex: 10000, padding: '20px'
         }} onClick={onClose}>
             <div style={{
                 background: '#fff', borderRadius: '24px', maxWidth: '700px', width: '100%',
@@ -181,7 +183,19 @@ const HistorialEquipoModal: React.FC<HistorialEquipoModalProps> = ({ isOpen, onC
                                                                 <p style={{ fontSize: '11px', fontWeight: '800', color: '#94a3b8', marginBottom: '8px', letterSpacing: '0.5px' }}>REPORTE TÉCNICO FORMAL:</p>
                                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                                                     {finalReports.map((rep: any, i: number) => (
-                                                                        <div key={i} style={{ fontSize: '13px', color: '#475569', background: '#f0fdf4', padding: '15px', borderRadius: '12px', border: '1px solid #bbf7d0' }}>
+                                                                        <div key={i} 
+                                                                            onClick={(e) => {
+                                                                                e.preventDefault();
+                                                                                e.stopPropagation();
+                                                                                const targetId = rep.id || req.actualTrabajoId;
+                                                                                if (targetId) {
+                                                                                    onViewReport(targetId);
+                                                                                }
+                                                                            }}
+                                                                            style={{ fontSize: '13px', color: '#475569', background: '#f0fdf4', padding: '15px', borderRadius: '12px', border: '1px solid #bbf7d0', cursor: 'pointer', transition: 'all 0.2s', position: 'relative' }}
+                                                                            onMouseEnter={(e) => e.currentTarget.style.borderColor = '#22c55e'}
+                                                                            onMouseLeave={(e) => e.currentTarget.style.borderColor = '#bbf7d0'}
+                                                                        >
                                                                             <p style={{ margin: '0 0 8px', display: 'flex', gap: '8px' }}>
                                                                                 <strong style={{ color: '#166534', minWidth: '80px', flexShrink: 0 }}>Hallazgo:</strong>
                                                                                 <span style={{ color: '#14532d' }}>{rep.falla_encontrada}</span>
@@ -190,9 +204,45 @@ const HistorialEquipoModal: React.FC<HistorialEquipoModalProps> = ({ isOpen, onC
                                                                                 <strong style={{ color: '#166534', minWidth: '80px', flexShrink: 0 }}>Solución:</strong>
                                                                                 <span style={{ color: '#14532d' }}>{rep.solucion}</span>
                                                                             </p>
+                                                                            <div style={{ position: 'absolute', top: '10px', right: '10px', color: '#10b981', fontSize: '10px', fontWeight: 'bold' }}>VER DETALLE →</div>
                                                                         </div>
                                                                     ))}
                                                                 </div>
+
+                                                                {/* BOTÓN PARA ABRIR EL MODAL DE DETALLES */}
+                                                                {onViewReport && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={(e) => {
+                                                                            e.preventDefault();
+                                                                            e.stopPropagation();
+                                                                            const targetId = req.actualTrabajoId || (finalReports[finalReports.length - 1]?.id);
+                                                                            if (targetId) {
+                                                                                onViewReport(targetId);
+                                                                            }
+                                                                        }}
+                                                                        style={{
+                                                                            width: '100%',
+                                                                            marginTop: '15px',
+                                                                            padding: '12px',
+                                                                            background: 'linear-gradient(135deg, #3b82f6, #2563eb)',
+                                                                            color: 'white',
+                                                                            border: 'none',
+                                                                            borderRadius: '12px',
+                                                                            fontWeight: '800',
+                                                                            fontSize: '13px',
+                                                                            cursor: 'pointer',
+                                                                            display: 'flex',
+                                                                            alignItems: 'center',
+                                                                            justifyContent: 'center',
+                                                                            gap: '8px',
+                                                                            boxShadow: '0 4px 12px rgba(37, 99, 235, 0.2)'
+                                                                        }}
+                                                                    >
+                                                                        <HiOutlineClipboardDocumentList size={18} />
+                                                                        Ver Reporte Detallado y PDF
+                                                                    </button>
+                                                                )}
                                                             </div>
                                                         )}
                                                     </>
@@ -212,7 +262,8 @@ const HistorialEquipoModal: React.FC<HistorialEquipoModalProps> = ({ isOpen, onC
                     to { opacity: 1; transform: translateY(0); }
                 }
             `}</style>
-        </div>
+        </div>,
+        document.body
     );
 };
 

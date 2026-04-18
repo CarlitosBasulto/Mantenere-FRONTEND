@@ -30,7 +30,31 @@ export default function ListaUsuarios() {
         try {
             setLoading(true);
             const data = await getUsers();
-            setUsers(Array.isArray(data) ? data : []);
+            
+            const storedWorkers = localStorage.getItem('trabajadores_list');
+            const localList = storedWorkers ? JSON.parse(storedWorkers) : [];
+
+            const userArray = Array.isArray(data) ? data : [];
+            const mapped = userArray.map(u => {
+                let localAvatar = u.avatar;
+                if (!localAvatar) {
+                    const localWorker = localList.find((w: any) => w.nombre === u.name || w.correo === u.email);
+                    if (localWorker && localWorker.avatar) {
+                        localAvatar = localWorker.avatar;
+                    } else {
+                        const profileKey = `profile_${u.name?.replace(/\s+/g, '') || 'default'}`;
+                        const profileData = localStorage.getItem(profileKey);
+                        if (profileData) {
+                            try {
+                                localAvatar = JSON.parse(profileData).imagenPerfil || null;
+                            } catch (e) {}
+                        }
+                    }
+                }
+                return { ...u, avatar: localAvatar };
+            });
+            
+            setUsers(mapped);
         } catch (error) {
             console.error("Error cargando usuarios:", error);
             showAlert("Error", "No se pudieron cargar los usuarios.", "error");

@@ -11,9 +11,10 @@ import {
     HiOutlineCamera, 
     HiOutlinePhoto, 
     HiXMark,
-    HiOutlineArrowUpTray 
+    HiOutlineArrowUpTray,
+    HiOutlineArrowDownTray
 } from 'react-icons/hi2';
-import jsPDF from 'jspdf';
+import { generateMaintenanceReportPDF } from '../../utils/pdfGenerator';
 
 const compressImage = (file: File, callback: (compressedBase64: string) => void) => {
     const reader = new FileReader();
@@ -62,6 +63,7 @@ const AdminReporte: React.FC = () => {
     const [reporteTienda, setReporteTienda] = useState('');
     const [descripcion, setDescripcion] = useState('');
     const [materiales, setMateriales] = useState('');
+    const [refaccionesList, setRefaccionesList] = useState<{pieza: string, cantidad: number, costo_estimado: string}[]>([]);
     const [observaciones, setObservaciones] = useState('');
 
     const [imagenes, setImagenes] = useState({
@@ -88,6 +90,7 @@ const AdminReporte: React.FC = () => {
             setReporteTienda('');
             setDescripcion('');
             setMateriales('');
+            setRefaccionesList([]);
             setObservaciones('');
             setImagenes({ antes: null, durante: null, despues: null });
             setImagenObservacion(null);
@@ -117,22 +120,36 @@ const AdminReporte: React.FC = () => {
                         if (parsed.firmaEmpresa) setFirmaEmpresa(parsed.firmaEmpresa);
                         if (parsed.involucraEquipo !== undefined) setInvolucraEquipo(parsed.involucraEquipo);
                         if (parsed.equipoInfo) setEquipoInfo(parsed.equipoInfo);
-                        return; 
+                        if (parsed.refaccionesList) setRefaccionesList(parsed.refaccionesList);
                     } catch(e) {}
                 }
 
+                // If no report or fields are still empty, try temporal storage
                 const temporalData = localStorage.getItem(`report_data_temporal_${id}`);
                 if (temporalData) {
                     const parsed = JSON.parse(temporalData);
-                    if (parsed.reporteTienda) setReporteTienda(parsed.reporteTienda);
-                    if (parsed.descripcion) setDescripcion(parsed.descripcion);
-                    if (parsed.materiales) setMateriales(parsed.materiales);
-                    if (parsed.observaciones) setObservaciones(parsed.observaciones);
-                    if (parsed.imagenes) setImagenes(parsed.imagenes);
-                    if (parsed.imagenObservacion) setImagenObservacion(parsed.imagenObservacion);
-                    if (parsed.firmaEmpresa) setFirmaEmpresa(parsed.firmaEmpresa);
-                    if (parsed.involucraEquipo !== undefined) setInvolucraEquipo(parsed.involucraEquipo);
-                    if (parsed.equipoInfo) setEquipoInfo(parsed.equipoInfo);
+                    setReporteTienda(prev => prev || parsed.reporteTienda || '');
+                    setDescripcion(prev => prev || parsed.descripcion || '');
+                    setMateriales(prev => prev || parsed.materiales || '');
+                    setObservaciones(prev => prev || parsed.observaciones || '');
+                    setImagenes(prev => ({
+                        antes: prev.antes || parsed.imagenes?.antes || null,
+                        durante: prev.durante || parsed.imagenes?.durante || null,
+                        despues: prev.despues || parsed.imagenes?.despues || null
+                    }));
+                    setImagenObservacion(prev => prev || parsed.imagenObservacion || null);
+                    setFirmaEmpresa(prev => prev || parsed.firmaEmpresa || null);
+                    setInvolucraEquipo(prev => prev || (parsed.involucraEquipo !== undefined ? parsed.involucraEquipo : false));
+                    if (parsed.equipoInfo) {
+                        setEquipoInfo(prev => ({
+                            tipo: prev.marca ? prev.tipo : (parsed.equipoInfo.tipo || 'Instalación'),
+                            marca: prev.marca || parsed.equipoInfo.marca || '',
+                            modelo: prev.modelo || parsed.equipoInfo.modelo || '',
+                            piezas: prev.piezas || parsed.equipoInfo.piezas || '',
+                            garantia: prev.garantia || parsed.equipoInfo.garantia || ''
+                        }));
+                    }
+                    if (parsed.refaccionesList && refaccionesList.length === 0) setRefaccionesList(parsed.refaccionesList);
                 }
 
                 // --- NUEVO: Sincronizar desde el Trabajo (Fuente de Verdad de Mantenimiento) ---
@@ -145,51 +162,72 @@ const AdminReporte: React.FC = () => {
                     console.error("Error al obtener datos del trabajo para el reporte:", err);
                 }
 
-                if (!report || !equipoInfo.marca) {
-                    // Si el trabajo tiene un equipo vinculado oficialmente, PRIORIDAD #1
-                    if (equipmentFromJob) {
-                        setInvolucraEquipo(true);
-                        setEquipoInfo({
-                            tipo: 'Mantenimiento',
-                            marca: equipmentFromJob.marca || '',
-                            modelo: equipmentFromJob.modelo || '',
-                            piezas: '',
-                            garantia: ''
-                        });
-                    } 
-                    // Si no, buscar en Actividades (Fallback / Instalaciones) PRIORIDAD #2
-                    else {
-                        const acts = await getActividadesByTrabajo(Number(id));
-                        const serviceMarker = "|||SERVICE_DATA|||";
-                        const quoteMarker = "|||QUOTE_DATA|||";
-                        
-                        const activityWithEquipment = acts.find((a: any) => a.descripcion?.includes(serviceMarker));
-                        
-                        if (activityWithEquipment) {
-                            try {
-                                const parts = activityWithEquipment.descripcion.split(serviceMarker);
-                                const jsonPart = parts[1].split(quoteMarker)[0].trim();
-                                const sData = JSON.parse(jsonPart);
-                                
-                                setInvolucraEquipo(true);
-                                setEquipoInfo({
-                                    tipo: activityWithEquipment.tipo || 'Instalación',
-                                    marca: sData.marca || '',
-                                    modelo: sData.modelo || '',
-                                    piezas: sData.piezas || '',
-                                    garantia: sData.garantia || ''
-                                });
+                // --- Sincronización desde Actividades (Enriquecer campos vacíos) ---
+                if (!equipoInfo.marca || !descripcion || refaccionesList.length === 0) {
+                    const acts = await getActividadesByTrabajo(Number(id));
+                    const serviceMarker = "|||SERVICE_DATA|||";
+                    const quoteMarker = "|||QUOTE_DATA|||";
+                    const techMarker = "|||TECH_NAME|||";
+                    
+                    let newRefList: {pieza: string, cantidad: number, costo_estimado: string}[] = [];
+                    let concatenatedDesc = "";
 
-                                if (!descripcion) {
-                                    const cleanDesc = parts[0].split(quoteMarker)[0].trim();
-                                    if (cleanDesc) setDescripcion(cleanDesc);
-                                }
-                            } catch (e) {
-                                console.error("Error al parsear datos de equipo desde actividades:", e);
+                    acts.forEach((a: any) => {
+                        // Agregamos refacciones detectadas en actividades
+                        if (a.refacciones && a.refacciones.length > 0) {
+                            a.refacciones.forEach((r: any) => {
+                                newRefList.push({
+                                    pieza: r.pieza,
+                                    cantidad: r.cantidad,
+                                    costo_estimado: String(r.costo_estimado || "")
+                                });
+                            });
+                        }
+                        // Construimos descripción a partir de actividades
+                        const rawDesc = a.descripcion || "";
+                        const cleanDesc = rawDesc.split(serviceMarker)[0].split(quoteMarker)[0].split(techMarker)[0].trim();
+                        if (cleanDesc) {
+                            concatenatedDesc += (concatenatedDesc ? "\n" : "") + cleanDesc;
+                        }
+                    });
+                    
+                    // Solo aplicamos el autollenado si el campo actual está vacío
+                    setRefaccionesList(prev => prev.length === 0 ? newRefList : prev);
+                    setDescripcion(prev => prev || concatenatedDesc);
+
+                    // Si aún no tenemos equipo, lo buscamos en el Job o en Actividades
+                    if (!equipoInfo.marca) {
+                        if (equipmentFromJob) {
+                            setInvolucraEquipo(true);
+                            setEquipoInfo(prev => ({
+                                ...prev,
+                                tipo: 'Mantenimiento',
+                                marca: equipmentFromJob.marca || '',
+                                modelo: equipmentFromJob.modelo || ''
+                            }));
+                        } else {
+                            const activityWithEquipment = acts.find((a: any) => a.descripcion?.includes(serviceMarker));
+                            if (activityWithEquipment) {
+                                try {
+                                    const parts = activityWithEquipment.descripcion.split(serviceMarker);
+                                    const jsonContent = parts[1].split(quoteMarker)[0].split(techMarker)[0].trim();
+                                    const sData = JSON.parse(jsonContent);
+                                    
+                                    setInvolucraEquipo(true);
+                                    setEquipoInfo(prev => ({
+                                        ...prev,
+                                        tipo: activityWithEquipment.tipo === 'Mantenimiento' || activityWithEquipment.tipo === 'Instalacion' ? activityWithEquipment.tipo : 'Mantenimiento',
+                                        marca: sData.marca || '',
+                                        modelo: sData.modelo || '',
+                                        piezas: prev.piezas || newRefList.map(r => `- ${r.cantidad}x ${r.pieza}`).join(", ") || sData.piezas || '',
+                                        garantia: sData.garantia || ''
+                                    }));
+                                } catch (e) {}
                             }
                         }
                     }
                 }
+
             } catch (err) {
                 console.error("Error cargando reporte inicial:", err);
             }
@@ -267,6 +305,7 @@ const AdminReporte: React.FC = () => {
             reporteTienda,
             descripcion,
             materiales,
+            refaccionesList,
             observaciones,
             imagenes,
             imagenObservacion,
@@ -292,154 +331,34 @@ const AdminReporte: React.FC = () => {
 
     const handleGenerarPDF = async () => {
         try {
-            // PDF en blanco (doc), escala en milímetros (mm) y formato A4 [210 x 297]
-            const doc = new jsPDF();
             const dynamicFolio = reporteId ? `REP-${reporteId.toString().padStart(5, '0')}` : `TRB-${(trabajoId || id || '').toString().padStart(5, '0')}`;
-
-            // --- 1. CABECERA PROFESIONAL ---
-            // Dibujamos un rectángulo relleno (F) como barra superior
-            doc.setFillColor(30, 41, 59); // Color del menú #1e293b (RGB)
-            doc.rect(0, 0, 210, 40, 'F'); // (x, y, ancho, alto, estilo)
-
-            // Título Blanco
-            doc.setTextColor(255, 255, 255);
-            doc.setFontSize(22);
-            doc.setFont("helvetica", "bold");
-            doc.text("REPORTE DE SERVICIO", 15, 20);
-
-            // Folio en un recuadro blanco dentro de la barra
-            doc.setFillColor(255, 255, 255);
-            doc.roundedRect(140, 12, 55, 12, 2, 2, 'F'); // Badge para el Folio
-            doc.setTextColor(30, 41, 59);
-            doc.setFontSize(12);
-            doc.text(`FOLIO: ${dynamicFolio}`, 145, 20);
-
-            // Fecha
-            doc.setTextColor(255, 255, 255);
-            doc.setFontSize(10);
-            doc.setFont("helvetica", "normal");
-            doc.text(`Generado: ${new Date().toLocaleDateString('es-MX')}`, 15, 30);
-
-            // Reestablecer color de texto a negro para el contenido
-            doc.setTextColor(0, 0, 0);
-            let nextY = 55;
-
-            // --- 2. SECCIÓN: DATOS GENERALES ---
-            const drawSectionHeader = (title: string, y: number) => {
-                doc.setFont("helvetica", "bold");
-                doc.setFontSize(14);
-                doc.text(title, 15, y);
-                doc.setDrawColor(230, 230, 230);
-                doc.line(15, y + 2, 195, y + 2); // Línea decorativa
-                return y + 10;
-            };
-
-            nextY = drawSectionHeader("Detalles del Servicio", nextY);
             
-            // Cuerpo del Reporte (splitTextToSize permite saltos de línea automáticos)
-            doc.setFontSize(10);
-            doc.setFont("helvetica", "bold");
-            doc.text("Diagnóstico Inicial:", 15, nextY);
-            doc.setFont("helvetica", "normal");
-            const prepReporte = doc.splitTextToSize(reporteTienda || 'Sin diagnóstico especificado', 180);
-            doc.text(prepReporte, 15, nextY + 5);
-            nextY += (prepReporte.length * 5) + 12;
+            // Compilamos los materiales combinando el widget dinámico y el texto extra
+            const widgetMateriales = refaccionesList.length > 0 
+                ? refaccionesList.map(r => `- ${r.cantidad || 1}x ${r.pieza} ${r.costo_estimado ? `($${r.costo_estimado})` : ''}`).join('\n')
+                : '';
+            const combinedMateriales = [widgetMateriales, materiales].filter(Boolean).join('\n\n');
 
-            doc.setFont("helvetica", "bold");
-            doc.text("Trabajo Realizado:", 15, nextY);
-            doc.setFont("helvetica", "normal");
-            const prepDesc = doc.splitTextToSize(descripcion || 'Sin descripción del trabajo', 180);
-            doc.text(prepDesc, 15, nextY + 5);
-            nextY += (prepDesc.length * 5) + 12;
-
-            doc.setFont("helvetica", "bold");
-            doc.text("Materiales y Refacciones:", 15, nextY);
-            doc.setFont("helvetica", "normal");
-            const prepMat = doc.splitTextToSize(materiales || 'No se registraron materiales adicionales', 180);
-            doc.text(prepMat, 15, nextY + 5);
-            nextY += (prepMat.length * 5) + 15;
-
-            // --- 3. SECCIÓN: EQUIPOS (Si aplica) ---
-            if (involucraEquipo) {
-                // Si ya no cabe en esta hoja, creamos una nueva
-                if (nextY > 240) { doc.addPage(); nextY = 20; }
-                
-                doc.setFillColor(248, 250, 252);
-                doc.roundedRect(15, nextY, 180, 25, 3, 3, 'F'); // Recuadro sombreado
-                
-                doc.setFont("helvetica", "bold");
-                doc.text("EQUIPO INVOLUCRADO:", 20, nextY + 8);
-                
-                doc.setFontSize(9);
-                doc.text(`Tipo: ${equipoInfo.tipo}`, 20, nextY + 16);
-                doc.text(`Marca: ${equipoInfo.marca || 'N/A'}`, 70, nextY + 16);
-                doc.text(`Modelo: ${equipoInfo.modelo || 'N/A'}`, 120, nextY + 16);
-                
-                if (equipoInfo.tipo === 'Instalación') {
-                    doc.text(`Cantidad: ${equipoInfo.piezas}`, 20, nextY + 21);
-                    doc.text(`Garantía: ${equipoInfo.garantia} meses`, 70, nextY + 21);
-                }
-                nextY += 35;
-            }
-
-            // --- 4. SECCIÓN: EVIDENCIA ---
-            if (nextY > 180) { doc.addPage(); nextY = 20; }
-            nextY = drawSectionHeader("Evidencia Fotográfica", nextY);
-
-            let rowX = 15;
-            const imgSize = 55; // Tamaño de cada foto cuadrada (55mm)
-            
-            if (imagenes.antes || imagenes.durante || imagenes.despues) {
-                // Antes
-                if (imagenes.antes) {
-                    doc.addImage(imagenes.antes, 'JPEG', rowX, nextY, imgSize, imgSize);
-                    doc.setFontSize(8);
-                    doc.text("ANTES", rowX + (imgSize/2), nextY + imgSize + 5, { align: 'center' });
-                    rowX += 65;
-                }
-                // Durante
-                if (imagenes.durante) {
-                    doc.addImage(imagenes.durante, 'JPEG', rowX, nextY, imgSize, imgSize);
-                    doc.setFontSize(8);
-                    doc.text("DURANTE", rowX + (imgSize/2), nextY + imgSize + 5, { align: 'center' });
-                    rowX += 65;
-                }
-                // Después
-                if (imagenes.despues) {
-                    doc.addImage(imagenes.despues, 'JPEG', rowX, nextY, imgSize, imgSize);
-                    doc.setFontSize(8);
-                    doc.text("DESPUÉS", rowX + (imgSize/2), nextY + imgSize + 5, { align: 'center' });
-                }
-                nextY += 75;
-            }
-
-            // --- 5. FIRMA DE CONFORMIDAD ---
-            if (firmaEmpresa) {
-                if (nextY > 230) { doc.addPage(); nextY = 20; }
-                
-                if (firmaEmpresa.startsWith('data:application/pdf')) {
-                    // Si es PDF no podemos dibujarlo directo en jsPDF fácilmente
-                    doc.text("[ Firma adjunta en archivo separado ]", 105, nextY + 20, { align: 'center' });
-                } else {
-                    doc.addImage(firmaEmpresa, 'JPEG', (210/2) - 30, nextY, 60, 40);
-                    doc.setDrawColor(200);
-                    doc.line(75, nextY + 45, 135, nextY + 45); // Línea de firma
-                    doc.setFontSize(10);
-                    doc.text("Firma de Conformidad / Sello", 105, nextY + 50, { align: 'center' });
-                }
-            }
-
-            // Pie de página (Número de página)
-            const pages = doc.internal.pages.length;
-            for (let j = 1; j < pages; j++) {
-                doc.setPage(j);
-                doc.setFontSize(8);
-                doc.setTextColor(150);
-                doc.text(`Página ${j} de ${pages - 1} | Sistema de Gestión Automatizado`, 105, 285, { align: 'center' });
-            }
-
-            // Descargar
-            doc.save(`${dynamicFolio}_Reporte.pdf`);
+            await generateMaintenanceReportPDF({
+                id: reporteId || id || trabajoId || 0,
+                folio: dynamicFolio,
+                fecha: new Date().toLocaleDateString('es-MX'),
+                sucursal: '---', // AdminReporte doesn't have trabajo info easily available in same state, maybe I should fetch it or pass it.
+                encargado: '---',
+                tecnico: user?.name || 'Técnico',
+                diagnostico: reporteTienda,
+                descripcion,
+                materiales: combinedMateriales,
+                observaciones,
+                imagenes: {
+                    antes: imagenes.antes,
+                    durante: imagenes.durante,
+                    despues: imagenes.despues,
+                    extra: imagenObservacion
+                },
+                firmaEmpresa,
+                equipo: involucraEquipo ? equipoInfo : null
+            });
         } catch (error) {
             console.error(error);
             showAlert("Error PDF", "Hubo un error al generar el PDF. Revisa las imágenes.", "error");
@@ -564,16 +483,67 @@ const AdminReporte: React.FC = () => {
                                 </div>
 
                                 <div className={styles.inputGroup}>
-                                    <label className={styles.label}>Materiales Utilizados:</label>
+                                    <label className={styles.label}>Piezas y Refacciones Registradas:</label>
+                                    {refaccionesList.map((ref, i) => (
+                                        <div key={i} style={{ display: 'flex', gap: '10px', marginBottom: '10px', alignItems: 'center' }}>
+                                            <input
+                                                placeholder="Nombre de la pieza"
+                                                value={ref.pieza}
+                                                onChange={(e) => {
+                                                    const newR = [...refaccionesList];
+                                                    newR[i].pieza = e.target.value;
+                                                    setRefaccionesList(newR);
+                                                }}
+                                                style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px' }}
+                                            />
+                                            <input
+                                                type="number"
+                                                placeholder="Cant."
+                                                value={ref.cantidad || ""}
+                                                onChange={(e) => {
+                                                    const newR = [...refaccionesList];
+                                                    newR[i].cantidad = Number(e.target.value);
+                                                    setRefaccionesList(newR);
+                                                }}
+                                                style={{ width: '80px', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px' }}
+                                            />
+                                            <input
+                                                type="number"
+                                                placeholder="Precio ($)"
+                                                value={ref.costo_estimado || ""}
+                                                onChange={(e) => {
+                                                    const newR = [...refaccionesList];
+                                                    newR[i].costo_estimado = e.target.value;
+                                                    setRefaccionesList(newR);
+                                                }}
+                                                style={{ width: '100px', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px' }}
+                                            />
+                                            <button
+                                                onClick={() => setRefaccionesList(refaccionesList.filter((_, idx) => idx !== i))}
+                                                style={{ background: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca', padding: '10px 15px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
+                                            >
+                                                X
+                                            </button>
+                                        </div>
+                                    ))}
+                                    <button
+                                        onClick={() => setRefaccionesList([...refaccionesList, { pieza: '', cantidad: 1, costo_estimado: '' }])}
+                                        style={{ background: '#f8fafc', color: '#0ea5e9', border: '2px dashed #bae6fd', padding: '10px', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 'bold', width: '100%', marginTop: '5px', marginBottom: '15px' }}
+                                    >
+                                        + Agregar Nueva Pieza/Refacción
+                                    </button>
+
+                                    <label className={styles.label}>Otros Materiales o Consumibles Libres:</label>
                                     <textarea
                                         className={styles.textarea}
                                         style={{ height: '80px' }}
                                         value={materiales}
                                         onChange={(e) => setMateriales(e.target.value)}
-                                        placeholder="Ej. 1 Filtro, 2m Cable..."
+                                        placeholder="Ej. Cinta adhesiva, solventes, alambre extra..."
                                     />
                                 </div>
                             </div>
+
 
                             <div className={styles.infoSectionCard}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
