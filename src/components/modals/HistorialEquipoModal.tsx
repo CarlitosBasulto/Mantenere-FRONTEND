@@ -77,7 +77,7 @@ const HistorialEquipoModal: React.FC<HistorialEquipoModalProps> = ({ isOpen, onC
 
                 <div style={{ borderTop: '2px solid #f8fafc', paddingTop: '30px' }}>
                     <h4 style={{ fontSize: '18px', color: '#0f172a', fontWeight: '800', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        Historial de Intervenciones
+                        Bitácora de Mantenimiento
                         <span style={{ background: '#eff6ff', color: '#2563eb', padding: '4px 10px', borderRadius: '20px', fontSize: '12px' }}>
                             {historial.length}
                         </span>
@@ -95,19 +95,32 @@ const HistorialEquipoModal: React.FC<HistorialEquipoModalProps> = ({ isOpen, onC
                                 const isExpanded = expandedIds.includes(idx);
 
                                 // Extraer reportes en tiempo real del JSON anidado por si el mapping superior falló
-                                let finalReports = [...(req.reportes || [])];
+                                let rawReports = [...(req.reportes || [])];
                                 [req.visita_trabajo, req.reparacion_trabajo].forEach(t => {
                                     if (t?.reporte?.solucion) {
                                         try {
                                             const p = JSON.parse(t.reporte.solucion);
-                                            if (p.descripcion || p.reporteTienda || p.observaciones) {
-                                                finalReports.push({
-                                                    falla_encontrada: p.descripcion || p.reporteTienda || 'Problema',
-                                                    solucion: p.observaciones || p.reporteTienda || 'Finalizado'
+                                            if (p.descripcion || p.reporteTienda) {
+                                                rawReports.push({
+                                                    id: t.id,
+                                                    problema_cliente: p.reporteTienda || '—',
+                                                    trabajo_realizado: p.descripcion || '—',
+                                                    materiales: p.materiales || '',
+                                                    refacciones: Array.isArray(p.refaccionesList)
+                                                        ? p.refaccionesList.map((r: any) => `${r.cantidad}x ${r.pieza}`).join(' · ')
+                                                        : ''
                                                 });
                                             }
                                         } catch (e) { }
                                     }
+                                });
+
+                                const seenReports = new Set();
+                                const finalReports = rawReports.filter(r => {
+                                    const key = `${r.problema_cliente}-${r.trabajo_realizado}-${r.materiales}`;
+                                    if (seenReports.has(key)) return false;
+                                    seenReports.add(key);
+                                    return true;
                                 });
 
                                 return (
@@ -152,101 +165,112 @@ const HistorialEquipoModal: React.FC<HistorialEquipoModalProps> = ({ isOpen, onC
                                         </div>
 
                                         {isExpanded && (
-                                            <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px dashed #e2e8f0', animation: 'fadeIn 0.3s ease-out' }}>
+                                            <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px dashed #e2e8f0' }}>
 
-                                                {/* Detalle Técnico */}
-                                                {!finalReports.length && (!req.visitas || req.visitas.length === 0) ? (
-                                                    <div style={{ textAlign: 'center', padding: '15px', background: '#f8fafc', borderRadius: '12px' }}>
-                                                        <span style={{ color: '#64748b', fontSize: '13px' }}>Aún no hay reportes técnicos finalizados para esta intervención.</span>
-                                                    </div>
-                                                ) : (
-                                                    <>
-                                                        {(req.visitas && req.visitas.length > 0) && (
-                                                            <div style={{ marginBottom: finalReports.length > 0 ? '15px' : '0' }}>
-                                                                <p style={{ fontSize: '11px', fontWeight: '800', color: '#94a3b8', marginBottom: '8px', letterSpacing: '0.5px' }}>INTERVENCIONES TÉCNICAS:</p>
-                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                                                    {req.visitas.map((v: any, i: number) => (
-                                                                        <div key={i} style={{ fontSize: '13px', color: '#475569', display: 'flex', alignItems: 'flex-start', gap: '8px', background: '#f8fafc', padding: '10px', borderRadius: '10px' }}>
-                                                                            <HiOutlineCheckCircle style={{ color: '#10b981', flexShrink: 0, marginTop: '2px' }} />
-                                                                            <div>
-                                                                                <strong style={{ color: '#1e293b' }}>{v.tecnico?.name || 'Técnico'}</strong>
-                                                                                <p style={{ margin: '4px 0 0', lineHeight: '1.4' }}>{v.reporte_solucion || 'Revisión técnica en proceso.'}</p>
+                                                    {/* Detalle Técnico */}
+                                                    {!finalReports.length && (!req.visitas || req.visitas.length === 0) ? (
+                                                        <div style={{ textAlign: 'center', padding: '15px', background: '#f8fafc', borderRadius: '12px' }}>
+                                                            <span style={{ color: '#64748b', fontSize: '13px' }}>Aún no hay reportes técnicos finalizados para esta intervención.</span>
+                                                        </div>
+                                                    ) : (
+                                                        <>
+                                                            {(req.visitas && req.visitas.length > 0) && (
+                                                                <div style={{ marginBottom: finalReports.length > 0 ? '15px' : '0' }}>
+                                                                    <p style={{ fontSize: '11px', fontWeight: '800', color: '#94a3b8', marginBottom: '8px', letterSpacing: '0.5px' }}>INTERVENCIONES TÉCNICAS:</p>
+                                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                                        {req.visitas.map((v: any, i: number) => (
+                                                                            <div key={i} style={{ fontSize: '13px', color: '#475569', display: 'flex', alignItems: 'flex-start', gap: '8px', background: '#f8fafc', padding: '10px', borderRadius: '10px' }}>
+                                                                                <HiOutlineCheckCircle style={{ color: '#10b981', flexShrink: 0, marginTop: '2px' }} />
+                                                                                <div>
+                                                                                    <strong style={{ color: '#1e293b' }}>{v.tecnico?.name || 'Técnico'}</strong>
+                                                                                    <p style={{ margin: '4px 0 0', lineHeight: '1.4' }}>{v.reporte_solucion || 'Revisión técnica en proceso.'}</p>
+                                                                                </div>
                                                                             </div>
-                                                                        </div>
-                                                                    ))}
+                                                                        ))}
+                                                                    </div>
                                                                 </div>
-                                                            </div>
-                                                        )}
+                                                            )}
 
-                                                        {(finalReports.length > 0) && (
-                                                            <div>
-                                                                <p style={{ fontSize: '11px', fontWeight: '800', color: '#94a3b8', marginBottom: '8px', letterSpacing: '0.5px' }}>REPORTE TÉCNICO FORMAL:</p>
-                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                                                    {finalReports.map((rep: any, i: number) => (
-                                                                        <div key={i} 
+                                                            {(finalReports.length > 0) && (
+                                                                <div>
+                                                                    <p style={{ fontSize: '11px', fontWeight: '800', color: '#94a3b8', marginBottom: '8px', letterSpacing: '0.5px' }}>REPORTE TÉCNICO FORMAL:</p>
+                                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                                        {finalReports.map((rep: any, i: number) => (
+                                                                            <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                                                <div 
+                                                                                    onClick={(e) => {
+                                                                                        e.preventDefault();
+                                                                                        e.stopPropagation();
+                                                                                        const targetId = rep.id || req.actualTrabajoId;
+                                                                                        if (targetId) {
+                                                                                            onViewReport(targetId);
+                                                                                        }
+                                                                                    }}
+                                                                                    style={{ fontSize: '13px', color: '#475569', cursor: 'pointer', transition: 'all 0.2s', position: 'relative', display: 'flex', flexDirection: 'column', gap: '8px', paddingBottom: '5px' }}
+                                                                                >
+                                                                                    <p style={{ margin: '0', display: 'flex', gap: '8px' }}>
+                                                                                        <strong style={{ color: '#475569', minWidth: '130px', flexShrink: 0 }}>Problema reportado:</strong>
+                                                                                        <span style={{ color: '#334155' }}>{rep.problema_cliente}</span>
+                                                                                    </p>
+                                                                                    <p style={{ margin: '0', display: 'flex', gap: '8px' }}>
+                                                                                        <strong style={{ color: '#475569', minWidth: '130px', flexShrink: 0 }}>Trabajo realizado:</strong>
+                                                                                        <span style={{ color: '#334155' }}>{rep.trabajo_realizado}</span>
+                                                                                    </p>
+                                                                                    {rep.refacciones && (
+                                                                                        <p style={{ margin: '0', display: 'flex', gap: '8px' }}>
+                                                                                            <strong style={{ color: '#475569', minWidth: '130px', flexShrink: 0 }}>Piezas utilizadas:</strong>
+                                                                                            <span style={{ color: '#334155' }}>{rep.refacciones}</span>
+                                                                                        </p>
+                                                                                    )}
+                                                                                </div>
+                                                                                {rep.materiales && (
+                                                                                    <div style={{ fontSize: '13px', padding: '12px 15px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', gap: '8px' }}>
+                                                                                        <strong style={{ color: '#475569', minWidth: '130px', flexShrink: 0 }}>Materiales usados:</strong>
+                                                                                        <span style={{ color: '#334155' }}>{rep.materiales}</span>
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+
+                                                                    {/* BOTÓN PARA ABRIR EL MODAL DE DETALLES */}
+                                                                    {onViewReport && (
+                                                                        <button
+                                                                            type="button"
                                                                             onClick={(e) => {
                                                                                 e.preventDefault();
                                                                                 e.stopPropagation();
-                                                                                const targetId = rep.id || req.actualTrabajoId;
+                                                                                const targetId = req.actualTrabajoId || (finalReports[finalReports.length - 1]?.id);
                                                                                 if (targetId) {
                                                                                     onViewReport(targetId);
                                                                                 }
                                                                             }}
-                                                                            style={{ fontSize: '13px', color: '#475569', background: '#f0fdf4', padding: '15px', borderRadius: '12px', border: '1px solid #bbf7d0', cursor: 'pointer', transition: 'all 0.2s', position: 'relative' }}
-                                                                            onMouseEnter={(e) => e.currentTarget.style.borderColor = '#22c55e'}
-                                                                            onMouseLeave={(e) => e.currentTarget.style.borderColor = '#bbf7d0'}
+                                                                            style={{
+                                                                                width: '100%',
+                                                                                marginTop: '15px',
+                                                                                padding: '12px',
+                                                                                background: 'linear-gradient(135deg, #3b82f6, #2563eb)',
+                                                                                color: 'white',
+                                                                                border: 'none',
+                                                                                borderRadius: '12px',
+                                                                                fontWeight: '800',
+                                                                                fontSize: '13px',
+                                                                                cursor: 'pointer',
+                                                                                display: 'flex',
+                                                                                alignItems: 'center',
+                                                                                justifyContent: 'center',
+                                                                                gap: '8px',
+                                                                                boxShadow: '0 4px 12px rgba(37, 99, 235, 0.2)'
+                                                                            }}
                                                                         >
-                                                                            <p style={{ margin: '0 0 8px', display: 'flex', gap: '8px' }}>
-                                                                                <strong style={{ color: '#166534', minWidth: '80px', flexShrink: 0 }}>Hallazgo:</strong>
-                                                                                <span style={{ color: '#14532d' }}>{rep.falla_encontrada}</span>
-                                                                            </p>
-                                                                            <p style={{ margin: '0', display: 'flex', gap: '8px' }}>
-                                                                                <strong style={{ color: '#166534', minWidth: '80px', flexShrink: 0 }}>Solución:</strong>
-                                                                                <span style={{ color: '#14532d' }}>{rep.solucion}</span>
-                                                                            </p>
-                                                                            <div style={{ position: 'absolute', top: '10px', right: '10px', color: '#10b981', fontSize: '10px', fontWeight: 'bold' }}>VER DETALLE →</div>
-                                                                        </div>
-                                                                    ))}
+                                                                            <HiOutlineClipboardDocumentList size={18} />
+                                                                            Ver Reporte Detallado y PDF
+                                                                        </button>
+                                                                    )}
                                                                 </div>
-
-                                                                {/* BOTÓN PARA ABRIR EL MODAL DE DETALLES */}
-                                                                {onViewReport && (
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={(e) => {
-                                                                            e.preventDefault();
-                                                                            e.stopPropagation();
-                                                                            const targetId = req.actualTrabajoId || (finalReports[finalReports.length - 1]?.id);
-                                                                            if (targetId) {
-                                                                                onViewReport(targetId);
-                                                                            }
-                                                                        }}
-                                                                        style={{
-                                                                            width: '100%',
-                                                                            marginTop: '15px',
-                                                                            padding: '12px',
-                                                                            background: 'linear-gradient(135deg, #3b82f6, #2563eb)',
-                                                                            color: 'white',
-                                                                            border: 'none',
-                                                                            borderRadius: '12px',
-                                                                            fontWeight: '800',
-                                                                            fontSize: '13px',
-                                                                            cursor: 'pointer',
-                                                                            display: 'flex',
-                                                                            alignItems: 'center',
-                                                                            justifyContent: 'center',
-                                                                            gap: '8px',
-                                                                            boxShadow: '0 4px 12px rgba(37, 99, 235, 0.2)'
-                                                                        }}
-                                                                    >
-                                                                        <HiOutlineClipboardDocumentList size={18} />
-                                                                        Ver Reporte Detallado y PDF
-                                                                    </button>
-                                                                )}
-                                                            </div>
-                                                        )}
-                                                    </>
-                                                )}
+                                                            )}
+                                                        </>
+                                                    )}
                                             </div>
                                         )}
                                     </div>

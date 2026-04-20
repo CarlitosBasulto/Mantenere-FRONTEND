@@ -87,16 +87,20 @@ const TrabajoDetalle: React.FC = () => {
                 }
 
                 if (current) {
-                    setBusinessName(current.nombre);
+                    const plaza = current.nombrePlaza || current.nombre_plaza;
+                    const fullName = plaza ? `${current.nombre} - ${plaza}` : current.nombre;
+                    setBusinessName(fullName);
                     setBusinessImage(current.imagenPerfil || null);
-                    setNewRequestData(prev => ({ ...prev, cliente: current.nombre }));
+                    setNewRequestData(prev => ({ ...prev, cliente: fullName }));
                 } else {
                     // Si falla el query batch, try individual
                     const individual = await getNegocio(Number(id));
                     if (individual && individual.nombre) {
-                        setBusinessName(individual.nombre);
+                        const indPlaza = individual.nombrePlaza || individual.nombre_plaza;
+                        const fullName = indPlaza ? `${individual.nombre} - ${indPlaza}` : individual.nombre;
+                        setBusinessName(fullName);
                         setBusinessImage(individual.imagenPerfil || null);
-                        setNewRequestData(prev => ({ ...prev, cliente: individual.nombre }));
+                        setNewRequestData(prev => ({ ...prev, cliente: fullName }));
                     } else {
                         setBusinessName("Desconocido");
                     }
@@ -137,7 +141,7 @@ const TrabajoDetalle: React.FC = () => {
                     return {
                         id: j.id,
                         titulo: j.titulo,
-                        ubicacion: j.negocio?.nombre || businessName,
+                        ubicacion: j.negocio ? ((j.negocio.nombrePlaza || j.negocio.nombre_plaza) ? `${j.negocio.nombre} - ${j.negocio.nombrePlaza || j.negocio.nombre_plaza}` : j.negocio.nombre) : businessName,
                         tecnico: j.trabajador?.nombre || "Sin asignar",
                         tecnicoUserId: j.trabajador?.user_id || null, // <--- Added User ID mapping for strict filtering
                         fecha: j.fecha_programada ? (j.fecha_programada.includes('-') ? j.fecha_programada.split('-').reverse().join('/') : j.fecha_programada) : new Date(j.created_at).toLocaleDateString('es-MX'),
@@ -230,6 +234,8 @@ const TrabajoDetalle: React.FC = () => {
         descripcion: "",
         equipoSeleccionado: ""
     });
+    const [customCategoria, setCustomCategoria] = useState("");
+
 
     // Modal Filtro
     const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
@@ -550,13 +556,17 @@ const TrabajoDetalle: React.FC = () => {
     };
 
     const handleConfirmRequest = async () => {
+        const finalCategoria = newRequestData.categoria === "Otro" && customCategoria.trim() !== "" 
+            ? customCategoria.trim() 
+            : newRequestData.categoria;
+
         if (isEditingRequest && editingRequestId !== null) {
             // Edit existing request
             const updated = trabajosData.map(job => {
                 if (job.id === editingRequestId) {
                     return {
                         ...job,
-                        titulo: `${newRequestData.categoria} - ${newRequestData.cliente || businessName}`,
+                        titulo: `${finalCategoria} - ${newRequestData.cliente || businessName}`,
                         descripcion: newRequestData.descripcion
                     };
                 }
@@ -575,6 +585,23 @@ const TrabajoDetalle: React.FC = () => {
                         levantamiento_equipo_id: newRequestData.equipoSeleccionado,
                         descripcion_problema: newRequestData.descripcion || "Mantenimiento general programado"
                     });
+                    
+                    try {
+                        let equName = "un equipo";
+                        const individual = await getNegocio(Number(id));
+                        if(individual && individual.areas) {
+                            for(let a of individual.areas) {
+                                const matched = a.equipos.find((e:any) => String(e.id) === String(newRequestData.equipoSeleccionado));
+                                if(matched) { equName = matched.nombre; break; }
+                            }
+                        }
+                        await createNotificacionByRole({
+                            role: 'admin',
+                            titulo: '📋 Reporte de Mantenimiento de Equipo',
+                            mensaje: `Un cliente solicitó mantenimiento programado para ${equName}.`,
+                            enlace: '/menu/mantenimiento'
+                        });
+                    } catch (e) { console.error(e); }
 
                     showAlert("Solicitud Exitosa", "Tu reporte se ha creado correctamente y ya es visible en la sección de Reportes de Mantenimiento para la administración.", "success");
                     setIsRequestModalOpen(false);
@@ -584,8 +611,8 @@ const TrabajoDetalle: React.FC = () => {
                 const isEmergency = isSOSRequest;
                 const newJobPayload = {
                     titulo: isEmergency
-                        ? `🚨 SOS: ${newRequestData.categoria} - ${businessName}`
-                        : `${newRequestData.categoria} - ${newRequestData.cliente || businessName}`,
+                        ? `🚨 SOS: ${finalCategoria} - ${businessName}`
+                        : `${finalCategoria} - ${newRequestData.cliente || businessName}`,
                     descripcion: (newRequestData.categoria === 'Mantenimiento' && newRequestData.equipoSeleccionado)
                         ? `[Equipo: ${newRequestData.equipoSeleccionado}]\n${newRequestData.descripcion}`
                         : newRequestData.descripcion,
@@ -1276,7 +1303,10 @@ const TrabajoDetalle: React.FC = () => {
                                     <select
                                         className={styles.newServiceInput}
                                         value={newRequestData.categoria}
-                                        onChange={(e) => setNewRequestData({ ...newRequestData, categoria: e.target.value })}
+                                        onChange={(e) => {
+                                            setNewRequestData({ ...newRequestData, categoria: e.target.value });
+                                            if (e.target.value !== "Otro") setCustomCategoria("");
+                                        }}
                                     >
                                         <option>Electricidad</option>
                                         <option>Plomeria</option>
@@ -1284,7 +1314,18 @@ const TrabajoDetalle: React.FC = () => {
                                         <option>Limpieza</option>
                                         <option>Instalación</option>
                                         <option>Mantenimiento</option>
+                                        <option value="Otro">Otro (Especificar)</option>
                                     </select>
+                                    {newRequestData.categoria === "Otro" && (
+                                        <input
+                                            type="text"
+                                            className={styles.newServiceInput}
+                                            style={{ marginTop: '10px' }}
+                                            placeholder="Escribe la categoría..."
+                                            value={customCategoria}
+                                            onChange={(e) => setCustomCategoria(e.target.value)}
+                                        />
+                                    )}
                                 </div>
 
                                 <div className={styles.formField}>

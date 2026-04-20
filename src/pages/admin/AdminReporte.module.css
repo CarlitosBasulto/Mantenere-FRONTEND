@@ -262,27 +262,28 @@
 
 .deletePhotoBtn {
     position: absolute;
-    top: -8px;
-    right: -8px;
-    background: #ef4444;
+    top: 4px;
+    right: 4px;
+    background: rgba(0, 0, 0, 0.55);
     color: white;
     border: none;
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    border-radius: 4px;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    font-size: 14px;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    font-size: 11px;
+    font-weight: 900;
+    line-height: 1;
     z-index: 5;
-    transition: transform 0.2s;
+    transition: background 0.2s;
+    padding: 0;
 }
 
 .deletePhotoBtn:hover {
-    transform: scale(1.1);
-    background: #dc2626;
+    background: rgba(220, 38, 38, 0.85);
 }
 
 .validationSection {

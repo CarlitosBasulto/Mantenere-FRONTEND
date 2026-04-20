@@ -76,6 +76,8 @@ const ListaNegocios: React.FC = () => {
         // FILTRO POR ROL: El técnico solo ve los negocios donde tiene trabajos asignados
         if (user?.role === 'tecnico') {
             const hasAssignedJobs = globalJobs.some((j: any) => {
+                if (j.negocio_id !== negocio.id) return false;
+                
                 const isMine = j.trabajador_id === user.id || j.trabajador?.user_id === user.id;
                 if (!isMine) return false;
 
@@ -99,6 +101,7 @@ const ListaNegocios: React.FC = () => {
 
     const handleEditClick = (e: React.MouseEvent, id: number) => {
         e.stopPropagation();
+        if (user?.role === 'tecnico') return; // El técnico no debe poder editar ni navegar aquí
         const basePath = user?.role === 'cliente' ? '/cliente' : '/menu';
         navigate(`${basePath}/perfil-empresa?id=${id}`);
     };

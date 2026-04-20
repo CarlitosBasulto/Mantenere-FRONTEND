@@ -30,7 +30,14 @@ const AdminHistorial: React.FC = () => {
         const fetchHistory = async () => {
             try {
                 const apiJobs = await getTrabajos();
-                const terminados = apiJobs.filter((j: any) => j.estado === 'Finalizado' || j.estado === 'Cotización Aceptada');
+                let terminados = apiJobs.filter((j: any) => j.estado === 'Finalizado' || j.estado === 'Cotización Aceptada');
+                
+                // Si es técnico, filtrar solo los terminados que le pertenecen
+                if (user.role === 'tecnico') {
+                    terminados = terminados.filter((j: any) => 
+                        j.trabajador_id === user.id || j.trabajador?.user_id === user.id
+                    );
+                }
                 
                 const mappedTareas = terminados.map((job: any) => ({
                     id: job.id,

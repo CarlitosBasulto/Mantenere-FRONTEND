@@ -95,6 +95,7 @@ function App() {
                             <Route index element={<ListaNegocios />} />
                             <Route path="solicitudes" element={<ListaSolicitudes />} />
                             <Route path="mi-perfil" element={<MiPerfil />} />
+                            <Route path="historial" element={<AdminHistorial />} />
                             <Route path="trabajo/:id" element={<TrabajoDetalle />} />
                             <Route path="trabajo-detalle/:id" element={<AdminDetalleTrabajo />} />
                             <Route path="reporte-tarea/:id" element={<AdminReporte />} />

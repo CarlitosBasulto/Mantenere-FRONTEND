@@ -44,43 +44,41 @@ export const generateMaintenanceReportPDF = async (data: PDFReportData) => {
         // --- 1. CABECERA ---
         // Barra superior decorativa
         doc.setFillColor(navyColor[0], navyColor[1], navyColor[2]);
-        doc.rect(0, 0, 210, 35, 'F');
+        doc.rect(0, 0, 210, 26, 'F');
         
         // Logo
         try {
-            // Intentamos cargar el logo. 
-            // Nota: En un entorno real, si esto falla es mejor tener el logo en base64 hardcodeado.
-            doc.addImage(getLogoBase64(), 'PNG', 10, 5, 50, 25); 
+            doc.addImage(getLogoBase64(), 'PNG', 10, 3, 42, 20); 
         } catch (e) {
             console.error("No se pudo cargar el logo en el PDF", e);
         }
 
         // Título y Folio
         doc.setTextColor(255, 255, 255);
-        doc.setFontSize(18);
+        doc.setFontSize(16);
         doc.setFont("helvetica", "bold");
-        doc.text("REPORTE DE SERVICIO", 70, 18);
+        doc.text("REPORTE DE SERVICIO", 65, 12);
         
-        doc.setFontSize(10);
+        doc.setFontSize(9);
         doc.setFont("helvetica", "normal");
-        doc.text(`FOLIO: ${dynamicFolio}`, 70, 25);
-        doc.text(`FECHA: ${data.fecha}`, 140, 25);
+        doc.text(`FOLIO: ${dynamicFolio}`, 65, 19);
+        doc.text(`FECHA: ${data.fecha}`, 130, 19);
 
         // Barra dorada de acento
         doc.setFillColor(goldColor[0], goldColor[1], goldColor[2]);
-        doc.rect(0, 35, 210, 2, 'F');
+        doc.rect(0, 26, 210, 2, 'F');
 
-        let nextY = 50;
+        let nextY = 35;
 
         // --- 2. SECCIÓN: DATOS GENERALES (Diseño de Rejilla) ---
         const drawSectionTitle = (title: string, y: number) => {
             doc.setFillColor(240, 240, 240);
-            doc.rect(15, y, 180, 8, 'F');
+            doc.rect(15, y, 180, 7, 'F');
             doc.setTextColor(navyColor[0], navyColor[1], navyColor[2]);
             doc.setFont("helvetica", "bold");
-            doc.setFontSize(11);
-            doc.text(title.toUpperCase(), 20, y + 6);
-            return y + 12;
+            doc.setFontSize(10);
+            doc.text(title.toUpperCase(), 20, y + 5);
+            return y + 11;
         };
 
         nextY = drawSectionTitle("Información General", nextY);
@@ -88,84 +86,82 @@ export const generateMaintenanceReportPDF = async (data: PDFReportData) => {
         doc.setFontSize(9);
         doc.setTextColor(80, 80, 80);
         
-        // Grid vertical para info
         const drawField = (label: string, value: string, x: number, y: number) => {
             doc.setFont("helvetica", "bold");
             doc.text(label, x, y);
             doc.setFont("helvetica", "normal");
-            doc.text(value || '---', x + 25, y);
+            doc.text(value || '---', x + 20, y);
         };
 
         drawField("Sucursal:", data.sucursal, 20, nextY);
         drawField("Técnico:", data.tecnico, 110, nextY);
-        nextY += 7;
+        nextY += 6;
         drawField("Encargado:", data.encargado, 20, nextY);
-        nextY += 10;
+        nextY += 8;
 
         // --- 3. DETALLES DEL TRABAJO ---
         nextY = drawSectionTitle("Detalles del Servicio", nextY);
         
         const drawTextArea = (label: string, text: string, y: number) => {
             doc.setFont("helvetica", "bold");
-            doc.setFontSize(10);
+            doc.setFontSize(9);
             doc.text(label, 20, y);
             doc.setFont("helvetica", "normal");
             const lines = doc.splitTextToSize(text || 'Sin información registrada.', 170);
             doc.text(lines, 20, y + 5);
-            return y + (lines.length * 5) + 8;
+            return y + (lines.length * 4) + 8;
         };
 
         nextY = drawTextArea("Diagnóstico / Reporte:", data.diagnostico, nextY);
         nextY = drawTextArea("Trabajo Realizado:", data.descripcion, nextY);
         
-        // Materiales en formato más limpio
+        // Materiales
         nextY = drawSectionTitle("Refacciones y Materiales", nextY);
         doc.setFont("helvetica", "normal");
         const matLines = doc.splitTextToSize(data.materiales || 'No se utilizaron refacciones.', 170);
-        doc.text(matLines, 20, nextY + 2);
-        nextY += (matLines.length * 5) + 10;
+        doc.text(matLines, 20, nextY + 3);
+        nextY += (matLines.length * 4) + 8;
 
         // --- 4. EQUIPO ---
         if (data.equipo) {
-            if (nextY > 240) { doc.addPage(); nextY = 20; }
+            if (nextY > 210) { doc.addPage(); nextY = 20; }
             nextY = drawSectionTitle("Especificaciones del Equipo", nextY);
             
             doc.setDrawColor(navyColor[0], navyColor[1], navyColor[2]);
-            doc.rect(15, nextY, 180, 20);
+            doc.rect(15, nextY, 180, 16);
             
-            doc.setFontSize(9);
+            doc.setFontSize(8);
             doc.setFont("helvetica", "bold");
-            doc.text("TIPO:", 20, nextY + 8);
-            doc.text("MARCA:", 70, nextY + 8);
-            doc.text("MODELO:", 130, nextY + 8);
+            doc.text("TIPO:", 20, nextY + 6);
+            doc.text("MARCA:", 70, nextY + 6);
+            doc.text("MODELO:", 130, nextY + 6);
             
             doc.setFont("helvetica", "normal");
-            doc.text(data.equipo.tipo, 20, nextY + 14);
-            doc.text(data.equipo.marca || 'N/A', 70, nextY + 14);
-            doc.text(data.equipo.modelo || 'N/A', 130, nextY + 14);
+            doc.text(data.equipo.tipo, 20, nextY + 11);
+            doc.text(data.equipo.marca || 'N/A', 70, nextY + 11);
+            doc.text(data.equipo.modelo || 'N/A', 130, nextY + 11);
             
-            nextY += 30;
+            nextY += 24;
         }
 
         // --- 5. EVIDENCIA ---
-        if (nextY > 180) { doc.addPage(); nextY = 20; }
-        nextY = drawSectionTitle("Evidencia Fotográfica", nextY);
+        if (nextY > 200) { doc.addPage(); nextY = 20; }
+        nextY = drawSectionTitle("Evidencia Fotográfica Principal", nextY);
 
-        const imgSize = 55;
-        let currentX = 15;
-        const images = [
+        const imgSize = 45; // Fotos reducidas para ahorrar espacio
+        let currentX = 20;
+        const mainImages = [
             { src: data.imagenes.antes, label: 'ANTES' },
             { src: data.imagenes.durante, label: 'DURANTE' },
-            { src: data.imagenes.despues, label: 'DESPUÉS' },
-            { src: data.imagenes.extra, label: 'ADICIONAL' }
+            { src: data.imagenes.despues, label: 'DESPUÉS' }
         ].filter(img => !!img.src);
 
-        if (images.length > 0) {
-            images.forEach((img) => {
+        if (mainImages.length > 0) {
+            mainImages.forEach((img) => {
                 if (currentX + imgSize > 200) {
-                    currentX = 15;
-                    nextY += 70;
-                    if (nextY > 240) { doc.addPage(); nextY = 20; }
+                    currentX = 20;
+                    nextY += imgSize + 15;
+                    if (nextY > 260) { doc.addPage(); nextY = 20; }
                 }
                 if (img.src) {
                     const format = img.src.includes('png') ? 'PNG' : 'JPEG';
@@ -173,27 +169,69 @@ export const generateMaintenanceReportPDF = async (data: PDFReportData) => {
                     doc.setFontSize(8);
                     doc.setFont("helvetica", "bold");
                     doc.text(img.label, currentX + (imgSize / 2), nextY + imgSize + 5, { align: 'center' });
-                    currentX += 65;
+                    currentX += imgSize + 15;
                 }
             });
-            nextY += 80;
+            nextY += imgSize + 12;
         }
 
-        // --- 6. SECCIÓN DE FIRMAS Y SELLO (Última hoja) ---
-        // Aseguramos que haya espacio al final
-        if (nextY > 230) { doc.addPage(); nextY = 40; } else { nextY = 240; }
+        // --- 6 & 7. NUEVA PÁGINA: OBSERVACIONES + FIRMAS ---
+        doc.addPage();
+        nextY = 25;
 
-        doc.setDrawColor(200);
-        
-        // Firma Encargado
-        doc.line(20, nextY, 90, nextY);
+        // Sección observaciones
+        nextY = drawSectionTitle("Observaciones y Validación", nextY);
+        doc.setTextColor(80, 80, 80);
+
+        if (data.observaciones) {
+            nextY = drawTextArea("Notas Internas u Observaciones al Cliente:", data.observaciones, nextY);
+        } else {
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(9);
+            doc.text("Sin observaciones adicionales.", 20, nextY + 3);
+            nextY += 12;
+        }
+
+        if (data.imagenes.extra) {
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(9);
+            doc.text("Fotografía Adicional:", 20, nextY);
+            nextY += 5;
+            let imgFormat = 'JPEG';
+            if (data.imagenes.extra.startsWith('data:image/png')) imgFormat = 'PNG';
+            const extraImgSize = 80;
+            try {
+                doc.addImage(data.imagenes.extra, imgFormat, 20, nextY, extraImgSize, extraImgSize);
+            } catch (imgErr) {
+                try { doc.addImage(data.imagenes.extra, 'JPEG', 20, nextY, extraImgSize, extraImgSize); } catch (e2) {}
+            }
+            nextY += extraImgSize + 10;
+        }
+
+        // --- FIRMAS Y SELLO: siempre al fondo de la segunda hoja ---
+        // Posición fija cerca del pie de página independientemente del contenido de arriba
+        const sigY = 230;
+
+        doc.setFillColor(240, 240, 240);
+        doc.rect(15, sigY - 8, 180, 7, 'F');
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.setTextColor(30, 41, 59);
+        doc.text("VALIDACIÓN Y CONFORMIDAD", 20, sigY - 3);
+
+        doc.setDrawColor(180);
+        doc.setTextColor(80, 80, 80);
+
+        // Firma encargado (línea + nombre debajo)
+        doc.line(20, sigY + 22, 90, sigY + 22);
         doc.setFontSize(9);
         doc.setFont("helvetica", "bold");
-        doc.text("NOMBRE Y FIRMA DEL ENCARGADO", 55, nextY + 5, { align: 'center' });
-        
-        // Sello Sucursal
-        doc.rect(120, nextY - 30, 70, 30); // Caja para el sello
-        doc.text("SELLO DE LA SUCURSAL", 155, nextY + 5, { align: 'center' });
+        doc.text("NOMBRE Y FIRMA DEL ENCARGADO", 55, sigY + 28, { align: 'center' });
+
+        // Sello sucursal (caja + texto debajo)
+        doc.rect(115, sigY, 75, 30);
+        doc.text("SELLO DE LA SUCURSAL", 152, sigY + 37, { align: 'center' });
+
 
         // Pie de página
         const pages = doc.internal.pages.length;

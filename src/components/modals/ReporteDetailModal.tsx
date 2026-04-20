@@ -47,6 +47,7 @@ const ReporteDetailModal: React.FC<ReporteDetailModalProps> = ({
     onEdit 
 }) => {
     const [selectedZoomImage, setSelectedZoomImage] = useState<string | null>(null);
+    const [showCotizacionDetail, setShowCotizacionDetail] = useState(false);
 
     if (!isOpen) return null;
 
@@ -199,8 +200,25 @@ const ReporteDetailModal: React.FC<ReporteDetailModalProps> = ({
                         </div>
 
                         <div className={styles.dataBlock}>
-                            <span className={styles.dataLabel}>Materiales y Refacciones</span>
-                            <div className={styles.dataBox}>{reporte?.materiales || 'No se utilizaron materiales.'}</div>
+                            <span className={styles.dataLabel}>Piezas y Refacciones</span>
+                            <div className={styles.dataBox}>
+                                {Array.isArray(reporte?.refaccionesList) && reporte.refaccionesList.length > 0 ? (
+                                    <ul style={{ margin: 0, paddingLeft: '18px', lineHeight: '1.8' }}>
+                                        {reporte.refaccionesList.map((r: any, i: number) => (
+                                            <li key={i} style={{ fontSize: '14px' }}>
+                                                {r.cantidad}x {r.pieza} {r.costo_estimado ? `($${r.costo_estimado})` : ''}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                ) : (
+                                    <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Sin refacciones registradas.</span>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className={styles.dataBlock}>
+                            <span className={styles.dataLabel}>Otros Materiales</span>
+                            <div className={styles.dataBox}>{reporte?.materiales || 'No se utilizaron otros materiales.'}</div>
                         </div>
 
                         <div className={styles.dataBlock}>
@@ -265,7 +283,7 @@ const ReporteDetailModal: React.FC<ReporteDetailModalProps> = ({
                     )}
 
                     {trabajo?.cotizacion && (
-                        <div className={styles.approvedQuoteBox}>
+                        <div className={styles.approvedQuoteBox} style={{ cursor: 'pointer' }} onClick={() => setShowCotizacionDetail(!showCotizacionDetail)}>
                             <div className={styles.quoteHeader}>
                                 <div className={styles.quoteTitle}>
                                     <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#f59e0b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -273,20 +291,42 @@ const ReporteDetailModal: React.FC<ReporteDetailModalProps> = ({
                                     </div>
                                     Cotización Aprobada
                                 </div>
-                                <div className={styles.quoteAmount}>${trabajo.cotizacion.costo}</div>
-                            </div>
-                            
-                            <div className={styles.dataBlock}>
-                                <span className={styles.dataLabel} style={{ color: '#b45309' }}>Notas Administrativas</span>
-                                <p style={{ margin: 0, fontSize: '14px', color: '#92400e', fontStyle: 'italic', lineHeight: '1.6' }}>
-                                    "{trabajo.cotizacion.notas || "Sin notas adicionales."}"
-                                </p>
+                                <div className={styles.quoteAmount} style={{ letterSpacing: 'normal' }}>
+                                    {showCotizacionDetail ? `$${trabajo.cotizacion.costo}` : '$$$'}
+                                </div>
                             </div>
 
-                            <a href={trabajo.cotizacion.archivo} target="_blank" rel="noreferrer" className={styles.quoteDocBtn}>
-                                <HiOutlineClipboardDocumentList size={18} />
-                                Ver Documento de Cotización Original
-                            </a>
+                            {!showCotizacionDetail && (
+                                <div style={{ marginTop: '10px', textAlign: 'center' }}>
+                                    <span style={{ fontSize: '13px', color: '#b45309', fontWeight: 'bold', textDecoration: 'underline' }}>Ver más detalles</span>
+                                </div>
+                            )}
+
+                            {showCotizacionDetail && (
+                                <div style={{ marginTop: '14px', display: 'flex', flexDirection: 'column', gap: '10px', borderTop: '1px solid #fef3c7', paddingTop: '14px' }}>
+                                    <div className={styles.dataBlock}>
+                                        <span className={styles.dataLabel} style={{ color: '#b45309' }}>Notas Administrativas</span>
+                                        <p style={{ margin: 0, fontSize: '14px', color: '#92400e', fontStyle: 'italic', lineHeight: '1.6' }}>
+                                            "{trabajo.cotizacion.notas || "Sin notas adicionales."}"
+                                        </p>
+                                    </div>
+
+                                    {trabajo.cotizacion.archivo &&
+                                        typeof trabajo.cotizacion.archivo === 'string' &&
+                                        (trabajo.cotizacion.archivo.startsWith('http://') || trabajo.cotizacion.archivo.startsWith('https://')) && (
+                                        <a
+                                            href={trabajo.cotizacion.archivo}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className={styles.quoteDocBtn}
+                                            onClick={(e) => e.stopPropagation()}
+                                        >
+                                            <HiOutlineClipboardDocumentList size={18} />
+                                            Ver Documento de Cotización Original
+                                        </a>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     )}
 

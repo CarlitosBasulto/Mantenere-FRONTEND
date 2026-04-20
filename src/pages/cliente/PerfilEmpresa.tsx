@@ -173,6 +173,14 @@ const PerfilEmpresa: React.FC = () => {
                 colonia: formData.colonia,
                 cp: formData.cp,
                 referencia: formData.referencia,
+                nombrePlaza: formData.nombrePlaza,
+                gerente: formData.gerente,
+                telefonoGerente: formData.telefonoGerente,
+                subgerente: formData.subgerente,
+                telefonoSubgerente: formData.telefonoSubgerente,
+                manzana: formData.manzana,
+                lote: formData.lote,
+                calleAv: formData.calleAv,
                 levantamiento: finalLevantamiento,
                 imagenPerfil: finalImagenPerfil
             };
@@ -240,6 +248,19 @@ const PerfilEmpresa: React.FC = () => {
                 levantamiento_equipo_id: reportingEquipment.id!,
                 descripcion_problema: descripcion
             });
+
+            // Notificar al administrador en la campaña
+            try {
+                await createNotificacionByRole({
+                    role: 'admin',
+                    titulo: '📋 Reporte de Mantenimiento de Equipo',
+                    mensaje: `Un cliente reportó un inconveniente con el equipo "${reportingEquipment.nombre}". Revísalo de inmediato.`,
+                    enlace: '/menu/mantenimiento'
+                });
+            } catch (notiErr) {
+                console.error("Error notificando al admin", notiErr);
+            }
+
             showAlert("Reporte Enviado", "El problema ha sido reportado exitosamente. El administrador revisará y agendará una visita técnica.", "success");
         } catch (error) {
             console.error(error);

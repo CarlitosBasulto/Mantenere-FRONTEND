@@ -432,11 +432,13 @@ const AdminDetalleTrabajo: React.FC = () => {
     const [newTaskDescription, setNewTaskDescription] = useState("");
     const [isQuoteIncluded, setIsQuoteIncluded] = useState(false);
     const [newQuoteAmount, setNewQuoteAmount] = useState("");
+    const [newQuoteMaterials, setNewQuoteMaterials] = useState<{material: string, piezas: string}[]>([]);
     const [newQuoteDetails, setNewQuoteDetails] = useState("");
     const [newQuoteFileName, setNewQuoteFileName] = useState("");
 
     // SERVICE TYPE FIELDS (NEW)
-    const [activeServiceType, setActiveServiceType] = useState<"Mantenimiento" | "Instalacion">("Mantenimiento");
+    const [activeServiceType, setActiveServiceType] = useState<any>("Mantenimiento");
+    const [customServiceType, setCustomServiceType] = useState("");
     const [serviceMarca, setServiceMarca] = useState("");
     const [serviceModelo, setServiceModelo] = useState("");
     const [serviceEquipoId, setServiceEquipoId] = useState<number | null>(null);
@@ -565,7 +567,9 @@ const AdminDetalleTrabajo: React.FC = () => {
                 desc += ` \n|||SERVICE_DATA||| ${JSON.stringify(serviceData)}`;
 
                 if (isQuoteIncluded) {
-                    const quotePayload = { monto: newQuoteAmount, detalles: newQuoteDetails };
+                    const materialsText = newQuoteMaterials.filter(m => m.material.trim()).map(m => `- ${m.material} (${m.piezas})`).join('\n');
+                    const combinedDetails = materialsText ? `${materialsText}\n\n${newQuoteDetails}` : newQuoteDetails;
+                    const quotePayload = { monto: newQuoteAmount, detalles: combinedDetails };
                     desc += ` \n|||QUOTE_DATA||| ${JSON.stringify(quotePayload)}`;
                 }
 
@@ -581,7 +585,7 @@ const AdminDetalleTrabajo: React.FC = () => {
 
                 const body = {
                     trabajo_id: Number(id),
-                    tipo: activeServiceType, // Usamos Mantenimiento o Instalación como tipo principal
+                    tipo: activeServiceType === 'Otro' ? (customServiceType || 'Otro') : activeServiceType,
                     descripcion: desc,
                     refacciones: payloadRefacciones
                 };
@@ -651,6 +655,7 @@ const AdminDetalleTrabajo: React.FC = () => {
         setNewTaskDescription("");
         setIsQuoteIncluded(false);
         setNewQuoteAmount("");
+        setNewQuoteMaterials([]);
         setNewQuoteDetails("");
         setNewQuoteFileName("");
         // Reset service fields
@@ -1037,7 +1042,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                             <h3 className={styles.taskTitle} style={{ margin: 0, fontSize: '17px' }}>
                                 {tarea.titulo}
                             </h3>
-                            <span style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 'bold' }}>ID: {tarea.id}</span>
+                            <span style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 'bold' }}>Tarea: {tarea.id}</span>
                         </div>
                     </div>
 
@@ -1962,6 +1967,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                                             { id: 'Albañileria', icon: <HiOutlineSquare3Stack3D size={20} />, label: 'Albañilería' },
                                             { id: 'Carpinteria', icon: <HiOutlinePencilSquare size={20} />, label: 'Carpintería' },
                                             { id: 'Pintura', icon: <HiOutlinePencilSquare size={20} />, label: 'Pintura' },
+                                            { id: 'Otro', icon: <HiOutlineDocumentText size={20} />, label: 'Otro (Especificar)' },
                                         ].map((cat) => (
                                             <div
                                                 key={cat.id}
@@ -1973,9 +1979,21 @@ const AdminDetalleTrabajo: React.FC = () => {
                                             </div>
                                         ))}
                                     </div>
+                                    {activeServiceType === 'Otro' && (
+                                        <div style={{ marginTop: '15px' }}>
+                                            <input
+                                                type="text"
+                                                placeholder="Especificar tipo de actividad..."
+                                                value={customServiceType}
+                                                onChange={(e) => setCustomServiceType(e.target.value)}
+                                                style={{ width: '100%', padding: '12px 15px', borderRadius: '10px', border: '1px solid #ccc', fontSize: '14px' }}
+                                                autoFocus
+                                            />
+                                        </div>
+                                    )}
                                 </div>
 
-                                {(activeServiceType === 'Mantenimiento' || activeServiceType === 'Instalacion') && (
+                                {(activeServiceType === 'Mantenimiento' || activeServiceType === 'Instalacion' || activeServiceType === 'Otro') && (
                                     <div className={styles.serviceFieldGrid}>
                                         <div className={styles.serviceInputGroup}>
                                             <label className={styles.serviceLabel}>Marca / Nombre del Equipo</label>
@@ -2113,7 +2131,47 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                     />
                                                 </div>
                                                 <div>
-                                                    <label style={{ display: 'block', fontSize: '13px', color: '#666', marginBottom: '5px' }}>Detalles o materiales necesarios</label>
+                                                    <label style={{ display: 'block', fontSize: '13px', color: '#666', marginBottom: '5px' }}>Materiales y Piezas Necesarias</label>
+                                                    {newQuoteMaterials.map((mat, i) => (
+                                                        <div key={i} style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+                                                            <input
+                                                                placeholder="Material / Refacción"
+                                                                value={mat.material}
+                                                                onChange={(e) => {
+                                                                    const newM = [...newQuoteMaterials];
+                                                                    newM[i].material = e.target.value;
+                                                                    setNewQuoteMaterials(newM);
+                                                                }}
+                                                                style={{ flex: 1, padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '14px' }}
+                                                            />
+                                                            <input
+                                                                type="text"
+                                                                placeholder="Piezas (ej. 2, 1 metro)"
+                                                                value={mat.piezas}
+                                                                onChange={(e) => {
+                                                                    const newM = [...newQuoteMaterials];
+                                                                    newM[i].piezas = e.target.value;
+                                                                    setNewQuoteMaterials(newM);
+                                                                }}
+                                                                style={{ width: '150px', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '14px' }}
+                                                            />
+                                                            <button
+                                                                onClick={() => setNewQuoteMaterials(newQuoteMaterials.filter((_, idx) => idx !== i))}
+                                                                style={{ background: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca', padding: '0 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+                                                            >
+                                                                X
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                    <button
+                                                        onClick={() => setNewQuoteMaterials([...newQuoteMaterials, { material: '', piezas: '' }])}
+                                                        style={{ background: 'transparent', color: '#FFB800', border: '1px dashed #FFB800', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold', width: '100%', marginBottom: '15px' }}
+                                                    >
+                                                        + Añadir material o refacción
+                                                    </button>
+                                                </div>
+                                                <div>
+                                                    <label style={{ display: 'block', fontSize: '13px', color: '#666', marginBottom: '5px' }}>Detalles o notas adicionales</label>
                                                     <textarea
                                                         value={newQuoteDetails}
                                                         onChange={(e) => setNewQuoteDetails(e.target.value)}
@@ -2149,8 +2207,10 @@ const AdminDetalleTrabajo: React.FC = () => {
                                         setIsAddModalOpen(false); 
                                         setEditingTaskId(null); 
                                         setNewTaskDescription(""); 
+                                        setCustomServiceType("");
                                         setIsQuoteIncluded(false); 
                                         setNewQuoteAmount(""); 
+                                        setNewQuoteMaterials([]);
                                         setNewQuoteDetails(""); 
                                         setNewQuoteFileName(""); 
                                         setServiceMarca("");

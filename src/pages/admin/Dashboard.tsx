@@ -11,6 +11,7 @@ import { getUsers } from '../../services/usersService';
 import { getNegocios } from '../../services/negociosService';
 import { getTrabajos } from '../../services/trabajosService';
 import { getCotizacionesByTrabajoId } from '../../services/cotizacionesService';
+import { getMantenimientoSolicitudes } from '../../services/mantenimientoService';
 
 const Dashboard: React.FC = () => {
     const [stats, setStats] = useState({
@@ -26,14 +27,31 @@ const Dashboard: React.FC = () => {
     const [financialData, setFinancialData] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
+    const [solicitudes, setSolicitudes] = useState<any[]>([]);
+    const [filterSucursal, setFilterSucursal] = useState('');
+    const [filterEquipo, setFilterEquipo] = useState('');
+    const [filterDateFrom, setFilterDateFrom] = useState('');
+    const [filterDateTo, setFilterDateTo] = useState('');
+    const [appliedFilters, setAppliedFilters] = useState({
+        sucursal: '',
+        equipo: '',
+        dateFrom: '',
+        dateTo: ''
+    });
+    const [sucursalesList, setSucursalesList] = useState<string[]>([]);
+
     useEffect(() => {
         const fetchStats = async () => {
             try {
-                const [u, n, t] = await Promise.all([
+                const [u, n, t, s] = await Promise.all([
                     getUsers(),
                     getNegocios(),
-                    getTrabajos()
+                    getTrabajos(),
+                    getMantenimientoSolicitudes()
                 ]);
+                
+                setSolicitudes(s);
+                setSucursalesList(n.map((neg: any) => neg.nombre).filter(Boolean));
                 
                 // 1. Contador General
                 const cotizacionesCount = t.filter((job: any) => 
@@ -345,6 +363,152 @@ const Dashboard: React.FC = () => {
             <div className={styles.activityCard}>
                  <h3>Actividad Reciente del Sistema</h3>
                  <p className={styles.empty}>Próximamente: Historial detallado de acciones en tiempo real.</p>
+            </div>
+
+            {/* TABLA DE REPORTES TÉCNICOS DE EQUIPOS */}
+            <div className={styles.chartCard} style={{ gridColumn: 'span 3', marginTop: '20px', overflow: 'hidden' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '15px' }}>
+                    <h3 style={{ margin: 0, fontSize: '18px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <HiOutlineWrenchScrewdriver size={22} color="#3b82f6" /> 
+                        Bitácora de Equipos
+                    </h3>
+                    
+                    <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', alignItems: 'center' }}>
+                        <select 
+                            value={filterSucursal} 
+                            onChange={e => setFilterSucursal(e.target.value)}
+                            style={{ padding: '8px 15px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', fontSize: '13px', outline: 'none' }}
+                        >
+                            <option value="">Todas las Sucursales</option>
+                            {Array.from(new Set(sucursalesList)).map(suc => (
+                                <option key={suc} value={suc}>{suc}</option>
+                            ))}
+                        </select>
+                        <select 
+                            value={filterEquipo} 
+                            onChange={e => setFilterEquipo(e.target.value)}
+                            style={{ padding: '8px 15px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', fontSize: '13px', outline: 'none' }}
+                        >
+                            <option value="">Todos los Equipos</option>
+                            {Array.from(new Set(solicitudes.map(s => s.levantamiento_equipo ? `${s.levantamiento_equipo.marca} ${s.levantamiento_equipo.modelo}` : null).filter(Boolean))).map(eq => (
+                                <option key={eq as string} value={eq as string}>{eq as string}</option>
+                            ))}
+                        </select>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 'bold' }}>DESDE:</span>
+                            <input 
+                                type="date" 
+                                value={filterDateFrom} 
+                                onChange={e => setFilterDateFrom(e.target.value)} 
+                                style={{ padding: '8px 10px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', outline: 'none', fontSize: '13px' }}
+                            />
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 'bold' }}>HASTA:</span>
+                            <input 
+                                type="date" 
+                                value={filterDateTo} 
+                                onChange={e => setFilterDateTo(e.target.value)} 
+                                style={{ padding: '8px 10px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', outline: 'none', fontSize: '13px' }}
+                            />
+                        </div>
+                        <button
+                            onClick={() => {
+                                setAppliedFilters({ sucursal: filterSucursal, equipo: filterEquipo, dateFrom: filterDateFrom, dateTo: filterDateTo });
+                            }}
+                            style={{ background: '#3b82f6', color: '#fff', border: 'none', padding: '8px 18px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '13px' }}
+                        >
+                            Buscar
+                        </button>
+                    </div>
+                </div>
+
+                <div style={{ overflowX: 'auto', marginTop: '20px' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '900px' }}>
+                        <thead>
+                            <tr style={{ background: '#f1f5f9', color: '#475569', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                <th style={{ padding: '12px 15px', fontWeight: '800', borderBottom: '2px solid #e2e8f0', whiteSpace: 'nowrap' }}>FECHA</th>
+                                <th style={{ padding: '12px 15px', fontWeight: '800', borderBottom: '2px solid #e2e8f0' }}>SUCURSAL</th>
+                                <th style={{ padding: '12px 15px', fontWeight: '800', borderBottom: '2px solid #e2e8f0' }}>EQUIPO</th>
+                                <th style={{ padding: '12px 15px', fontWeight: '800', borderBottom: '2px solid #e2e8f0' }}>PROBLEMA REPORTADO</th>
+                                <th style={{ padding: '12px 15px', fontWeight: '800', borderBottom: '2px solid #e2e8f0' }}>TRABAJO REALIZADO</th>
+                                <th style={{ padding: '12px 15px', fontWeight: '800', borderBottom: '2px solid #e2e8f0' }}>PIEZAS / MATERIALES</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {(() => {
+                                let filas: any[] = [];
+                                solicitudes.forEach(sol => {
+                                    const negocio = sol.negocio?.nombre || 'General';
+                                    const equipo = sol.levantamiento_equipo ? `${sol.levantamiento_equipo.marca} ${sol.levantamiento_equipo.modelo}` : 'N/A';
+                                    
+                                    const solDateObj = new Date(sol.created_at);
+                                    const yyyy = solDateObj.getFullYear();
+                                    const mm = String(solDateObj.getMonth() + 1).padStart(2, '0');
+                                    const dd = String(solDateObj.getDate()).padStart(2, '0');
+                                    const solDateFormatted = `${yyyy}-${mm}-${dd}`;
+
+                                    if (appliedFilters.dateFrom && solDateFormatted < appliedFilters.dateFrom) return;
+                                    if (appliedFilters.dateTo && solDateFormatted > appliedFilters.dateTo) return;
+                                    if (appliedFilters.sucursal && appliedFilters.sucursal !== negocio) return;
+                                    if (appliedFilters.equipo && appliedFilters.equipo !== equipo) return;
+
+                                    let reportesInternos: any[] = [];
+                                    [sol.visita_trabajo, sol.reparacion_trabajo].forEach(t => {
+                                        if (t?.reporte?.solucion) {
+                                            try {
+                                                const p = JSON.parse(t.reporte.solucion);
+                                                if (p.descripcion || p.reporteTienda) {
+                                                    reportesInternos.push({
+                                                        fecha: solDateObj.toLocaleDateString(),
+                                                        fechaRaw: sol.created_at,
+                                                        problema: p.reporteTienda || '—',
+                                                        trabajo: p.descripcion || '—',
+                                                        piezas: Array.isArray(p.refaccionesList) && p.refaccionesList.length > 0
+                                                            ? p.refaccionesList.map((r: any) => `${r.cantidad}x ${r.pieza}`).join(' · ')
+                                                            : (p.materiales && p.materiales.trim() !== '' ? p.materiales : '—')
+                                                    });
+                                                }
+                                            } catch (e) { }
+                                        }
+                                    });
+
+                                    const seen = new Set();
+                                    reportesInternos.forEach(rep => {
+                                        const key = `${rep.problema}-${rep.trabajo}`;
+                                        if (!seen.has(key)) {
+                                            seen.add(key);
+                                            filas.push({ sucursal: negocio, equipo: equipo, ...rep });
+                                        }
+                                    });
+                                });
+
+                                filas.sort((a, b) => new Date(b.fechaRaw).getTime() - new Date(a.fechaRaw).getTime());
+
+                                if (filas.length === 0) {
+                                    return (
+                                        <tr>
+                                            <td colSpan={6} style={{ padding: '30px', textAlign: 'center', color: '#94a3b8', fontSize: '14px', fontStyle: 'italic' }}>
+                                                No se encontraron reportes técnicos formales con los filtros actuales.
+                                            </td>
+                                        </tr>
+                                    );
+                                }
+
+                                return filas.map((fila, idx) => (
+                                    <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: idx % 2 === 0 ? '#ffffff' : '#fafafa' }}>
+                                        <td style={{ padding: '15px', color: '#475569', fontSize: '13px', whiteSpace: 'nowrap', fontWeight: 'bold' }}>{fila.fecha}</td>
+                                        <td style={{ padding: '15px', color: '#0f172a', fontSize: '13px', fontWeight: '800' }}>{fila.sucursal}</td>
+                                        <td style={{ padding: '15px', color: '#3b82f6', fontSize: '13px', fontWeight: '800' }}>{fila.equipo}</td>
+                                        <td style={{ padding: '15px', color: '#334155', fontSize: '13px', lineHeight: '1.4' }}>{fila.problema}</td>
+                                        <td style={{ padding: '15px', color: '#334155', fontSize: '13px', lineHeight: '1.4' }}>{fila.trabajo}</td>
+                                        <td style={{ padding: '15px', color: '#059669', fontSize: '13px', lineHeight: '1.4', fontWeight: '600' }}>{fila.piezas}</td>
+                                    </tr>
+                                ));
+                            })()}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     );

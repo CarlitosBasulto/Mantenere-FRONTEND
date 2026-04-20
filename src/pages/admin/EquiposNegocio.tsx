@@ -49,11 +49,15 @@ const EquiposNegocio: React.FC<EquiposNegocioProps> = ({ businessId, onViewRepor
                     if (sol.visita_trabajo?.reporte?.solucion) {
                         try {
                             const parsed = JSON.parse(sol.visita_trabajo.reporte.solucion);
-                            if (parsed.descripcion || parsed.reporteTienda || parsed.observaciones) {
+                            if (parsed.descripcion || parsed.reporteTienda) {
                                 mappedReportes.push({
                                     id: sol.visita_trabajo?.id || sol.visita_trabajo_id,
-                                    falla_encontrada: parsed.descripcion || parsed.reporteTienda || 'Diagnóstico de visita (Cotización)',
-                                    solucion: parsed.observaciones || parsed.reporteTienda || 'Revisión técnica terminada.'
+                                    problema_cliente: parsed.reporteTienda || '—',
+                                    trabajo_realizado: parsed.descripcion || '—',
+                                    materiales: parsed.materiales || '',
+                                    refacciones: Array.isArray(parsed.refaccionesList)
+                                        ? parsed.refaccionesList.map((r: any) => `${r.cantidad}x ${r.pieza}`).join(' · ')
+                                        : ''
                                 });
                             }
                         } catch(e) {}
@@ -62,11 +66,15 @@ const EquiposNegocio: React.FC<EquiposNegocioProps> = ({ businessId, onViewRepor
                     if (sol.reparacion_trabajo?.reporte?.solucion) {
                          try {
                             const parsed = JSON.parse(sol.reparacion_trabajo.reporte.solucion);
-                            if (parsed.descripcion || parsed.reporteTienda || parsed.observaciones) {
+                            if (parsed.descripcion || parsed.reporteTienda) {
                                 mappedReportes.push({
                                     id: sol.reparacion_trabajo?.id || sol.reparacion_trabajo_id,
-                                    falla_encontrada: parsed.descripcion || parsed.reporteTienda || 'Problema diagnosticado',
-                                    solucion: parsed.observaciones || parsed.reporteTienda || 'Reparación técnica terminada.'
+                                    problema_cliente: parsed.reporteTienda || '—',
+                                    trabajo_realizado: parsed.descripcion || '—',
+                                    materiales: parsed.materiales || '',
+                                    refacciones: Array.isArray(parsed.refaccionesList)
+                                        ? parsed.refaccionesList.map((r: any) => `${r.cantidad}x ${r.pieza}`).join(' · ')
+                                        : ''
                                 });
                             }
                         } catch(e) {}
@@ -256,7 +264,7 @@ const EquiposNegocio: React.FC<EquiposNegocioProps> = ({ businessId, onViewRepor
                                 cursor: 'pointer',
                                 transition: 'all 0.2s ease'
                             }} onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleCardClick(equipo); }}>
-                                {maintenanceCount > 0 ? 'Ver Historial Completo' : 'Ver Detalles de Registro'}
+                                {maintenanceCount > 0 ? 'Ver bitacora de equipo' : 'Ver Detalles de Registro'}
                             </button>
                         </div>
                     );

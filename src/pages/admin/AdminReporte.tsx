@@ -60,6 +60,7 @@ const AdminReporte: React.FC = () => {
     const { user } = useAuth();
     const { showAlert, showConfirm } = useModal();
 
+    const [trabajoBase, setTrabajoBase] = useState<any>(null);
     const [reporteTienda, setReporteTienda] = useState('');
     const [descripcion, setDescripcion] = useState('');
     const [materiales, setMateriales] = useState('');
@@ -76,6 +77,7 @@ const AdminReporte: React.FC = () => {
     const [reporteId, setReporteId] = useState<number | null>(null);
 
     const [involucraEquipo, setInvolucraEquipo] = useState(false);
+    const [showEquiposSection, setShowEquiposSection] = useState(false);
     const [equipoInfo, setEquipoInfo] = useState({
         tipo: 'Instalación',
         marca: '',
@@ -156,6 +158,7 @@ const AdminReporte: React.FC = () => {
                 let equipmentFromJob: any = null;
                 try {
                     const jobData = await getTrabajo(Number(id));
+                    setTrabajoBase(jobData);
                     const solicitud = jobData.mantenimiento_solicitud_visita || jobData.mantenimientoSolicitudVisita || jobData.mantenimiento_solicitud_reparacion || jobData.mantenimientoSolicitudReparacion;
                     equipmentFromJob = solicitud ? (solicitud.levantamiento_equipo || solicitud.levantamientoEquipo) : null;
                 } catch (err) {
@@ -193,7 +196,13 @@ const AdminReporte: React.FC = () => {
                     
                     // Solo aplicamos el autollenado si el campo actual está vacío
                     setRefaccionesList(prev => prev.length === 0 ? newRefList : prev);
-                    setDescripcion(prev => prev || concatenatedDesc);
+                    setReporteTienda(prev => prev || concatenatedDesc);
+
+                    // Determinar si existe alguna actividad de tipo Mantenimiento o Instalación
+                    const hasEquipoActivity = acts.some((a: any) =>
+                        a.tipo === 'Mantenimiento' || a.tipo === 'Instalacion' || a.tipo === 'Instalación'
+                    );
+                    setShowEquiposSection(hasEquipoActivity);
 
                     // Si aún no tenemos equipo, lo buscamos en el Job o en Actividades
                     if (!equipoInfo.marca) {
@@ -206,17 +215,19 @@ const AdminReporte: React.FC = () => {
                                 modelo: equipmentFromJob.modelo || ''
                             }));
                         } else {
-                            const activityWithEquipment = acts.find((a: any) => a.descripcion?.includes(serviceMarker));
+                            const activityWithEquipment = acts.find((a: any) =>
+                                (a.tipo === 'Mantenimiento' || a.tipo === 'Instalacion' || a.tipo === 'Instalación')
+                                && a.descripcion?.includes(serviceMarker)
+                            );
                             if (activityWithEquipment) {
                                 try {
                                     const parts = activityWithEquipment.descripcion.split(serviceMarker);
                                     const jsonContent = parts[1].split(quoteMarker)[0].split(techMarker)[0].trim();
                                     const sData = JSON.parse(jsonContent);
-                                    
                                     setInvolucraEquipo(true);
                                     setEquipoInfo(prev => ({
                                         ...prev,
-                                        tipo: activityWithEquipment.tipo === 'Mantenimiento' || activityWithEquipment.tipo === 'Instalacion' ? activityWithEquipment.tipo : 'Mantenimiento',
+                                        tipo: activityWithEquipment.tipo === 'Mantenimiento' ? 'Mantenimiento' : 'Instalación',
                                         marca: sData.marca || '',
                                         modelo: sData.modelo || '',
                                         piezas: prev.piezas || newRefList.map(r => `- ${r.cantidad}x ${r.pieza}`).join(", ") || sData.piezas || '',
@@ -343,8 +354,8 @@ const AdminReporte: React.FC = () => {
                 id: reporteId || id || trabajoId || 0,
                 folio: dynamicFolio,
                 fecha: new Date().toLocaleDateString('es-MX'),
-                sucursal: '---', // AdminReporte doesn't have trabajo info easily available in same state, maybe I should fetch it or pass it.
-                encargado: '---',
+                sucursal: trabajoBase?.negocio?.nombre || '---',
+                encargado: trabajoBase?.negocio?.encargado || '---',
                 tecnico: user?.name || 'Técnico',
                 diagnostico: reporteTienda,
                 descripcion,
@@ -544,7 +555,7 @@ const AdminReporte: React.FC = () => {
                                 </div>
                             </div>
 
-
+                            {showEquiposSection && (
                             <div className={styles.infoSectionCard}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <h3 className={styles.sectionTitle}>Equipos Involucrados</h3>
@@ -642,6 +653,7 @@ const AdminReporte: React.FC = () => {
                                     </div>
                                 )}
                             </div>
+                            )}
                         </div>
 
                         <div className={styles.infoSectionCard}>
@@ -661,7 +673,7 @@ const AdminReporte: React.FC = () => {
                                                             onClick={(e) => { e.stopPropagation(); removeImage('antes'); }}
                                                             title="Eliminar foto"
                                                         >
-                                                            <HiXMark />
+                                                            ✕
                                                         </button>
                                                     </>
                                                 ) : <HiOutlinePhoto />}
@@ -745,13 +757,20 @@ const AdminReporte: React.FC = () => {
                                         <div className={styles.squareBox} onClick={() => firmaInputRef.current?.click()} style={{ width: '300px', height: '120px', margin: '0 auto' }}>
                                             {firmaEmpresa ? (
                                                 <>
-                                                    <img src={firmaEmpresa} alt="Firma" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                                                    {firmaEmpresa.startsWith('data:application/pdf') ? (
+                                                        <div style={{ textAlign: 'center', color: '#64748b', padding: '10px' }}>
+                                                            <div style={{ fontSize: '32px', marginBottom: '6px' }}>📄</div>
+                                                            <div style={{ fontSize: '12px', fontWeight: '600', wordBreak: 'break-all', maxWidth: '200px' }}>Firma/Sello cargado (PDF)</div>
+                                                        </div>
+                                                    ) : (
+                                                        <img src={firmaEmpresa} alt="Firma" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                                                    )}
                                                     <button 
                                                         className={styles.deletePhotoBtn} 
                                                         onClick={(e) => { e.stopPropagation(); removeFirma(); }}
                                                         style={{ top: '5px', right: '5px' }}
                                                     >
-                                                        <HiXMark />
+                                                        ✕
                                                     </button>
                                                 </>
                                             ) : (

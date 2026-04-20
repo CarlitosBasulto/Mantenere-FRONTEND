@@ -118,7 +118,7 @@ const MenuLayout: React.FC = () => {
         } else if (user.role === 'cliente') {
             baseOptions = ["Mis Negocios", "Cotizaciones", "Historial"];
         } else if (user.role === 'tecnico') {
-            baseOptions = ["Mis Trabajos", "Nueva Solicitud"];
+            baseOptions = ["Mis Trabajos", "Nueva Solicitud", "Historial de Trabajo"];
         }
 
         if (user.role === 'admin' && location.pathname.includes("/menu/trabajo/")) {
@@ -148,6 +148,7 @@ const MenuLayout: React.FC = () => {
             } else if (path.startsWith("/tecnico")) {
                 if (path === "/tecnico" || path === "/tecnico/") setActiveOption("Mis Trabajos");
                 else if (path.includes("solicitudes")) setActiveOption("Nueva Solicitud");
+                else if (path.includes("historial")) setActiveOption("Historial de Trabajo");
             }
         }
     }, [location.pathname, user]);
@@ -174,6 +175,7 @@ const MenuLayout: React.FC = () => {
 
         if (option === "Mis Trabajos") navigate("/tecnico");
         if (option === "Nueva Solicitud") navigate("/tecnico/solicitudes");
+        if (option === "Historial de Trabajo") navigate("/tecnico/historial");
 
         // Lógica para Admin dentro de una sucursal
         if (option === "Trabajos" && location.pathname.includes("/menu/trabajo/")) {
