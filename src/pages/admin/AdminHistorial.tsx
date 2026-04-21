@@ -96,31 +96,36 @@ const AdminHistorial: React.FC = () => {
                             return (
                                 <div
                                     key={`${tarea.id}-${index}`}
-                                    className={styles.completedTaskCard}
+                                    className={styles.card}
                                     onClick={() => setSelectedHistoryTask(tarea)}
                                     title="Haz clic para ver más detalles"
                                 >
-                                    <div style={{ flex: 1 }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-                                            <span style={{ background: '#e3f2fd', color: '#1565c0', padding: '4px 8px', borderRadius: '8px', fontSize: '12px', fontWeight: 'bold' }}>
-                                                🏢 {tarea.ubicacion}
-                                            </span>
+                                    <div className={`${styles.cardIndicator} ${styles.borderSuccess}`}></div>
+                                    <div className={styles.cardContent}>
+                                        <div className={styles.cardIcon}>
+                                            <span className={styles.iconHistory}>📋</span>
                                         </div>
-                                        <h3 className={styles.completedTaskTitle} style={{ marginTop: '0' }}>
-                                            {tarea.titulo}
-                                        </h3>
-                                        <p className={styles.completedTaskDesc}>
-                                            {tarea.descripcion}
-                                        </p>
-                                        {tarea.tecnico && tarea.tecnico !== "Sin asignar" && (
-                                            <span style={{ fontSize: '13px', color: '#888', display: 'block', marginTop: '5px' }}>
-                                                🧑‍🔧 {tarea.tecnico} • {tarea.fecha}
-                                            </span>
-                                        )}
+                                        <div className={styles.cardInfo}>
+                                            <div className={styles.cardHeader}>
+                                                <div>
+                                                    <span style={{ background: '#e3f2fd', color: '#1565c0', padding: '4px 8px', borderRadius: '8px', fontSize: '12px', fontWeight: 'bold', display: 'inline-block', marginBottom: '5px' }}>
+                                                        🏢 {tarea.ubicacion}
+                                                    </span>
+                                                    <h3 className={styles.concepto} style={{ marginTop: '0' }}>{tarea.titulo}</h3>
+                                                </div>
+                                                <div className={`${styles.statusBadge} ${styles.badgeSuccess}`}>
+                                                    <span className={styles.statusIcon}>✓</span> Completado
+                                                </div>
+                                            </div>
+                                            <p className={styles.descripcion}>{tarea.descripcion}</p>
+                                            <div className={styles.cardFooter}>
+                                                {tarea.tecnico && tarea.tecnico !== "Sin asignar" ? (
+                                                    <span className={styles.tecnicoBadge}>🧑‍🔧 {tarea.tecnico}</span>
+                                                ) : <span></span>}
+                                                <span className={styles.fecha}>{tarea.fecha}</span>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <span className={styles.completedBadge}>
-                                        Completado
-                                    </span>
                                 </div>
                             );
                         })}

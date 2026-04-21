@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import styles from "./AdminDetalleTrabajo.module.css";
+import historialStyles from "../cliente/Historial.module.css";
 import { useAuth } from "../../context/AuthContext";
 import { 
     HiOutlineInformationCircle,
@@ -1839,21 +1840,27 @@ const AdminDetalleTrabajo: React.FC = () => {
                                             return (
                                                 <div
                                                     key={tarea.id}
-                                                    className={styles.completedTaskCard}
+                                                    className={historialStyles.card}
                                                     onClick={() => setSelectedHistoryTask(tarea)}
-                                                    style={{ cursor: 'pointer' }}
+                                                    style={{ cursor: 'pointer', marginBottom: '15px' }}
                                                 >
-                                                    <div>
-                                                        <h3 className={styles.completedTaskTitle}>
-                                                            {tarea.titulo}
-                                                        </h3>
-                                                        <p className={styles.completedTaskDesc}>
-                                                            {tarea.descripcion}
-                                                        </p>
+                                                    <div className={`${historialStyles.cardIndicator} ${historialStyles.borderSuccess}`} style={{ background: isPreReport ? '#ff9800' : undefined }}></div>
+                                                    <div className={historialStyles.cardContent}>
+                                                        <div className={historialStyles.cardIcon} style={{ background: isPreReport ? '#fff3e0' : undefined }}>
+                                                            <span className={historialStyles.iconHistory} style={{ color: isPreReport ? '#e65100' : undefined }}>📋</span>
+                                                        </div>
+                                                        <div className={historialStyles.cardInfo}>
+                                                            <div className={historialStyles.cardHeader}>
+                                                                <div>
+                                                                    <h3 className={historialStyles.concepto} style={{ marginTop: '0' }}>{tarea.titulo}</h3>
+                                                                </div>
+                                                                <div className={`${historialStyles.statusBadge} ${historialStyles.badgeSuccess}`} style={{ background: isPreReport ? '#fff3e0' : undefined, color: isPreReport ? '#e65100' : undefined }}>
+                                                                    <span className={historialStyles.statusIcon}>{isPreReport ? '⚠️' : '✓'}</span> {isPreReport ? 'Pre-Reporte' : 'Completado'}
+                                                                </div>
+                                                            </div>
+                                                            <p className={historialStyles.descripcion}>{tarea.descripcion}</p>
+                                                        </div>
                                                     </div>
-                                                    <span className={styles.completedBadge} style={{ background: isPreReport ? '#fff3e0' : undefined, color: isPreReport ? '#e65100' : undefined }}>
-                                                        {isPreReport ? 'Pre-Reporte' : 'Completado'}
-                                                    </span>
                                                 </div>
                                             )
                                         })
