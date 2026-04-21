@@ -178,23 +178,27 @@
 }
 
 .iconBtn {
-    width: 50px;
-    height: 50px;
-    background: #ededed;
-    border: 1px solid #dddddd00;
+    background: none;
+    border: none;
+    color: #333;
     cursor: pointer;
+    position: relative;
     display: flex;
     align-items: center;
-    justify-content: center;
-    padding: 8px;
+    padding: 5px;
     border-radius: 50%;
-    transition: all 0.2s ease;
-    color: #333;
+    transition: background 0.3s;
 }
 
 .iconBtn:hover {
-    background: rgba(0, 0, 0, 0.05);
-    transform: translateY(-1px);
+    background-color: #f1f5f9;
+}
+
+.topbarAvatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    object-fit: cover;
 }
 
 /* ===========================

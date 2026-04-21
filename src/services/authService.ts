@@ -6,11 +6,9 @@ export const loginUser = async (email: string, password: string) => {
     return res.data; // { token, user: { id, name, email, role } }
 };
 
-// Registrar cliente (suponiendo que haya un endpoint, o puedes probar crear uno más tarde)
+// Registrar cliente
 export const registerUser = async (data: any) => {
-    // Laravel por defecto en tu api no tiene /register expuesto, 
-    // pero si usas UserController@store sería /users
-    const res = await api.post(`/users`, data);
+    const res = await api.post(`/register`, data);
     return res.data;
 };
 

@@ -3,11 +3,14 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import styles from './AuthPage.module.css';
 import { useAuth } from '../../context/AuthContext';
 import { useModal } from '../../context/ModalContext';
-import { loginUser } from '../../services/authService';
+import { loginUser, registerUser } from '../../services/authService';
 import type { UserRole } from '../../context/AuthContext';
+import { Eye, EyeOff } from 'lucide-react';
 
 const AuthPage: React.FC = () => {
     const [isRightPanelActive, setIsRightPanelActive] = useState(false);
+    const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+    const [welcomeName, setWelcomeName] = useState("");
     const location = useLocation();
     const navigate = useNavigate();
     const { login } = useAuth();
@@ -17,9 +20,15 @@ const AuthPage: React.FC = () => {
     
     // Register states
     const [regName, setRegName] = useState("");
+    const [regLastName, setRegLastName] = useState("");
     const [regEmail, setRegEmail] = useState("");
     const [regPassword, setRegPassword] = useState("");
     const [regConfirm, setRegConfirm] = useState("");
+    
+    // Visibility states
+    const [showLoginPassword, setShowLoginPassword] = useState(false);
+    const [showRegPassword, setShowRegPassword] = useState(false);
+    const [showRegConfirm, setShowRegConfirm] = useState(false);
 
     useEffect(() => {
         if (location.pathname === '/registro-sesion') {
@@ -55,23 +64,57 @@ const AuthPage: React.FC = () => {
             
             login({ id: user.id, name: user.name, role: role, email: user.email });
             
-            if (role === 'admin') navigate('/menu');
-            else if (role === 'tecnico') navigate('/tecnico');
-            else navigate('/cliente');
+            setWelcomeName(user.name);
+            setShowWelcomeModal(true);
+            setTimeout(() => {
+                setShowWelcomeModal(false);
+                if (role === 'admin') navigate('/menu');
+                else if (role === 'tecnico') navigate('/tecnico');
+                else navigate('/cliente');
+            }, 5000);
         } catch (error: any) {
             console.error(error);
             showAlert("Error de Inicio de Sesión", "Credenciales inválidas o error de red.", "error");
         }
     };
 
-    const handleRegisterSubmit = (e: React.FormEvent) => {
+    const handleRegisterSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (regPassword !== regConfirm) {
             showAlert("Error de Registro", "Las contraseñas no coinciden.", "warning");
             return;
         }
-        login({ id: 100, name: regName || 'Nuevo Cliente', role: 'cliente', email: regEmail });
-        navigate('/cliente');
+        try {
+            const fullName = `${regName} ${regLastName}`.trim();
+            const data = await registerUser({
+                name: fullName || 'Nuevo Cliente',
+                email: regEmail,
+                password: regPassword,
+                password_confirmation: regConfirm
+            });
+            
+            const user = data.user;
+            localStorage.setItem('token', data.token);
+
+            let roleStr = user.role.toLowerCase();
+            if (roleStr === 'trabajador') roleStr = 'tecnico';
+            
+            let role: UserRole = roleStr as UserRole;
+            
+            login({ id: user.id, name: user.name, role: role, email: user.email });
+            
+            setWelcomeName(user.name);
+            setShowWelcomeModal(true);
+            setTimeout(() => {
+                setShowWelcomeModal(false);
+                if (role === 'admin') navigate('/menu');
+                else if (role === 'tecnico') navigate('/tecnico');
+                else navigate('/cliente');
+            }, 5000);
+        } catch (error: any) {
+            console.error(error);
+            showAlert("Error de Registro", error.response?.data?.message || "No se pudo registrar la cuenta. Intente nuevamente.", "error");
+        }
     };
 
     return (
@@ -90,10 +133,21 @@ const AuthPage: React.FC = () => {
                         <h1 className={styles.title}>Crear Cuenta</h1>
                         <div className={styles.socialContainer}></div>
                         <span className={styles.span}>Crea una cuenta para tu empresa hoy mismo</span>
-                        <input type="text" placeholder="Nombre completo" className={styles.input} value={regName} onChange={(e) => setRegName(e.target.value)} />
+                        <input type="text" placeholder="Nombre(s)" className={styles.input} value={regName} onChange={(e) => setRegName(e.target.value)} />
+                        <input type="text" placeholder="Apellidos" className={styles.input} value={regLastName} onChange={(e) => setRegLastName(e.target.value)} />
                         <input type="email" placeholder="Correo" className={styles.input} value={regEmail} onChange={(e) => setRegEmail(e.target.value)} />
-                        <input type="password" placeholder="Contraseña" className={styles.input} value={regPassword} onChange={(e) => setRegPassword(e.target.value)} />
-                        <input type="password" placeholder="Confirmar Contraseña" className={styles.input} value={regConfirm} onChange={(e) => setRegConfirm(e.target.value)} />
+                        <div className={styles.passwordContainer}>
+                            <input type={showRegPassword ? "text" : "password"} placeholder="Contraseña" className={styles.input} value={regPassword} onChange={(e) => setRegPassword(e.target.value)} />
+                            <button type="button" className={styles.eyeButton} onClick={() => setShowRegPassword(!showRegPassword)}>
+                                {showRegPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                            </button>
+                        </div>
+                        <div className={styles.passwordContainer}>
+                            <input type={showRegConfirm ? "text" : "password"} placeholder="Confirmar Contraseña" className={styles.input} value={regConfirm} onChange={(e) => setRegConfirm(e.target.value)} />
+                            <button type="button" className={styles.eyeButton} onClick={() => setShowRegConfirm(!showRegConfirm)}>
+                                {showRegConfirm ? <EyeOff size={20} /> : <Eye size={20} />}
+                            </button>
+                        </div>
                         <button type="submit" className={styles.button}>Registrarse</button>
                         
                         {/* Mobile view switch */}
@@ -119,7 +173,12 @@ const AuthPage: React.FC = () => {
                             value={loginEmail}
                             onChange={(e) => setLoginEmail(e.target.value)}
                         />
-                        <input type="password" placeholder="Contraseña" className={styles.input} value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} />
+                        <div className={styles.passwordContainer}>
+                            <input type={showLoginPassword ? "text" : "password"} placeholder="Contraseña" className={styles.input} value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} />
+                            <button type="button" className={styles.eyeButton} onClick={() => setShowLoginPassword(!showLoginPassword)}>
+                                {showLoginPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                            </button>
+                        </div>
                         <a href="#" className={styles.link}>¿Olvidaste tu contraseña?</a>
                         <button type="submit" className={styles.button}>Ingresar</button>
 
@@ -153,6 +212,15 @@ const AuthPage: React.FC = () => {
                     </div>
                 </div>
             </div>
+
+            {/* WELCOME MODAL OVERLAY */}
+            {showWelcomeModal && (
+                <div className={styles.welcomeModalOverlay}>
+                    <div className={styles.welcomeModalContent}>
+                        <h2 style={{ color: '#0284c7' }}>¡Bienvenido, {welcomeName}!</h2>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

@@ -5,6 +5,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useModal } from "../../context/ModalContext";
 import { getTrabajadores, updateTrabajador } from "../../services/trabajadoresService";
 import { getUserById, updateUser } from "../../services/usersService";
+import { getNegocios } from "../../services/negociosService";
 import { HiPencil } from "react-icons/hi2";
 
 
@@ -16,11 +17,12 @@ interface UserProfile {
     rfc?: string;
     razonSocial?: string;
     direccionFiscal?: string;
+    empresa?: string;
 }
 
 const MiPerfil: React.FC = () => {
     const navigate = useNavigate();
-    const { user } = useAuth();
+    const { user, login } = useAuth();
     const { showAlert } = useModal();
 
     const [formData, setFormData] = useState<UserProfile>({
@@ -29,7 +31,8 @@ const MiPerfil: React.FC = () => {
         telefono: "",
         rfc: "",
         razonSocial: "",
-        direccionFiscal: ""
+        direccionFiscal: "",
+        empresa: ""
     });
 
     const [workerId, setWorkerId] = useState<number | null>(null);
@@ -75,6 +78,17 @@ const MiPerfil: React.FC = () => {
                             direccionFiscal: userData.direccion_fiscal || "",
                             imagenPerfil: userData.avatar || ""
                         };
+                        
+                        // Cargar la empresa prioritaria (si existe)
+                        try {
+                            const negocios = await getNegocios();
+                            const myNegocios = negocios.filter((n: any) => Number(n.user_id) === Number(user.id));
+                            if (myNegocios.length > 0) {
+                                adminData.empresa = myNegocios[0].nombre;
+                            }
+                        } catch (err) {
+                            console.error("Error fetching negocios", err);
+                        }
                     }
                 } catch (err) {
                     console.error("Error fetching user data:", err);
@@ -100,7 +114,11 @@ const MiPerfil: React.FC = () => {
             const stored = localStorage.getItem(profileKey);
             if (stored) {
                 const localData = JSON.parse(stored);
-                setFormData({ ...adminData, ...localData });
+                setFormData({ 
+                    ...adminData, 
+                    ...localData,
+                    empresa: adminData.empresa || localData.empresa || "" // Priorizar el valor fresco de la API
+                });
             } else if (Object.keys(adminData).length > 0) {
                 setFormData(prev => ({ ...prev, ...adminData }));
             }
@@ -166,6 +184,13 @@ const MiPerfil: React.FC = () => {
                 }
 
                 await updateUser(user.id, userUpdateData);
+                
+                // Actualizar contexto con los nuevos valores, en especial la foto
+                login({ 
+                    ...user, 
+                    name: userUpdateData.name || user.name, 
+                    avatar: userUpdateData.avatar || user.avatar 
+                });
             }
 
             // 2. Guardar perfil en storage local para persistencia inmediata (legacy support)
@@ -239,9 +264,9 @@ const MiPerfil: React.FC = () => {
                     <div className={styles.section}>
                         <h2 className={styles.sectionTitle}>Información Personal</h2>
                         <div className={styles.formGrid}>
-                            <div className={styles.inputGroup} style={{ gridColumn: 'span 2' }}>
+                            <div className={styles.inputGroup} style={user?.role === 'tecnico' ? { gridColumn: 'span 2' } : {}}>
                                 <label className={styles.label}>
-                                    {user?.role === 'tecnico' ? 'Nombre Completo' : 'Nombre Completo / Empresa Principal'}
+                                    Nombre Completo
                                 </label>
                                 <input
                                     type="text"
@@ -251,6 +276,24 @@ const MiPerfil: React.FC = () => {
                                     onChange={handleChange}
                                 />
                             </div>
+                            
+                            {/* NUEVO CAMPO EMPRESA INDEPENDIENTE */}
+                            {user?.role !== 'tecnico' && (
+                                <div className={styles.inputGroup} title="Se llena en automático con tu primer negocio dado de alta">
+                                    <label className={styles.label}>Empresa Principal</label>
+                                    <input
+                                        type="text"
+                                        name="empresa"
+                                        className={styles.input}
+                                        value={formData.empresa}
+                                        readOnly
+                                        disabled
+                                        style={{ backgroundColor: '#f5f5f5', cursor: 'not-allowed' }}
+                                        placeholder="Aún no hay sucursales"
+                                    />
+                                </div>
+                            )}
+
                             <div className={styles.inputGroup}>
                                 <label className={styles.label}>Correo Electrónico</label>
                                 <input

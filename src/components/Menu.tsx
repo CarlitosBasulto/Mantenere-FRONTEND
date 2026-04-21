@@ -326,7 +326,11 @@ const MenuLayout: React.FC = () => {
                                     className={styles.iconBtn}
                                     onClick={() => setMostrarPerfil(!mostrarPerfil)}
                                 >
-                                    <HiOutlineUser size={24} />
+                                    {user?.avatar ? (
+                                        <img src={user.avatar} alt="Perfil" className={styles.topbarAvatar} />
+                                    ) : (
+                                        <HiOutlineUser size={24} />
+                                    )}
                                 </button>
 
                                 {mostrarPerfil && (

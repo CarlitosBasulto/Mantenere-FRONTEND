@@ -12,8 +12,10 @@ import { getNegocios } from '../../services/negociosService';
 import { getTrabajos } from '../../services/trabajosService';
 import { getCotizacionesByTrabajoId } from '../../services/cotizacionesService';
 import { getMantenimientoSolicitudes } from '../../services/mantenimientoService';
+import { useAuth } from '../../context/AuthContext';
 
 const Dashboard: React.FC = () => {
+    const { user } = useAuth();
     const [stats, setStats] = useState({
         usuarios: 0,
         negocios: 0,
@@ -187,8 +189,7 @@ const Dashboard: React.FC = () => {
     return (
         <div className={styles.dashboardContainer}>
             <header className={styles.header}>
-                <h1>Panel de Control</h1>
-                <p>Bienvenido al resumen general de Mantenere</p>
+                <h1>¡Bienvenido, {user?.name}!</h1>
             </header>
 
             <div className={styles.statsGrid}>
