@@ -95,6 +95,14 @@ const AuthPage: React.FC = () => {
                         <input type="password" placeholder="Contraseña" className={styles.input} value={regPassword} onChange={(e) => setRegPassword(e.target.value)} />
                         <input type="password" placeholder="Confirmar Contraseña" className={styles.input} value={regConfirm} onChange={(e) => setRegConfirm(e.target.value)} />
                         <button type="submit" className={styles.button}>Registrarse</button>
+                        
+                        {/* Mobile view switch */}
+                        <div className={styles.mobileSwitch}>
+                            <span>¿Ya tienes una cuenta?</span>
+                            <button type="button" className={styles.switchButton} onClick={handleSignInClick}>
+                                Iniciar Sesión
+                            </button>
+                        </div>
                     </form>
                 </div>
 
@@ -115,6 +123,13 @@ const AuthPage: React.FC = () => {
                         <a href="#" className={styles.link}>¿Olvidaste tu contraseña?</a>
                         <button type="submit" className={styles.button}>Ingresar</button>
 
+                        {/* Mobile view switch */}
+                        <div className={styles.mobileSwitch}>
+                            <span>¿No tienes una cuenta aún?</span>
+                            <button type="button" className={styles.switchButton} onClick={handleSignUpClick}>
+                                Registrarse
+                            </button>
+                        </div>
                     </form>
                 </div>
 

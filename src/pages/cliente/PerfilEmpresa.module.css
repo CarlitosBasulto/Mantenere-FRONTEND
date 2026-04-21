@@ -71,6 +71,7 @@
 }
 
 .profileIcon {
+    position: relative;
     width: 130px;
     height: 130px;
     background: #f1f5f9;

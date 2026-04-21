@@ -2,6 +2,7 @@
     display: flex;
     justify-content: center;
     width: 100%;
+    overflow-x: hidden;
 }
 
 .leftColumn {
@@ -190,6 +191,29 @@
     width: fit-content;
 }
 
+.badgeSOS, .badgeDiagnosis {
+    position: absolute;
+    right: -10px;
+    top: -5px;
+    color: white;
+    font-weight: bold;
+    padding: 6px 15px;
+    border-radius: 20px;
+    z-index: 10;
+    font-size: 13px;
+    pointer-events: none;
+}
+
+.badgeSOS {
+    background: #f44336;
+    box-shadow: 0 4px 8px rgba(244, 67, 54, 0.4);
+}
+
+.badgeDiagnosis {
+    background: #00a699;
+    box-shadow: 0 4px 8px rgba(0, 166, 153, 0.4);
+}
+
 .editBtn {
     background: transparent;
     border: none;
@@ -256,15 +280,15 @@
         gap: 0;
     }
     
-    /* WhatsApp Chat Item Style */
+    /* Modern Card Style */
     .jobCard {
-        padding: 12px 15px;
-        border-radius: 0;
-        border: none;
-        border-bottom: 1px solid #f0f0f0;
+        padding: 15px;
+        border-radius: 16px;
+        border: 1px solid #eef2f6;
         background: white;
-        margin: 0;
-        box-shadow: none;
+        margin: 10px 15px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
+        width: auto !important; /* Allow margins to work without overflow */
     }
     
     .cardContent {
@@ -327,5 +351,13 @@
     
     .cardIndicator {
         display: none;
+    }
+
+    .badgeSOS, .badgeDiagnosis {
+        right: 5px;
+        top: 5px;
+        font-size: 10px;
+        padding: 4px 10px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
 }

@@ -146,6 +146,13 @@
     font-weight: 500;
 }
 
+.refaccionRow {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+    align-items: center;
+}
+
 .inputGroup {
     margin-bottom: 24px;
 }
@@ -362,4 +369,98 @@
 
 .pdfBtn:hover {
     box-shadow: 0 6px 20px rgba(26, 188, 156, 0.25);
+}
+
+@media (max-width: 768px) {
+    .dashboardLayout {
+        padding: 0 !important;
+    }
+
+    .mainCard {
+        padding: 20px 15px;
+        border-radius: 0;
+    }
+
+    .header {
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .metaInfo {
+        align-items: flex-start;
+        width: 100%;
+    }
+
+    .folioBadge {
+        width: 100%;
+        text-align: center;
+    }
+
+    .pageTitle {
+        font-size: 24px;
+    }
+
+    .refaccionRow {
+        flex-direction: row;
+        flex-wrap: wrap;
+        background: #f8fafc;
+        padding: 12px;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+        gap: 8px;
+    }
+
+    .refaccionRow input:first-child {
+        width: 100% !important;
+        flex: 1 1 100%;
+    }
+
+    .refaccionRow input:not(:first-child) {
+        width: 0 !important;
+        flex: 1 1 0;
+        min-width: 60px;
+    }
+
+    .refaccionRow button {
+        width: auto !important;
+        flex: 0 0 45px;
+        margin-top: 0 !important;
+        padding: 10px !important;
+    }
+
+    .inputGroup textarea {
+        height: 150px;
+    }
+
+    .evidenceGrid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+    }
+
+    .squareBox {
+        width: 100% !important;
+        height: 80px !important;
+    }
+
+    .evidenceSubGrid > div:last-child {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .footer {
+        flex-direction: column;
+        gap: 10px;
+        padding: 0 5px 20px;
+    }
+
+    .saveButton {
+        width: 100%;
+        padding: 16px;
+    }
+
+    .validationGrid .squareBox {
+        width: 100% !important;
+        max-width: 300px;
+    }
 }

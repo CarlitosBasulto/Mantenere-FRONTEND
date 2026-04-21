@@ -83,8 +83,10 @@ const AdminPerfilTrabajador: React.FC = () => {
                             <div className={styles.infoRow}>
                                 <span className={styles.label}>Teléfono:</span>
                                 <span className={styles.value}>{worker.telefono}</span>
+                            </div>
 
-                                <span className={styles.label} style={{ marginLeft: '40px', width: 'auto' }}>Estado:</span>
+                            <div className={styles.infoRow}>
+                                <span className={styles.label}>Estado:</span>
                                 <span className={styles.value}>{worker.ciudad}</span>
                             </div>
 

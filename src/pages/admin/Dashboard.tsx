@@ -2,9 +2,9 @@ import React, { useEffect, useState } from 'react';
 import styles from './Dashboard.module.css';
 import { 
     XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
-    AreaChart, Area, PieChart, Pie, Cell, BarChart, Bar, Legend, LineChart, Line
+    AreaChart, Area, PieChart, Pie, Cell, BarChart, Bar, Legend
 } from 'recharts';
-import { HiOutlineUsers, HiOutlineBriefcase, HiOutlineDocumentText, HiOutlineClipboardDocumentCheck, HiOutlineWrenchScrewdriver, HiOutlineChartBarSquare } from 'react-icons/hi2';
+import { HiOutlineUsers, HiOutlineBriefcase, HiOutlineDocumentText, HiOutlineClipboardDocumentCheck, HiOutlineWrenchScrewdriver } from 'react-icons/hi2';
 
 // Servicios
 import { getUsers } from '../../services/usersService';
@@ -53,7 +53,6 @@ const Dashboard: React.FC = () => {
                 setSolicitudes(s);
                 setSucursalesList(n.map((neg: any) => neg.nombre).filter(Boolean));
                 
-                // 1. Contador General
                 const cotizacionesCount = t.filter((job: any) => 
                     job.cotizado || 
                     ["Cotización Enviada", "Cotización Aceptada", "Cotización Rechazada"].includes(job.estado)
@@ -66,7 +65,6 @@ const Dashboard: React.FC = () => {
                     cotizaciones: cotizacionesCount || 0
                 });
 
-                // 2. Procesar Datos de Tendencia (Últimos 4 meses)
                 const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
                 const now = new Date();
                 const last4Months: { monthIndex: number; year: number; name: string; trabajos: number; registros: number }[] = [];
@@ -95,13 +93,7 @@ const Dashboard: React.FC = () => {
 
                 setTrendData(last4Months.map(({ name, trabajos, registros }) => ({ name, trabajos, registros })));
 
-                // 3. Procesar Distribución de Estatus
-                const counts = {
-                    Pendientes: 0,
-                    'En Progreso': 0,
-                    Finalizados: 0
-                };
-
+                const counts = { Pendientes: 0, 'En Progreso': 0, Finalizados: 0 };
                 t.forEach((job: any) => {
                     if (['Pendiente', 'Solicitud', 'En Espera', 'Cotización Enviada'].includes(job.estado)) {
                         counts.Pendientes++;
@@ -118,7 +110,6 @@ const Dashboard: React.FC = () => {
                     { name: 'Finalizados', value: counts.Finalizados, color: '#10b981' },
                 ]);
                 
-                // 4. Procesar Carga de Técnicos
                 const techMap: Record<string, number> = {};
                 t.forEach((job: any) => {
                     if (job.trabajador?.nombre) {
@@ -128,7 +119,6 @@ const Dashboard: React.FC = () => {
                 });
                 setTechLoadData(Object.entries(techMap).map(([name, count]) => ({ name, trabajos: count })));
 
-                // 5. Procesar Tipos de Servicio
                 const typeMap: Record<string, number> = { 'Mantenimiento': 0, 'Reparación': 0, 'Otros': 0 };
                 t.forEach((job: any) => {
                     const desc = (job.titulo + job.descripcion || "").toLowerCase();
@@ -142,20 +132,16 @@ const Dashboard: React.FC = () => {
                     { name: 'Otros', value: typeMap['Otros'], color: '#94a3b8' }
                 ]);
 
-                // 6. Datos Financieros (Estimado de Cotizaciones)
-                // Primero obtenemos cotizaciones para los trabajos del periodo relevante para tener montos reales
                 const relevantJobs = t.filter((job: any) => {
                     const jobDate = new Date(job.created_at);
                     return last4Months.some(m => jobDate.getMonth() === m.monthIndex && jobDate.getFullYear() === m.year);
                 });
 
-                // Fetch paralelo de cotizaciones
                 const quoteResults = await Promise.all(
                     relevantJobs.map(async (job: any) => {
                         try {
                             const quotes = await getCotizacionesByTrabajoId(job.id);
                             if (quotes && quotes.length > 0) {
-                                // Buscamos la primera aprobada o la última pendiente
                                 const topQuote = quotes.find(q => q.estado === 'Aprobada') || quotes[0];
                                 return { id: job.id, monto: Number(topQuote.monto || 0) };
                             }
@@ -248,63 +234,52 @@ const Dashboard: React.FC = () => {
             </div>
 
             <div className={styles.chartsGrid}>
-                    <div className={styles.chartCard}>
-                        <h3>Tendencia de Crecimiento</h3>
-                        <div className={styles.chartWrapper}>
-                            <ResponsiveContainer width="100%" height={300}>
-                                <AreaChart data={trendData}>
-                                    <defs>
-                                        <linearGradient id="colorTrabajos" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
-                                            <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
-                                        </linearGradient>
-                                    </defs>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#999', fontSize: 12}} />
-                                    <YAxis axisLine={false} tickLine={false} tick={{fill: '#999', fontSize: 12}} />
-                                    <Tooltip 
-                                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
-                                    />
-                                    <Area type="monotone" dataKey="trabajos" stroke="#3b82f6" fillOpacity={1} fill="url(#colorTrabajos)" strokeWidth={3} />
-                                </AreaChart>
-                            </ResponsiveContainer>
-                        </div>
+                <div className={styles.chartCard}>
+                    <h3>Tendencia de Crecimiento</h3>
+                    <div className={styles.chartWrapper}>
+                        <ResponsiveContainer width="100%" height={300}>
+                            <AreaChart data={trendData}>
+                                <defs>
+                                    <linearGradient id="colorTrabajos" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
+                                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#999', fontSize: 12}} />
+                                <YAxis axisLine={false} tickLine={false} tick={{fill: '#999', fontSize: 12}} />
+                                <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }} />
+                                <Area type="monotone" dataKey="trabajos" stroke="#3b82f6" fillOpacity={1} fill="url(#colorTrabajos)" strokeWidth={3} />
+                            </AreaChart>
+                        </ResponsiveContainer>
                     </div>
-
-                    <div className={styles.chartCard}>
-                        <h3>Distribución de Trabajos</h3>
-                        <div className={styles.chartWrapper}>
-                            <ResponsiveContainer width="100%" height={300}>
-                                <PieChart>
-                                    <Pie
-                                        data={statusData}
-                                        cx="50%"
-                                        cy="50%"
-                                        innerRadius={60}
-                                        outerRadius={80}
-                                        paddingAngle={5}
-                                        dataKey="value"
-                                    >
-                                        {statusData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={entry.color} />
-                                        ))}
-                                    </Pie>
-                                    <Tooltip />
-                                </PieChart>
-                            </ResponsiveContainer>
-                            <div className={styles.pieLegend}>
-                                {statusData.map(item => (
-                                    <div key={item.name} className={styles.legendItem}>
-                                        <span style={{ backgroundColor: item.color }} />
-                                        <p>{item.name}</p>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
                 </div>
 
-                {/* NUEVAS GRÁFICAS */}
-                <div className={styles.chartCard} style={{ gridColumn: 'span 2' }}>
+                <div className={styles.chartCard}>
+                    <h3>Distribución de Trabajos</h3>
+                    <div className={styles.chartWrapper}>
+                        <ResponsiveContainer width="100%" height={300}>
+                            <PieChart>
+                                <Pie data={statusData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
+                                    {statusData.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={entry.color} />
+                                    ))}
+                                </Pie>
+                                <Tooltip />
+                            </PieChart>
+                        </ResponsiveContainer>
+                        <div className={styles.pieLegend}>
+                            {statusData.map(item => (
+                                <div key={item.name} className={styles.legendItem}>
+                                    <span style={{ backgroundColor: item.color }} />
+                                    <p>{item.name}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+
+                <div className={`${styles.chartCard} ${styles.bitacoraSection}`}>
                     <h3>Carga de Trabajo por Técnico</h3>
                     <div className={styles.chartWrapper}>
                         <ResponsiveContainer width="100%" height={300}>
@@ -340,14 +315,7 @@ const Dashboard: React.FC = () => {
                     <div className={styles.chartWrapper}>
                         <ResponsiveContainer width="100%" height={300}>
                             <PieChart>
-                                <Pie
-                                    data={serviceTypeData}
-                                    cx="50%"
-                                    cy="50%"
-                                    innerRadius={0}
-                                    outerRadius={80}
-                                    dataKey="value"
-                                >
+                                <Pie data={serviceTypeData} cx="50%" cy="50%" innerRadius={0} outerRadius={80} dataKey="value">
                                     {serviceTypeData.map((entry, index) => (
                                         <Cell key={`cell-${index}`} fill={entry.color} />
                                     ))}
@@ -366,73 +334,55 @@ const Dashboard: React.FC = () => {
             </div>
 
             {/* TABLA DE REPORTES TÉCNICOS DE EQUIPOS */}
-            <div className={styles.chartCard} style={{ gridColumn: 'span 3', marginTop: '20px', overflow: 'hidden' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '15px' }}>
-                    <h3 style={{ margin: 0, fontSize: '18px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div className={`${styles.chartCard} ${styles.bitacoraSection}`}>
+                <div className={styles.bitacoraHeader}>
+                    <h3>
                         <HiOutlineWrenchScrewdriver size={22} color="#3b82f6" /> 
                         Bitácora de Equipos
                     </h3>
                     
-                    <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', alignItems: 'center' }}>
-                        <select 
-                            value={filterSucursal} 
-                            onChange={e => setFilterSucursal(e.target.value)}
-                            style={{ padding: '8px 15px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', fontSize: '13px', outline: 'none' }}
-                        >
+                    <div className={styles.filterGroup}>
+                        <select value={filterSucursal} onChange={e => setFilterSucursal(e.target.value)} className={styles.filterSelect}>
                             <option value="">Todas las Sucursales</option>
                             {Array.from(new Set(sucursalesList)).map(suc => (
                                 <option key={suc} value={suc}>{suc}</option>
                             ))}
                         </select>
-                        <select 
-                            value={filterEquipo} 
-                            onChange={e => setFilterEquipo(e.target.value)}
-                            style={{ padding: '8px 15px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', fontSize: '13px', outline: 'none' }}
-                        >
+                        <select value={filterEquipo} onChange={e => setFilterEquipo(e.target.value)} className={styles.filterSelect}>
                             <option value="">Todos los Equipos</option>
                             {Array.from(new Set(solicitudes.map(s => s.levantamiento_equipo ? `${s.levantamiento_equipo.marca} ${s.levantamiento_equipo.modelo}` : null).filter(Boolean))).map(eq => (
                                 <option key={eq as string} value={eq as string}>{eq as string}</option>
                             ))}
                         </select>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 'bold' }}>DESDE:</span>
-                            <input 
-                                type="date" 
-                                value={filterDateFrom} 
-                                onChange={e => setFilterDateFrom(e.target.value)} 
-                                style={{ padding: '8px 10px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', outline: 'none', fontSize: '13px' }}
-                            />
+                        <div className={styles.dateInputGroup}>
+                            <span>DESDE:</span>
+                            <input type="date" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} className={styles.filterDate} />
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 'bold' }}>HASTA:</span>
-                            <input 
-                                type="date" 
-                                value={filterDateTo} 
-                                onChange={e => setFilterDateTo(e.target.value)} 
-                                style={{ padding: '8px 10px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', outline: 'none', fontSize: '13px' }}
-                            />
+                        <div className={styles.dateInputGroup}>
+                            <span>HASTA:</span>
+                            <input type="date" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} className={styles.filterDate} />
                         </div>
                         <button
                             onClick={() => {
                                 setAppliedFilters({ sucursal: filterSucursal, equipo: filterEquipo, dateFrom: filterDateFrom, dateTo: filterDateTo });
                             }}
-                            style={{ background: '#3b82f6', color: '#fff', border: 'none', padding: '8px 18px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '13px' }}
+                            className={styles.filterButton}
                         >
                             Buscar
                         </button>
                     </div>
                 </div>
 
-                <div style={{ overflowX: 'auto', marginTop: '20px' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '900px' }}>
+                <div className={styles.tableWrapper}>
+                    <table className={styles.responsiveTable}>
                         <thead>
-                            <tr style={{ background: '#f1f5f9', color: '#475569', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                                <th style={{ padding: '12px 15px', fontWeight: '800', borderBottom: '2px solid #e2e8f0', whiteSpace: 'nowrap' }}>FECHA</th>
-                                <th style={{ padding: '12px 15px', fontWeight: '800', borderBottom: '2px solid #e2e8f0' }}>SUCURSAL</th>
-                                <th style={{ padding: '12px 15px', fontWeight: '800', borderBottom: '2px solid #e2e8f0' }}>EQUIPO</th>
-                                <th style={{ padding: '12px 15px', fontWeight: '800', borderBottom: '2px solid #e2e8f0' }}>PROBLEMA REPORTADO</th>
-                                <th style={{ padding: '12px 15px', fontWeight: '800', borderBottom: '2px solid #e2e8f0' }}>TRABAJO REALIZADO</th>
-                                <th style={{ padding: '12px 15px', fontWeight: '800', borderBottom: '2px solid #e2e8f0' }}>PIEZAS / MATERIALES</th>
+                            <tr>
+                                <th>FECHA</th>
+                                <th>SUCURSAL</th>
+                                <th>EQUIPO</th>
+                                <th>PROBLEMA REPORTADO</th>
+                                <th>TRABAJO REALIZADO</th>
+                                <th>PIEZAS / MATERIALES</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -496,13 +446,13 @@ const Dashboard: React.FC = () => {
                                 }
 
                                 return filas.map((fila, idx) => (
-                                    <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: idx % 2 === 0 ? '#ffffff' : '#fafafa' }}>
-                                        <td style={{ padding: '15px', color: '#475569', fontSize: '13px', whiteSpace: 'nowrap', fontWeight: 'bold' }}>{fila.fecha}</td>
-                                        <td style={{ padding: '15px', color: '#0f172a', fontSize: '13px', fontWeight: '800' }}>{fila.sucursal}</td>
-                                        <td style={{ padding: '15px', color: '#3b82f6', fontSize: '13px', fontWeight: '800' }}>{fila.equipo}</td>
-                                        <td style={{ padding: '15px', color: '#334155', fontSize: '13px', lineHeight: '1.4' }}>{fila.problema}</td>
-                                        <td style={{ padding: '15px', color: '#334155', fontSize: '13px', lineHeight: '1.4' }}>{fila.trabajo}</td>
-                                        <td style={{ padding: '15px', color: '#059669', fontSize: '13px', lineHeight: '1.4', fontWeight: '600' }}>{fila.piezas}</td>
+                                    <tr key={idx} style={{ background: idx % 2 === 0 ? '#ffffff' : '#fafafa', borderBottom: '1px solid #f1f5f9' }}>
+                                        <td style={{ fontWeight: 'bold', color: '#475569' }}>{fila.fecha}</td>
+                                        <td style={{ fontWeight: '800', color: '#0f172a' }}>{fila.sucursal}</td>
+                                        <td style={{ fontWeight: '800', color: '#3b82f6' }}>{fila.equipo}</td>
+                                        <td style={{ lineHeight: '1.4' }}>{fila.problema}</td>
+                                        <td style={{ lineHeight: '1.4' }}>{fila.trabajo}</td>
+                                        <td style={{ fontWeight: '600', color: '#059669', lineHeight: '1.4' }}>{fila.piezas}</td>
                                     </tr>
                                 ));
                             })()}

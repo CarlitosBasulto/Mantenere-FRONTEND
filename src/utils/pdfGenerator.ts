@@ -144,11 +144,45 @@ export const generateMaintenanceReportPDF = async (data: PDFReportData) => {
             nextY += 24;
         }
 
-        // --- 5. EVIDENCIA ---
-        if (nextY > 200) { doc.addPage(); nextY = 20; }
-        nextY = drawSectionTitle("Evidencia Fotográfica Principal", nextY);
+        // --- 5. VALIDACIÓN Y CONFORMIDAD (Ahora en la Hoja 1) ---
+        const sigY = 230; // Posición fija al fondo de la hoja 1
 
-        const imgSize = 45; // Fotos reducidas para ahorrar espacio
+        doc.setFillColor(240, 240, 240);
+        doc.rect(15, sigY - 8, 180, 7, 'F');
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.setTextColor(navyColor[0], navyColor[1], navyColor[2]);
+        doc.text("VALIDACIÓN Y CONFORMIDAD", 20, sigY - 3);
+
+        doc.setDrawColor(180);
+        doc.setTextColor(80, 80, 80);
+
+        // Firma encargado
+        doc.line(20, sigY + 22, 90, sigY + 22);
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "bold");
+        doc.text("NOMBRE Y FIRMA DEL ENCARGADO", 55, sigY + 28, { align: 'center' });
+
+        // Sello sucursal
+        doc.rect(115, sigY, 75, 30);
+        doc.text("SELLO DE LA SUCURSAL", 152, sigY + 37, { align: 'center' });
+
+        // Imagen de firma si existe
+        if (data.firmaEmpresa && !data.firmaEmpresa.startsWith('data:application/pdf')) {
+            try {
+                doc.addImage(data.firmaEmpresa, 'JPEG', 115, sigY, 75, 30);
+            } catch (e) {
+                try { doc.addImage(data.firmaEmpresa, 'PNG', 115, sigY, 75, 30); } catch (e2) {}
+            }
+        }
+
+        // --- 6. PÁGINA 2: EVIDENCIA Y OBSERVACIONES ---
+        doc.addPage();
+        nextY = 25;
+        
+        nextY = drawSectionTitle("Evidencia Fotográfica del Servicio", nextY);
+
+        const imgSize = 52;
         let currentX = 20;
         const mainImages = [
             { src: data.imagenes.antes, label: 'ANTES' },
@@ -161,76 +195,45 @@ export const generateMaintenanceReportPDF = async (data: PDFReportData) => {
                 if (currentX + imgSize > 200) {
                     currentX = 20;
                     nextY += imgSize + 15;
-                    if (nextY > 260) { doc.addPage(); nextY = 20; }
+                    if (nextY > 240) { doc.addPage(); nextY = 25; }
                 }
                 if (img.src) {
                     const format = img.src.includes('png') ? 'PNG' : 'JPEG';
                     doc.addImage(img.src, format, currentX, nextY, imgSize, imgSize);
-                    doc.setFontSize(8);
+                    doc.setFontSize(9);
                     doc.setFont("helvetica", "bold");
                     doc.text(img.label, currentX + (imgSize / 2), nextY + imgSize + 5, { align: 'center' });
-                    currentX += imgSize + 15;
+                    currentX += imgSize + 8;
                 }
             });
-            nextY += imgSize + 12;
+            nextY += imgSize + 15;
         }
 
-        // --- 6 & 7. NUEVA PÁGINA: OBSERVACIONES + FIRMAS ---
-        doc.addPage();
-        nextY = 25;
-
-        // Sección observaciones
-        nextY = drawSectionTitle("Observaciones y Validación", nextY);
-        doc.setTextColor(80, 80, 80);
-
-        if (data.observaciones) {
-            nextY = drawTextArea("Notas Internas u Observaciones al Cliente:", data.observaciones, nextY);
-        } else {
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(9);
-            doc.text("Sin observaciones adicionales.", 20, nextY + 3);
-            nextY += 12;
-        }
-
+        // Fotografía adicional si existe
         if (data.imagenes.extra) {
-            doc.setFont("helvetica", "bold");
+            if (nextY > 200) { doc.addPage(); nextY = 25; }
             doc.setFontSize(9);
-            doc.text("Fotografía Adicional:", 20, nextY);
+            doc.setFont("helvetica", "bold");
+            doc.text("FOTOGRAFÍA ADICIONAL / OBSERVACIONES VISUALES:", 20, nextY);
             nextY += 5;
-            let imgFormat = 'JPEG';
-            if (data.imagenes.extra.startsWith('data:image/png')) imgFormat = 'PNG';
-            const extraImgSize = 80;
+            const extraImgSize = 75;
             try {
-                doc.addImage(data.imagenes.extra, imgFormat, 20, nextY, extraImgSize, extraImgSize);
-            } catch (imgErr) {
-                try { doc.addImage(data.imagenes.extra, 'JPEG', 20, nextY, extraImgSize, extraImgSize); } catch (e2) {}
-            }
-            nextY += extraImgSize + 10;
+                const format = data.imagenes.extra.includes('png') ? 'PNG' : 'JPEG';
+                doc.addImage(data.imagenes.extra, format, 20, nextY, extraImgSize, extraImgSize);
+                nextY += extraImgSize + 10;
+            } catch (e) {}
         }
 
-        // --- FIRMAS Y SELLO: siempre al fondo de la segunda hoja ---
-        // Posición fija cerca del pie de página independientemente del contenido de arriba
-        const sigY = 230;
-
-        doc.setFillColor(240, 240, 240);
-        doc.rect(15, sigY - 8, 180, 7, 'F');
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(10);
-        doc.setTextColor(30, 41, 59);
-        doc.text("VALIDACIÓN Y CONFORMIDAD", 20, sigY - 3);
-
-        doc.setDrawColor(180);
-        doc.setTextColor(80, 80, 80);
-
-        // Firma encargado (línea + nombre debajo)
-        doc.line(20, sigY + 22, 90, sigY + 22);
+        // Observaciones finales
+        if (nextY > 240) { doc.addPage(); nextY = 25; }
+        nextY = drawSectionTitle("Observaciones Finales", nextY);
+        
+        const obsLines = doc.splitTextToSize(data.observaciones || 'Sin observaciones adicionales.', 170);
+        doc.setFont("helvetica", "normal");
         doc.setFontSize(9);
-        doc.setFont("helvetica", "bold");
-        doc.text("NOMBRE Y FIRMA DEL ENCARGADO", 55, sigY + 28, { align: 'center' });
+        doc.text(obsLines, 20, nextY + 3);
+        nextY += (obsLines.length * 4) + 10;
 
-        // Sello sucursal (caja + texto debajo)
-        doc.rect(115, sigY, 75, 30);
-        doc.text("SELLO DE LA SUCURSAL", 152, sigY + 37, { align: 'center' });
 
 
         // Pie de página

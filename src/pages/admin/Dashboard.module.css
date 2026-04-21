@@ -77,12 +77,6 @@
     margin-top: 30px;
 }
 
-@media (max-width: 600px) {
-    .chartsGrid {
-        grid-template-columns: 1fr;
-    }
-}
-
 .chartCard {
     background: white;
     padding: 30px;
@@ -150,10 +144,96 @@
     margin-bottom: 12px;
 }
 
-.empty {
-    color: #94a3b8;
-    font-style: normal;
-    font-size: 15px;
+/* BITACORA SECTION */
+.bitacoraSection {
+    grid-column: span 3;
+    margin-top: 20px;
+}
+
+.bitacoraHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.filterGroup {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.filterSelect, .filterDate, .filterButton {
+    padding: 8px 15px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.filterSelect:focus, .filterDate:focus {
+    border-color: #3b82f6;
+}
+
+.dateInputGroup {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.dateInputGroup span {
+    font-size: 11px;
+    color: #64748b;
+    font-weight: bold;
+}
+
+.filterButton {
+    background: #3b82f6;
+    color: #fff;
+    border: none;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.filterButton:hover {
+    background: #2563eb;
+}
+
+.tableWrapper {
+    overflow-x: auto;
+    margin-top: 20px;
+    border-radius: 12px;
+    border: 1px solid #f1f5f9;
+}
+
+.responsiveTable {
+    width: 100%;
+    border-collapse: collapse;
+    textAlign: left;
+    min-width: 1000px;
+}
+
+.responsiveTable thead tr {
+    background: #f8fafc;
+    color: #475569;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.responsiveTable th {
+    padding: 12px 15px;
+    fontWeight: 800;
+    border-bottom: 2px solid #e2e8f0;
+}
+
+.responsiveTable td {
+    padding: 15px;
+    font-size: 13px;
 }
 
 .loading {
@@ -164,4 +244,122 @@
     font-weight: 800;
     color: #3b82f6;
     font-size: 18px;
+}
+
+.empty {
+    color: #94a3b8;
+    font-style: normal;
+    font-size: 15px;
+}
+
+/* ============================================================
+   RESPONSIVE DESIGN (Media Queries at the end for specificity)
+   ============================================================ */
+
+@media (max-width: 1280px) {
+    .bitacoraSection {
+        grid-column: span 2;
+    }
+}
+
+@media (max-width: 1024px) {
+    .chartsGrid {
+        grid-template-columns: 1fr;
+    }
+    .bitacoraSection {
+        grid-column: span 1;
+    }
+}
+
+@media (max-width: 768px) {
+    .dashboardContainer {
+        padding: 15px;
+    }
+
+    .statsGrid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 12px;
+    }
+
+    .statCard {
+        flex-direction: column;
+        padding: 15px 10px;
+        text-align: center;
+        gap: 10px;
+        min-height: 140px;
+        justify-content: center;
+    }
+
+    .iconBg {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+    }
+
+    .statInfo h3 {
+        font-size: 18px;
+    }
+
+    .statInfo p {
+        font-size: 10px;
+    }
+
+    .chartCard {
+        padding: 20px;
+        grid-column: span 1 !important;
+    }
+
+    .bitacoraHeader {
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .filterGroup {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .filterSelect, .filterDate, .filterButton {
+        width: 100%;
+        height: 45px; /* Slightly taller for mobile touch */
+        font-size: 14px;
+        padding: 0 15px;
+    }
+
+    .dateInputGroup {
+        width: 100%;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 5px;
+    }
+
+    .dateInputGroup span {
+        margin-left: 5px;
+        font-size: 12px;
+        color: #3b82f6;
+    }
+
+    .filterButton {
+        margin-top: 5px;
+        background: #3b82f6;
+        color: white;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+}
+
+@media (max-width: 480px) {
+    .header h1 { font-size: 22px; }
+    .header p { font-size: 12px; }
+    
+    .statsGrid {
+        gap: 8px;
+    }
+    
+    .statCard {
+        padding: 12px 5px;
+    }
 }

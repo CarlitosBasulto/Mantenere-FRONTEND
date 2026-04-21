@@ -10,6 +10,7 @@ import {
     HiOutlineCurrencyDollar, HiOutlineWrench, HiOutlineSquares2X2,
     HiCheckBadge
 } from "react-icons/hi2";
+import { LuHardHat } from "react-icons/lu";
 import { 
     getNotificaciones, 
     markNotificacionAsRead, 
@@ -197,6 +198,7 @@ const MenuLayout: React.FC = () => {
             case "Mis Negocios":
                 return <HiOutlineBriefcase size={22} />;
             case "Trabajadores":
+                return <LuHardHat size={22} />;
             case "Usuarios":
                 return <HiOutlineUsers size={22} />;
             case "Solicitudes":

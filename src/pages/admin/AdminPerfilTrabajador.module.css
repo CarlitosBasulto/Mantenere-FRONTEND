@@ -152,3 +152,80 @@
     border-radius: 30% 0 0 30%;
     opacity: 0.6;
 }
+
+/* RESPONSIVE DESIGN */
+@media (max-width: 768px) {
+    .dashboardLayout {
+        padding: 10px;
+    }
+
+    .mainCard {
+        padding: 30px 20px;
+        border-radius: 20px;
+    }
+
+    .profileHeader {
+        flex-direction: column-reverse;
+        align-items: center;
+        gap: 30px;
+        margin-bottom: 30px;
+    }
+
+    .avatarContainer {
+        width: 140px;
+        height: 140px;
+    }
+
+    .infoGrid {
+        width: 100%;
+        gap: 20px;
+    }
+
+    .infoRow {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 5px;
+        border-bottom: 1px solid #f1f5f9;
+        padding-bottom: 10px;
+    }
+
+    .label {
+        width: 100%;
+        font-size: 14px;
+        color: #94a3b8;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .value {
+        font-size: 16px;
+        color: #1e293b;
+    }
+
+    .statsSection {
+        flex-direction: column;
+        gap: 20px;
+        align-items: center;
+        background: #f8fafc;
+        padding: 20px;
+        border-radius: 15px;
+        border-top: none;
+    }
+
+    .statItem {
+        width: 100%;
+        padding: 10px;
+    }
+
+    .statValue {
+        font-size: 20px;
+    }
+
+    .sideDecoration {
+        display: none;
+    }
+
+    .bgShape1, .bgShape2 {
+        opacity: 0.3;
+    }
+}

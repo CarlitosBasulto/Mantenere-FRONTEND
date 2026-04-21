@@ -143,12 +143,12 @@ const ListaNegocios: React.FC = () => {
                         return (
                             <div style={{ position: 'relative' }} key={negocio.id}>
                                 {hasSOS && (
-                                    <div style={{ position: 'absolute', right: '-10px', background: '#f44336', color: 'white', fontWeight: 'bold', padding: '5px 15px', borderRadius: '20px', zIndex: 10, boxShadow: '0 4px 8px rgba(244, 67, 54, 0.4)' }}>
+                                    <div className={styles.badgeSOS}>
                                         EMERGENCIA SOS
                                     </div>
                                 )}
                                 {hasDiagnosis && !hasSOS && (
-                                    <div style={{ position: 'absolute', right: '-10px', background: '#00a699', color: 'white', fontWeight: 'bold', padding: '5px 15px', borderRadius: '20px', zIndex: 10, boxShadow: '0 4px 8px rgba(0, 166, 153, 0.4)' }}>
+                                    <div className={styles.badgeDiagnosis}>
                                         DIAGNÓSTICO LISTO
                                     </div>
                                 )}

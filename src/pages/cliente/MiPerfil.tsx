@@ -5,6 +5,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useModal } from "../../context/ModalContext";
 import { getTrabajadores, updateTrabajador } from "../../services/trabajadoresService";
 import { getUserById, updateUser } from "../../services/usersService";
+import { HiPencil } from "react-icons/hi2";
 
 
 interface UserProfile {
@@ -226,7 +227,9 @@ const MiPerfil: React.FC = () => {
                             ) : (
                                 "👤"
                             )}
-                            <div className={styles.editOverlay}>Editar</div>
+                            <div className={styles.editOverlay}>
+                                <HiPencil size={22} />
+                            </div>
                         </div>
 
                         <h1 className={styles.pageTitle}>Mi Perfil</h1>

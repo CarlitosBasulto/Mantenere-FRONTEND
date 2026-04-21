@@ -12,7 +12,8 @@ import {
     HiOutlineCamera,
     HiOutlinePhoto,
     HiOutlineEye,
-    HiOutlineExclamationTriangle
+    HiOutlineExclamationTriangle,
+    HiOutlineChevronLeft
 } from "react-icons/hi2";
 import type { Equipment, LevantamientoData, LevantamientoSeccion } from '../pages/cliente/PerfilEmpresa';
 import DetalleEquipoModal from './DetalleEquipoModal';
@@ -116,7 +117,8 @@ const LevantamientoModal: React.FC<LevantamientoModalProps> = ({ isOpen, onClose
     useEffect(() => {
         if (isOpen) {
             setSections([...data]);
-            setActiveSectionId(initialSectionId || (data.length > 0 ? data[0].id : null));
+            // No seleccionamos la primera área por defecto para que el usuario elija primero (especialmente en móvil)
+            setActiveSectionId(initialSectionId || null);
         }
     }, [isOpen, data, initialSectionId]);
 
@@ -191,7 +193,7 @@ const LevantamientoModal: React.FC<LevantamientoModalProps> = ({ isOpen, onClose
 
                 <div className={styles.modalSplitBody}>
                     {/* SIDEBAR: SECCIONES */}
-                    <div className={styles.sidebar}>
+                    <div className={`${styles.sidebar} ${activeSectionId ? styles.mobileHidden : ''}`}>
                         <div className={styles.sidebarHeader}>
                             <span>ÁREAS / APARTADOS</span>
                              {!isReadOnly && (
@@ -250,9 +252,15 @@ const LevantamientoModal: React.FC<LevantamientoModalProps> = ({ isOpen, onClose
                     </div>
 
                     {/* MAIN: EQUIPOS */}
-                    <div className={styles.mainContent}>
+                    <div className={`${styles.mainContent} ${!activeSectionId ? styles.mobileHidden : ''}`}>
                         {activeSection ? (
                             <>
+                                <button 
+                                    className={styles.mobileBackBtn} 
+                                    onClick={() => setActiveSectionId(null)}
+                                >
+                                    <HiOutlineChevronLeft size={18} /> Volver a Áreas
+                                </button>
                                 <div className={styles.contentHeader}>
                                     <h4>Equipos en: <span style={{ color: '#2563eb' }}>{activeSection.nombreArea}</span></h4>
                                     <span className={styles.badge}>{activeSection.equipos.length} equipos</span>

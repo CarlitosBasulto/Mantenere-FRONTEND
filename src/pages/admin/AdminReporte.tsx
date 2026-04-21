@@ -496,7 +496,7 @@ const AdminReporte: React.FC = () => {
                                 <div className={styles.inputGroup}>
                                     <label className={styles.label}>Piezas y Refacciones Registradas:</label>
                                     {refaccionesList.map((ref, i) => (
-                                        <div key={i} style={{ display: 'flex', gap: '10px', marginBottom: '10px', alignItems: 'center' }}>
+                                        <div key={i} className={styles.refaccionRow}>
                                             <input
                                                 placeholder="Nombre de la pieza"
                                                 value={ref.pieza}

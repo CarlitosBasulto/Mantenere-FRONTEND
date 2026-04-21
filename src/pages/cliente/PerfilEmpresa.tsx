@@ -278,7 +278,18 @@ const PerfilEmpresa: React.FC = () => {
                         <h1 className={styles.pageTitle}>
                             {editId ? "Editar Sucursal" : "Nueva Sucursal"}
                         </h1>
-                        <button className={styles.tab} onClick={() => navigate('/cliente')}>
+                        <button 
+                            className={styles.tab} 
+                            onClick={() => {
+                                if (user?.role === 'admin') {
+                                    navigate('/menu/negocios');
+                                } else if (user?.role === 'tecnico') {
+                                    navigate('/tecnico');
+                                } else {
+                                    navigate('/cliente');
+                                }
+                            }}
+                        >
                            <HiOutlineChevronLeft size={20} /> Volver
                         </button>
                     </div>
