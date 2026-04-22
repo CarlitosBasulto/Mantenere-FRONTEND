@@ -48,7 +48,7 @@ const Cotizaciones: React.FC<CotizacionesProps> = ({ businessId }) => {
     const [tempFilter, setTempFilter] = useState("Todas");
 
     const [selectedCotizacion, setSelectedCotizacion] = useState<TrabajoCotizado | null>(null);
-    const [cotizacionTasks, setCotizacionTasks] = useState<SubTarea[]>([]);
+    const [cotizacionTasks] = useState<SubTarea[]>([]);
     const [reportData] = useState<any>(null);
     const [selectedZoomImage, setSelectedZoomImage] = useState<string | null>(null);
 
