@@ -244,7 +244,6 @@ const TrabajoDetalle: React.FC = () => {
     const [dateTo, setDateTo] = useState("");
 
     // --- MODAL DE REPORTE DETALLADO (PARA HISTORIAL EQUIPOS) ---
-    const [selectedReportId, setSelectedReportId] = useState<number | null>(null);
     const [reporteModalOpen, setReporteModalOpen] = useState(false);
     const [reporteData, setReporteData] = useState<any>(null);
     const [reporteTrabajo, setReporteTrabajo] = useState<any>(null);

@@ -203,7 +203,7 @@ const HistorialEquipoModal: React.FC<HistorialEquipoModalProps> = ({ isOpen, onC
                                                                                         e.stopPropagation();
                                                                                         const targetId = rep.id || req.actualTrabajoId;
                                                                                         if (targetId) {
-                                                                                            onViewReport(targetId);
+                                                                                            onViewReport?.(targetId);
                                                                                         }
                                                                                     }}
                                                                                     style={{ fontSize: '13px', color: '#475569', cursor: 'pointer', transition: 'all 0.2s', position: 'relative', display: 'flex', flexDirection: 'column', gap: '8px', paddingBottom: '5px' }}

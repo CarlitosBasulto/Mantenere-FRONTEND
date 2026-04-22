@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import styles from './LevantamientoModal.module.css'; // Podemos reusar algunos estilos
-import { HiOutlineXMark, HiOutlineExclamationTriangle } from "react-icons/hi2";
+import { HiOutlineExclamationTriangle } from "react-icons/hi2";
 import type { Equipment } from '../pages/cliente/PerfilEmpresa';
 
 interface ReportarProblemaModalProps {

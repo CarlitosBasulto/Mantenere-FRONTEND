@@ -31,6 +31,7 @@ interface ReporteDetailModalProps {
     task: {
         id: number;
         titulo: string;
+        fecha?: string;
     };
     reporte: any; // El objeto de reporte final o temporal
     userRole?: string;
@@ -43,7 +44,6 @@ const ReporteDetailModal: React.FC<ReporteDetailModalProps> = ({
     trabajo, 
     task, 
     reporte, 
-    userRole,
     onEdit 
 }) => {
     const [selectedZoomImage, setSelectedZoomImage] = useState<string | null>(null);

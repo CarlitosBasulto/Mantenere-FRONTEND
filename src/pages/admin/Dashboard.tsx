@@ -4,7 +4,7 @@ import {
     XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
     AreaChart, Area, PieChart, Pie, Cell, BarChart, Bar, Legend
 } from 'recharts';
-import { HiOutlineUsers, HiOutlineBriefcase, HiOutlineDocumentText, HiOutlineClipboardDocumentCheck, HiOutlineWrenchScrewdriver, HiOutlineCube, HiXMark } from 'react-icons/hi2';
+import { HiOutlineUsers, HiOutlineBriefcase, HiOutlineDocumentText, HiOutlineClipboardDocumentCheck, HiOutlineCube } from 'react-icons/hi2';
 
 // Servicios
 import { getUsers } from '../../services/usersService';
@@ -36,16 +36,6 @@ const Dashboard: React.FC = () => {
 
     const [solicitudes, setSolicitudes] = useState<any[]>([]);
     const [todosTrabajos, setTodosTrabajos] = useState<any[]>([]);
-    const [filterSucursal, setFilterSucursal] = useState('');
-    const [filterEquipo, setFilterEquipo] = useState('');
-    const [filterDateFrom, setFilterDateFrom] = useState('');
-    const [filterDateTo, setFilterDateTo] = useState('');
-    const [appliedFilters, setAppliedFilters] = useState({
-        sucursal: '',
-        equipo: '',
-        dateFrom: '',
-        dateTo: ''
-    });
     const [sucursalesList, setSucursalesList] = useState<string[]>([]);
 
     useEffect(() => {
