@@ -124,7 +124,7 @@ export const generateMaintenanceReportPDF = async (data: PDFReportData) => {
 
         // --- 4. EQUIPO ---
         if (data.equipo) {
-            if (nextY > 210) { doc.addPage(); nextY = 20; }
+            if (nextY > 190) { doc.addPage(); nextY = 20; }
             nextY = drawSectionTitle("Especificaciones del Equipo", nextY);
             
             doc.setDrawColor(navyColor[0], navyColor[1], navyColor[2]);
@@ -143,6 +143,15 @@ export const generateMaintenanceReportPDF = async (data: PDFReportData) => {
             
             nextY += 24;
         }
+
+        // --- 5. OBSERVACIONES FINALES (Ahora en la Hoja 1) ---
+        if (nextY > 200) { doc.addPage(); nextY = 20; }
+        nextY = drawSectionTitle("Observaciones Finales", nextY);
+        const obsLines = doc.splitTextToSize(data.observaciones || 'Sin observaciones adicionales.', 170);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        doc.text(obsLines, 20, nextY + 3);
+        nextY += (obsLines.length * 4) + 10;
 
         // --- 5. VALIDACIÓN Y CONFORMIDAD (Ahora en la Hoja 1) ---
         const sigY = 230; // Posición fija al fondo de la hoja 1
@@ -176,63 +185,41 @@ export const generateMaintenanceReportPDF = async (data: PDFReportData) => {
             }
         }
 
-        // --- 6. PÁGINA 2: EVIDENCIA Y OBSERVACIONES ---
+        // --- 7. PÁGINA 2: EVIDENCIA Y OBSERVACIONES ---
         doc.addPage();
         nextY = 25;
         
         nextY = drawSectionTitle("Evidencia Fotográfica del Servicio", nextY);
 
-        const imgSize = 52;
-        let currentX = 20;
+        const imgSize = 42; // Tamaño más parejo y de menor altura
+        let currentX = 18;
         const mainImages = [
             { src: data.imagenes.antes, label: 'ANTES' },
             { src: data.imagenes.durante, label: 'DURANTE' },
-            { src: data.imagenes.despues, label: 'DESPUÉS' }
+            { src: data.imagenes.despues, label: 'DESPUÉS' },
+            { src: data.imagenes.extra, label: 'EXTRA / OTRAS' }
         ].filter(img => !!img.src);
 
+        // Centrado dinámico si hay menos de 4 fotos (4 * 42 = 168 px, nos sobran ~42 de margen usable. 210 total)
+        // Para calcular centro exacto de la tira
+        const totalRowWidth = (mainImages.length * imgSize) + ((mainImages.length - 1) * 6);
+        currentX = (210 - totalRowWidth) / 2;
+        
         if (mainImages.length > 0) {
             mainImages.forEach((img) => {
-                if (currentX + imgSize > 200) {
-                    currentX = 20;
-                    nextY += imgSize + 15;
-                    if (nextY > 240) { doc.addPage(); nextY = 25; }
-                }
                 if (img.src) {
                     const format = img.src.includes('png') ? 'PNG' : 'JPEG';
-                    doc.addImage(img.src, format, currentX, nextY, imgSize, imgSize);
+                    try {
+                        doc.addImage(img.src, format, currentX, nextY, imgSize, imgSize);
+                    } catch(e) { }
                     doc.setFontSize(9);
                     doc.setFont("helvetica", "bold");
                     doc.text(img.label, currentX + (imgSize / 2), nextY + imgSize + 5, { align: 'center' });
-                    currentX += imgSize + 8;
+                    currentX += imgSize + 6;
                 }
             });
             nextY += imgSize + 15;
         }
-
-        // Fotografía adicional si existe
-        if (data.imagenes.extra) {
-            if (nextY > 200) { doc.addPage(); nextY = 25; }
-            doc.setFontSize(9);
-            doc.setFont("helvetica", "bold");
-            doc.text("FOTOGRAFÍA ADICIONAL / OBSERVACIONES VISUALES:", 20, nextY);
-            nextY += 5;
-            const extraImgSize = 75;
-            try {
-                const format = data.imagenes.extra.includes('png') ? 'PNG' : 'JPEG';
-                doc.addImage(data.imagenes.extra, format, 20, nextY, extraImgSize, extraImgSize);
-                nextY += extraImgSize + 10;
-            } catch (e) {}
-        }
-
-        // Observaciones finales
-        if (nextY > 240) { doc.addPage(); nextY = 25; }
-        nextY = drawSectionTitle("Observaciones Finales", nextY);
-        
-        const obsLines = doc.splitTextToSize(data.observaciones || 'Sin observaciones adicionales.', 170);
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(9);
-        doc.text(obsLines, 20, nextY + 3);
-        nextY += (obsLines.length * 4) + 10;
 
 
 

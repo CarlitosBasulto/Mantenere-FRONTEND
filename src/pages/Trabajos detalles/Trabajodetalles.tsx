@@ -782,7 +782,15 @@ const TrabajoDetalle: React.FC = () => {
                     ? "Se te asignó este trabajo 🛠️"
                     : "TÉCNICO ASIGNADO";
             } else {
-                text = user?.role === 'admin' ? "COTIZACIÓN ENVIADA" : "COTIZACIÓN DEL TRABAJO";
+                if (status.includes("aceptada") || status.includes("aprobada")) {
+                    text = "COTIZACIÓN ACEPTADA";
+                    barClass = styles.green;
+                } else if (status.includes("rechazada")) {
+                    text = "COTIZACIÓN RECHAZADA";
+                    barClass = styles.red;
+                } else {
+                    text = user?.role === 'admin' ? "COTIZACIÓN ENVIADA" : "COTIZACIÓN DEL TRABAJO";
+                }
             }
         } else if (status === "asignado" || (job.tecnico && job.tecnico !== "Sin asignar" && job.tecnico !== "Sin Asignar")) {
             barClass = styles.blue;

@@ -4,7 +4,7 @@ import {
     XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
     AreaChart, Area, PieChart, Pie, Cell, BarChart, Bar, Legend
 } from 'recharts';
-import { HiOutlineUsers, HiOutlineBriefcase, HiOutlineDocumentText, HiOutlineClipboardDocumentCheck, HiOutlineWrenchScrewdriver } from 'react-icons/hi2';
+import { HiOutlineUsers, HiOutlineBriefcase, HiOutlineDocumentText, HiOutlineClipboardDocumentCheck, HiOutlineWrenchScrewdriver, HiOutlineCube, HiXMark } from 'react-icons/hi2';
 
 // Servicios
 import { getUsers } from '../../services/usersService';
@@ -20,8 +20,13 @@ const Dashboard: React.FC = () => {
         usuarios: 0,
         negocios: 0,
         trabajos: 0,
-        cotizaciones: 0
+        cotizaciones: 0,
+        piezas: 0
     });
+    const [showPiezasModal, setShowPiezasModal] = useState(false);
+    const [piezasFilterSucursal, setPiezasFilterSucursal] = useState('');
+    const [piezasFilterTime, setPiezasFilterTime] = useState('');
+    const [piezasFilterText, setPiezasFilterText] = useState('');
     const [trendData, setTrendData] = useState<any[]>([]);
     const [statusData, setStatusData] = useState<any[]>([]);
     const [techLoadData, setTechLoadData] = useState<any[]>([]);
@@ -30,6 +35,7 @@ const Dashboard: React.FC = () => {
     const [loading, setLoading] = useState(true);
 
     const [solicitudes, setSolicitudes] = useState<any[]>([]);
+    const [todosTrabajos, setTodosTrabajos] = useState<any[]>([]);
     const [filterSucursal, setFilterSucursal] = useState('');
     const [filterEquipo, setFilterEquipo] = useState('');
     const [filterDateFrom, setFilterDateFrom] = useState('');
@@ -53,6 +59,7 @@ const Dashboard: React.FC = () => {
                 ]);
                 
                 setSolicitudes(s);
+                setTodosTrabajos(t);
                 setSucursalesList(n.map((neg: any) => neg.nombre).filter(Boolean));
                 
                 const cotizacionesCount = t.filter((job: any) => 
@@ -60,11 +67,40 @@ const Dashboard: React.FC = () => {
                     ["Cotización Enviada", "Cotización Aceptada", "Cotización Rechazada"].includes(job.estado)
                 ).length;
 
+                let conteoPiezas = 0;
+                const processedReports = new Set<string>();
+
+                const processReport = (solucionStr: string) => {
+                    if (processedReports.has(solucionStr)) return;
+                    processedReports.add(solucionStr);
+                    try {
+                        const p = JSON.parse(solucionStr);
+                        if (Array.isArray(p.refaccionesList) && p.refaccionesList.length > 0) {
+                            p.refaccionesList.forEach((r: any) => {
+                                conteoPiezas += Number(r.cantidad) || 0;
+                            });
+                        } else if (p.materiales && p.materiales.trim() !== '') {
+                            conteoPiezas += 1;
+                        }
+                    } catch (e) { }
+                };
+
+                s.forEach((sol: any) => {
+                    [sol.visita_trabajo, sol.reparacion_trabajo].forEach(tr => {
+                        if (tr?.reporte?.solucion) processReport(tr.reporte.solucion);
+                    });
+                });
+
+                t.forEach((job: any) => {
+                    if (job?.reporte?.solucion) processReport(job.reporte.solucion);
+                });
+
                 setStats({
                     usuarios: u.length,
                     negocios: n.length,
                     trabajos: t.length,
-                    cotizaciones: cotizacionesCount || 0
+                    cotizaciones: cotizacionesCount || 0,
+                    piezas: conteoPiezas
                 });
 
                 const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
@@ -232,6 +268,20 @@ const Dashboard: React.FC = () => {
                         <p>Cotizaciones</p>
                     </div>
                 </div>
+
+                <div 
+                    className={styles.statCard} 
+                    style={{ cursor: 'pointer', border: '1px solid #e0e7ff', background: '#f8fafc' }} 
+                    onClick={() => setShowPiezasModal(true)}
+                >
+                    <div className={`${styles.iconBg} ${styles.blue}`} style={{ backgroundColor: '#6366f1' }}>
+                        <HiOutlineCube size={24} />
+                    </div>
+                    <div className={styles.statInfo}>
+                        <h3>{stats.piezas}</h3>
+                        <p>Piezas y Refacciones</p>
+                    </div>
+                </div>
             </div>
 
             <div className={styles.chartsGrid}>
@@ -334,133 +384,204 @@ const Dashboard: React.FC = () => {
                  <p className={styles.empty}>Próximamente: Historial detallado de acciones en tiempo real.</p>
             </div>
 
-            {/* TABLA DE REPORTES TÉCNICOS DE EQUIPOS */}
-            <div className={`${styles.chartCard} ${styles.bitacoraSection}`}>
-                <div className={styles.bitacoraHeader}>
-                    <h3>
-                        <HiOutlineWrenchScrewdriver size={22} color="#3b82f6" /> 
-                        Bitácora de Equipos
-                    </h3>
+
+            {/* MODAL DE PIEZAS Y REFACCIONES */}
+            {showPiezasModal && (() => {
+                let reportesConPiezas: any[] = [];
+                const processedReportsSet = new Set<string>();
+                
+                const processJobReport = (job: any, negocio: string, equipo: string, solDate: Date) => {
+                    if (!job?.reporte?.solucion) return;
+                    if (processedReportsSet.has(job.reporte.solucion)) return;
+                    processedReportsSet.add(job.reporte.solucion);
+
+                    const fechaSol = solDate.toLocaleDateString();
+
+                    if (piezasFilterSucursal && piezasFilterSucursal !== negocio) return;
                     
-                    <div className={styles.filterGroup}>
-                        <select value={filterSucursal} onChange={e => setFilterSucursal(e.target.value)} className={styles.filterSelect}>
-                            <option value="">Todas las Sucursales</option>
-                            {Array.from(new Set(sucursalesList)).map(suc => (
-                                <option key={suc} value={suc}>{suc}</option>
-                            ))}
-                        </select>
-                        <select value={filterEquipo} onChange={e => setFilterEquipo(e.target.value)} className={styles.filterSelect}>
-                            <option value="">Todos los Equipos</option>
-                            {Array.from(new Set(solicitudes.map(s => s.levantamiento_equipo ? `${s.levantamiento_equipo.marca} ${s.levantamiento_equipo.modelo}` : null).filter(Boolean))).map(eq => (
-                                <option key={eq as string} value={eq as string}>{eq as string}</option>
-                            ))}
-                        </select>
-                        <div className={styles.dateInputGroup}>
-                            <span>DESDE:</span>
-                            <input type="date" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} className={styles.filterDate} />
-                        </div>
-                        <div className={styles.dateInputGroup}>
-                            <span>HASTA:</span>
-                            <input type="date" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} className={styles.filterDate} />
-                        </div>
-                        <button
-                            onClick={() => {
-                                setAppliedFilters({ sucursal: filterSucursal, equipo: filterEquipo, dateFrom: filterDateFrom, dateTo: filterDateTo });
-                            }}
-                            className={styles.filterButton}
-                        >
-                            Buscar
-                        </button>
-                    </div>
-                </div>
+                    if (piezasFilterTime) {
+                        const monthsLimit = parseInt(piezasFilterTime, 10);
+                        const limitDate = new Date();
+                        limitDate.setMonth(limitDate.getMonth() - monthsLimit);
+                        if (solDate < limitDate) return;
+                    }
 
-                <div className={styles.tableWrapper}>
-                    <table className={styles.responsiveTable}>
-                        <thead>
-                            <tr>
-                                <th>FECHA</th>
-                                <th>SUCURSAL</th>
-                                <th>EQUIPO</th>
-                                <th>PROBLEMA REPORTADO</th>
-                                <th>TRABAJO REALIZADO</th>
-                                <th>PIEZAS / MATERIALES</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {(() => {
-                                let filas: any[] = [];
-                                solicitudes.forEach(sol => {
-                                    const negocio = sol.negocio?.nombre || 'General';
-                                    const equipo = sol.levantamiento_equipo ? `${sol.levantamiento_equipo.marca} ${sol.levantamiento_equipo.modelo}` : 'N/A';
-                                    
-                                    const solDateObj = new Date(sol.created_at);
-                                    const yyyy = solDateObj.getFullYear();
-                                    const mm = String(solDateObj.getMonth() + 1).padStart(2, '0');
-                                    const dd = String(solDateObj.getDate()).padStart(2, '0');
-                                    const solDateFormatted = `${yyyy}-${mm}-${dd}`;
+                    try {
+                        const p = JSON.parse(job.reporte.solucion);
+                        let listaPiezas: string[] = [];
+                        let rowCount = 0;
+                        if (Array.isArray(p.refaccionesList) && p.refaccionesList.length > 0) {
+                            listaPiezas = p.refaccionesList.map((r: any) => {
+                                rowCount += Number(r.cantidad) || 0;
+                                return `${r.cantidad}x ${r.pieza}`;
+                            });
+                        } else if (p.materiales && p.materiales.trim() !== '') {
+                            listaPiezas = [p.materiales];
+                            rowCount = 1;
+                        }
 
-                                    if (appliedFilters.dateFrom && solDateFormatted < appliedFilters.dateFrom) return;
-                                    if (appliedFilters.dateTo && solDateFormatted > appliedFilters.dateTo) return;
-                                    if (appliedFilters.sucursal && appliedFilters.sucursal !== negocio) return;
-                                    if (appliedFilters.equipo && appliedFilters.equipo !== equipo) return;
+                        if (listaPiezas.length > 0) {
+                            reportesConPiezas.push({
+                                fecha: fechaSol,
+                                fechaRaw: job.created_at || solDate,
+                                sucursal: negocio,
+                                equipo: equipo,
+                                problema: p.reporteTienda || p.descripcion || '—',
+                                piezas: listaPiezas,
+                                countPiezas: rowCount
+                            });
+                        }
+                    } catch (e) { }
+                };
 
-                                    let reportesInternos: any[] = [];
-                                    [sol.visita_trabajo, sol.reparacion_trabajo].forEach(t => {
-                                        if (t?.reporte?.solucion) {
-                                            try {
-                                                const p = JSON.parse(t.reporte.solucion);
-                                                if (p.descripcion || p.reporteTienda) {
-                                                    reportesInternos.push({
-                                                        fecha: solDateObj.toLocaleDateString(),
-                                                        fechaRaw: sol.created_at,
-                                                        problema: p.reporteTienda || '—',
-                                                        trabajo: p.descripcion || '—',
-                                                        piezas: Array.isArray(p.refaccionesList) && p.refaccionesList.length > 0
-                                                            ? p.refaccionesList.map((r: any) => `${r.cantidad}x ${r.pieza}`).join(' · ')
-                                                            : (p.materiales && p.materiales.trim() !== '' ? p.materiales : '—')
-                                                    });
-                                                }
-                                            } catch (e) { }
-                                        }
-                                    });
+                // Iterar Mantenimientos (Tienen equipo asociado)
+                solicitudes.forEach(sol => {
+                    const negocio = sol.negocio?.nombre || 'General';
+                    const equipo = sol.levantamiento_equipo ? `${sol.levantamiento_equipo.marca} ${sol.levantamiento_equipo.modelo}` : 'N/A';
+                    const solDate = new Date(sol.created_at);
+                    
+                    [sol.visita_trabajo, sol.reparacion_trabajo].forEach(t => {
+                        processJobReport(t, negocio, equipo, solDate);
+                    });
+                });
 
-                                    const seen = new Set();
-                                    reportesInternos.forEach(rep => {
-                                        const key = `${rep.problema}-${rep.trabajo}`;
-                                        if (!seen.has(key)) {
-                                            seen.add(key);
-                                            filas.push({ sucursal: negocio, equipo: equipo, ...rep });
-                                        }
-                                    });
-                                });
+                // Iterar Trabajos Normales
+                todosTrabajos.forEach(job => {
+                    const solDate = new Date(job.created_at);
+                    const negocio = job.negocio ? (job.negocio.nombrePlaza ? `${job.negocio.nombre} - ${job.negocio.nombrePlaza}` : job.negocio.nombre) : 'General';
+                    // Intentar extraer el equipo desde el reporte si existe
+                    let equipo = 'N/A';
+                    if (job?.reporte?.solucion) {
+                        try {
+                            const p = JSON.parse(job.reporte.solucion);
+                            if (p.equipoInfo && p.equipoInfo.marca) {
+                                equipo = `${p.equipoInfo.marca} ${p.equipoInfo.modelo}`;
+                            }
+                        } catch(e) {}
+                    }
+                    
+                    processJobReport(job, negocio, equipo, solDate);
+                });
 
-                                filas.sort((a, b) => new Date(b.fechaRaw).getTime() - new Date(a.fechaRaw).getTime());
+                const seen = new Set();
+                const finalRows: any[] = [];
+                reportesConPiezas.forEach(rep => {
+                    const key = `${rep.sucursal}-${rep.problema}-${rep.piezas.join(',')}`;
+                    if (!seen.has(key)) {
+                        seen.add(key);
+                        finalRows.push(rep);
+                    }
+                });
 
-                                if (filas.length === 0) {
-                                    return (
+                finalRows.sort((a, b) => new Date(b.fechaRaw).getTime() - new Date(a.fechaRaw).getTime());
+
+                let finalRowsFiltradas = finalRows;
+                if (piezasFilterText.trim()) {
+                    const searchLower = piezasFilterText.toLowerCase();
+                    finalRowsFiltradas = finalRows.filter(r => 
+                        r.piezas.some((p: string) => p.toLowerCase().includes(searchLower)) ||
+                        r.problema.toLowerCase().includes(searchLower) ||
+                        r.equipo.toLowerCase().includes(searchLower)
+                    );
+                }
+
+                let totalFilteredPiezas = 0;
+                finalRowsFiltradas.forEach(r => { totalFilteredPiezas += r.countPiezas; });
+
+                return (
+                    <div className={styles.piezasModalOverlay}>
+                        <div className={styles.piezasModalContent}>
+                            <div className={styles.piezasModalHeader}>
+                                <h2><HiOutlineCube size={26} color="#6366f1" /> Detalle de Piezas y Refacciones</h2>
+                                <button onClick={() => setShowPiezasModal(false)} className={styles.piezasModalClose}>
+                                    <span style={{ fontSize: '22px', fontWeight: 'bold', lineHeight: '1' }}>✕</span>
+                                </button>
+                            </div>
+                            
+                            <div className={styles.filterGroup} style={{ marginBottom: '20px', display: 'flex', gap: '15px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                <select 
+                                    value={piezasFilterSucursal} 
+                                    onChange={e => setPiezasFilterSucursal(e.target.value)} 
+                                    className={styles.filterSelect}
+                                    style={{ flex: '1', minWidth: '150px', maxWidth: '300px' }}
+                                >
+                                    <option value="">Todas las Sucursales</option>
+                                    {Array.from(new Set(sucursalesList)).map(suc => (
+                                        <option key={suc} value={suc}>{suc}</option>
+                                    ))}
+                                </select>
+
+                                <select 
+                                    value={piezasFilterTime} 
+                                    onChange={e => setPiezasFilterTime(e.target.value)} 
+                                    className={styles.filterSelect}
+                                    style={{ flex: '1', minWidth: '150px', maxWidth: '200px' }}
+                                >
+                                    <option value="">Todo el tiempo</option>
+                                    <option value="1">Último Mes</option>
+                                    <option value="2">Últimos 2 Meses</option>
+                                    <option value="6">Últimos 6 Meses</option>
+                                </select>
+
+                                <input
+                                    type="text"
+                                    placeholder="Buscar por pieza, problema o equipo..."
+                                    value={piezasFilterText}
+                                    onChange={e => setPiezasFilterText(e.target.value)}
+                                    className={styles.filterDate}
+                                    style={{ flex: '2', minWidth: '220px', border: '1px solid #cbd5e1', padding: '8px 12px', borderRadius: '8px', fontSize: '13px' }}
+                                />
+
+                                <div style={{ background: '#e0e7ff', padding: '10px 18px', borderRadius: '100px', color: '#4338ca', fontWeight: '800', fontSize: '14px', border: '1px solid #c7d2fe', marginLeft: 'auto' }}>
+                                    Total de piezas usadas: {totalFilteredPiezas}
+                                </div>
+                            </div>
+
+                            <div className={styles.piezasTableContainer}>
+                                <table className={styles.responsiveTable}>
+                                    <thead>
                                         <tr>
-                                            <td colSpan={6} style={{ padding: '30px', textAlign: 'center', color: '#94a3b8', fontSize: '14px', fontStyle: 'italic' }}>
-                                                No se encontraron reportes técnicos formales con los filtros actuales.
-                                            </td>
+                                            <th style={{ backgroundColor: '#f1f5f9', position: 'sticky', top: 0 }}>FECHA</th>
+                                            <th style={{ backgroundColor: '#f1f5f9', position: 'sticky', top: 0 }}>SUCURSAL</th>
+                                            <th style={{ backgroundColor: '#f1f5f9', position: 'sticky', top: 0 }}>EQUIPO</th>
+                                            <th style={{ backgroundColor: '#f1f5f9', position: 'sticky', top: 0 }}>CAUSA / PROBLEMA</th>
+                                            <th style={{ backgroundColor: '#f1f5f9', position: 'sticky', top: 0 }}>PIEZAS UTILIZADAS</th>
                                         </tr>
-                                    );
-                                }
-
-                                return filas.map((fila, idx) => (
-                                    <tr key={idx} style={{ background: idx % 2 === 0 ? '#ffffff' : '#fafafa', borderBottom: '1px solid #f1f5f9' }}>
-                                        <td style={{ fontWeight: 'bold', color: '#475569' }}>{fila.fecha}</td>
-                                        <td style={{ fontWeight: '800', color: '#0f172a' }}>{fila.sucursal}</td>
-                                        <td style={{ fontWeight: '800', color: '#3b82f6' }}>{fila.equipo}</td>
-                                        <td style={{ lineHeight: '1.4' }}>{fila.problema}</td>
-                                        <td style={{ lineHeight: '1.4' }}>{fila.trabajo}</td>
-                                        <td style={{ fontWeight: '600', color: '#059669', lineHeight: '1.4' }}>{fila.piezas}</td>
-                                    </tr>
-                                ));
-                            })()}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+                                    </thead>
+                                    <tbody>
+                                        {finalRowsFiltradas.length === 0 ? (
+                                            <tr>
+                                                <td colSpan={5} style={{ padding: '40px', textAlign: 'center', color: '#64748b', fontStyle: 'italic' }}>
+                                                    No se encontraron consumos de piezas con los filtros seleccionados.
+                                                </td>
+                                            </tr>
+                                        ) : (
+                                            finalRowsFiltradas.map((fila, idx) => (
+                                                <tr key={idx} style={{ background: idx % 2 === 0 ? '#ffffff' : '#fafafa', borderBottom: '1px solid #f1f5f9' }}>
+                                                    <td style={{ color: '#64748b', fontWeight: 'bold' }}>{fila.fecha}</td>
+                                                    <td style={{ color: '#0f172a', fontWeight: 'bold' }}>{fila.sucursal}</td>
+                                                    <td style={{ color: '#6366f1', fontWeight: 'bold' }}>{fila.equipo}</td>
+                                                    <td>{fila.problema}</td>
+                                                    <td style={{ color: '#059669', fontWeight: 'bold' }}>
+                                                        <ul style={{ margin: 0, paddingLeft: '20px' }}>
+                                                            {fila.piezas.map((p: string, i: number) => {
+                                                                const isMatch = piezasFilterText.trim() && p.toLowerCase().includes(piezasFilterText.toLowerCase());
+                                                                return (
+                                                                    <li key={i} style={{ marginBottom: '4px', background: isMatch ? '#fef08a' : 'transparent', borderRadius: '4px', padding: isMatch ? '0 4px' : '0' }}>{p}</li>
+                                                                );
+                                                            })}
+                                                        </ul>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
         </div>
     );
 };
