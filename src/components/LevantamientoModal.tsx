@@ -82,7 +82,7 @@ const LevantamientoModal: React.FC<LevantamientoModalProps> = ({ isOpen, onClose
             "¿Eliminar área?",
             `¿Estás seguro de que deseas eliminar el área "${nombreArea}" y todos sus equipos?`,
             () => {
-                const updated = sections.filter(s => s.id !== id);
+                const updated = sections.filter((s: LevantamientoSeccion) => s.id !== id);
                 setSections(updated);
                 if (activeSectionId === id) {
                     setActiveSectionId(updated.length > 0 ? updated[0].id : null);
@@ -140,7 +140,7 @@ const LevantamientoModal: React.FC<LevantamientoModalProps> = ({ isOpen, onClose
                 URL.revokeObjectURL(equipmentForm.foto);
             }
             const tempUrl = URL.createObjectURL(file);
-            setEquipmentForm(prev => ({ ...prev, foto: tempUrl, fotoFile: file }));
+            setEquipmentForm((prev: Equipment) => ({ ...prev, foto: tempUrl, fotoFile: file }));
         }
     };
 
@@ -374,7 +374,7 @@ const LevantamientoModal: React.FC<LevantamientoModalProps> = ({ isOpen, onClose
                                                 {equipmentForm.foto && (
                                                     <div className={styles.photoPreview}>
                                                         <img src={equipmentForm.foto} alt="Preview" />
-                                                        <button onClick={() => setEquipmentForm(prev => ({ ...prev, foto: '', fotoFile: undefined }))} className={styles.removePhoto} title="Quitar">
+                                                        <button onClick={() => setEquipmentForm((prev: Equipment) => ({ ...prev, foto: '', fotoFile: undefined }))} className={styles.removePhoto} title="Quitar">
                                                             <HiOutlineXMark size={18} color="#ffffff" />
                                                         </button>
                                                     </div>

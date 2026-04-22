@@ -19,7 +19,6 @@ import {
     HiOutlineSquare3Stack3D, // For masonry
     HiOutlinePencilSquare, // For general categories
     HiOutlineXMark,
-    HiOutlineIdentification,
     HiOutlineCheckCircle,
     HiOutlineXCircle,
     HiOutlineDocumentText
@@ -30,13 +29,10 @@ import { createActividad, getActividadesByTrabajo, deleteActividad } from "../..
 import { getTrabajadores } from "../../services/trabajadoresService";
 import { saveCotizacion, updateCotizacion, deleteCotizacion, updateCotizacionStatus, getCotizacionesByTrabajoId, type Cotizacion } from "../../services/cotizacionesService";
 import { createNotificacionByRole, createNotificacion } from "../../services/notificacionesService";
-import { getReporteByTrabajoId, type Reporte as ReporteFinal } from "../../services/reportesService";
+import { getReporteByTrabajoId } from "../../services/reportesService";
 import { useModal } from "../../context/ModalContext";
 import { getNegocio } from "../../services/negociosService";
 import LevantamientoModal from "../../components/LevantamientoModal";
-import api from "../../services/api";
-import { generateMaintenanceReportPDF } from "../../utils/pdfGenerator";
-import { HiOutlineArrowDownTray } from "react-icons/hi2";
 
 
 export interface CotizacionData {

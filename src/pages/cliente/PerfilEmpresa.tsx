@@ -23,7 +23,49 @@ import ReportarProblemaModal from "../../components/ReportarProblemaModal";
 import { saveSafeLocalInfo, stripBlobUrls } from "../../utils/storageHelper";
 import { createMantenimientoSolicitud } from "../../services/mantenimientoService";
 
-// ... (interfaces remain same)
+export interface Equipment {
+    id?: string;
+    nombre: string;
+    marca: string;
+    modelo: string;
+    serie: string;
+    anioFabricacion: string;
+    anioUso: string;
+    foto?: string;
+    fotoFile?: File;
+}
+
+export interface LevantamientoSeccion {
+    id: string;
+    nombreArea: string;
+    equipos: Equipment[];
+}
+
+export type LevantamientoData = LevantamientoSeccion[];
+
+export interface BusinessData {
+    nombreSucursal?: string;
+    tipo?: string;
+    encargado?: string;
+    estado?: string;
+    ciudad?: string;
+    nombrePlaza?: string;
+    gerente?: string;
+    telefonoGerente?: string;
+    subgerente?: string;
+    telefonoSubgerente?: string;
+    calle?: string;
+    numero?: string;
+    colonia?: string;
+    referencia?: string;
+    manzana?: string;
+    lote?: string;
+    calleAv?: string;
+    cp?: string;
+    levantamiento?: LevantamientoData;
+    imagenPerfil?: string;
+    imagenPerfilFile?: File;
+}
 
 const PerfilEmpresa: React.FC = () => {
     // ... (logic remains same until return)

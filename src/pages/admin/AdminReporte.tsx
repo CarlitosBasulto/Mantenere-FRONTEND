@@ -11,8 +11,7 @@ import {
     HiOutlineCamera, 
     HiOutlinePhoto, 
     HiXMark,
-    HiOutlineArrowUpTray,
-    HiOutlineArrowDownTray
+    HiOutlineArrowUpTray
 } from 'react-icons/hi2';
 import { generateMaintenanceReportPDF } from '../../utils/pdfGenerator';
 

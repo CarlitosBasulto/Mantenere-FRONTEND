@@ -51,7 +51,7 @@ const AdminHistorial: React.FC = () => {
                 }));
 
                 // Ordenar más recientes primero
-                mappedTareas.sort((a, b) => b.id - a.id);
+                mappedTareas.sort((a: TareaHistorial, b: TareaHistorial) => b.id - a.id);
                 setRawTareas(mappedTareas);
             } catch (error) {
                 console.error("Error al obtener el historial de la API", error);
