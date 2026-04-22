@@ -5,9 +5,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useModal } from "../../context/ModalContext";
 
 import { 
-    HiOutlineBuildingOffice2, 
     HiOutlineMapPin, 
-    HiOutlinePhone, 
     HiOutlineBolt, 
     HiOutlineInformationCircle,
     HiOutlineCamera,

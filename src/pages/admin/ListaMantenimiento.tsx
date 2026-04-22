@@ -4,7 +4,6 @@ import { getMantenimientoSolicitudes } from "../../services/mantenimientoService
 import styles from "./ListaSolicitudes.module.css";
 import menuStyles from "../../components/Menu.module.css";
 import { useAuth } from "../../context/AuthContext";
-import { useModal } from "../../context/ModalContext";
 
 // Usamos el mismo diseño base pero enfocado en mantenimiento
 
@@ -12,7 +11,6 @@ const ListaMantenimiento: React.FC = () => {
     const [searchText, setSearchText] = useState("");
     const navigate = useNavigate();
     const { user } = useAuth();
-    const { showAlert, showConfirm } = useModal();
 
     const [solicitudes, setSolicitudes] = useState<any[]>([]);
 

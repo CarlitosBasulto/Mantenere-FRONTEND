@@ -50,6 +50,8 @@ const Cotizaciones: React.FC<CotizacionesProps> = ({ businessId }) => {
 
     const [selectedCotizacion, setSelectedCotizacion] = useState<TrabajoCotizado | null>(null);
     const [cotizacionTasks, setCotizacionTasks] = useState<SubTarea[]>([]);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const [reportData, _setReportData] = useState<any>(null);
     const [selectedZoomImage, setSelectedZoomImage] = useState<string | null>(null);
 
     // Eliminado el modal local en favor de la navegación al detalle del trabajo

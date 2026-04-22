@@ -49,7 +49,7 @@ const MantenimientoDetalle = () => {
         }
 
         try {
-            await asignarMantenimientoVisita(Number(id), {
+            await asignarMantenimientoVisita(String(id), {
                 tecnico_id: Number(selectedTecnico),
                 fecha_programada: fechaProgramada,
                 hora_programada: horaProgramada,
@@ -72,7 +72,7 @@ const MantenimientoDetalle = () => {
         }
 
         try {
-            await asignarMantenimientoReparacion(Number(id), {
+            await asignarMantenimientoReparacion(String(id), {
                 tecnico_id: Number(selectedTecnico),
                 fecha_programada: fechaProgramada,
                 hora_programada: horaProgramada,
