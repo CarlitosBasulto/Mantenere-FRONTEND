@@ -1515,7 +1515,7 @@ const AdminDetalleTrabajo: React.FC = () => {
 
                                                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
                                                             {cotiz.archivo && (
-                                                                <a href={cotiz.archivo.startsWith('http') ? cotiz.archivo : `http://127.0.0.1:8085/storage/${cotiz.archivo}`} 
+                                                                <a href={cotiz.archivo.startsWith('http') ? cotiz.archivo : `https://mantenere-backend-production.up.railway.app/storage/${cotiz.archivo}`} 
                                                                    target="_blank" 
                                                                    rel="noreferrer"
                                                                    className={styles.attachmentLink}
