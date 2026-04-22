@@ -2250,7 +2250,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                         const temporalReportDataRaw = localStorage.getItem(`report_data_temporal_${trabajo?.id}`);
                         return fallbackReportDataRaw ? JSON.parse(fallbackReportDataRaw) : (temporalReportDataRaw ? JSON.parse(temporalReportDataRaw) : null);
                     })()}
-                    userRole={user?.role}
+                    userRole={user?.role ?? undefined}
                     onEdit={() => {
                         const baseRoute = user?.role === 'tecnico' ? '/tecnico' : '/menu';
                         navigate(`${baseRoute}/reporte-tarea/${trabajo?.id}`, { state: { trabajoId: trabajo?.id, actividadId: (selectedHistoryTask as any).id } });

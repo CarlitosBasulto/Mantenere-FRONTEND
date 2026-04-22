@@ -875,7 +875,7 @@ const TrabajoDetalle: React.FC = () => {
                         trabajo={reporteTrabajo}
                         task={reporteTaskInfo}
                         reporte={reporteData}
-                        userRole={user?.role}
+                        userRole={user?.role ?? undefined}
                     />
                 )}
             </div>
@@ -1421,7 +1421,7 @@ const TrabajoDetalle: React.FC = () => {
                     trabajo={reporteTrabajo}
                     task={reporteTaskInfo}
                     reporte={reporteData}
-                    userRole={user?.role}
+                    userRole={user?.role ?? undefined}
                 />
             )}
         </div>
