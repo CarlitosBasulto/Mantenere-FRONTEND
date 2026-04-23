@@ -193,39 +193,46 @@ const MiPerfil: React.FC = () => {
                     boxShadow: '0 10px 25px -5px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9',
                     marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '28px'
                 }}>
-                    {/* Avatar con cámara */}
-                    <div style={{ position: 'relative', flexShrink: 0 }}>
-                        <div style={{
+                    {/* Avatar clicable con overlay de cámara */}
+                    <div
+                        onClick={() => fileInputRef.current?.click()}
+                        title="Toca para cambiar tu foto"
+                        style={{
+                            position: 'relative', flexShrink: 0, cursor: 'pointer',
                             width: '110px', height: '110px', borderRadius: '24px',
-                            background: '#f1f5f9', overflow: 'hidden', display: 'flex',
-                            alignItems: 'center', justifyContent: 'center', fontSize: '52px',
+                            overflow: 'hidden',
                             border: '3px solid #fff', boxShadow: '0 8px 20px rgba(0,0,0,0.1)'
+                        }}
+                        onMouseEnter={e => {
+                            const overlay = e.currentTarget.querySelector('.cam-overlay') as HTMLElement;
+                            if (overlay) overlay.style.opacity = '1';
+                        }}
+                        onMouseLeave={e => {
+                            const overlay = e.currentTarget.querySelector('.cam-overlay') as HTMLElement;
+                            if (overlay) overlay.style.opacity = '0';
+                        }}
+                    >
+                        {/* Imagen o ícono */}
+                        {formData.imagenPerfil
+                            ? <img src={formData.imagenPerfil} alt="Perfil" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            : <div style={{ width: '100%', height: '100%', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <HiOutlineUser size={52} color="#94a3b8" />
+                              </div>
+                        }
+
+                        {/* Overlay oscuro con ícono de cámara */}
+                        <div className="cam-overlay" style={{
+                            position: 'absolute', inset: 0,
+                            background: 'rgba(0,0,0,0.45)',
+                            display: 'flex', flexDirection: 'column',
+                            alignItems: 'center', justifyContent: 'center', gap: '4px',
+                            opacity: 0, transition: 'opacity 0.2s ease', color: 'white'
                         }}>
-                            {formData.imagenPerfil
-                                ? <img src={formData.imagenPerfil} alt="Perfil" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                : <HiOutlineUser size={52} color="#94a3b8" />
-                            }
+                            <HiOutlineCamera size={26} />
+                            <span style={{ fontSize: '10px', fontWeight: '700' }}>CAMBIAR</span>
                         </div>
 
-                        {/* Botón cámara */}
-                        <button
-                            onClick={() => fileInputRef.current?.click()}
-                            title="Tomar foto o subir imagen"
-                            style={{
-                                position: 'absolute', bottom: '-8px', right: '-8px',
-                                width: '36px', height: '36px', borderRadius: '12px',
-                                background: '#2563eb', color: 'white', border: 'none',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                cursor: 'pointer', boxShadow: '0 4px 12px rgba(37,99,235,0.35)',
-                                transition: 'all 0.2s ease', zIndex: 2
-                            }}
-                            onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.12)'; e.currentTarget.style.background = '#1d4ed8'; }}
-                            onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.background = '#2563eb'; }}
-                        >
-                            <HiOutlineCamera size={18} />
-                        </button>
-
-                        {/* Input con capture para abrir cámara en móvil */}
+                        {/* Input cámara frontal en móvil */}
                         <input
                             type="file"
                             accept="image/*"
