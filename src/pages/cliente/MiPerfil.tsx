@@ -229,7 +229,7 @@ const MiPerfil: React.FC = () => {
                         <input
                             type="file"
                             accept="image/*"
-                            capture="environment"
+                            capture="user"
                             ref={fileInputRef}
                             style={{ display: 'none' }}
                             onChange={handleImageChange}
