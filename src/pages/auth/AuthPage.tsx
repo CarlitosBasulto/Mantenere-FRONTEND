@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import styles from './AuthPage.module.css';
+import logoAgente from '../../assets/imagenes/logo-agente-business.png';
 import { useAuth } from '../../context/AuthContext';
 import { useModal } from '../../context/ModalContext';
 import { loginUser, registerUser } from '../../services/authService';
@@ -122,7 +123,7 @@ const AuthPage: React.FC = () => {
 
             {/* --- LOGO FUERA DE LA CARD --- */}
             <div className={styles.logoContainer}>
-                <img src="src/assets/imagenes/logo-agente-business.png" alt="Agente Business" className={styles.externalLogo} />
+                <img src={logoAgente} alt="Agente Business" className={styles.externalLogo} />
             </div>
 
             <div className={`${styles.container} ${isRightPanelActive ? styles.rightPanelActive : ''}`} id="container">

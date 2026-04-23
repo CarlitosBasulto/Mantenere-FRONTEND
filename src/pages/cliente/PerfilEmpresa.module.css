@@ -51,7 +51,6 @@
     border: 1px solid #f1f5f9;
     margin-bottom: 30px;
     position: relative;
-    overflow: hidden;
 }
 
 .profileHeaderCard::after {
