@@ -96,7 +96,7 @@ const ReporteDetailModal: React.FC<ReporteDetailModalProps> = ({
                         Detalles del Reporte
                         {isPreReport && <span style={{ color: '#f59e0b', fontSize: '13px', background: '#fffbeb', padding: '4px 10px', borderRadius: '10px', border: '1px solid #fef3c7', marginLeft: '10px' }}>Pre-Reporte</span>}
                     </h2>
-                    <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
+                    <div className={styles.headerActions}>
                         {reporte && (
                             <button
                                 className={styles.editReportBtn}
@@ -104,13 +104,13 @@ const ReporteDetailModal: React.FC<ReporteDetailModalProps> = ({
                                 onClick={handleDownloadPDF}
                             >
                                 <HiOutlineArrowDownTray size={18} />
-                                Descargar PDF
+                                <span>Descargar PDF</span>
                             </button>
                         )}
                         {onEdit && (
                             <button className={styles.editReportBtn} onClick={onEdit}>
                                 <HiOutlinePencilSquare size={18} />
-                                Editar Reporte
+                                <span>Editar Reporte</span>
                             </button>
                         )}
                         <button className={styles.closeButtonCircle} onClick={onClose}>

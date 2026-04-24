@@ -555,8 +555,8 @@ const TrabajoDetalle: React.FC = () => {
     };
 
     const handleConfirmRequest = async () => {
-        const finalCategoria = newRequestData.categoria === "Otro" && customCategoria.trim() !== "" 
-            ? customCategoria.trim() 
+        const finalCategoria = newRequestData.categoria === "Otro" && customCategoria.trim() !== ""
+            ? customCategoria.trim()
             : newRequestData.categoria;
 
         if (isEditingRequest && editingRequestId !== null) {
@@ -584,14 +584,14 @@ const TrabajoDetalle: React.FC = () => {
                         levantamiento_equipo_id: newRequestData.equipoSeleccionado,
                         descripcion_problema: newRequestData.descripcion || "Mantenimiento general programado"
                     });
-                    
+
                     try {
                         let equName = "un equipo";
                         const individual = await getNegocio(Number(id));
-                        if(individual && individual.areas) {
-                            for(let a of individual.areas) {
-                                const matched = a.equipos.find((e:any) => String(e.id) === String(newRequestData.equipoSeleccionado));
-                                if(matched) { equName = matched.nombre; break; }
+                        if (individual && individual.areas) {
+                            for (let a of individual.areas) {
+                                const matched = a.equipos.find((e: any) => String(e.id) === String(newRequestData.equipoSeleccionado));
+                                if (matched) { equName = matched.nombre; break; }
                             }
                         }
                         await createNotificacionByRole({
@@ -905,7 +905,7 @@ const TrabajoDetalle: React.FC = () => {
                 </div>
 
                 {/* SEARCH & ACTIONS */}
-                <div className={menuStyles.searchCard}>
+                <div className={`${menuStyles.searchCard} ${styles.searchWrapperMobile}`}>
                     <input
                         type="text"
                         placeholder="Buscar..."
@@ -926,6 +926,7 @@ const TrabajoDetalle: React.FC = () => {
                             <button
                                 className={`${menuStyles.filterBtn} ${styles.sosBtn}`}
                                 onClick={handleSOSRequest}
+                                translate="no"
                             >
                                 SOS
                             </button>

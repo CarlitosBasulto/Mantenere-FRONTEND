@@ -345,3 +345,33 @@
         align-items: flex-start;
     }
 }
+
+@media (max-width: 640px) {
+    .pageContainer {
+        padding: 20px 15px;
+    }
+
+    .pageTitle {
+        font-size: 24px;
+    }
+
+    .titleArea {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .rowGrid, .infoGrid {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+
+    .cardGlass {
+        padding: 20px;
+    }
+
+    .equipmentImage {
+        width: 100%;
+        height: 200px;
+    }
+}

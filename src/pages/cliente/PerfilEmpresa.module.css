@@ -191,6 +191,8 @@
 }
 
 .input, .select {
+    width: 100%;
+    box-sizing: border-box;
     padding: 14px 18px;
     background: #f8fafc;
     border: 1.5px solid #f1f5f9;
@@ -330,28 +332,82 @@
 
 /* RESPONSIVE */
 @media (max-width: 768px) {
+    .dashboardLayout {
+        padding: 15px;
+        padding-bottom: 180px;
+    }
+
+    .pageTitle {
+        font-size: 24px;
+    }
+
     .profileHeaderCard {
         flex-direction: column;
         text-align: center;
-        padding: 30px 20px;
+        padding: 25px 15px;
+        gap: 20px;
+        border-radius: 25px;
+    }
+
+    .profileIcon {
+        width: 100px;
+        height: 100px;
+        font-size: 40px;
+    }
+
+    .infoCard {
+        padding: 20px 15px;
+        border-radius: 20px;
+        margin-bottom: 15px;
+    }
+
+    .sectionTitle {
+        margin-bottom: 15px;
+        font-size: 12px;
     }
 
     .formGrid {
         grid-template-columns: 1fr;
+        gap: 15px;
     }
 
     .fullWidth {
         grid-column: span 1;
     }
 
+    .tabsContainer {
+        width: 100%;
+        box-sizing: border-box;
+        margin-bottom: 20px;
+    }
+
+    .tab {
+        padding: 8px 12px;
+        font-size: 12px;
+        flex: 1;
+    }
+
     .floatingActions {
         bottom: 20px;
-        right: 20px;
-        left: 20px;
+        right: 15px;
+        left: 15px;
         flex-direction: column;
+        gap: 10px;
     }
 
     .saveButton {
         width: 100%;
+        padding: 15px;
+        font-size: 14px;
+    }
+}
+
+@media (max-width: 480px) {
+    .dashboardLayout {
+        padding: 10px;
+    }
+
+    .infoCard {
+        padding: 15px 10px;
     }
 }

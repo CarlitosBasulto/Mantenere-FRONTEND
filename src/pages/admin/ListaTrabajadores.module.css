@@ -578,13 +578,49 @@
     .cardIndicator { display: none; }
     
     .modalContent {
-        width: 90%;
+        width: 92%;
         padding: 20px;
-        max-height: 80vh;
+        max-height: 90vh;
         overflow-y: auto;
     }
-    
+
+    .modalWide {
+        width: 92%;
+        padding: 20px;
+    }
+
     .formGrid { grid-template-columns: 1fr; }
-    .modalWide { padding: 25px; }
     .radioGrid { grid-template-columns: 1fr; }
+
+    .addCategoryWrapper {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .addCategoryBtn {
+        padding: 12px;
+    }
+
+    .modalActionsRow {
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .saveWorkerBtn {
+        width: 100%;
+    }
+
+    .rolesGrid {
+        grid-template-columns: 1fr 1fr;
+    }
 }
+
+@media (max-width: 480px) {
+    .rolesGrid {
+        grid-template-columns: 1fr;
+    }
+    
+    .modalTitleLarge {
+        font-size: 20px;
+    }
+}

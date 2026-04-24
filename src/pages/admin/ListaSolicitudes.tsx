@@ -225,6 +225,7 @@ const ListaSolicitudes: React.FC = () => {
                         <div
                             key={req.id}
                             className={styles.jobCard}
+                            style={activeMenuId === req.id ? { zIndex: 100 } : {}}
                             onClick={() => navigate(user?.role === 'tecnico' ? `/tecnico/trabajo-detalle/${req.id}` : `/menu/trabajo-detalle/${req.id}`)}
                         >
                             {/* BARRA DE ESTADO SUPERIOR */}

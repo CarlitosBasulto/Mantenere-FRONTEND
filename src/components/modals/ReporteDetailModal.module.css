@@ -18,7 +18,7 @@
     background: #ffffff;
     width: 100%;
     max-width: 900px;
-    max-height: 90vh;
+    max-height: 95vh;
     border-radius: 32px;
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
     display: flex;
@@ -38,6 +38,8 @@
     position: sticky;
     top: 0;
     z-index: 10;
+    flex-wrap: wrap;
+    gap: 16px;
 }
 
 .premiumModalHeader h2 {
@@ -139,7 +141,7 @@
 
 .evidenceGrid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
     gap: 16px;
 }
 
@@ -272,15 +274,80 @@
 }
 
 @media (max-width: 640px) {
+    .premiumModalOverlay {
+        padding: 10px;
+    }
+
+    .premiumModalContent {
+        border-radius: 24px;
+        max-height: 98vh;
+    }
+
+    .premiumModalHeader {
+        padding: 16px 20px;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+
+    .premiumModalHeader h2 {
+        font-size: 18px;
+        width: 100%;
+    }
+
+    .headerActions {
+        display: flex;
+        gap: 10px;
+        width: 100%;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .premiumModalBody {
+        padding: 20px;
+    }
+    
     .infoGrid {
         grid-template-columns: 1fr;
+        gap: 12px;
     }
     
     .evidenceGrid {
         grid-template-columns: 1fr 1fr;
+        gap: 10px;
+    }
+
+    .editReportBtn {
+        padding: 8px 12px;
+        font-size: 12px;
+        flex: 1;
+        justify-content: center;
+    }
+
+    .editReportBtn span {
+        display: none; /* We can use this if we want to hide text */
+    }
+
+    .closeButtonCircle {
+        width: 36px;
+        height: 36px;
+    }
+
+    .quoteAmount {
+        font-size: 20px;
+    }
+}
+
+@media (max-width: 400px) {
+    .evidenceGrid {
+        grid-template-columns: 1fr;
     }
     
-    .premiumModalHeader {
-        padding: 16px 20px;
+    .editReportBtn span {
+        display: none;
+    }
+
+    .premiumModalHeader h2 {
+        font-size: 16px;
     }
 }

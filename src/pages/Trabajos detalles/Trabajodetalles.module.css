@@ -830,6 +830,30 @@
         padding: 10px;
     }
 
+    .bannerWrapper {
+        height: 180px;
+        border-radius: 20px;
+    }
+
+    .bannerTitle {
+        font-size: 24px;
+    }
+
+    .bannerOverlay {
+        padding: 15px;
+    }
+
+    .bannerLabel {
+        font-size: 9px;
+    }
+
+    .sosBtn, .newRequestBtn {
+        padding: 10px 15px !important;
+        font-size: 12px !important;
+        flex: 1;
+        min-width: 0 !important;
+    }
+
     .jobCard {
         border-radius: 20px;
         padding-bottom: 15px;
@@ -872,4 +896,19 @@
         width: 90%;
         padding: 20px;
     }
+
+    .modalContentMedium {
+        width: 95% !important;
+        padding: 20px !important;
+    }
 }
+
+@media (max-width: 480px) {
+    .bannerWrapper {
+        height: 150px;
+    }
+
+    .bannerTitle {
+        font-size: 20px;
+    }
+}
