@@ -167,7 +167,7 @@ const ListaNegocios: React.FC = () => {
                                         >
                                             {negocio.imagenPerfil && !imageErrors[negocio.id] ? (
                                                 <img
-                                                    src={negocio.imagenPerfil.replace('http://', 'https://')}
+                                                    src={negocio.imagenPerfil}
                                                     alt={negocio.nombre}
                                                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                                     onError={() => setImageErrors(prev => ({...prev, [negocio.id]: true}))}
