@@ -255,10 +255,10 @@ const MenuLayout: React.FC = () => {
                             {location.pathname !== getBaseRoute() && location.pathname !== getBaseRoute() + "/dashboard" && location.pathname !== getBaseRoute() + "/" && (
                                 <button 
                                     onClick={() => navigate(-1)} 
-                                    style={{ background: '#f1f5f9', border: 'none', color: '#475569', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: '50%', transition: 'all 0.2s' }}
+                                    style={{ background: '#e2e8f0', border: 'none', color: '#1e293b', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: '50%', transition: 'all 0.2s', flexShrink: 0 }}
                                     title="Retroceder"
                                 >
-                                    <HiOutlineChevronLeft size={20} strokeWidth={2.5} />
+                                    <HiOutlineChevronLeft size={22} color="#1e293b" />
                                 </button>
                             )}
                             <h2 style={{ margin: 0 }}>
