@@ -7,7 +7,6 @@ import { useModal } from "../../context/ModalContext";
 import { getNegocios } from "../../services/negociosService";
 import { getTrabajos } from "../../services/trabajosService";
 
-import { FaImage } from "react-icons/fa6";
 
 interface Negocio {
     id: number;

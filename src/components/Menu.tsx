@@ -8,7 +8,7 @@ import {
     HiOutlineUser, HiOutlineBell, HiOutlineBriefcase, 
     HiOutlineUsers, HiOutlineDocumentText, HiOutlineClock,
     HiOutlineCurrencyDollar, HiOutlineWrench, HiOutlineSquares2X2,
-    HiCheckBadge
+    HiCheckBadge, HiOutlineChevronLeft
 } from "react-icons/hi2";
 import { LuHardHat } from "react-icons/lu";
 import { 
