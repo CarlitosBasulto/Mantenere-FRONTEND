@@ -345,7 +345,7 @@ const PerfilEmpresa: React.FC = () => {
                         <div className={styles.profileIcon}>
                             {formData.imagenPerfil && !imageError ? (
                                 <img 
-                                    src={formData.imagenPerfil} 
+                                    src={formData.imagenPerfil.replace('http://', 'https://')} 
                                     alt="Logo" 
                                     className={styles.profileImg} 
                                     onError={() => setImageError(true)}
