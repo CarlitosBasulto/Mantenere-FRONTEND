@@ -251,9 +251,20 @@ const MenuLayout: React.FC = () => {
                 {/* HEADER SUPERIOR - Ocultar en detalle, verif tarea y reporte */}
                 {!location.pathname.includes("/trabajo-detalle") && !location.pathname.includes("/verificacion-tarea") && !location.pathname.includes("/reporte-tarea") && (
                     <header className={styles.header}>
-                        <h2>
-                            {activeOption}
-                        </h2>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                            {location.pathname !== getBaseRoute() && location.pathname !== getBaseRoute() + "/dashboard" && location.pathname !== getBaseRoute() + "/" && (
+                                <button 
+                                    onClick={() => navigate(-1)} 
+                                    style={{ background: '#f1f5f9', border: 'none', color: '#475569', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: '50%', transition: 'all 0.2s' }}
+                                    title="Retroceder"
+                                >
+                                    <HiOutlineChevronLeft size={20} strokeWidth={2.5} />
+                                </button>
+                            )}
+                            <h2 style={{ margin: 0 }}>
+                                {activeOption}
+                            </h2>
+                        </div>
 
                         <div className={styles.headerActions}>
                             {/* El botón Agregar fue removido a petición del usuario */}
