@@ -256,9 +256,8 @@ const MenuLayout: React.FC = () => {
                                 <button 
                                     onClick={() => navigate(-1)} 
                                     style={{ 
-                                        background: 'rgba(0,0,0,0.15)', 
+                                        background: 'rgba(0,0,0,0.2)', 
                                         border: 'none', 
-                                        color: '#fff', 
                                         cursor: 'pointer', 
                                         display: 'flex', 
                                         alignItems: 'center', 
@@ -267,14 +266,14 @@ const MenuLayout: React.FC = () => {
                                         height: '36px', 
                                         borderRadius: '50%', 
                                         transition: 'all 0.2s',
-                                        fontSize: '22px',
-                                        fontWeight: 'bold',
-                                        lineHeight: 1,
-                                        flexShrink: 0
+                                        flexShrink: 0,
+                                        padding: 0
                                     }}
                                     title="Retroceder"
                                 >
-                                    ‹
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M15 18l-6-6 6-6" />
+                                    </svg>
                                 </button>
                             )}
                             <h2 style={{ margin: 0 }}>
