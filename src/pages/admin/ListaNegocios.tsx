@@ -29,6 +29,7 @@ const ListaNegocios: React.FC = () => {
     const [negocios, setNegocios] = useState<Negocio[]>([]);
     const [globalJobs, setGlobalJobs] = useState<any[]>([]);
     const [searchText, setSearchText] = useState("");
+    const [imageErrors, setImageErrors] = useState<Record<number, boolean>>({});
 
     useEffect(() => {
         const fetchData = async () => {
@@ -164,14 +165,27 @@ const ListaNegocios: React.FC = () => {
                                             style={{ cursor: (user?.role === 'cliente' || user?.role === 'admin') ? 'pointer' : 'default' }}
                                             title={(user?.role === 'cliente' || user?.role === 'admin') ? "Editar Perfil" : ""}
                                         >
-                                            {negocio.imagenPerfil ? (
+                                            {negocio.imagenPerfil && !imageErrors[negocio.id] ? (
                                                 <img
                                                     src={negocio.imagenPerfil}
                                                     alt={negocio.nombre}
                                                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                    onError={() => setImageErrors(prev => ({...prev, [negocio.id]: true}))}
                                                 />
                                             ) : (
-                                                <FaImage />
+                                                <div style={{
+                                                    width: '100%', 
+                                                    height: '100%', 
+                                                    display: 'flex', 
+                                                    alignItems: 'center', 
+                                                    justifyContent: 'center',
+                                                    backgroundColor: '#e2e8f0',
+                                                    color: '#475569',
+                                                    fontWeight: 'bold',
+                                                    fontSize: '20px'
+                                                }}>
+                                                    {negocio.nombre.substring(0, 2).toUpperCase()}
+                                                </div>
                                             )}
                                         </div>
                                         <div className={styles.cardInfo}>

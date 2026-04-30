@@ -488,7 +488,7 @@ const Dashboard: React.FC = () => {
                                 </button>
                             </div>
                             
-                            <div className={styles.filterGroup} style={{ marginBottom: '20px', display: 'flex', gap: '15px', alignItems: 'center', flexWrap: 'wrap' }}>
+                            <div className={styles.piezasFilterGroup}>
                                 <select 
                                     value={piezasFilterSucursal} 
                                     onChange={e => setPiezasFilterSucursal(e.target.value)} 
@@ -522,7 +522,7 @@ const Dashboard: React.FC = () => {
                                     style={{ flex: '2', minWidth: '220px', border: '1px solid #cbd5e1', padding: '8px 12px', borderRadius: '8px', fontSize: '13px' }}
                                 />
 
-                                <div style={{ background: '#e0e7ff', padding: '10px 18px', borderRadius: '100px', color: '#4338ca', fontWeight: '800', fontSize: '14px', border: '1px solid #c7d2fe', marginLeft: 'auto' }}>
+                                <div className={styles.piezasTotalBadge}>
                                     Total de piezas usadas: {totalFilteredPiezas}
                                 </div>
                             </div>

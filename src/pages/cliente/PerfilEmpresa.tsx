@@ -92,6 +92,7 @@ const PerfilEmpresa: React.FC = () => {
     const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
     const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null);
     const [reportingEquipment, setReportingEquipment] = useState<Equipment | null>(null);
+    const [imageError, setImageError] = useState(false);
 
     const [searchParams] = useSearchParams();
     const editId = searchParams.get('id');
@@ -342,8 +343,13 @@ const PerfilEmpresa: React.FC = () => {
                 <div className={styles.profileHeaderCard}>
                     <div className={styles.profileIconWrapper}>
                         <div className={styles.profileIcon}>
-                            {formData.imagenPerfil ? (
-                                <img src={formData.imagenPerfil} alt="Logo" className={styles.profileImg} />
+                            {formData.imagenPerfil && !imageError ? (
+                                <img 
+                                    src={formData.imagenPerfil} 
+                                    alt="Logo" 
+                                    className={styles.profileImg} 
+                                    onError={() => setImageError(true)}
+                                />
                             ) : (
                                 "🏢"
                             )}
