@@ -70,7 +70,7 @@ const PerfilEmpresa: React.FC = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
     const { showAlert } = useModal();
-    const canEdit = user?.role === 'cliente';
+    const canEdit = user?.role === 'cliente' || user?.role === 'admin';
 
     const [formData, setFormData] = useState<BusinessData>({
         nombreSucursal: "",
