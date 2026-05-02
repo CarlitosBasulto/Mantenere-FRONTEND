@@ -17,3 +17,15 @@ export const logoutUser = async () => {
     const res = await api.post(`/logout`);
     return res.data;
 };
+
+// Solicitar enlace de recuperación
+export const forgotPassword = async (email: string) => {
+    const res = await api.post(`/forgot-password`, { email });
+    return res.data;
+};
+
+// Restablecer contraseña con el token
+export const resetPassword = async (data: any) => {
+    const res = await api.post(`/reset-password`, data);
+    return res.data;
+};

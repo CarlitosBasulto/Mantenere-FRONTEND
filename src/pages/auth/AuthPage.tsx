@@ -4,7 +4,7 @@ import styles from './AuthPage.module.css';
 import logoAgente from '../../assets/imagenes/logo-agente-business.png';
 import { useAuth } from '../../context/AuthContext';
 import { useModal } from '../../context/ModalContext';
-import { loginUser, registerUser } from '../../services/authService';
+import { loginUser, registerUser, forgotPassword } from '../../services/authService';
 import type { UserRole } from '../../context/AuthContext';
 import { Eye, EyeOff } from 'lucide-react';
 
@@ -12,6 +12,8 @@ const AuthPage: React.FC = () => {
     const [isRightPanelActive, setIsRightPanelActive] = useState(false);
     const [showWelcomeModal, setShowWelcomeModal] = useState(false);
     const [welcomeName, setWelcomeName] = useState("");
+    const [showForgotModal, setShowForgotModal] = useState(false);
+    const [forgotEmail, setForgotEmail] = useState("");
     const location = useLocation();
     const navigate = useNavigate();
     const { login } = useAuth();
@@ -118,6 +120,23 @@ const AuthPage: React.FC = () => {
         }
     };
 
+    const handleForgotSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!forgotEmail) {
+            showAlert("Error", "Por favor ingresa tu correo electrónico.", "warning");
+            return;
+        }
+        try {
+            const data = await forgotPassword(forgotEmail);
+            showAlert("Correo Enviado", data.message || "Revisa tu bandeja de entrada para restablecer tu contraseña.", "success");
+            setShowForgotModal(false);
+            setForgotEmail("");
+        } catch (error: any) {
+            console.error(error);
+            showAlert("Error", error.response?.data?.message || "No pudimos procesar tu solicitud. Verifica que tu correo esté registrado.", "error");
+        }
+    };
+
     return (
         <div className={styles.body}>
 
@@ -180,7 +199,7 @@ const AuthPage: React.FC = () => {
                                 {showLoginPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                             </button>
                         </div>
-                        <a href="#" className={styles.link}>¿Olvidaste tu contraseña?</a>
+                        <a href="#" onClick={(e) => { e.preventDefault(); setShowForgotModal(true); }} className={styles.link}>¿Olvidaste tu contraseña?</a>
                         <button type="submit" className={styles.button}>Ingresar</button>
 
                         {/* Mobile view switch */}
@@ -219,6 +238,30 @@ const AuthPage: React.FC = () => {
                 <div className={styles.welcomeModalOverlay}>
                     <div className={styles.welcomeModalContent}>
                         <h2 style={{ color: '#0284c7' }}>¡Bienvenido, {welcomeName}!</h2>
+                    </div>
+                </div>
+            )}
+
+            {/* FORGOT PASSWORD MODAL */}
+            {showForgotModal && (
+                <div className={styles.welcomeModalOverlay} style={{ zIndex: 1000 }}>
+                    <div className={styles.welcomeModalContent} style={{ padding: '40px', maxWidth: '400px', width: '90%' }}>
+                        <h2 style={{ color: '#0284c7', marginBottom: '15px' }}>Recuperar Contraseña</h2>
+                        <p style={{ color: '#64748b', fontSize: '14px', marginBottom: '25px' }}>Ingresa tu correo electrónico y te enviaremos un enlace para restablecerla.</p>
+                        <form onSubmit={handleForgotSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                            <input 
+                                type="email" 
+                                placeholder="Correo Electrónico" 
+                                className={styles.input} 
+                                value={forgotEmail} 
+                                onChange={(e) => setForgotEmail(e.target.value)} 
+                                style={{ margin: 0 }}
+                            />
+                            <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                                <button type="button" onClick={() => setShowForgotModal(false)} className={styles.ghost} style={{ flex: 1, padding: '12px', border: '1px solid #ccc', borderRadius: '20px', background: 'transparent', cursor: 'pointer', fontWeight: 'bold' }}>Cancelar</button>
+                                <button type="submit" className={styles.button} style={{ flex: 1, margin: 0, padding: '12px' }}>Enviar Enlace</button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}

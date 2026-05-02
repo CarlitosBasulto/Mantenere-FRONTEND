@@ -11,6 +11,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 // PUBLIC
 import Home from "./pages/public/Home";
 import AuthPage from "./pages/auth/AuthPage"; // Import AuthPage
+import ResetPasswordPage from "./pages/auth/ResetPasswordPage";
 
 // ADMIN VIEWS
 import Dashboard from "./pages/admin/Dashboard";
@@ -45,6 +46,7 @@ function App() {
                         {/* AUTH (Sliding Page) */}
                         <Route path="/inicio-sesion" element={<AuthPage />} />
                         <Route path="/registro-sesion" element={<AuthPage />} />
+                        <Route path="/reset-password" element={<ResetPasswordPage />} />
 
                         {/* ADMIN ROUTES */}
                         <Route path="/menu" element={
