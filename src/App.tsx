@@ -32,6 +32,8 @@ import AdminHistorial from "./pages/admin/AdminHistorial";
 import ListaUsuarios from "./pages/admin/ListaUsuarios";
 import ListaMantenimiento from "./pages/admin/ListaMantenimiento";
 import MantenimientoDetalle from "./pages/admin/MantenimientoDetalle";
+import EncargadoLayout from "./layouts/EncargadoLayout";
+import EncargadoHome from "./pages/encargado/EncargadoHome";
 
 function App() {
     return (
@@ -101,6 +103,16 @@ function App() {
                             <Route path="trabajo/:id" element={<TrabajoDetalle />} />
                             <Route path="trabajo-detalle/:id" element={<AdminDetalleTrabajo />} />
                             <Route path="reporte-tarea/:id" element={<AdminReporte />} />
+                        </Route>
+
+                        {/* ENCARGADO ROUTES */}
+                        <Route path="/encargado" element={
+                            <ProtectedRoute allowedRoles={['encargado']}>
+                                <EncargadoLayout />
+                            </ProtectedRoute>
+                        }>
+                            <Route index element={<EncargadoHome />} />
+                            <Route path="sucursal" element={<PerfilEmpresa />} />
                         </Route>
 
                         {/* FALLBACK */}

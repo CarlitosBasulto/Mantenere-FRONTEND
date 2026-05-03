@@ -10,11 +10,16 @@ import {
     HiOutlineInformationCircle,
     HiOutlineCamera,
     HiOutlineUserGroup,
-    HiOutlineChevronLeft
+    HiOutlineChevronLeft,
+    HiOutlineKey,
+    HiOutlinePaperAirplane,
+    HiOutlineEye,
+    HiOutlineEyeSlash
 } from "react-icons/hi2";
 
 import { createNegocio, updateNegocio, getNegocio, uploadImage } from "../../services/negociosService";
 import { createNotificacionByRole } from "../../services/notificacionesService";
+import { asignarEncargadoSucursal, getEncargadoSucursal } from "../../services/usersService";
 import LevantamientoModal from "../../components/LevantamientoModal";
 import DetalleEquipoModal from "../../components/DetalleEquipoModal";
 import ReportarProblemaModal from "../../components/ReportarProblemaModal";
@@ -97,6 +102,12 @@ const PerfilEmpresa: React.FC = () => {
     const [searchParams] = useSearchParams();
     const editId = searchParams.get('id');
 
+    // --- Estado para el encargado de sucursal ---
+    const [encargadoForm, setEncargadoForm] = useState({ name: '', email: '', password: '' });
+    const [showPassword, setShowPassword] = useState(false);
+    const [encargadoExistente, setEncargadoExistente] = useState<{ name: string; email: string } | null>(null);
+    const [encargadoLoading, setEncargadoLoading] = useState(false);
+
     React.useEffect(() => {
         const fetchNegocio = async () => {
             if (editId) {
@@ -139,6 +150,40 @@ const PerfilEmpresa: React.FC = () => {
         };
         fetchNegocio();
     }, [editId]);
+
+    // Cargar encargado existente cuando hay editId
+    React.useEffect(() => {
+        if (!editId) return;
+        getEncargadoSucursal(Number(editId))
+            .then(data => {
+                if (data?.encargado) {
+                    setEncargadoExistente({ name: data.encargado.name, email: data.encargado.email });
+                    setEncargadoForm(prev => ({ ...prev, name: data.encargado.name, email: data.encargado.email }));
+                }
+            })
+            .catch(() => {}); // silencioso si no hay encargado aún
+    }, [editId]);
+
+    const handleAsignarEncargado = async () => {
+        if (!editId) return;
+        if (!encargadoForm.name.trim()) { showAlert('Campo Requerido', 'Ingresa el nombre del encargado', 'warning'); return; }
+        if (!encargadoForm.email.trim()) { showAlert('Campo Requerido', 'Ingresa el correo del encargado', 'warning'); return; }
+        if (!encargadoForm.password.trim() || encargadoForm.password.length < 8) {
+            showAlert('Contraseña inválida', 'La contraseña debe tener al menos 8 caracteres', 'warning'); return;
+        }
+        try {
+            setEncargadoLoading(true);
+            await asignarEncargadoSucursal(Number(editId), encargadoForm);
+            setEncargadoExistente({ name: encargadoForm.name, email: encargadoForm.email });
+            setEncargadoForm(prev => ({ ...prev, password: '' }));
+            showAlert('✅ Acceso Asignado', `Se asignó el acceso a ${encargadoForm.email}. Las credenciales han sido enviadas al correo.`, 'success');
+        } catch (err: any) {
+            const msg = err?.response?.data?.message || 'No se pudo asignar el acceso. Intenta de nuevo.';
+            showAlert('Error', msg, 'error');
+        } finally {
+            setEncargadoLoading(false);
+        }
+    };
 
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -540,6 +585,96 @@ const PerfilEmpresa: React.FC = () => {
                                 </div>
                             </div>
                         </div>
+
+                        {/* CARD 4: ACCESO DE ENCARGADO DE SUCURSAL */}
+                        {editId && canEdit && (
+                            <div className={styles.infoCard}>
+                                <h2 className={styles.sectionTitle}>
+                                    <HiOutlineKey /> Acceso de Encargado de Sucursal
+                                </h2>
+
+                                {encargadoExistente && (
+                                    <div style={{
+                                        display: 'flex', alignItems: 'center', gap: '10px',
+                                        background: 'linear-gradient(135deg, #d1fae5, #a7f3d0)',
+                                        borderRadius: '10px', padding: '12px 16px',
+                                        marginBottom: '18px', fontSize: '14px', color: '#065f46', fontWeight: 500
+                                    }}>
+                                        <span style={{ fontSize: '18px' }}>✅</span>
+                                        <span>Encargado asignado: <strong>{encargadoExistente.name}</strong> — {encargadoExistente.email}</span>
+                                    </div>
+                                )}
+
+                                <p style={{ color: '#64748b', fontSize: '13px', marginBottom: '20px', lineHeight: '1.6' }}>
+                                    Asigna credenciales de acceso exclusivas para esta sucursal. El encargado podrá iniciar sesión y consultar únicamente la información de esta sucursal. Recibirá un correo personalizado con sus credenciales.
+                                </p>
+
+                                <div className={styles.formGrid}>
+                                    <div className={styles.inputGroup}>
+                                        <label className={styles.label}>Nombre del Encargado</label>
+                                        <input
+                                            type="text"
+                                            placeholder="Ej: Luis Ramírez"
+                                            className={styles.input}
+                                            value={encargadoForm.name}
+                                            onChange={e => setEncargadoForm(prev => ({ ...prev, name: e.target.value }))}
+                                        />
+                                    </div>
+                                    <div className={styles.inputGroup}>
+                                        <label className={styles.label}>Correo de Acceso</label>
+                                        <input
+                                            type="email"
+                                            placeholder="Ej: encargado@gmail.com"
+                                            className={styles.input}
+                                            value={encargadoForm.email}
+                                            onChange={e => setEncargadoForm(prev => ({ ...prev, email: e.target.value }))}
+                                        />
+                                    </div>
+                                    <div className={styles.inputGroup} style={{ position: 'relative' }}>
+                                        <label className={styles.label}>
+                                            {encargadoExistente ? 'Nueva Contraseña (opcional)' : 'Contraseña'}
+                                        </label>
+                                        <input
+                                            type={showPassword ? 'text' : 'password'}
+                                            placeholder="Mínimo 8 caracteres"
+                                            className={styles.input}
+                                            style={{ paddingRight: '42px' }}
+                                            value={encargadoForm.password}
+                                            onChange={e => setEncargadoForm(prev => ({ ...prev, password: e.target.value }))}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPassword(!showPassword)}
+                                            style={{
+                                                position: 'absolute', right: '12px', bottom: '12px',
+                                                background: 'none', border: 'none', cursor: 'pointer',
+                                                color: '#64748b', display: 'flex', alignItems: 'center'
+                                            }}
+                                        >
+                                            {showPassword ? <HiOutlineEyeSlash size={18} /> : <HiOutlineEye size={18} />}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div style={{ marginTop: '20px' }}>
+                                    <button
+                                        onClick={handleAsignarEncargado}
+                                        disabled={encargadoLoading}
+                                        style={{
+                                            display: 'inline-flex', alignItems: 'center', gap: '8px',
+                                            background: encargadoLoading ? '#94a3b8' : 'linear-gradient(135deg, #f59e0b, #d97706)',
+                                            color: 'white', border: 'none', borderRadius: '10px',
+                                            padding: '12px 24px', fontWeight: 700, fontSize: '14px',
+                                            cursor: encargadoLoading ? 'not-allowed' : 'pointer',
+                                            transition: 'all 0.2s', boxShadow: '0 4px 12px rgba(217,119,6,0.3)'
+                                        }}
+                                    >
+                                        <HiOutlinePaperAirplane size={18} />
+                                        {encargadoLoading ? 'Enviando...' : encargadoExistente ? 'Actualizar Acceso y Reenviar Correo' : 'Asignar Acceso y Enviar Correo'}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
 
                     </div>
                 ) : (

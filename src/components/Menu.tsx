@@ -53,6 +53,7 @@ const MenuLayout: React.FC = () => {
         if (role === 'admin') return "/menu";
         if (role === 'cliente') return "/cliente";
         if (role === 'tecnico') return "/tecnico";
+        if (role === 'encargado') return "/encargado";
         return "/";
     };
 
@@ -120,6 +121,8 @@ const MenuLayout: React.FC = () => {
             baseOptions = ["Mis Negocios", "Cotizaciones", "Historial"];
         } else if (user.role === 'tecnico') {
             baseOptions = ["Mis Trabajos", "Nueva Solicitud", "Historial de Trabajo"];
+        } else if (user.role === 'encargado') {
+            baseOptions = ["Mi Sucursal"];
         }
 
         if (user.role === 'admin' && location.pathname.includes("/menu/trabajo/")) {
@@ -150,6 +153,8 @@ const MenuLayout: React.FC = () => {
                 if (path === "/tecnico" || path === "/tecnico/") setActiveOption("Mis Trabajos");
                 else if (path.includes("solicitudes")) setActiveOption("Nueva Solicitud");
                 else if (path.includes("historial")) setActiveOption("Historial de Trabajo");
+            } else if (path.startsWith("/encargado")) {
+                setActiveOption("Mi Sucursal");
             }
         }
     }, [location.pathname, user]);
@@ -177,6 +182,8 @@ const MenuLayout: React.FC = () => {
         if (option === "Mis Trabajos") navigate("/tecnico");
         if (option === "Nueva Solicitud") navigate("/tecnico/solicitudes");
         if (option === "Historial de Trabajo") navigate("/tecnico/historial");
+
+        if (option === "Mi Sucursal") navigate("/encargado");
 
         // Lógica para Admin dentro de una sucursal
         if (option === "Trabajos" && location.pathname.includes("/menu/trabajo/")) {
@@ -373,6 +380,7 @@ const MenuLayout: React.FC = () => {
                                                 if (user?.role === 'cliente') navigate("/cliente/mi-perfil");
                                                 else if (user?.role === 'admin') navigate("/menu/mi-perfil");
                                                 else if (user?.role === 'tecnico') navigate("/tecnico/mi-perfil");
+                                                // encargado: no tiene perfil propio, se queda en su sucursal
                                             }}
                                         >
                                             Ver Perfil
