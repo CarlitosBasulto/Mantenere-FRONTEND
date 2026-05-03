@@ -73,6 +73,7 @@ const AuthPage: React.FC = () => {
                 setShowWelcomeModal(false);
                 if (role === 'admin') navigate('/menu');
                 else if (role === 'tecnico') navigate('/tecnico');
+                else if (role === 'encargado') navigate('/encargado');
                 else navigate('/cliente');
             }, 5000);
         } catch (error: any) {
@@ -112,6 +113,7 @@ const AuthPage: React.FC = () => {
                 setShowWelcomeModal(false);
                 if (role === 'admin') navigate('/menu');
                 else if (role === 'tecnico') navigate('/tecnico');
+                else if (role === 'encargado') navigate('/encargado');
                 else navigate('/cliente');
             }, 5000);
         } catch (error: any) {
