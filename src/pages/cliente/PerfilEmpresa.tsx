@@ -314,7 +314,11 @@ const PerfilEmpresa: React.FC = () => {
                 }
                 showAlert("Éxito", "Información guardada correctamente", "success");
             }
-            navigate('/cliente');
+            if (user?.role === 'encargado') {
+                navigate('/encargado');
+            } else {
+                navigate('/cliente');
+            }
         } catch (error) {
             console.error("Error saving negocio:", error);
             showAlert("Error", "Hubo un error al guardar en el servidor. Prueba de nuevo.", "error");
@@ -371,6 +375,8 @@ const PerfilEmpresa: React.FC = () => {
                                     navigate('/menu/negocios');
                                 } else if (user?.role === 'tecnico') {
                                     navigate('/tecnico');
+                                } else if (user?.role === 'encargado') {
+                                    navigate('/encargado');
                                 } else {
                                     navigate('/cliente');
                                 }
