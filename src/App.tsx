@@ -113,6 +113,10 @@ function App() {
                         }>
                             <Route index element={<EncargadoHome />} />
                             <Route path="sucursal" element={<PerfilEmpresa />} />
+                            <Route path="cotizaciones" element={<Cotizaciones />} />
+                            <Route path="historial" element={<Historial />} />
+                            <Route path="trabajo/:id" element={<TrabajoDetalle />} />
+                            <Route path="trabajo-detalle/:id" element={<AdminDetalleTrabajo />} />
                         </Route>
 
                         {/* FALLBACK */}

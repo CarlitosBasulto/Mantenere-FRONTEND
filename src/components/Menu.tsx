@@ -122,7 +122,7 @@ const MenuLayout: React.FC = () => {
         } else if (user.role === 'tecnico') {
             baseOptions = ["Mis Trabajos", "Nueva Solicitud", "Historial de Trabajo"];
         } else if (user.role === 'encargado') {
-            baseOptions = ["Mi Sucursal"];
+            baseOptions = ["Mi Sucursal", "Cotizaciones", "Historial"];
         }
 
         if (user.role === 'admin' && location.pathname.includes("/menu/trabajo/")) {
@@ -154,7 +154,10 @@ const MenuLayout: React.FC = () => {
                 else if (path.includes("solicitudes")) setActiveOption("Nueva Solicitud");
                 else if (path.includes("historial")) setActiveOption("Historial de Trabajo");
             } else if (path.startsWith("/encargado")) {
-                setActiveOption("Mi Sucursal");
+                if (path === "/encargado" || path === "/encargado/") setActiveOption("Mi Sucursal");
+                else if (path.includes("sucursal")) setActiveOption("Mi Sucursal");
+                else if (path.includes("cotizaciones")) setActiveOption("Cotizaciones");
+                else if (path.includes("historial")) setActiveOption("Historial");
             }
         }
     }, [location.pathname, user]);
@@ -172,10 +175,15 @@ const MenuLayout: React.FC = () => {
         if (option === "Trabajos Realizados") navigate("/menu/trabajos-realizados");
 
         if (option === "Mis Negocios") navigate("/cliente");
-        if (option === "Cotizaciones") navigate("/cliente/cotizaciones");
+        
+        if (option === "Cotizaciones") {
+            if (user?.role === 'encargado') navigate("/encargado/cotizaciones");
+            else navigate("/cliente/cotizaciones");
+        }
 
         if (option === "Historial") {
             if (user?.role === 'tecnico') navigate("/tecnico/historial");
+            else if (user?.role === 'encargado') navigate("/encargado/historial");
             else navigate("/cliente/historial");
         }
 

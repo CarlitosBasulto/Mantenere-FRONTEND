@@ -76,7 +76,7 @@ const Cotizaciones: React.FC<CotizacionesProps> = ({ businessId }) => {
                     
                     // Incluir trabajos que tienen o tuvieron cotización
                     const isCotizado = job.cotizacion || ["Cotización Enviada", "Cotización Aceptada", "Cotización Rechazada", "Asignado", "En Proceso", "Finalizado"].includes(job.estado);
-                    const isVisible = negociosIds.has(job.negocio_id) || job.negocio?.user_id === user.id || user.role === 'admin';
+                    const isVisible = negociosIds.has(job.negocio_id) || job.negocio?.user_id === user.id || user.role === 'admin' || (user.role === 'encargado' && job.negocio_id === user.negocio_id);
                     
                     return isCotizado && isVisible;
                 });
@@ -209,7 +209,7 @@ const Cotizaciones: React.FC<CotizacionesProps> = ({ businessId }) => {
                                 {cotizacionesAgrupadas[empresa].map((cotizacion) => {
                                     const estatusInfo = getEstatusInfo(cotizacion.estado);
 
-                                    const basePath = location.pathname.startsWith('/admin') || location.pathname.startsWith('/menu') ? '/menu' : '/cliente';
+                                    const basePath = location.pathname.startsWith('/admin') || location.pathname.startsWith('/menu') ? '/menu' : location.pathname.startsWith('/encargado') ? '/encargado' : '/cliente';
                                     return (
                                         <div key={cotizacion.id} className={styles.card} 
                                             onClick={() => navigate(`${basePath}/trabajo-detalle/${cotizacion.id}?tab=cotizacion`)} 

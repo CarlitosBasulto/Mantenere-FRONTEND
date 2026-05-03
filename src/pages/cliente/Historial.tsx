@@ -74,7 +74,7 @@ const Historial: React.FC<HistorialProps> = ({ businessId }) => {
                     if (user.role === 'admin' || user.role === 'tecnico') {
                         return true;
                     }
-                    return negociosIds.has(job.negocio_id) || job.negocio?.user_id === user.id;
+                    return negociosIds.has(job.negocio_id) || job.negocio?.user_id === user.id || (user.role === 'encargado' && job.negocio_id === user.negocio_id);
                 });
 
                 const mappedTareas = filteredJobs.map((job: any) => ({
