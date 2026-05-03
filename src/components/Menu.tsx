@@ -175,6 +175,7 @@ const MenuLayout: React.FC = () => {
         if (option === "Trabajos Realizados") navigate("/menu/trabajos-realizados");
 
         if (option === "Mis Negocios") navigate("/cliente");
+        if (option === "Mi Sucursal") navigate("/encargado");
         
         if (option === "Cotizaciones") {
             if (user?.role === 'encargado') navigate("/encargado/cotizaciones");

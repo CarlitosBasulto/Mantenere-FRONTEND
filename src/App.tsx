@@ -111,7 +111,7 @@ function App() {
                                 <EncargadoLayout />
                             </ProtectedRoute>
                         }>
-                            <Route index element={<EncargadoHome />} />
+                            <Route index element={<ListaNegocios />} />
                             <Route path="sucursal" element={<PerfilEmpresa />} />
                             <Route path="cotizaciones" element={<Cotizaciones />} />
                             <Route path="historial" element={<Historial />} />
