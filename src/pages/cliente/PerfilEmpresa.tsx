@@ -251,7 +251,6 @@ const PerfilEmpresa: React.FC = () => {
                 nombre: formData.nombreSucursal,
                 tipo: formData.tipo,
                 encargado: formData.encargado,
-                user_id: user?.id,
                 estado: formData.estado,
                 ciudad: formData.ciudad,
                 calle: formData.calle,
@@ -288,7 +287,8 @@ const PerfilEmpresa: React.FC = () => {
                 saveSafeLocalInfo('local_negocios_info', editId, fullLocalData, showAlert);
                 showAlert("Éxito", "Información actualizada correctamente", "success");
             } else {
-                const newNegocio = await createNegocio(apiPayload);
+                const createPayload = { ...apiPayload, user_id: user?.id };
+                const newNegocio = await createNegocio(createPayload);
                 if (newNegocio) {
                     const actualId = newNegocio.data?.id || newNegocio.id;
                     if (actualId) {
