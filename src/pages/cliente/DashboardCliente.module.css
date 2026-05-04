@@ -362,3 +362,115 @@
         padding: 16px 12px 24px;
     }
 }
+
+/* ============================================================
+   EQUIPOS CARD GRID (Para Equipos Levantados)
+   ============================================================ */
+.equiposGridList {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+    padding-right: 10px;
+}
+
+.equipoDetalleCard {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 24px;
+    padding: 24px;
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 24px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
+.equipoCardHeader {
+    grid-column: span 2;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #f1f5f9;
+    padding-bottom: 15px;
+    margin-bottom: -10px;
+}
+
+.equipoCardSucursal {
+    font-size: 14px;
+    font-weight: 800;
+    color: #4f46e5;
+    background: #e0e7ff;
+    padding: 6px 14px;
+    border-radius: 8px;
+}
+
+.equipoPhotoContainer {
+    width: 100%;
+    height: 250px;
+    background: #f8fafc;
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid #f1f5f9;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.equipoMainPhoto {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.equipoNoPhoto {
+    color: #94a3b8;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.equipoDataGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    align-content: start;
+}
+
+.equipoDataItem {
+    padding: 16px;
+    background: #fcfcfc;
+    border: 1px solid #f1f5f9;
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.equipoDataLabel {
+    font-size: 11px;
+    font-weight: 700;
+    color: #94a3b8;
+    text-transform: uppercase;
+}
+
+.equipoDataValue {
+    font-size: 15px;
+    font-weight: 800;
+    color: #1e293b;
+}
+
+@media (max-width: 768px) {
+    .equipoDetalleCard {
+        grid-template-columns: 1fr;
+    }
+    .equipoCardHeader {
+        grid-column: span 1;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    .equipoDataGrid {
+        grid-template-columns: 1fr;
+    }
+    .equipoPhotoContainer {
+        height: 200px;
+    }
+}

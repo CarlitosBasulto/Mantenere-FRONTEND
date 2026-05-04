@@ -9,7 +9,11 @@ import {
     HiOutlineDocumentText, 
     HiOutlineClipboardDocumentCheck, 
     HiOutlineUserGroup,
-    HiOutlineComputerDesktop
+    HiOutlineComputerDesktop,
+    HiOutlineTag,
+    HiOutlineHashtag,
+    HiOutlineCalendarDays,
+    HiOutlineClock
 } from 'react-icons/hi2';
 
 import { useAuth } from '../../context/AuthContext';
@@ -642,60 +646,70 @@ const DashboardCliente: React.FC = () => {
                                 </div>
                             </div>
 
-                            <div className={styles.piezasTableContainer}>
-                                <table className={styles.responsiveTable}>
-                                    <thead>
-                                        <tr>
-                                            <th style={{ backgroundColor: '#f1f5f9', position: 'sticky', top: 0 }}>SUCURSAL / ÁREA</th>
-                                            <th style={{ backgroundColor: '#f1f5f9', position: 'sticky', top: 0 }}>IMAGEN</th>
-                                            <th style={{ backgroundColor: '#f1f5f9', position: 'sticky', top: 0 }}>EQUIPO (MARCA / MODELO)</th>
-                                            <th style={{ backgroundColor: '#f1f5f9', position: 'sticky', top: 0 }}>DETALLES TÉCNICOS</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {filteredEquipos.length === 0 ? (
-                                            <tr>
-                                                <td colSpan={4} style={{ padding: '40px', textAlign: 'center', color: '#64748b', fontStyle: 'italic' }}>
-                                                    No se encontraron equipos registrados con los filtros seleccionados.
-                                                </td>
-                                            </tr>
-                                        ) : (
-                                            filteredEquipos.map((eq, idx) => (
-                                                <tr key={idx} style={{ background: idx % 2 === 0 ? '#ffffff' : '#fafafa', borderBottom: '1px solid #f1f5f9' }}>
-                                                    <td>
-                                                        <div style={{ color: '#0f172a', fontWeight: 'bold' }}>{eq.sucursal}</div>
-                                                        <div style={{ color: '#64748b', fontSize: '12px' }}>Área: {eq.area}</div>
-                                                    </td>
-                                                    <td>
-                                                        {eq.imagen ? (
-                                                            <img 
-                                                                src={`https://mantenere-backend-production.up.railway.app/storage/${eq.imagen}`} 
-                                                                alt="Equipo" 
-                                                                style={{ width: '60px', height: '60px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e2e8f0' }} 
-                                                                onError={(e) => { e.currentTarget.src = 'https://via.placeholder.com/60?text=No+Img'; }}
-                                                            />
-                                                        ) : (
-                                                            <div style={{ width: '60px', height: '60px', background: '#f1f5f9', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: '#94a3b8' }}>Sin Foto</div>
-                                                        )}
-                                                    </td>
-                                                    <td>
-                                                        <div style={{ color: '#10b981', fontWeight: 'bold' }}>{eq.marca}</div>
-                                                        <div style={{ color: '#334155' }}>Modelo: {eq.modelo}</div>
-                                                        <div style={{ color: '#64748b', fontSize: '12px' }}>S/N: {eq.numero_serie}</div>
-                                                    </td>
-                                                    <td style={{ fontSize: '12px', color: '#475569' }}>
-                                                        <ul style={{ margin: 0, paddingLeft: '20px' }}>
-                                                            <li><strong>Capacidad:</strong> {eq.capacidad}</li>
-                                                            <li><strong>Voltaje:</strong> {eq.voltaje}</li>
-                                                            <li><strong>Fases:</strong> {eq.fases}</li>
-                                                            <li><strong>Año Fab:</strong> {eq.anio_fabricacion}</li>
-                                                        </ul>
-                                                    </td>
-                                                </tr>
-                                            ))
-                                        )}
-                                    </tbody>
-                                </table>
+                            <div className={styles.piezasTableContainer} style={{ padding: '20px', background: '#f8fafc' }}>
+                                {filteredEquipos.length === 0 ? (
+                                    <div style={{ padding: '40px', textAlign: 'center', color: '#64748b', fontStyle: 'italic' }}>
+                                        No se encontraron equipos registrados con los filtros seleccionados.
+                                    </div>
+                                ) : (
+                                    <div className={styles.equiposGridList}>
+                                        {filteredEquipos.map((eq, idx) => (
+                                            <div key={idx} className={styles.equipoDetalleCard}>
+                                                <div className={styles.equipoCardHeader}>
+                                                    <div>
+                                                        <h3 style={{ margin: 0, fontSize: '18px', color: '#1e293b' }}>{eq.marca} {eq.modelo}</h3>
+                                                        <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>Área: {eq.area}</p>
+                                                    </div>
+                                                    <div className={styles.equipoCardSucursal}>
+                                                        {eq.sucursal}
+                                                    </div>
+                                                </div>
+
+                                                <div className={styles.equipoPhotoContainer}>
+                                                    {eq.imagen ? (
+                                                        <img 
+                                                            src={`https://mantenere-backend-production.up.railway.app/storage/${eq.imagen}`} 
+                                                            alt="Equipo" 
+                                                            className={styles.equipoMainPhoto}
+                                                            onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                                        />
+                                                    ) : (
+                                                        <div className={styles.equipoNoPhoto}>Sin foto de evidencia</div>
+                                                    )}
+                                                </div>
+
+                                                <div className={styles.equipoDataGrid}>
+                                                    <div className={styles.equipoDataItem}>
+                                                        <HiOutlineTag size={18} color="#3b82f6" style={{ marginBottom: '4px' }} />
+                                                        <div className={styles.equipoDataLabel}>Marca / Modelo</div>
+                                                        <div className={styles.equipoDataValue}>{eq.marca} - {eq.modelo}</div>
+                                                    </div>
+
+                                                    <div className={styles.equipoDataItem}>
+                                                        <HiOutlineHashtag size={18} color="#3b82f6" style={{ marginBottom: '4px' }} />
+                                                        <div className={styles.equipoDataLabel}>Número de Serie</div>
+                                                        <div className={styles.equipoDataValue}>{eq.numero_serie || 'N/A'}</div>
+                                                    </div>
+
+                                                    <div className={styles.equipoDataItem}>
+                                                        <HiOutlineCalendarDays size={18} color="#3b82f6" style={{ marginBottom: '4px' }} />
+                                                        <div className={styles.equipoDataLabel}>Año Fabricación</div>
+                                                        <div className={styles.equipoDataValue}>{eq.anio_fabricacion || 'N/A'}</div>
+                                                    </div>
+
+                                                    <div className={styles.equipoDataItem}>
+                                                        <HiOutlineClock size={18} color="#3b82f6" style={{ marginBottom: '4px' }} />
+                                                        <div className={styles.equipoDataLabel}>Capacidad / Voltaje</div>
+                                                        <div className={styles.equipoDataValue}>
+                                                            {eq.capacidad !== 'N/A' ? eq.capacidad : ''} {eq.voltaje !== 'N/A' ? `| ${eq.voltaje}` : ''}
+                                                            {eq.capacidad === 'N/A' && eq.voltaje === 'N/A' ? 'N/A' : ''}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
