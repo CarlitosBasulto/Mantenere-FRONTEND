@@ -43,6 +43,12 @@ const DashboardCliente: React.FC = () => {
     const [piezasFilterText, setPiezasFilterText] = useState<string>('');
     const [sucursalesList, setSucursalesList] = useState<string[]>([]);
 
+    // Estados para Equipos Levantados Modal
+    const [misNegociosState, setMisNegociosState] = useState<any[]>([]);
+    const [showEquiposModal, setShowEquiposModal] = useState(false);
+    const [equiposFilterSucursal, setEquiposFilterSucursal] = useState<string>('');
+    const [equiposFilterText, setEquiposFilterText] = useState<string>('');
+
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -62,6 +68,7 @@ const DashboardCliente: React.FC = () => {
                     neg.dueno === user.name || neg.user_id === user.id
                 );
                 const misNegociosIds = misNegocios.map((n: any) => n.id);
+                setMisNegociosState(misNegocios);
 
                 // 2. Filtrar trabajos de los negocios del cliente
                 const misTrabajos = trabajosAll.filter((job: any) => 
@@ -264,13 +271,17 @@ const DashboardCliente: React.FC = () => {
                     </div>
                 </div>
 
-                <div className={styles.statCard}>
+                <div 
+                    className={styles.statCard}
+                    style={{ cursor: 'pointer', border: '1px solid #bbf7d0' }}
+                    onClick={() => setShowEquiposModal(true)}
+                >
                     <div className={`${styles.iconBg} ${styles.green}`}>
-                        <HiOutlineComputerDesktop size={24} />
+                        <HiOutlineComputerDesktop size={24} color="#10b981" />
                     </div>
                     <div className={styles.statInfo}>
-                        <h3>{stats.equiposRegistrados}</h3>
-                        <p>Equipos Levantados</p>
+                        <h3 style={{ color: '#059669' }}>{stats.equiposRegistrados}</h3>
+                        <p style={{ color: '#059669', fontWeight: 600 }}>Equipos Levantados &rarr;</p>
                     </div>
                 </div>
 
@@ -542,6 +553,142 @@ const DashboardCliente: React.FC = () => {
                                                                     <li key={i} style={{ marginBottom: '4px', background: isMatch ? '#fef08a' : 'transparent', borderRadius: '4px', padding: isMatch ? '0 4px' : '0' }}>{p}</li>
                                                                 );
                                                             })}
+                                                        </ul>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
+
+            {showEquiposModal && (() => {
+                let allEquipos: any[] = [];
+                misNegociosState.forEach(neg => {
+                    if (neg.areas && Array.isArray(neg.areas)) {
+                        neg.areas.forEach((area: any) => {
+                            if (area.equipos && Array.isArray(area.equipos)) {
+                                area.equipos.forEach((eq: any) => {
+                                    allEquipos.push({
+                                        sucursal: neg.nombre,
+                                        area: area.nombre,
+                                        marca: eq.marca,
+                                        modelo: eq.modelo,
+                                        numero_serie: eq.numero_serie,
+                                        anio_fabricacion: eq.anio_fabricacion || 'N/A',
+                                        capacidad: eq.capacidad || 'N/A',
+                                        voltaje: eq.voltaje || 'N/A',
+                                        fases: eq.fases || 'N/A',
+                                        fecha_instalacion: eq.fecha_instalacion || 'N/A',
+                                        imagen: eq.imagen_path
+                                    });
+                                });
+                            }
+                        });
+                    }
+                });
+
+                let filteredEquipos = allEquipos;
+                if (equiposFilterSucursal) {
+                    filteredEquipos = filteredEquipos.filter(eq => eq.sucursal === equiposFilterSucursal);
+                }
+                if (equiposFilterText.trim()) {
+                    const searchLower = equiposFilterText.toLowerCase();
+                    filteredEquipos = filteredEquipos.filter(eq => 
+                        (eq.marca && eq.marca.toLowerCase().includes(searchLower)) ||
+                        (eq.modelo && eq.modelo.toLowerCase().includes(searchLower)) ||
+                        (eq.numero_serie && eq.numero_serie.toLowerCase().includes(searchLower))
+                    );
+                }
+
+                return (
+                    <div className={styles.piezasModalOverlay}>
+                        <div className={styles.piezasModalContent}>
+                            <div className={styles.piezasModalHeader}>
+                                <h2><HiOutlineComputerDesktop size={26} color="#10b981" /> Mis Equipos Levantados</h2>
+                                <button onClick={() => setShowEquiposModal(false)} className={styles.piezasModalClose}>
+                                    <span style={{ fontSize: '22px', fontWeight: 'bold', lineHeight: '1' }}>✕</span>
+                                </button>
+                            </div>
+
+                            <div className={styles.piezasFilterGroup}>
+                                <select 
+                                    value={equiposFilterSucursal} 
+                                    onChange={e => setEquiposFilterSucursal(e.target.value)} 
+                                    className={styles.filterSelect}
+                                    style={{ flex: '1', minWidth: '150px', maxWidth: '300px' }}
+                                >
+                                    <option value="">Todas mis Sucursales</option>
+                                    {Array.from(new Set(sucursalesList)).map(suc => (
+                                        <option key={suc} value={suc}>{suc}</option>
+                                    ))}
+                                </select>
+
+                                <input
+                                    type="text"
+                                    placeholder="Buscar por marca, modelo o serie..."
+                                    value={equiposFilterText}
+                                    onChange={e => setEquiposFilterText(e.target.value)}
+                                    className={styles.filterDate}
+                                    style={{ flex: '2', minWidth: '220px', border: '1px solid #cbd5e1', padding: '8px 12px', borderRadius: '8px', fontSize: '13px' }}
+                                />
+
+                                <div className={styles.piezasTotalBadge} style={{ background: '#d1fae5', color: '#047857', border: '1px solid #a7f3d0' }}>
+                                    Total de equipos: {filteredEquipos.length}
+                                </div>
+                            </div>
+
+                            <div className={styles.piezasTableContainer}>
+                                <table className={styles.responsiveTable}>
+                                    <thead>
+                                        <tr>
+                                            <th style={{ backgroundColor: '#f1f5f9', position: 'sticky', top: 0 }}>SUCURSAL / ÁREA</th>
+                                            <th style={{ backgroundColor: '#f1f5f9', position: 'sticky', top: 0 }}>IMAGEN</th>
+                                            <th style={{ backgroundColor: '#f1f5f9', position: 'sticky', top: 0 }}>EQUIPO (MARCA / MODELO)</th>
+                                            <th style={{ backgroundColor: '#f1f5f9', position: 'sticky', top: 0 }}>DETALLES TÉCNICOS</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {filteredEquipos.length === 0 ? (
+                                            <tr>
+                                                <td colSpan={4} style={{ padding: '40px', textAlign: 'center', color: '#64748b', fontStyle: 'italic' }}>
+                                                    No se encontraron equipos registrados con los filtros seleccionados.
+                                                </td>
+                                            </tr>
+                                        ) : (
+                                            filteredEquipos.map((eq, idx) => (
+                                                <tr key={idx} style={{ background: idx % 2 === 0 ? '#ffffff' : '#fafafa', borderBottom: '1px solid #f1f5f9' }}>
+                                                    <td>
+                                                        <div style={{ color: '#0f172a', fontWeight: 'bold' }}>{eq.sucursal}</div>
+                                                        <div style={{ color: '#64748b', fontSize: '12px' }}>Área: {eq.area}</div>
+                                                    </td>
+                                                    <td>
+                                                        {eq.imagen ? (
+                                                            <img 
+                                                                src={`https://mantenere-backend-production.up.railway.app/storage/${eq.imagen}`} 
+                                                                alt="Equipo" 
+                                                                style={{ width: '60px', height: '60px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e2e8f0' }} 
+                                                                onError={(e) => { e.currentTarget.src = 'https://via.placeholder.com/60?text=No+Img'; }}
+                                                            />
+                                                        ) : (
+                                                            <div style={{ width: '60px', height: '60px', background: '#f1f5f9', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: '#94a3b8' }}>Sin Foto</div>
+                                                        )}
+                                                    </td>
+                                                    <td>
+                                                        <div style={{ color: '#10b981', fontWeight: 'bold' }}>{eq.marca}</div>
+                                                        <div style={{ color: '#334155' }}>Modelo: {eq.modelo}</div>
+                                                        <div style={{ color: '#64748b', fontSize: '12px' }}>S/N: {eq.numero_serie}</div>
+                                                    </td>
+                                                    <td style={{ fontSize: '12px', color: '#475569' }}>
+                                                        <ul style={{ margin: 0, paddingLeft: '20px' }}>
+                                                            <li><strong>Capacidad:</strong> {eq.capacidad}</li>
+                                                            <li><strong>Voltaje:</strong> {eq.voltaje}</li>
+                                                            <li><strong>Fases:</strong> {eq.fases}</li>
+                                                            <li><strong>Año Fab:</strong> {eq.anio_fabricacion}</li>
                                                         </ul>
                                                     </td>
                                                 </tr>
