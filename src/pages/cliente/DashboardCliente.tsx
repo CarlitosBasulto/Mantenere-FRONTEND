@@ -15,7 +15,9 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { getNegocios } from '../../services/negociosService';
 import { getTrabajos } from '../../services/trabajosService';
+import { getMantenimientoSolicitudes } from '../../services/mantenimientoService';
 import { getEncargadoSucursal } from '../../services/usersService';
+import { HiOutlineCube } from 'react-icons/hi';
 
 const DashboardCliente: React.FC = () => {
     const { user } = useAuth();
@@ -23,14 +25,24 @@ const DashboardCliente: React.FC = () => {
         sucursales: 0,
         cotizaciones: 0,
         trabajos: 0,
-        equiposRegistrados: 0
+        equiposRegistrados: 0,
+        piezas: 0
     });
     
     const [trabajosPorMes, setTrabajosPorMes] = useState<any[]>([]);
     const [estadoTrabajos, setEstadoTrabajos] = useState<any[]>([]);
     const [tecnicosRecientes, setTecnicosRecientes] = useState<any[]>([]);
     const [encargadosList, setEncargadosList] = useState<any[]>([]);
+    const [misTrabajosState, setMisTrabajosState] = useState<any[]>([]);
     
+    // Estados para Piezas y Refacciones
+    const [misSolicitudesMantenimiento, setMisSolicitudesMantenimiento] = useState<any[]>([]);
+    const [showPiezasModal, setShowPiezasModal] = useState(false);
+    const [piezasFilterSucursal, setPiezasFilterSucursal] = useState<string>('');
+    const [piezasFilterTime, setPiezasFilterTime] = useState<string>('');
+    const [piezasFilterText, setPiezasFilterText] = useState<string>('');
+    const [sucursalesList, setSucursalesList] = useState<string[]>([]);
+
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -39,9 +51,10 @@ const DashboardCliente: React.FC = () => {
             
             try {
                 // Fetch basic data
-                const [negociosAll, trabajosAll] = await Promise.all([
+                const [negociosAll, trabajosAll, mantenimientosAll] = await Promise.all([
                     getNegocios(),
-                    getTrabajos()
+                    getTrabajos(),
+                    getMantenimientoSolicitudes()
                 ]);
 
                 // 1. Filtrar negocios del cliente
@@ -54,6 +67,14 @@ const DashboardCliente: React.FC = () => {
                 const misTrabajos = trabajosAll.filter((job: any) => 
                     misNegociosIds.includes(job.negocio_id)
                 );
+                setMisTrabajosState(misTrabajos);
+
+                // 2.5 Filtrar solicitudes de mantenimiento
+                const misSolicitudes = mantenimientosAll.filter((sol: any) =>
+                    misNegociosIds.includes(sol.negocio_id)
+                );
+                setMisSolicitudesMantenimiento(misSolicitudes);
+                setSucursalesList(misNegocios.map((n: any) => n.nombre));
 
                 // 3. Obtener encargados reales por sucursal
                 const encargadosPromises = misNegocios.map(async (neg: any) => {
@@ -97,11 +118,33 @@ const DashboardCliente: React.FC = () => {
                     eqPorSucursal[neg.nombre] = count;
                 });
 
+                // Calcular total de piezas
+                let totalPiezasUsed = 0;
+                const countPiezas = (reporteJson: string) => {
+                    try {
+                        const p = JSON.parse(reporteJson);
+                        if (Array.isArray(p.refaccionesList) && p.refaccionesList.length > 0) {
+                            p.refaccionesList.forEach((r: any) => { totalPiezasUsed += Number(r.cantidad) || 0; });
+                        } else if (p.materiales && p.materiales.trim() !== '') {
+                            totalPiezasUsed += 1;
+                        }
+                    } catch(e) {}
+                };
+                
+                misTrabajos.forEach((job: any) => {
+                    if (job.reporte?.solucion) countPiezas(job.reporte.solucion);
+                });
+                misSolicitudes.forEach((sol: any) => {
+                    if (sol.visita_trabajo?.reporte?.solucion) countPiezas(sol.visita_trabajo.reporte.solucion);
+                    if (sol.reparacion_trabajo?.reporte?.solucion) countPiezas(sol.reparacion_trabajo.reporte.solucion);
+                });
+
                 setStats({
                     sucursales: misNegocios.length,
                     cotizaciones: cotizacionesTotales,
                     trabajos: misTrabajos.length,
-                    equiposRegistrados: totalEquipos
+                    equiposRegistrados: totalEquipos,
+                    piezas: totalPiezasUsed
                 });
 
                 // 6. Trabajos / Cotizaciones por Mes (Últimos 6 meses)
@@ -230,6 +273,20 @@ const DashboardCliente: React.FC = () => {
                         <p>Equipos Levantados</p>
                     </div>
                 </div>
+
+                <div 
+                    className={styles.statCard} 
+                    style={{ cursor: 'pointer', border: '1px solid #c7d2fe' }}
+                    onClick={() => setShowPiezasModal(true)}
+                >
+                    <div className={`${styles.iconBg} ${styles.blue}`}>
+                        <HiOutlineCube size={24} color="#6366f1" />
+                    </div>
+                    <div className={styles.statInfo}>
+                        <h3 style={{ color: '#4f46e5' }}>{stats.piezas}</h3>
+                        <p style={{ color: '#4f46e5', fontWeight: 600 }}>Piezas / Refacciones &rarr;</p>
+                    </div>
+                </div>
             </div>
 
             <div className={styles.chartsGrid}>
@@ -305,6 +362,198 @@ const DashboardCliente: React.FC = () => {
                 </div>
             </div>
             
+            {showPiezasModal && (() => {
+                let reportesConPiezas: any[] = [];
+                const processedReportsSet = new Set<string>();
+                
+                const processJobReport = (job: any, negocio: string, equipo: string, solDate: Date) => {
+                    if (!job?.reporte?.solucion) return;
+                    if (processedReportsSet.has(job.reporte.solucion)) return;
+                    processedReportsSet.add(job.reporte.solucion);
+
+                    const fechaSol = solDate.toLocaleDateString();
+
+                    if (piezasFilterSucursal && piezasFilterSucursal !== negocio) return;
+                    
+                    if (piezasFilterTime) {
+                        const monthsLimit = parseInt(piezasFilterTime, 10);
+                        const limitDate = new Date();
+                        limitDate.setMonth(limitDate.getMonth() - monthsLimit);
+                        if (solDate < limitDate) return;
+                    }
+
+                    try {
+                        const p = JSON.parse(job.reporte.solucion);
+                        let listaPiezas: string[] = [];
+                        let rowCount = 0;
+                        if (Array.isArray(p.refaccionesList) && p.refaccionesList.length > 0) {
+                            listaPiezas = p.refaccionesList.map((r: any) => {
+                                rowCount += Number(r.cantidad) || 0;
+                                return `${r.cantidad}x ${r.pieza}`;
+                            });
+                        } else if (p.materiales && p.materiales.trim() !== '') {
+                            listaPiezas = [p.materiales];
+                            rowCount = 1;
+                        }
+
+                        if (listaPiezas.length > 0) {
+                            reportesConPiezas.push({
+                                fecha: fechaSol,
+                                fechaRaw: job.created_at || solDate,
+                                sucursal: negocio,
+                                equipo: equipo,
+                                problema: p.reporteTienda || p.descripcion || '—',
+                                piezas: listaPiezas,
+                                countPiezas: rowCount
+                            });
+                        }
+                    } catch (e) { }
+                };
+
+                misSolicitudesMantenimiento.forEach((sol: any) => {
+                    const negocio = sol.negocio?.nombre || 'General';
+                    const equipo = sol.levantamiento_equipo ? `${sol.levantamiento_equipo.marca} ${sol.levantamiento_equipo.modelo}` : 'N/A';
+                    const solDate = new Date(sol.created_at);
+                    
+                    [sol.visita_trabajo, sol.reparacion_trabajo].forEach(t => {
+                        if (t) processJobReport(t, negocio, equipo, solDate);
+                    });
+                });
+
+                misTrabajosState.forEach((job: any) => {
+                    const solDate = new Date(job.created_at);
+                    const negocio = job.negocio ? (job.negocio.nombrePlaza ? `${job.negocio.nombre} - ${job.negocio.nombrePlaza}` : job.negocio.nombre) : 'General';
+                    let equipo = 'N/A';
+                    if (job?.reporte?.solucion) {
+                        try {
+                            const p = JSON.parse(job.reporte.solucion);
+                            if (p.equipoInfo && p.equipoInfo.marca) {
+                                equipo = `${p.equipoInfo.marca} ${p.equipoInfo.modelo}`;
+                            }
+                        } catch(e) {}
+                    }
+                    processJobReport(job, negocio, equipo, solDate);
+                });
+
+                const seen = new Set();
+                const finalRows: any[] = [];
+                reportesConPiezas.forEach(rep => {
+                    const key = `${rep.sucursal}-${rep.problema}-${rep.piezas.join(',')}`;
+                    if (!seen.has(key)) {
+                        seen.add(key);
+                        finalRows.push(rep);
+                    }
+                });
+
+                finalRows.sort((a, b) => new Date(b.fechaRaw).getTime() - new Date(a.fechaRaw).getTime());
+
+                let finalRowsFiltradas = finalRows;
+                if (piezasFilterText.trim()) {
+                    const searchLower = piezasFilterText.toLowerCase();
+                    finalRowsFiltradas = finalRows.filter(r => 
+                        r.piezas.some((p: string) => p.toLowerCase().includes(searchLower)) ||
+                        r.problema.toLowerCase().includes(searchLower) ||
+                        r.equipo.toLowerCase().includes(searchLower)
+                    );
+                }
+
+                let totalFilteredPiezas = 0;
+                finalRowsFiltradas.forEach(r => { totalFilteredPiezas += r.countPiezas; });
+
+                return (
+                    <div className={styles.piezasModalOverlay}>
+                        <div className={styles.piezasModalContent}>
+                            <div className={styles.piezasModalHeader}>
+                                <h2><HiOutlineCube size={26} color="#6366f1" /> Mis Piezas y Refacciones</h2>
+                                <button onClick={() => setShowPiezasModal(false)} className={styles.piezasModalClose}>
+                                    <span style={{ fontSize: '22px', fontWeight: 'bold', lineHeight: '1' }}>✕</span>
+                                </button>
+                            </div>
+                            
+                            <div className={styles.piezasFilterGroup}>
+                                <select 
+                                    value={piezasFilterSucursal} 
+                                    onChange={e => setPiezasFilterSucursal(e.target.value)} 
+                                    className={styles.filterSelect}
+                                    style={{ flex: '1', minWidth: '150px', maxWidth: '300px' }}
+                                >
+                                    <option value="">Todas mis Sucursales</option>
+                                    {Array.from(new Set(sucursalesList)).map(suc => (
+                                        <option key={suc} value={suc}>{suc}</option>
+                                    ))}
+                                </select>
+
+                                <select 
+                                    value={piezasFilterTime} 
+                                    onChange={e => setPiezasFilterTime(e.target.value)} 
+                                    className={styles.filterSelect}
+                                    style={{ flex: '1', minWidth: '150px', maxWidth: '200px' }}
+                                >
+                                    <option value="">Todo el tiempo</option>
+                                    <option value="1">Último Mes</option>
+                                    <option value="2">Últimos 2 Meses</option>
+                                    <option value="6">Últimos 6 Meses</option>
+                                </select>
+
+                                <input
+                                    type="text"
+                                    placeholder="Buscar por pieza, problema o equipo..."
+                                    value={piezasFilterText}
+                                    onChange={e => setPiezasFilterText(e.target.value)}
+                                    className={styles.filterDate}
+                                    style={{ flex: '2', minWidth: '220px', border: '1px solid #cbd5e1', padding: '8px 12px', borderRadius: '8px', fontSize: '13px' }}
+                                />
+
+                                <div className={styles.piezasTotalBadge}>
+                                    Total de piezas usadas: {totalFilteredPiezas}
+                                </div>
+                            </div>
+
+                            <div className={styles.piezasTableContainer}>
+                                <table className={styles.responsiveTable}>
+                                    <thead>
+                                        <tr>
+                                            <th style={{ backgroundColor: '#f1f5f9', position: 'sticky', top: 0 }}>FECHA</th>
+                                            <th style={{ backgroundColor: '#f1f5f9', position: 'sticky', top: 0 }}>SUCURSAL</th>
+                                            <th style={{ backgroundColor: '#f1f5f9', position: 'sticky', top: 0 }}>EQUIPO</th>
+                                            <th style={{ backgroundColor: '#f1f5f9', position: 'sticky', top: 0 }}>CAUSA / PROBLEMA</th>
+                                            <th style={{ backgroundColor: '#f1f5f9', position: 'sticky', top: 0 }}>PIEZAS UTILIZADAS</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {finalRowsFiltradas.length === 0 ? (
+                                            <tr>
+                                                <td colSpan={5} style={{ padding: '40px', textAlign: 'center', color: '#64748b', fontStyle: 'italic' }}>
+                                                    No se encontraron consumos de piezas con los filtros seleccionados.
+                                                </td>
+                                            </tr>
+                                        ) : (
+                                            finalRowsFiltradas.map((fila, idx) => (
+                                                <tr key={idx} style={{ background: idx % 2 === 0 ? '#ffffff' : '#fafafa', borderBottom: '1px solid #f1f5f9' }}>
+                                                    <td style={{ color: '#64748b', fontWeight: 'bold' }}>{fila.fecha}</td>
+                                                    <td style={{ color: '#0f172a', fontWeight: 'bold' }}>{fila.sucursal}</td>
+                                                    <td style={{ color: '#6366f1', fontWeight: 'bold' }}>{fila.equipo}</td>
+                                                    <td>{fila.problema}</td>
+                                                    <td style={{ color: '#059669', fontWeight: 'bold' }}>
+                                                        <ul style={{ margin: 0, paddingLeft: '20px' }}>
+                                                            {fila.piezas.map((p: string, i: number) => {
+                                                                const isMatch = piezasFilterText.trim() && p.toLowerCase().includes(piezasFilterText.toLowerCase());
+                                                                return (
+                                                                    <li key={i} style={{ marginBottom: '4px', background: isMatch ? '#fef08a' : 'transparent', borderRadius: '4px', padding: isMatch ? '0 4px' : '0' }}>{p}</li>
+                                                                );
+                                                            })}
+                                                        </ul>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
         </div>
     );
 };
