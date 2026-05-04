@@ -118,11 +118,11 @@ const MenuLayout: React.FC = () => {
         if (user.role === 'admin') {
             baseOptions = ["Dashboard", "Negocios", "Trabajadores", "Usuarios", "Solicitudes", "Reportes Mantenimiento", "Trabajos Realizados"];
         } else if (user.role === 'cliente') {
-            baseOptions = ["Mis Negocios", "Cotizaciones", "Historial"];
+            baseOptions = ["Resumen", "Mis Negocios", "Cotizaciones", "Historial"];
         } else if (user.role === 'tecnico') {
             baseOptions = ["Mis Trabajos", "Nueva Solicitud", "Historial de Trabajo"];
         } else if (user.role === 'encargado') {
-            baseOptions = ["Mi Sucursal", "Cotizaciones", "Historial"];
+            baseOptions = ["Resumen", "Mi Sucursal", "Cotizaciones", "Historial"];
         }
 
         if (user.role === 'admin' && location.pathname.includes("/menu/trabajo/")) {
@@ -146,7 +146,9 @@ const MenuLayout: React.FC = () => {
                 else if (path.includes("trabajos-realizados")) setActiveOption("Trabajos Realizados");
                 else setActiveOption("Negocios");
             } else if (path.startsWith("/cliente")) {
-                if (path === "/cliente" || path === "/cliente/") setActiveOption("Mis Negocios");
+                if (path === "/cliente" || path === "/cliente/") setActiveOption("Resumen");
+                else if (path.includes("resumen")) setActiveOption("Resumen");
+                else if (path.includes("negocios") || path.includes("perfil-empresa")) setActiveOption("Mis Negocios");
                 else if (path.includes("cotizaciones")) setActiveOption("Cotizaciones");
                 else if (path.includes("historial")) setActiveOption("Historial");
             } else if (path.startsWith("/tecnico")) {
@@ -154,8 +156,9 @@ const MenuLayout: React.FC = () => {
                 else if (path.includes("solicitudes")) setActiveOption("Nueva Solicitud");
                 else if (path.includes("historial")) setActiveOption("Historial de Trabajo");
             } else if (path.startsWith("/encargado")) {
-                if (path === "/encargado" || path === "/encargado/") setActiveOption("Mi Sucursal");
-                else if (path.includes("sucursal")) setActiveOption("Mi Sucursal");
+                if (path === "/encargado" || path === "/encargado/") setActiveOption("Resumen");
+                else if (path.includes("resumen")) setActiveOption("Resumen");
+                else if (path.includes("negocios") || path.includes("sucursal")) setActiveOption("Mi Sucursal");
                 else if (path.includes("cotizaciones")) setActiveOption("Cotizaciones");
                 else if (path.includes("historial")) setActiveOption("Historial");
             }
@@ -174,8 +177,14 @@ const MenuLayout: React.FC = () => {
         if (option === "Reportes Mantenimiento") navigate("/menu/mantenimiento");
         if (option === "Trabajos Realizados") navigate("/menu/trabajos-realizados");
 
-        if (option === "Mis Negocios") navigate("/cliente");
-        if (option === "Mi Sucursal") navigate("/encargado");
+        if (option === "Resumen") {
+            if (user?.role === 'cliente') navigate("/cliente/resumen");
+            else if (user?.role === 'encargado') navigate("/encargado/resumen");
+        }
+        if (option === "Mis Negocios") navigate("/cliente/negocios");
+        if (option === "Mi Sucursal") {
+            if (user?.role === 'encargado') navigate("/encargado/negocios");
+        }
         
         if (option === "Cotizaciones") {
             if (user?.role === 'encargado') navigate("/encargado/cotizaciones");
@@ -191,8 +200,6 @@ const MenuLayout: React.FC = () => {
         if (option === "Mis Trabajos") navigate("/tecnico");
         if (option === "Nueva Solicitud") navigate("/tecnico/solicitudes");
         if (option === "Historial de Trabajo") navigate("/tecnico/historial");
-
-        if (option === "Mi Sucursal") navigate("/encargado");
 
         // Lógica para Admin dentro de una sucursal
         if (option === "Trabajos" && location.pathname.includes("/menu/trabajo/")) {

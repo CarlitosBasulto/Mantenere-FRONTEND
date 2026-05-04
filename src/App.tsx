@@ -33,7 +33,8 @@ import ListaUsuarios from "./pages/admin/ListaUsuarios";
 import ListaMantenimiento from "./pages/admin/ListaMantenimiento";
 import MantenimientoDetalle from "./pages/admin/MantenimientoDetalle";
 import EncargadoLayout from "./layouts/EncargadoLayout";
-import EncargadoHome from "./pages/encargado/EncargadoHome";
+import DashboardCliente from "./pages/cliente/DashboardCliente";
+import DashboardEncargado from "./pages/encargado/DashboardEncargado";
 
 function App() {
     return (
@@ -81,7 +82,9 @@ function App() {
                                 <ClienteLayout />
                             </ProtectedRoute>
                         }>
-                            <Route index element={<ListaNegocios />} />
+                            <Route index element={<DashboardCliente />} />
+                            <Route path="resumen" element={<DashboardCliente />} />
+                            <Route path="negocios" element={<ListaNegocios />} />
                             <Route path="perfil-empresa" element={<PerfilEmpresa />} />
                             <Route path="mi-perfil" element={<MiPerfil />} />
                             <Route path="cotizaciones" element={<Cotizaciones />} />
@@ -111,7 +114,9 @@ function App() {
                                 <EncargadoLayout />
                             </ProtectedRoute>
                         }>
-                            <Route index element={<ListaNegocios />} />
+                            <Route index element={<DashboardEncargado />} />
+                            <Route path="resumen" element={<DashboardEncargado />} />
+                            <Route path="negocios" element={<ListaNegocios />} />
                             <Route path="sucursal" element={<PerfilEmpresa />} />
                             <Route path="cotizaciones" element={<Cotizaciones />} />
                             <Route path="historial" element={<Historial />} />
