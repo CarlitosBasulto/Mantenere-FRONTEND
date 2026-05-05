@@ -202,6 +202,7 @@ const PerfilEmpresa: React.FC = () => {
             }
             const tempUrl = URL.createObjectURL(file);
             setFormData(prev => ({ ...prev, imagenPerfil: tempUrl, imagenPerfilFile: file }));
+            setImageError(false); // <--- REINICIAR EL ERROR PARA VER EL PREVIEW
         }
     };
 
