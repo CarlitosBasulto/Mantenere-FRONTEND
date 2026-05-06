@@ -27,9 +27,10 @@ interface LevantamientoModalProps {
     onSave: (newData: LevantamientoData) => void;
     isReadOnly?: boolean;
     onReportMaintenance?: (eq: Equipment) => void;
+    initialEquipmentId?: string | null;
 }
 
-const LevantamientoModal: React.FC<LevantamientoModalProps> = ({ isOpen, onClose, data, initialSectionId, onSave, isReadOnly = false, onReportMaintenance }) => {
+const LevantamientoModal: React.FC<LevantamientoModalProps> = ({ isOpen, onClose, data, initialSectionId, onSave, isReadOnly = false, onReportMaintenance, initialEquipmentId }) => {
     const { showConfirm } = useModal();
     const [sections, setSections] = useState<LevantamientoData>([]);
     const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
@@ -49,6 +50,22 @@ const LevantamientoModal: React.FC<LevantamientoModalProps> = ({ isOpen, onClose
     });
 
     const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+    // Efecto para inicializar la edición si viene desde afuera
+    useEffect(() => {
+        if (isOpen && initialEquipmentId && sections.length > 0 && !editingEquipment) {
+            // Buscar el equipo en todas las secciones
+            for (const section of sections) {
+                const eq = section.equipos.find(e => e.id === initialEquipmentId);
+                if (eq) {
+                    setActiveSectionId(section.id);
+                    setEditingEquipment(eq);
+                    setEquipmentForm({ ...eq });
+                    break;
+                }
+            }
+        }
+    }, [isOpen, initialEquipmentId, sections, editingEquipment]);
 
     const resetEquipmentForm = () => {
         setEquipmentForm({
@@ -122,9 +139,24 @@ const LevantamientoModal: React.FC<LevantamientoModalProps> = ({ isOpen, onClose
         }
     }, [isOpen, data, initialSectionId]);
 
+    const isInitialLoad = React.useRef(false);
+
+    useEffect(() => {
+        if (isOpen && initialEquipmentId) {
+            isInitialLoad.current = true;
+        } else {
+            isInitialLoad.current = false;
+        }
+    }, [isOpen, initialEquipmentId]);
+
     // Reset form when switching sections to prevent "data leakage"
     useEffect(() => {
-        resetEquipmentForm();
+        if (!isInitialLoad.current) {
+            resetEquipmentForm();
+        }
+        // Una vez que cambia la sección, el siguiente cambio SÍ debería resetear 
+        // a menos que sea otro trigger inicial (pero eso se maneja con el ref arriba)
+        isInitialLoad.current = false;
     }, [activeSectionId]);
 
     const startEditEquipment = (eq: Equipment) => {
@@ -283,20 +315,6 @@ const LevantamientoModal: React.FC<LevantamientoModalProps> = ({ isOpen, onClose
                                                             <strong>{eq.nombre}</strong>
                                                             <span>{eq.marca} • {eq.modelo}</span>
                                                         </div>
-                                                    </div>
-                                                    <div className={styles.eqActions}>
-                                                        <button onClick={() => setViewingEquipment(eq)} title="Ver Ficha Técncia"><HiOutlineEye size={18} color="#2563eb" /></button>
-                                                        {onReportMaintenance && (
-                                                            <button onClick={() => onReportMaintenance(eq)} title="Reportar Problema de Mantenimiento" style={{ backgroundColor: '#fffbeb', border: '1px solid #fef3c7', padding: '4px 8px', borderRadius: '4px' }}>
-                                                                <HiOutlineExclamationTriangle size={18} color="#f59e0b" />
-                                                            </button>
-                                                        )}
-                                                        {!isReadOnly && (
-                                                            <>
-                                                                <button onClick={() => startEditEquipment(eq)} title="Editar"><HiOutlinePencilSquare size={18} color="#64748b" /></button>
-                                                                <button onClick={() => deleteEquipment(eq.id!)} className={styles.btnDanger} title="Borrar"><HiOutlineTrash size={18} color="#ef4444" /></button>
-                                                            </>
-                                                        )}
                                                     </div>
                                                 </div>
                                             ))}

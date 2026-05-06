@@ -14,7 +14,10 @@ import {
     HiOutlineKey,
     HiOutlinePaperAirplane,
     HiOutlineEye,
-    HiOutlineEyeSlash
+    HiOutlineEyeSlash,
+    HiOutlineExclamationTriangle,
+    HiOutlinePencilSquare,
+    HiOutlineTrash
 } from "react-icons/hi2";
 
 import { createNegocio, updateNegocio, getNegocio, uploadImage } from "../../services/negociosService";
@@ -97,6 +100,7 @@ const PerfilEmpresa: React.FC = () => {
     const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
     const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null);
     const [reportingEquipment, setReportingEquipment] = useState<Equipment | null>(null);
+    const [activeEquipmentId, setActiveEquipmentId] = useState<string | null>(null);
     const [imageError, setImageError] = useState(false);
 
     const [searchParams] = useSearchParams();
@@ -324,6 +328,18 @@ const PerfilEmpresa: React.FC = () => {
             console.error("Error saving negocio:", error);
             showAlert("Error", "Hubo un error al guardar en el servidor. Prueba de nuevo.", "error");
         }
+    };
+
+    const handleDeleteEquipment = (eqId: string, sectionId: string) => {
+        setFormData(prev => {
+            const updatedLevantamiento = (prev.levantamiento || []).map(section => {
+                if (section.id === sectionId) {
+                    return { ...section, equipos: section.equipos.filter(e => e.id !== eqId) };
+                }
+                return section;
+            });
+            return { ...prev, levantamiento: updatedLevantamiento };
+        });
     };
 
     const handleReportarProblemaSubmit = async (descripcion: string) => {
@@ -723,12 +739,30 @@ const PerfilEmpresa: React.FC = () => {
                                                             <div
                                                                 key={item.id || idx}
                                                                 className={styles.equipoChip}
-                                                                onClick={() => {
-                                                                    setSelectedEquipment(item);
-                                                                    setSelectedSectionId(seccion.id);
-                                                                }}
                                                             >
-                                                                {item.nombre}
+                                                                <span 
+                                                                    className={styles.chipName}
+                                                                    onClick={() => {
+                                                                        setSelectedEquipment(item);
+                                                                        setSelectedSectionId(seccion.id);
+                                                                    }}
+                                                                >
+                                                                    {item.nombre}
+                                                                </span>
+                                                                <div className={styles.chipActions}>
+                                                                    <button onClick={() => { setSelectedEquipment(item); setSelectedSectionId(seccion.id); }} title="Ver Ficha"><HiOutlineEye size={16} color="#2563eb" /></button>
+                                                                    <button onClick={() => setReportingEquipment(item)} title="Reportar"><HiOutlineExclamationTriangle size={16} color="#f59e0b" /></button>
+                                                                    {canEdit && (
+                                                                        <>
+                                                                            <button onClick={() => { 
+                                                                                setActiveSectionId(seccion.id); 
+                                                                                setActiveEquipmentId(item.id!);
+                                                                                setIsLevantamientoModalOpen(true); 
+                                                                            }} title="Editar"><HiOutlinePencilSquare size={16} color="#64748b" /></button>
+                                                                            <button onClick={() => handleDeleteEquipment(item.id!, seccion.id)} title="Borrar" className={styles.deleteBtn}><HiOutlineTrash size={16} color="#ef4444" /></button>
+                                                                        </>
+                                                                    )}
+                                                                </div>
                                                             </div>
                                                         ))
                                                     )}
@@ -758,9 +792,13 @@ const PerfilEmpresa: React.FC = () => {
                 {/* MODALS (Functional logic preserved) */}
                 <LevantamientoModal
                     isOpen={isLevantamientoModalOpen}
-                    onClose={() => setIsLevantamientoModalOpen(false)}
+                    onClose={() => {
+                        setIsLevantamientoModalOpen(false);
+                        setActiveEquipmentId(null);
+                    }}
                     data={formData.levantamiento || []}
                     initialSectionId={activeSectionId}
+                    initialEquipmentId={activeEquipmentId}
                     onSave={(newData) => setFormData(prev => ({ ...prev, levantamiento: newData }))}
                     isReadOnly={!canEdit}
                     onReportMaintenance={(eq) => setReportingEquipment(eq)}
