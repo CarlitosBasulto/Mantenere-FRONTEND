@@ -6,8 +6,7 @@ import menuStyles from "../../components/Menu.module.css";
 import { useAuth } from "../../context/AuthContext";
 import { useModal } from "../../context/ModalContext";
 import { deleteTrabajo } from "../../services/trabajosService";
-import { HiOutlinePencil, HiOutlineTrash } from "react-icons/hi2";
-import { HiDotsVertical } from "react-icons/hi";
+import { HiOutlineTrash, HiOutlineUserPlus } from "react-icons/hi2";
 
 interface Trabajo {
     id: number;
@@ -37,7 +36,6 @@ const ListaSolicitudes: React.FC = () => {
 
     // DATA LOADING
     const [solicitudes, setSolicitudes] = useState<Trabajo[]>([]);
-    const [activeMenuId, setActiveMenuId] = useState<number | null>(null);
 
     useEffect(() => {
         const fetchSolicitudes = async () => {
@@ -220,12 +218,11 @@ const ListaSolicitudes: React.FC = () => {
                     </div>
                 </div>
 
-                <div className={styles.jobsSection} onClick={() => setActiveMenuId(null)}>
+                <div className={styles.jobsSection}>
                     {filteredRequests.map((req) => (
                         <div
                             key={req.id}
                             className={styles.jobCard}
-                            style={activeMenuId === req.id ? { zIndex: 100 } : {}}
                             onClick={() => navigate(user?.role === 'tecnico' ? `/tecnico/trabajo-detalle/${req.id}` : `/menu/trabajo-detalle/${req.id}`)}
                         >
                             {/* BARRA DE ESTADO SUPERIOR */}
@@ -240,49 +237,15 @@ const ListaSolicitudes: React.FC = () => {
                             {/* BANNER DE DIAGNÓSTICO (Opcional) */}
 
 
+
                             <div className={styles.cardContent}>
-                                {/* FILA SUPERIOR: FECHA Y MENU */}
+                                {/* FILA SUPERIOR: FECHA */}
                                 <div className={styles.headerRow}>
                                     <div className={styles.dateGroup}>
                                         <p className={styles.strikingDate}>
                                             📅 {req.fechaAsignada || req.fecha}
                                         </p>
                                     </div>
-
-                                    {/* MENU DE TRES PUNTOS - Solo Admin */}
-                                    {user?.role === 'admin' && (
-                                        <div className={styles.menuContainer} onClick={(e) => e.stopPropagation()}>
-                                            <button 
-                                                className={styles.dotsBtn}
-                                                onClick={() => setActiveMenuId(activeMenuId === req.id ? null : req.id)}
-                                            >
-                                                <HiDotsVertical />
-                                            </button>
-
-                                            {activeMenuId === req.id && (
-                                                <div className={styles.dropdownMenu}>
-                                                    <button 
-                                                        className={styles.menuItem}
-                                                        onClick={() => navigate(`/menu/editar-servicio/${req.id}`)}
-                                                    >
-                                                        <HiOutlinePencil /> Editar
-                                                    </button>
-                                                    <button 
-                                                        className={styles.menuItem}
-                                                        onClick={() => navigate(`/menu/trabajo-detalle/${req.id}`)}
-                                                    >
-                                                        <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>📋 Asignar</span>
-                                                    </button>
-                                                    <button 
-                                                        className={`${styles.menuItem} ${styles.deleteItem}`}
-                                                        onClick={() => handleDeleteRequest(req.id)}
-                                                    >
-                                                        <HiOutlineTrash /> Borrar
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
                                 </div>
 
                                 {/* INFO PRINCIPAL */}
@@ -314,15 +277,35 @@ const ListaSolicitudes: React.FC = () => {
                                     <span className={styles.tecnicoInfo}>
                                         {req.tecnico !== "Sin asignar" ? `Técnico: ${req.tecnico}` : `Dueño: ${req.sucursal || "No registrado"}`}
                                     </span>
-                                    {/* Hide type label if not assigned (Admin sees it as 'Trabajo' or similar) */}
-                                    {req.tecnico && 
-                                     !req.tecnico.toLowerCase().includes("sin asignar") && 
-                                     !req.tecnico.toLowerCase().includes("pendiente") && 
-                                     req.tecnico !== "" && (
-                                        <span className={styles.tipoBadge}>
-                                            {req.estado === 'Finalizado' && req.tipo === 'SOS' ? 'Finalizado' : req.tipo}
-                                        </span>
-                                    )}
+                                    <div className={styles.footerActions}>
+                                        {req.tecnico && 
+                                         !req.tecnico.toLowerCase().includes("sin asignar") && 
+                                         !req.tecnico.toLowerCase().includes("pendiente") && 
+                                         req.tecnico !== "" && (
+                                            <span className={styles.tipoBadge}>
+                                                {req.estado === 'Finalizado' && req.tipo === 'SOS' ? 'Finalizado' : req.tipo}
+                                            </span>
+                                        )}
+                                        {user?.role === 'admin' && (
+                                            <div className={styles.actionBtns} onClick={(e) => e.stopPropagation()}>
+                                                <button
+                                                    className={styles.assignBtn}
+                                                    onClick={(e) => { e.stopPropagation(); navigate(`/menu/trabajo-detalle/${req.id}`); }}
+                                                    title="Asignar Técnico"
+                                                >
+                                                    <HiOutlineUserPlus size={15} />
+                                                    Asignar Técnico
+                                                </button>
+                                                <button
+                                                    className={styles.trashBtn}
+                                                    onClick={(e) => { e.stopPropagation(); handleDeleteRequest(req.id); }}
+                                                    title="Eliminar"
+                                                >
+                                                    <HiOutlineTrash size={15} />
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         </div>

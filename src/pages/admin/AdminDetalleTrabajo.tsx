@@ -105,6 +105,7 @@ interface SubTarea {
 interface Tecnico {
     id: number;
     nombre: string;
+    user_id?: number;
 }
 
 const getAvatarForTech = (nombre: string) => {
@@ -221,7 +222,8 @@ const AdminDetalleTrabajo: React.FC = () => {
                 const techList = data.filter((t: any) => t.estado?.toLowerCase() === 'activo' || t.estado === 'Activo');
                 setTecnicosData(techList.map((t: any) => ({
                     id: t.id,
-                    nombre: t.nombre
+                    nombre: t.nombre,
+                    user_id: t.user_id ?? t.userId ?? null
                 })));
             } catch (error) {
                 console.error("Error al obtener técnicos:", error);
@@ -411,6 +413,19 @@ const AdminDetalleTrabajo: React.FC = () => {
     const [selectedTechnicians, setSelectedTechnicians] = useState<number[]>([]);
     const [technicianSearch, setTechnicianSearch] = useState("");
     const [selectedType, setSelectedType] = useState<"Visita" | "Trabajo">("Visita");
+
+    // Detectar SOS por tipo O por título (compat con solicitudes creadas antes del fix)
+    const isSOS = trabajo?.tipo === "SOS" || trabajo?.titulo?.includes("SOS");
+
+    // Auto-seleccionar "Trabajo" si es SOS al abrir el modal
+    const handleOpenAssignModal = () => {
+        if (isSOS) {
+            setSelectedType("Trabajo");
+        } else {
+            setSelectedType("Visita");
+        }
+        setIsModalOpen(true);
+    };
     const [selectedHistoryTask, setSelectedHistoryTask] = useState<SubTarea | null>(null);
     const [asignarFecha, setAsignarFecha] = useState("");
     const [asignarHora, setAsignarHora] = useState("");
@@ -506,23 +521,44 @@ const AdminDetalleTrabajo: React.FC = () => {
                     };
                     setTrabajo(updatedJob);
 
-                    // Notificaciones al técnico
-                    selectedTechnicians.forEach(id => {
+                    // Notificaciones al técnico (backend + localStorage fallback)
+                    const esSOS = trabajo.tipo === "SOS" || trabajo.titulo?.includes("SOS");
+                    const notifTitulo = esSOS ? '🚨 Trabajo de Emergencia SOS' : 'Nuevo Trabajo Asignado';
+                    const notifMensaje = esSOS
+                        ? `⚠️ EMERGENCIA: Se te ha asignado un trabajo urgente en ${trabajo.sucursal}. Atender de inmediato: "${trabajo.titulo}".`
+                        : `Te han asignado un nuevo trabajo: ${trabajo.titulo} en ${trabajo.sucursal}.`;
+
+                    for (const id of selectedTechnicians) {
                         const tech = tecnicosData.find(t => t.id === id);
-                        if (tech) {
-                            const techKey = `tecnico_notifications_${tech.nombre}`;
-                            const techNotifs = JSON.parse(localStorage.getItem(techKey) || '[]');
-                            techNotifs.unshift({
-                                id: Date.now() + Math.random(),
-                                titulo: 'Nuevo Trabajo Asignado',
-                                mensaje: `Te han asignado un nuevo trabajo: ${trabajo.titulo} en ${trabajo.sucursal}.`,
-                                fecha: new Date().toLocaleDateString('es-MX', { hour: '2-digit', minute: '2-digit' }),
-                                leida: false,
-                                jobId: trabajo.id
-                            });
-                            localStorage.setItem(techKey, JSON.stringify(techNotifs));
+                        if (!tech) continue;
+
+                        // 1. Notificación backend (la que aparece en el panel del técnico)
+                        if (tech.user_id) {
+                            try {
+                                await createNotificacion({
+                                    user_id: tech.user_id,
+                                    titulo: notifTitulo,
+                                    mensaje: notifMensaje,
+                                    enlace: `/tecnico/trabajo-detalle/${trabajo.id}`
+                                });
+                            } catch (notiErr) {
+                                console.error("Error enviando notificación al técnico:", notiErr);
+                            }
                         }
-                    });
+
+                        // 2. localStorage como fallback visual inmediato
+                        const techKey = `tecnico_notifications_${tech.nombre}`;
+                        const techNotifs = JSON.parse(localStorage.getItem(techKey) || '[]');
+                        techNotifs.unshift({
+                            id: Date.now() + Math.random(),
+                            titulo: notifTitulo,
+                            mensaje: notifMensaje,
+                            fecha: new Date().toLocaleDateString('es-MX', { hour: '2-digit', minute: '2-digit' }),
+                            leida: false,
+                            jobId: trabajo.id
+                        });
+                        localStorage.setItem(techKey, JSON.stringify(techNotifs));
+                    }
                     window.dispatchEvent(new Event('storage'));
                     showAlert(
                         'Técnico Asignado',
@@ -822,8 +858,8 @@ const AdminDetalleTrabajo: React.FC = () => {
     };
 
     const handleEnviarCotizacion = async (keepOpen: boolean = false) => {
-        if (!costo || !archivoFile || !trabajo) {
-            showAlert('Campos Incompletos', 'Por favor, ingresa el costo y sube un documento.', 'info');
+        if (!costo || !trabajo) {
+            showAlert('Campos Incompletos', 'Por favor, ingresa el monto de la cotización.', 'info');
             return;
         }
         try {
@@ -836,7 +872,9 @@ const AdminDetalleTrabajo: React.FC = () => {
             formData.append('monto', costo);
             formData.append('descripcion', notas);
             formData.append('estado', "Pendiente");
-            formData.append('archivo', archivoFile);
+            if (archivoFile) {
+                formData.append('archivo', archivoFile);
+            }
             const savedCotiz = await saveCotizacion(formData as any);
             setCotizaciones(prev => [...prev, savedCotiz]);
 
@@ -1063,6 +1101,32 @@ const AdminDetalleTrabajo: React.FC = () => {
                     <p className={styles.taskDesc} style={{ color: '#475569', fontSize: '15px', marginBottom: '15px', fontWeight: 'normal' }}>
                         {tarea.descripcion}
                     </p>
+
+                    {/* BOTÓN DE ACCIÓN PARA TÉCNICO */}
+                    {isInteractive && tarea.estado !== 'Completa' && (
+                        <div style={{ marginTop: '10px' }}>
+                            <button
+                                style={{
+                                    width: '100%',
+                                    padding: '12px',
+                                    background: 'linear-gradient(135deg, #1e293b, #334155)',
+                                    color: '#fff',
+                                    border: 'none',
+                                    borderRadius: '12px',
+                                    fontSize: '14px',
+                                    fontWeight: '700',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '8px',
+                                    boxShadow: '0 4px 12px rgba(30,41,59,0.15)'
+                                }}
+                            >
+                                📋 Realizar Reporte del Trabajo
+                            </button>
+                        </div>
+                    )}
 
                     {tarea.serviceData && (
                         <div style={{
@@ -1408,31 +1472,115 @@ const AdminDetalleTrabajo: React.FC = () => {
                                     </div>
                                     <h3 className={styles.cardTitle}>Estado</h3>
                                 </div>
-                                <div className={styles.bentoContent} style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100%', gap: '5px' }}>
+                                <div className={styles.bentoContent} style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100%', gap: '12px' }}>
                                     <span className={styles.bentoValue} style={{ color: '#d97706', fontSize: '16px', textAlign: 'center' }}>
                                         {trabajo.estado}
                                     </span>
                                     <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '600' }}>
                                         Actividad: {trabajo.fecha}
                                     </span>
+
+                                    {/* BOTÓN ACCIÓN — lógica diferente para SOS vs Normal */}
+                                    {user?.role === 'admin' && trabajo.estado !== 'Finalizado' && trabajo.estado !== 'Asignado' && trabajo.estado !== 'En Proceso' && (
+                                        isSOS ? (
+                                            // FLUJO SOS:
+                                            // - Si está en Solicitud: primero debe crear cotización
+                                            // - Si cotización fue aceptada: asignar técnico directo a Trabajo
+                                            trabajo.estado === 'Solicitud' || trabajo.estado === 'Cotización Enviada' ? (
+                                                <button
+                                                    onClick={() => setActiveTab('Cotización')}
+                                                    style={{
+                                                        marginTop: '8px',
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '8px',
+                                                        background: 'linear-gradient(135deg, #d97706 0%, #f59e0b 100%)',
+                                                        color: 'white',
+                                                        border: 'none',
+                                                        padding: '10px 20px',
+                                                        borderRadius: '25px',
+                                                        fontSize: '13px',
+                                                        fontWeight: '700',
+                                                        cursor: 'pointer',
+                                                        transition: 'all 0.2s ease',
+                                                        boxShadow: '0 4px 12px rgba(217, 119, 6, 0.35)',
+                                                        whiteSpace: 'nowrap',
+                                                        width: '100%',
+                                                        justifyContent: 'center'
+                                                    }}
+                                                    onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-1px)')}
+                                                    onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}
+                                                >
+                                                    {trabajo.estado === 'Cotización Enviada' ? '📄 Ver Cotización' : '💰 Crear Cotización (SOS)'}
+                                                </button>
+                                            ) : (trabajo.estado === 'Cotización Aceptada' || trabajo.estado === 'Cotización Aprobada') ? (
+                                                <button
+                                                    onClick={handleOpenAssignModal}
+                                                    style={{
+                                                        marginTop: '8px',
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '8px',
+                                                        background: 'linear-gradient(135deg, #dc2626 0%, #ef4444 100%)',
+                                                        color: 'white',
+                                                        border: 'none',
+                                                        padding: '10px 20px',
+                                                        borderRadius: '25px',
+                                                        fontSize: '13px',
+                                                        fontWeight: '700',
+                                                        cursor: 'pointer',
+                                                        transition: 'all 0.2s ease',
+                                                        boxShadow: '0 4px 12px rgba(220, 38, 38, 0.35)',
+                                                        whiteSpace: 'nowrap',
+                                                        width: '100%',
+                                                        justifyContent: 'center'
+                                                    }}
+                                                    onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-1px)')}
+                                                    onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}
+                                                >
+                                                    🚨 Asignar Técnico (Emergencia)
+                                                </button>
+                                            ) : null
+                                        ) : (
+                                            // FLUJO NORMAL: botón asignar siempre visible
+                                            <button
+                                                onClick={handleOpenAssignModal}
+                                                style={{
+                                                    marginTop: '8px',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: '8px',
+                                                    background: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)',
+                                                    color: 'white',
+                                                    border: 'none',
+                                                    padding: '10px 20px',
+                                                    borderRadius: '25px',
+                                                    fontSize: '13px',
+                                                    fontWeight: '700',
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.2s ease',
+                                                    boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)',
+                                                    whiteSpace: 'nowrap',
+                                                    width: '100%',
+                                                    justifyContent: 'center'
+                                                }}
+                                                onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-1px)')}
+                                                onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}
+                                            >
+                                                👤 Asignar Técnico
+                                            </button>
+                                        )
+                                    )}
                                 </div>
                             </div>
 
                             {/* CONTACTS AND LOCATION CARDS WERE MOVED TO MODAL */}
-                            {/* Card 5: Acciones (12/12) */}
+                            {/* Card 5: Acciones adicionales (12/12) — Cotización */}
                             {user?.role === 'admin' && (
                                 <div className={`${styles.colSpan12}`} style={{ marginTop: '5px' }}>
                                     <div style={{ display: 'flex', gap: '10px' }}>
-                                        {(trabajo.estado === "Solicitud" && !trabajo.visitado && trabajo.tecnico === "Sin asignar") && (
-                                            <button
-                                                onClick={() => { setSelectedType("Visita"); setIsModalOpen(true); }}
-                                                className={`${styles.actionButton} ${styles.assignButton}`}
-                                                style={{ flex: 1, padding: '12px', borderRadius: '12px', fontSize: '14px' }}
-                                            >
-                                                👤 Asignar para Visita
-                                            </button>
-                                        )}
-                                        {(trabajo.estado === "Solicitud" && trabajo.visitado || trabajo.estado === "En Espera") && (
+                                        {/* Para solicitudes NORMALES: mostrar "Crear Cotización" tras la visita */}
+                                        {!isSOS && (trabajo.estado === "Solicitud" && trabajo.visitado || trabajo.estado === "En Espera") && (
                                             <button
                                                 onClick={() => setActiveTab('Cotización')}
                                                 className={styles.actionButton}
@@ -1780,9 +1928,45 @@ const AdminDetalleTrabajo: React.FC = () => {
                     {
                         activeTab === 'Trabajo' && (
                             <div>
-                                {/* LISTA DE TAREAS / SUBTAREAS — Solo para trabajos que NO son de tipo Visita */}
-                                {/* Las Visitas gestionan sus actividades desde la pestaña Registro */}
-                                {trabajo.tipo !== 'Visita' && (
+                                {/* Para SOS: misma experiencia que Trabajo normal pero con tarea sintética del problema reportado */}
+                                {trabajo.tipo !== 'Visita' && isSOS && (
+                                    <div>
+                                        {/* Si no hay subtareas: mostrar el problema como tarea clickeable (igual que flujo normal de Trabajo) */}
+                                        {subTareas.length === 0 && trabajo.estado !== 'Finalizado' && (() => {
+                                            // Crear SubTarea sintética a partir del problema reportado
+                                            const tareaVirtual: SubTarea = {
+                                                id: trabajo.id * -1, // ID negativo para distinguirla
+                                                titulo: trabajo.titulo || 'Emergencia SOS',
+                                                descripcion: trabajo.descripcion || 'Sin descripción',
+                                                estado: 'Nueva',
+                                                esCotizacion: false
+                                            };
+                                            return renderTaskCard(tareaVirtual, true);
+                                        })()}
+
+                                        {/* Actividades ya registradas */}
+                                        {subTareas.length > 0 && (
+                                            <div className={styles.taskList}>
+                                                {subTareas.map(tarea => renderTaskCard(tarea, true))}
+                                            </div>
+                                        )}
+
+                                        {/* Botón finalizar cuando ya hay reporte */}
+                                        {(user?.role === 'tecnico' || user?.role === 'admin') && subTareas.length > 0 && trabajo.estado !== 'Finalizado' && (
+                                            <div style={{ marginTop: '30px', textAlign: 'center' }}>
+                                                <button
+                                                    onClick={handleFinishVisit}
+                                                    style={{ background: '#333', color: 'white', border: 'none', padding: '15px 40px', borderRadius: '30px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', width: '100%', maxWidth: '400px' }}
+                                                >
+                                                    ✅ Confirmar y Finalizar Trabajo
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Para trabajo normal (no SOS, no Visita): solo muestra la lista existente */}
+                                {trabajo.tipo !== 'Visita' && !isSOS && (
                                     <div className={styles.taskList}>
                                         {subTareas.map(tarea => renderTaskCard(tarea, true))}
                                     </div>
@@ -1830,39 +2014,53 @@ const AdminDetalleTrabajo: React.FC = () => {
                             <div>
                                 <h3 className={styles.sectionTitle}>Historial de Trabajos Realizados</h3>
                                 <div className={styles.taskList}>
-                                    {subTareas.filter(t => trabajo.estado === 'Finalizado' || t.estado === 'Completa' || ((user?.role === 'admin' || user?.role === 'tecnico') && !!localStorage.getItem(`report_data_temporal_${t.id}`))).length > 0 ? (
-                                        subTareas.filter(t => trabajo.estado === 'Finalizado' || t.estado === 'Completa' || ((user?.role === 'admin' || user?.role === 'tecnico') && !!localStorage.getItem(`report_data_temporal_${t.id}`))).map(tarea => {
-                                            const isPreReport = tarea.estado !== 'Completa' && !!localStorage.getItem(`report_data_temporal_${tarea.id}`);
-                                            return (
-                                                <div
-                                                    key={tarea.id}
-                                                    className={historialStyles.card}
-                                                    onClick={() => setSelectedHistoryTask(tarea)}
-                                                    style={{ cursor: 'pointer', marginBottom: '15px' }}
-                                                >
-                                                    <div className={`${historialStyles.cardIndicator} ${historialStyles.borderSuccess}`} style={{ background: isPreReport ? '#ff9800' : undefined }}></div>
-                                                    <div className={historialStyles.cardContent}>
-                                                        <div className={historialStyles.cardIcon} style={{ background: isPreReport ? '#fff3e0' : undefined }}>
-                                                            <span className={historialStyles.iconHistory} style={{ color: isPreReport ? '#e65100' : undefined }}>📋</span>
-                                                        </div>
-                                                        <div className={historialStyles.cardInfo}>
-                                                            <div className={historialStyles.cardHeader}>
-                                                                <div>
-                                                                    <h3 className={historialStyles.concepto} style={{ marginTop: '0' }}>{tarea.titulo}</h3>
-                                                                </div>
-                                                                <div className={`${historialStyles.statusBadge} ${historialStyles.badgeSuccess}`} style={{ background: isPreReport ? '#fff3e0' : undefined, color: isPreReport ? '#e65100' : undefined }}>
-                                                                    <span className={historialStyles.statusIcon}>{isPreReport ? '⚠️' : '✓'}</span> {isPreReport ? 'Pre-Reporte' : 'Completado'}
-                                                                </div>
+                                    {(() => {
+                                        const tasksToShow = [...subTareas.filter(t => trabajo.estado === 'Finalizado' || t.estado === 'Completa' || ((user?.role === 'admin' || user?.role === 'tecnico') && !!localStorage.getItem(`report_data_temporal_${t.id}`)))];
+                                        
+                                        // Para SOS Finalizado sin subtareas, agregar la tarea virtual al historial
+                                        if (isSOS && trabajo.estado === 'Finalizado' && subTareas.length === 0) {
+                                            tasksToShow.push({
+                                                id: trabajo.id * -1,
+                                                titulo: trabajo.titulo || 'Emergencia SOS',
+                                                descripcion: trabajo.descripcion || 'Servicio de emergencia finalizado',
+                                                estado: 'Completa',
+                                                esCotizacion: false
+                                            });
+                                        }
+
+                                        if (tasksToShow.length > 0) {
+                                            return tasksToShow.map(tarea => {
+                                                const isPreReport = tarea.estado !== 'Completa' && !!localStorage.getItem(`report_data_temporal_${tarea.id}`);
+                                                return (
+                                                    <div
+                                                        key={tarea.id}
+                                                        className={historialStyles.card}
+                                                        onClick={() => setSelectedHistoryTask(tarea)}
+                                                        style={{ cursor: 'pointer', marginBottom: '15px' }}
+                                                    >
+                                                        <div className={`${historialStyles.cardIndicator} ${historialStyles.borderSuccess}`} style={{ background: isPreReport ? '#ff9800' : undefined }}></div>
+                                                        <div className={historialStyles.cardContent}>
+                                                            <div className={historialStyles.cardIcon} style={{ background: isPreReport ? '#fff3e0' : undefined }}>
+                                                                <span className={historialStyles.iconHistory} style={{ color: isPreReport ? '#e65100' : undefined }}>📋</span>
                                                             </div>
-                                                            <p className={historialStyles.descripcion}>{tarea.descripcion}</p>
+                                                            <div className={historialStyles.cardInfo}>
+                                                                <div className={historialStyles.cardHeader}>
+                                                                    <div>
+                                                                        <h3 className={historialStyles.concepto} style={{ marginTop: '0' }}>{tarea.titulo}</h3>
+                                                                    </div>
+                                                                    <div className={`${historialStyles.statusBadge} ${historialStyles.badgeSuccess}`} style={{ background: isPreReport ? '#fff3e0' : undefined, color: isPreReport ? '#e65100' : undefined }}>
+                                                                        <span className={historialStyles.statusIcon}>{isPreReport ? '⚠️' : '✓'}</span> {isPreReport ? 'Pre-Reporte' : 'Completado'}
+                                                                    </div>
+                                                                </div>
+                                                                <p className={historialStyles.descripcion}>{tarea.descripcion}</p>
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                </div>
-                                            )
-                                        })
-                                    ) : (
-                                        <p style={{ textAlign: 'center', color: '#999', marginTop: '20px' }}>No hay trabajos en el historial.</p>
-                                    )}
+                                                );
+                                            });
+                                        }
+                                        return <p style={{ textAlign: 'center', color: '#999', marginTop: '20px' }}>No hay trabajos en el historial.</p>
+                                    })()}
                                 </div>
                             </div>
                         )}
@@ -1880,16 +2078,36 @@ const AdminDetalleTrabajo: React.FC = () => {
                                 </p>
                             )}
 
-                            <div style={{ marginBottom: '20px', display: 'flex', gap: '20px', justifyContent: 'center' }}>
-                                <label className={styles.radioLabel}>
-                                    <input type="radio" name="type" checked={selectedType === "Visita"} onChange={() => setSelectedType("Visita")} />
-                                    <span>Visita</span>
-                                </label>
-                                <label className={styles.radioLabel}>
-                                    <input type="radio" name="type" checked={selectedType === "Trabajo"} onChange={() => setSelectedType("Trabajo")} />
-                                    <span>Trabajo</span>
-                                </label>
-                            </div>
+                            {/* BANNER SOS o selector de tipo según corresponda */}
+                            {isSOS ? (
+                                <div style={{
+                                    background: 'linear-gradient(135deg, #fef2f2, #fee2e2)',
+                                    border: '2px solid #fca5a5',
+                                    borderRadius: '14px',
+                                    padding: '14px 18px',
+                                    marginBottom: '20px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '12px'
+                                }}>
+                                    <span style={{ fontSize: '28px' }}>🚨</span>
+                                    <div>
+                                        <p style={{ margin: 0, fontWeight: '800', color: '#dc2626', fontSize: '15px' }}>Emergencia SOS</p>
+                                        <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#991b1b' }}>Se asignará directamente como <strong>Trabajo</strong> sin pasar por visita.</p>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div style={{ marginBottom: '20px', display: 'flex', gap: '20px', justifyContent: 'center' }}>
+                                    <label className={styles.radioLabel}>
+                                        <input type="radio" name="type" checked={selectedType === "Visita"} onChange={() => setSelectedType("Visita")} />
+                                        <span>Visita</span>
+                                    </label>
+                                    <label className={styles.radioLabel}>
+                                        <input type="radio" name="type" checked={selectedType === "Trabajo"} onChange={() => setSelectedType("Trabajo")} />
+                                        <span>Trabajo</span>
+                                    </label>
+                                </div>
+                            )}
 
                             <div className={styles.searchCard} style={{ marginTop: '0', marginBottom: '20px', padding: '0' }}>
                                 <input
