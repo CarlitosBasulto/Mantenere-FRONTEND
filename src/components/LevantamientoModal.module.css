@@ -14,10 +14,10 @@
 
 .modalContent {
     background: white;
-    width: 95%;
-    max-width: 1200px;
-    height: 92vh;
-    max-height: 95vh;
+    width: 98%;
+    max-width: 1350px;
+    height: 95vh;
+    max-height: 98vh;
     border-radius: 32px;
     position: relative;
     overflow: hidden;
@@ -89,7 +89,7 @@
 
 /* SIDEBAR */
 .sidebar {
-    width: 280px;
+    width: 320px;
     background: #f8fafc;
     border-right: 1px solid #f1f5f9;
     display: flex;
@@ -334,7 +334,7 @@
 
 .eqFormGrid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    grid-template-columns: repeat(3, 1fr);
     gap: 16px;
     margin-bottom: 20px;
 }
@@ -416,7 +416,7 @@
 .photoPreview {
     position: relative;
     width: 100%;
-    height: 120px;
+    height: 200px;
     border-radius: 8px;
     overflow: hidden;
     border: 1px solid #e2e8f0;

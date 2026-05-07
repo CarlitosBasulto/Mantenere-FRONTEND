@@ -58,14 +58,14 @@
     overflow: hidden;
     width: 768px;
     max-width: 100%;
-    min-height: 480px;
+    min-height: 650px;
     transition: all 0.3s ease;
 }
 
 @media (max-width: 768px) {
     .container {
         width: 90%;
-        min-height: 520px;
+        min-height: 700px;
         margin: 100px 0 20px;
     }
 }
@@ -73,7 +73,7 @@
 @media (max-width: 480px) {
     .container {
         width: 95%;
-        min-height: 550px;
+        min-height: 750px;
     }
 }
 
@@ -219,7 +219,7 @@
     background-color: #eee;
     border: 2px solid #e9ab22;
     padding: 12px 15px;
-    margin: 8px 0;
+    margin: 4px 0;
     width: 100%;
     border-radius: 20px;
     color: #333;
@@ -228,7 +228,7 @@
 .passwordContainer {
     position: relative;
     width: 100%;
-    margin: 8px 0;
+    margin: 4px 0;
 }
 
 /* Modal de Bienvenida CSS */
@@ -402,4 +402,118 @@
     font-weight: bold;
     text-transform: uppercase;
     font-size: 12px;
+}
+
+.legalContainer {
+    width: 100%;
+    margin-top: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    text-align: left;
+}
+
+.checkboxGroup {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 11px;
+    color: #64748b;
+    line-height: 1.4;
+}
+
+.checkboxGroup input {
+    width: auto;
+    margin-top: 2px;
+}
+
+.checkboxGroup span {
+    color: #0284c7;
+    text-decoration: underline;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.captchaContainer {
+    margin-top: 15px;
+    transform: scale(0.85);
+    transform-origin: center;
+}
+
+@media (max-width: 480px) {
+    .captchaContainer {
+        transform: scale(0.7);
+    }
+}
+
+/* Legal Modal Specifics */
+.legalModalContent {
+    background: white;
+    width: 90%;
+    max-width: 600px;
+    max-height: 85vh;
+    border-radius: 20px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+    animation: fadeInScale 0.3s ease-out;
+}
+
+.legalModalHeader {
+    padding: 20px 25px;
+    border-bottom: 1px solid #f1f5f9;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.legalModalHeader h2 {
+    margin: 0;
+    font-size: 18px;
+    color: #1e293b;
+}
+
+.closeBtn {
+    background: #f1f5f9;
+    border: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #64748b;
+    transition: all 0.2s;
+}
+
+.closeBtn:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+
+.legalModalBody {
+    padding: 25px;
+    overflow-y: auto;
+    background: #f8fafc;
+}
+
+.legalText {
+    margin: 0;
+    font-family: inherit;
+    font-size: 13px;
+    color: #475569;
+    white-space: pre-wrap;
+    line-height: 1.6;
+}
+
+.legalModalFooter {
+    padding: 15px 25px;
+    border-top: 1px solid #f1f5f9;
+    text-align: right;
+}
+
+.legalModalFooter .button {
+    margin: 0;
+    padding: 10px 30px;
 }

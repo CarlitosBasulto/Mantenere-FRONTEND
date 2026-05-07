@@ -46,22 +46,27 @@ const LevantamientoModal: React.FC<LevantamientoModalProps> = ({ isOpen, onClose
         serie: '',
         anioFabricacion: '',
         anioUso: '',
-        foto: ''
+        foto: '',
+        fotoPlaca: ''
     });
 
     const fileInputRef = React.useRef<HTMLInputElement>(null);
+    const fileInputPlacaRef = React.useRef<HTMLInputElement>(null);
 
     // Efecto para inicializar la edición si viene desde afuera
     useEffect(() => {
-        if (isOpen && initialEquipmentId && sections.length > 0 && !editingEquipment) {
-            // Buscar el equipo en todas las secciones
-            for (const section of sections) {
-                const eq = section.equipos.find(e => e.id === initialEquipmentId);
-                if (eq) {
-                    setActiveSectionId(section.id);
-                    setEditingEquipment(eq);
-                    setEquipmentForm({ ...eq });
-                    break;
+        if (isOpen && initialEquipmentId && sections.length > 0) {
+            // Solo inicializar si no estamos ya editando este equipo específico
+            if (!editingEquipment || editingEquipment.id !== initialEquipmentId) {
+                // Buscar el equipo en todas las secciones
+                for (const section of sections) {
+                    const eq = section.equipos.find(e => e.id === initialEquipmentId);
+                    if (eq) {
+                        setActiveSectionId(section.id);
+                        setEditingEquipment(eq);
+                        setEquipmentForm({ ...eq });
+                        break;
+                    }
                 }
             }
         }
@@ -75,7 +80,8 @@ const LevantamientoModal: React.FC<LevantamientoModalProps> = ({ isOpen, onClose
             serie: '',
             anioFabricacion: '',
             anioUso: '',
-            foto: ''
+            foto: '',
+            fotoPlaca: ''
         });
         setEditingEquipment(null);
     };
@@ -167,12 +173,22 @@ const LevantamientoModal: React.FC<LevantamientoModalProps> = ({ isOpen, onClose
     const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            // Revocar URL anterior de la vista previa si era un blob temporal
             if (equipmentForm.foto && equipmentForm.foto.startsWith('blob:')) {
                 URL.revokeObjectURL(equipmentForm.foto);
             }
             const tempUrl = URL.createObjectURL(file);
             setEquipmentForm((prev: Equipment) => ({ ...prev, foto: tempUrl, fotoFile: file }));
+        }
+    };
+
+    const handlePlacaPhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            if (equipmentForm.fotoPlaca && equipmentForm.fotoPlaca.startsWith('blob:')) {
+                URL.revokeObjectURL(equipmentForm.fotoPlaca);
+            }
+            const tempUrl = URL.createObjectURL(file);
+            setEquipmentForm((prev: Equipment) => ({ ...prev, fotoPlaca: tempUrl, fotoPlacaFile: file }));
         }
     };
 
@@ -376,27 +392,56 @@ const LevantamientoModal: React.FC<LevantamientoModalProps> = ({ isOpen, onClose
                                             />
                                         </div>
                                         <div className={styles.inputGroup} style={{ gridColumn: 'span 3' }}>
-                                            <label>Foto / Evidencia</label>
-                                            <div className={styles.photoUploadWrapper}>
-                                                <input 
-                                                    type="file" 
-                                                    accept="image/*" 
-                                                    ref={fileInputRef} 
-                                                    style={{ display: 'none' }} 
-                                                    onChange={handlePhotoChange} 
-                                                />
-                                                <button className={styles.photoBtn} onClick={() => fileInputRef.current?.click()}>
-                                                    {equipmentForm.foto ? <HiOutlinePhoto size={20} color="#475569" /> : <HiOutlineCamera size={20} color="#475569" />}
-                                                    {equipmentForm.foto ? 'CAMBIAR FOTO' : 'SUBIR EVIDENCIA'}
-                                                </button>
-                                                {equipmentForm.foto && (
-                                                    <div className={styles.photoPreview}>
-                                                        <img src={equipmentForm.foto} alt="Preview" />
-                                                        <button onClick={() => setEquipmentForm((prev: Equipment) => ({ ...prev, foto: '', fotoFile: undefined }))} className={styles.removePhoto} title="Quitar">
-                                                            <HiOutlineXMark size={18} color="#ffffff" />
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                                                <div>
+                                                    <label>Foto del Equipo</label>
+                                                    <div className={styles.photoUploadWrapper}>
+                                                        <input 
+                                                            type="file" 
+                                                            accept="image/*" 
+                                                            ref={fileInputRef} 
+                                                            style={{ display: 'none' }} 
+                                                            onChange={handlePhotoChange} 
+                                                        />
+                                                        <button className={styles.photoBtn} onClick={() => fileInputRef.current?.click()} type="button">
+                                                            {equipmentForm.foto ? <HiOutlinePhoto size={20} color="#475569" /> : <HiOutlineCamera size={20} color="#475569" />}
+                                                            {equipmentForm.foto ? 'CAMBIAR FOTO' : 'SUBIR FOTO'}
                                                         </button>
+                                                        {equipmentForm.foto && (
+                                                            <div className={styles.photoPreview}>
+                                                                <img src={equipmentForm.foto} alt="Preview" />
+                                                                <button onClick={() => setEquipmentForm((prev: Equipment) => ({ ...prev, foto: '', fotoFile: undefined }))} className={styles.removePhoto} title="Quitar">
+                                                                    <HiOutlineXMark size={18} color="#ffffff" />
+                                                                </button>
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                )}
+                                                </div>
+
+                                                <div>
+                                                    <label>Foto de Placa de Datos</label>
+                                                    <div className={styles.photoUploadWrapper}>
+                                                        <input 
+                                                            type="file" 
+                                                            accept="image/*" 
+                                                            ref={fileInputPlacaRef} 
+                                                            style={{ display: 'none' }} 
+                                                            onChange={handlePlacaPhotoChange} 
+                                                        />
+                                                        <button className={styles.photoBtn} onClick={() => fileInputPlacaRef.current?.click()} type="button">
+                                                            {equipmentForm.fotoPlaca ? <HiOutlinePhoto size={20} color="#475569" /> : <HiOutlineCamera size={20} color="#475569" />}
+                                                            {equipmentForm.fotoPlaca ? 'CAMBIAR PLACA' : 'SUBIR PLACA'}
+                                                        </button>
+                                                        {equipmentForm.fotoPlaca && (
+                                                            <div className={styles.photoPreview}>
+                                                                <img src={equipmentForm.fotoPlaca} alt="Preview Placa" />
+                                                                <button onClick={() => setEquipmentForm((prev: Equipment) => ({ ...prev, fotoPlaca: '', fotoPlacaFile: undefined }))} className={styles.removePhoto} title="Quitar">
+                                                                    <HiOutlineXMark size={18} color="#ffffff" />
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>

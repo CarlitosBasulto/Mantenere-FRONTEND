@@ -17,7 +17,8 @@ import {
     HiOutlineEyeSlash,
     HiOutlineExclamationTriangle,
     HiOutlinePencilSquare,
-    HiOutlineTrash
+    HiOutlineTrash,
+    HiOutlineClipboardDocumentList
 } from "react-icons/hi2";
 
 import { createNegocio, updateNegocio, getNegocio, uploadImage } from "../../services/negociosService";
@@ -26,8 +27,12 @@ import { asignarEncargadoSucursal, getEncargadoSucursal } from "../../services/u
 import LevantamientoModal from "../../components/LevantamientoModal";
 import DetalleEquipoModal from "../../components/DetalleEquipoModal";
 import ReportarProblemaModal from "../../components/ReportarProblemaModal";
+import HistorialEquipoModal from "../../components/modals/HistorialEquipoModal";
+import DetalleReporteModal from "../../components/modals/DetalleReporteModal";
 import { saveSafeLocalInfo, stripBlobUrls } from "../../utils/storageHelper";
-import { createMantenimientoSolicitud } from "../../services/mantenimientoService";
+import { createMantenimientoSolicitud, getMantenimientoSolicitudes } from "../../services/mantenimientoService";
+import { getTrabajos } from "../../services/trabajosService";
+import { getReporteByTrabajoId } from "../../services/reportesService";
 
 export interface Equipment {
     id?: string;
@@ -39,6 +44,8 @@ export interface Equipment {
     anioUso: string;
     foto?: string;
     fotoFile?: File;
+    fotoPlaca?: string;
+    fotoPlacaFile?: File;
 }
 
 export interface LevantamientoSeccion {
@@ -103,6 +110,13 @@ const PerfilEmpresa: React.FC = () => {
     const [activeEquipmentId, setActiveEquipmentId] = useState<string | null>(null);
     const [imageError, setImageError] = useState(false);
 
+    // Bitacora (Historial) states
+    const [bitacoraModalOpen, setBitacoraModalOpen] = useState(false);
+    const [selectedEqForBitacora, setSelectedEqForBitacora] = useState<any>(null);
+    const [allSolicitudes, setAllSolicitudes] = useState<any[]>([]);
+    const [reporteModalOpen, setReporteModalOpen] = useState(false);
+    const [selectedTrabajoId, setSelectedTrabajoId] = useState<number | null>(null);
+
     const [searchParams] = useSearchParams();
     const editId = searchParams.get('id');
 
@@ -153,6 +167,74 @@ const PerfilEmpresa: React.FC = () => {
             }
         };
         fetchNegocio();
+    }, [editId]);
+
+    // Cargar historial de mantenimientos para la bitácora
+    React.useEffect(() => {
+        if (!editId) return;
+        const fetchHistory = async () => {
+            try {
+                const businessId = Number(editId);
+                // 1. Obtener solicitudes de mantenimiento
+                const solicitudesBackend = await getMantenimientoSolicitudes(businessId);
+                const mappedSolicitudes = solicitudesBackend.map((sol: any) => {
+                    const mappedReportes = [];
+                    [sol.visita_trabajo, sol.reparacion_trabajo].forEach(t => {
+                        if (t?.reporte?.solucion) {
+                            try {
+                                const parsed = JSON.parse(t.reporte.solucion);
+                                if (parsed.descripcion || parsed.reporteTienda) {
+                                    mappedReportes.push({
+                                        id: t.id,
+                                        problema_cliente: parsed.reporteTienda || '—',
+                                        trabajo_realizado: parsed.descripcion || '—',
+                                        materiales: parsed.materiales || '',
+                                        refacciones: Array.isArray(parsed.refaccionesList)
+                                            ? parsed.refaccionesList.map((r: any) => `${r.cantidad}x ${r.pieza}`).join(' · ')
+                                            : ''
+                                    });
+                                }
+                            } catch(e) {}
+                        }
+                    });
+                    return {
+                        ...sol,
+                        reportes: mappedReportes,
+                        actualTrabajoId: sol.reparacion_trabajo?.id || sol.reparacion_trabajo_id || sol.visita_trabajo?.id || sol.visita_trabajo_id
+                    };
+                });
+
+                // 2. Obtener trabajos genéricos
+                const trabajos = await getTrabajos();
+                const trabajosGenericos = trabajos.filter((t: any) => t.negocio_id === businessId && t.estado === 'Finalizado');
+                const mappedGenericJobs: any[] = [];
+                for (const job of trabajosGenericos) {
+                    try {
+                        const reporte = await getReporteByTrabajoId(job.id);
+                        if (reporte && reporte.solucion) {
+                            const reportDataRaw = JSON.parse(reporte.solucion);
+                            if (reportDataRaw.involucraEquipo && reportDataRaw.equipoInfo && reportDataRaw.equipoInfo.id) {
+                                mappedGenericJobs.push({
+                                    id: `gen-${job.id}`,
+                                    actualTrabajoId: job.id,
+                                    levantamiento_equipo_id: reportDataRaw.equipoInfo.id,
+                                    descripcion_problema: job.titulo,
+                                    estado: job.estado,
+                                    created_at: job.created_at,
+                                    visitas: [],
+                                    reportes: [{ falla_encontrada: reportDataRaw.problema || 'Mantenimiento General', solucion: "Finalizado" }]
+                                });
+                            }
+                        }
+                    } catch (e) {}
+                }
+
+                setAllSolicitudes([...mappedSolicitudes, ...mappedGenericJobs]);
+            } catch (err) {
+                console.error("Error cargando historial:", err);
+            }
+        };
+        fetchHistory();
     }, [editId]);
 
     // Cargar encargado existente cuando hay editId
@@ -245,10 +327,16 @@ const PerfilEmpresa: React.FC = () => {
             const finalLevantamiento = await Promise.all((formData.levantamiento || []).map(async (section) => {
                 const finalEquipos = await Promise.all(section.equipos.map(async (eq) => {
                     let eqFoto = eq.foto;
+                    let eqFotoPlaca = eq.fotoPlaca;
+                    
                     if (eq.fotoFile) {
                         try { eqFoto = await uploadImage(eq.fotoFile); } catch (ign) { }
                     }
-                    return { ...eq, foto: eqFoto };
+                    if (eq.fotoPlacaFile) {
+                        try { eqFotoPlaca = await uploadImage(eq.fotoPlacaFile); } catch (ign) { }
+                    }
+                    
+                    return { ...eq, foto: eqFoto, fotoPlaca: eqFotoPlaca };
                 }));
                 return { ...section, equipos: finalEquipos };
             }));
@@ -763,6 +851,17 @@ const PerfilEmpresa: React.FC = () => {
                                                                         </>
                                                                     )}
                                                                 </div>
+
+                                                                <button 
+                                                                    onClick={() => {
+                                                                        setSelectedEqForBitacora(item);
+                                                                        setBitacoraModalOpen(true);
+                                                                    }} 
+                                                                    className={styles.bitacoraBtn}
+                                                                >
+                                                                    <HiOutlineClipboardDocumentList size={14} />
+                                                                    Ver Bitácora
+                                                                </button>
                                                             </div>
                                                         ))
                                                     )}
@@ -821,6 +920,25 @@ const PerfilEmpresa: React.FC = () => {
                         setIsLevantamientoModalOpen(true);
                     } : undefined}
                 />
+
+                <HistorialEquipoModal 
+                    isOpen={bitacoraModalOpen}
+                    onClose={() => setBitacoraModalOpen(false)}
+                    equipo={selectedEqForBitacora}
+                    historial={selectedEqForBitacora ? allSolicitudes.filter(sol => String(sol.levantamiento_equipo_id) === String(selectedEqForBitacora.id)) : []}
+                    onViewReport={(trabajoId) => {
+                        setSelectedTrabajoId(trabajoId);
+                        setReporteModalOpen(true);
+                    }}
+                />
+
+                {selectedTrabajoId && (
+                    <DetalleReporteModal 
+                        isOpen={reporteModalOpen}
+                        onClose={() => setReporteModalOpen(false)}
+                        trabajoId={selectedTrabajoId}
+                    />
+                )}
             </div>
 
             <style>{`

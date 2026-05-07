@@ -36,14 +36,28 @@ const DetalleEquipoModal: React.FC<DetalleEquipoModalProps> = ({ isOpen, onClose
 
                 <div className={styles.modalBody}>
                     {/* PHOTO SECTION */}
-                    <div className={styles.photoContainer}>
-                        {equipment.foto ? (
-                            <img src={equipment.foto} alt={equipment.nombre} className={styles.mainPhoto} />
-                        ) : (
-                            <div className={styles.noPhoto}>
-                                <span>Sin foto de evidencia</span>
-                            </div>
-                        )}
+                    <div className={styles.photosGrid}>
+                        <div className={styles.photoContainer}>
+                            <span className={styles.photoLabel}>VISTA GENERAL</span>
+                            {equipment.foto ? (
+                                <img src={equipment.foto} alt={equipment.nombre} className={styles.mainPhoto} />
+                            ) : (
+                                <div className={styles.noPhoto}>
+                                    <span>Sin foto de evidencia</span>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className={styles.photoContainer}>
+                            <span className={styles.photoLabel}>PLACA DE DATOS</span>
+                            {equipment.fotoPlaca ? (
+                                <img src={equipment.fotoPlaca} alt="Placa" className={styles.mainPhoto} />
+                            ) : (
+                                <div className={styles.noPhoto}>
+                                    <span>Sin foto de placa</span>
+                                </div>
+                            )}
+                        </div>
                     </div>
 
                     {/* DATA GRID */}
