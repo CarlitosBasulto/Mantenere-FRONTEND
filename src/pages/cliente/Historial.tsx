@@ -7,14 +7,14 @@ import menuStyles from "../../components/Menu.module.css";
 import { getTrabajos } from "../../services/trabajosService";
 import { getReporteByTrabajoId } from "../../services/reportesService";
 
-import { 
-    HiOutlineCheckBadge, 
-    HiOutlineCheckCircle, 
-    HiOutlineClipboardDocumentList, 
-    HiOutlineIdentification, 
-    HiOutlineClock, 
-    HiOutlineBuildingOffice2, 
-    HiOutlineWrench, 
+import {
+    HiOutlineCheckBadge,
+    HiOutlineCheckCircle,
+    HiOutlineClipboardDocumentList,
+    HiOutlineIdentification,
+    HiOutlineClock,
+    HiOutlineBuildingOffice2,
+    HiOutlineWrench,
     HiOutlineXMark,
     HiOutlineUser
 } from "react-icons/hi2";
@@ -62,10 +62,10 @@ const Historial: React.FC<HistorialProps> = ({ businessId }) => {
         const fetchClientHistory = async () => {
             try {
                 const apiJobs = await getTrabajos();
-                
+
                 // Filtrar solo los trabajos finalizados o completados
                 const terminados = apiJobs.filter((j: any) => j.estado === 'Finalizado' || j.estado === 'Cotización Aceptada' || j.estado === 'Completado');
-                
+
                 // Filtrar por negocio
                 const filteredJobs = terminados.filter((job: any) => {
                     if (businessId) {
@@ -123,7 +123,7 @@ const Historial: React.FC<HistorialProps> = ({ businessId }) => {
         try {
             // 1. Intentar cargar desde API
             const apiReport = await getReporteByTrabajoId(tarea.trabajoId);
-            
+
             if (apiReport && apiReport.solucion) {
                 try {
                     const parsed = JSON.parse(apiReport.solucion);
@@ -141,7 +141,7 @@ const Historial: React.FC<HistorialProps> = ({ businessId }) => {
                 const localData = localStorage.getItem(`report_data_${tarea.id}`);
                 const temporalData = localStorage.getItem(`report_data_temporal_${tarea.id}`);
                 const savedData = localData || temporalData;
-                
+
                 if (savedData) {
                     setReportData(JSON.parse(savedData));
                 }
@@ -160,7 +160,6 @@ const Historial: React.FC<HistorialProps> = ({ businessId }) => {
         <div className={styles.container}>
             <div className={styles.header}>
                 <h1 className={styles.title}>Historial de Trabajos Realizados</h1>
-                <p className={styles.subtitle}>Revisa cada una de las labores y diagnósticos realizados en tus sucursales.</p>
             </div>
 
             {/* BUSCADOR */}
@@ -271,9 +270,9 @@ const Historial: React.FC<HistorialProps> = ({ businessId }) => {
                                         </div>
                                         <div style={{ textAlign: 'right' }}>
                                             <span className={styles.dataLabel}>Estatus</span>
-                                            <span style={{ 
-                                                fontSize: '11px', 
-                                                fontWeight: '800', 
+                                            <span style={{
+                                                fontSize: '11px',
+                                                fontWeight: '800',
                                                 color: selectedHistoryTask.estado === 'Finalizado' ? '#059669' : '#b45309',
                                                 background: selectedHistoryTask.estado === 'Finalizado' ? '#ecfdf5' : '#fffbeb',
                                                 padding: '4px 10px',
@@ -334,7 +333,7 @@ const Historial: React.FC<HistorialProps> = ({ businessId }) => {
                                             <HiOutlineClipboardDocumentList size={18} />
                                             Datos del Reporte
                                         </div>
-                                        
+
                                         <div className={styles.dataBlock}>
                                             <span className={styles.dataLabel}>Reporte de Tienda / Hallazgo</span>
                                             <div className={styles.dataBox}>{reportData.reporteTienda || 'N/A'}</div>
@@ -430,7 +429,7 @@ const Historial: React.FC<HistorialProps> = ({ businessId }) => {
                     </button>
                 </div>
             )}
-            
+
             <style>{`
                 @keyframes spin {
                     0% { transform: rotate(0deg); }

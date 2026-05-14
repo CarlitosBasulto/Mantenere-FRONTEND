@@ -62,7 +62,7 @@ const Cotizaciones: React.FC<CotizacionesProps> = ({ businessId }) => {
                 // 1. Obtener los negocios del cliente actual desde la API
                 const apiNegocios = await getNegocios();
                 const negociosIds = new Set<number>();
-                
+
                 apiNegocios.forEach((n: any) => {
                     if (n.user_id === user.id) {
                         negociosIds.add(n.id);
@@ -70,14 +70,14 @@ const Cotizaciones: React.FC<CotizacionesProps> = ({ businessId }) => {
                 });
 
                 const apiJobs = await getTrabajos();
-                
+
                 const filtrados = apiJobs.filter((job: any) => {
                     if (businessId && job.negocio_id !== businessId) return false;
-                    
+
                     // Incluir trabajos que tienen o tuvieron cotización
                     const isCotizado = job.cotizacion || ["Cotización Enviada", "Cotización Aceptada", "Cotización Rechazada", "Asignado", "En Proceso", "Finalizado"].includes(job.estado);
                     const isVisible = negociosIds.has(job.negocio_id) || job.negocio?.user_id === user.id || user.role === 'admin' || (user.role === 'encargado' && job.negocio_id === user.negocio_id);
-                    
+
                     return isCotizado && isVisible;
                 });
 
@@ -100,7 +100,7 @@ const Cotizaciones: React.FC<CotizacionesProps> = ({ businessId }) => {
                             // Si tira 404 significa que no existe
                         }
                     }
-                    
+
                     return {
                         id: job.id,
                         titulo: job.titulo,
@@ -176,7 +176,6 @@ const Cotizaciones: React.FC<CotizacionesProps> = ({ businessId }) => {
         <div className={styles.container}>
             <div className={styles.header}>
                 <h1 className={styles.title}>Mis Cotizaciones</h1>
-                <p className={styles.subtitle}>Revisa el historial de cotizaciones que has recibido, aceptado o rechazado.</p>
             </div>
 
             {/* BUSCADOR Y FILTRO */}
@@ -211,8 +210,8 @@ const Cotizaciones: React.FC<CotizacionesProps> = ({ businessId }) => {
 
                                     const basePath = location.pathname.startsWith('/admin') || location.pathname.startsWith('/menu') ? '/menu' : location.pathname.startsWith('/encargado') ? '/encargado' : '/cliente';
                                     return (
-                                        <div key={cotizacion.id} className={styles.card} 
-                                            onClick={() => navigate(`${basePath}/trabajo-detalle/${cotizacion.id}?tab=cotizacion`)} 
+                                        <div key={cotizacion.id} className={styles.card}
+                                            onClick={() => navigate(`${basePath}/trabajo-detalle/${cotizacion.id}?tab=cotizacion`)}
                                             style={{ cursor: 'pointer' }}>
                                             <div className={styles.cardContent}>
                                                 <div className={styles.cardIcon}>

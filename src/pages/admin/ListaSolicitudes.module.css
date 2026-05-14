@@ -68,7 +68,8 @@
 
 .jobCard {
     background: white;
-    padding: 0 0 25px 0; /* No padding at top to let statusBar take full width */
+    padding: 0 0 25px 0;
+    /* No padding at top to let statusBar take full width */
     border-radius: 30px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
     width: 100%;
@@ -101,10 +102,25 @@
     margin-bottom: 20px;
 }
 
-.statusBar.yellow { background: #fff8e1; color: #fbc02d; }
-.statusBar.red { background: #ffebee; color: #d32f2f; }
-.statusBar.green { background: #e8f5e9; color: #2e7d32; }
-.statusBar.blue { background: #e3f2fd; color: #1565c0; }
+.statusBar.yellow {
+    background: #fff8e1;
+    color: #fbc02d;
+}
+
+.statusBar.red {
+    background: #ffebee;
+    color: #d32f2f;
+}
+
+.statusBar.green {
+    background: #e8f5e9;
+    color: #2e7d32;
+}
+
+.statusBar.blue {
+    background: #e3f2fd;
+    color: #1565c0;
+}
 
 .cardContent {
     display: flex;
@@ -126,7 +142,7 @@
 }
 
 .strikingDate {
-    color: #00a884;
+    color: #ffffff;
     font-weight: 800;
     font-size: 15px;
     margin: 0;
@@ -308,11 +324,16 @@
         flex-direction: column;
         gap: 0;
     }
-    
-    .rightColumn { display: none; }
-    
-    .jobsSection { padding: 0; gap: 0; }
-    
+
+    .rightColumn {
+        display: none;
+    }
+
+    .jobsSection {
+        padding: 0;
+        gap: 0;
+    }
+
     .jobCard {
         padding: 0 0 15px 0;
         border-radius: 0;
@@ -321,18 +342,24 @@
         box-shadow: none;
     }
 
-    .statusBar { 
-        height: 25px; 
+    .statusBar {
+        height: 25px;
         font-size: 9px;
         padding: 0 15px;
         margin-bottom: 10px;
     }
 
-    .cardContent { padding: 0 15px; }
+    .cardContent {
+        padding: 0 15px;
+    }
 
-    .cardInfo h3 { font-size: 17px; }
+    .cardInfo h3 {
+        font-size: 17px;
+    }
 
-    .strikingDate { font-size: 13px; }
+    .strikingDate {
+        font-size: 13px;
+    }
 
     .modalContent {
         width: 90%;

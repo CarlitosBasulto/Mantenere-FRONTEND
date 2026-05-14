@@ -130,7 +130,8 @@
 
 .cardDate {
     font-size: 14px;
-    color: #00a884; /* Vibrant green to make it strikingly visible */
+    color: #00a884;
+    /* Vibrant green to make it strikingly visible */
     font-weight: bold;
     margin-bottom: 4px;
 }
@@ -191,7 +192,8 @@
     width: fit-content;
 }
 
-.badgeSOS, .badgeDiagnosis {
+.badgeSOS,
+.badgeDiagnosis {
     position: absolute;
     right: -10px;
     top: -5px;
@@ -251,35 +253,40 @@
         flex-direction: column;
         gap: 0;
     }
-    
-    .rightColumn { display: none; }
-    
+
+    .rightColumn {
+        display: none;
+    }
+
     .searchSection {
         flex-direction: column;
         align-items: stretch;
         margin: 10px 15px;
     }
-    
-    .searchCard { width: 100%; margin-bottom: 10px; }
-    
+
+    .searchCard {
+        width: 100%;
+        margin-bottom: 10px;
+    }
+
     .actionButtons {
         flex-direction: row;
         width: 100%;
         gap: 10px;
     }
-    
+
     .registrarBtn {
         flex: 1;
         padding: 10px;
         border-radius: 20px;
         font-size: 14px;
     }
-    
+
     .jobsSection {
         padding: 0;
         gap: 0;
     }
-    
+
     /* Modern Card Style */
     .jobCard {
         padding: 15px;
@@ -288,9 +295,10 @@
         background: white;
         margin: 10px 15px;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
-        width: auto !important; /* Allow margins to work without overflow */
+        width: auto !important;
+        /* Allow margins to work without overflow */
     }
-    
+
     .cardContent {
         flex-direction: row;
         align-items: center;
@@ -298,7 +306,7 @@
         padding: 0;
         word-break: break-word;
     }
-    
+
     .cardIcon {
         width: 50px;
         height: 50px;
@@ -306,12 +314,12 @@
         background: #e0e0e0;
         flex-shrink: 0;
     }
-    
+
     .cardInfo {
         flex: 1;
         position: relative;
     }
-    
+
     .cardInfo h3 {
         font-size: 16px;
         font-weight: 600;
@@ -323,15 +331,16 @@
         overflow: hidden;
         text-overflow: ellipsis;
     }
-    
+
     .cardDate {
         position: absolute;
         top: 2px;
         right: 0;
         font-size: 11px;
-        color: #00a884; /* WhatsApp green for dates/time or gray #888 */
+        color: #00a884;
+        /* WhatsApp green for dates/time or gray #888 */
     }
-    
+
     .cardInfo p {
         font-size: 13px;
         color: #666;
@@ -348,16 +357,17 @@
         height: auto;
         color: #999;
     }
-    
+
     .cardIndicator {
         display: none;
     }
 
-    .badgeSOS, .badgeDiagnosis {
+    .badgeSOS,
+    .badgeDiagnosis {
         right: 5px;
         top: 5px;
         font-size: 10px;
         padding: 4px 10px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
 }

@@ -51,7 +51,7 @@
 }
 
 .bannerLabel {
-    color: #00a884;
+    color: #ffffff;
     font-size: 11px;
     font-weight: 800;
     letter-spacing: 1.5px;
@@ -857,7 +857,8 @@
         font-size: 9px;
     }
 
-    .sosBtn, .newRequestBtn {
+    .sosBtn,
+    .newRequestBtn {
         padding: 10px 15px !important;
         font-size: 12px !important;
         flex: 1;
@@ -921,4 +922,4 @@
     .bannerTitle {
         font-size: 20px;
     }
-}
+}
