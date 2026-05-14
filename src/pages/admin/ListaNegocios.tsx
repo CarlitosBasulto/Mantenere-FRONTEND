@@ -73,6 +73,11 @@ const ListaNegocios: React.FC = () => {
             return matchesSearch && (negocio.dueno === user.name || negocio.user_id === user.id);
         }
 
+        // FILTRO POR ROL: El encargado solo ve su sucursal asignada
+        if (user?.role === 'encargado') {
+            return matchesSearch && (negocio.id === user.negocio_id);
+        }
+
         // FILTRO POR ROL: El técnico solo ve los negocios donde tiene trabajos asignados
         if (user?.role === 'tecnico') {
             const hasAssignedJobs = globalJobs.some((j: any) => {
@@ -95,15 +100,21 @@ const ListaNegocios: React.FC = () => {
     });
 
     const handleCardClick = (id: number) => {
-        const basePath = user?.role === 'cliente' ? '/cliente' : (user?.role === 'tecnico' ? '/tecnico' : '/menu');
+        const basePath = user?.role === 'cliente' ? '/cliente' : (user?.role === 'tecnico' ? '/tecnico' : (user?.role === 'encargado' ? '/encargado' : '/menu'));
         navigate(`${basePath}/trabajo/${id}`);
     };
 
     const handleEditClick = (e: React.MouseEvent, id: number) => {
         e.stopPropagation();
         if (user?.role === 'tecnico') return; // El técnico no debe poder editar ni navegar aquí
-        const basePath = user?.role === 'cliente' ? '/cliente' : '/menu';
-        navigate(`${basePath}/perfil-empresa?id=${id}`);
+        
+        if (user?.role === 'encargado') {
+            navigate(`/encargado/sucursal?id=${id}`);
+        } else if (user?.role === 'cliente') {
+            navigate(`/cliente/perfil-empresa?id=${id}`);
+        } else {
+            navigate(`/menu/perfil-empresa?id=${id}`);
+        }
     };
 
     return (
@@ -161,8 +172,8 @@ const ListaNegocios: React.FC = () => {
                                         <div 
                                             className={styles.cardIcon} 
                                             onClick={(e) => handleEditClick(e, negocio.id)}
-                                            style={{ cursor: (user?.role === 'cliente' || user?.role === 'admin') ? 'pointer' : 'default' }}
-                                            title={(user?.role === 'cliente' || user?.role === 'admin') ? "Editar Perfil" : ""}
+                                            style={{ cursor: (user?.role === 'cliente' || user?.role === 'admin' || user?.role === 'encargado') ? 'pointer' : 'default' }}
+                                            title={(user?.role === 'cliente' || user?.role === 'admin' || user?.role === 'encargado') ? "Editar Perfil" : ""}
                                         >
                                             {negocio.imagenPerfil && !imageErrors[negocio.id] ? (
                                                 <img

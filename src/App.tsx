@@ -32,6 +32,9 @@ import AdminHistorial from "./pages/admin/AdminHistorial";
 import ListaUsuarios from "./pages/admin/ListaUsuarios";
 import ListaMantenimiento from "./pages/admin/ListaMantenimiento";
 import MantenimientoDetalle from "./pages/admin/MantenimientoDetalle";
+import EncargadoLayout from "./layouts/EncargadoLayout";
+import DashboardCliente from "./pages/cliente/DashboardCliente";
+import DashboardEncargado from "./pages/encargado/DashboardEncargado";
 
 function App() {
     return (
@@ -79,7 +82,9 @@ function App() {
                                 <ClienteLayout />
                             </ProtectedRoute>
                         }>
-                            <Route index element={<ListaNegocios />} />
+                            <Route index element={<DashboardCliente />} />
+                            <Route path="resumen" element={<DashboardCliente />} />
+                            <Route path="negocios" element={<ListaNegocios />} />
                             <Route path="perfil-empresa" element={<PerfilEmpresa />} />
                             <Route path="mi-perfil" element={<MiPerfil />} />
                             <Route path="cotizaciones" element={<Cotizaciones />} />
@@ -101,6 +106,22 @@ function App() {
                             <Route path="trabajo/:id" element={<TrabajoDetalle />} />
                             <Route path="trabajo-detalle/:id" element={<AdminDetalleTrabajo />} />
                             <Route path="reporte-tarea/:id" element={<AdminReporte />} />
+                        </Route>
+
+                        {/* ENCARGADO ROUTES */}
+                        <Route path="/encargado" element={
+                            <ProtectedRoute allowedRoles={['encargado']}>
+                                <EncargadoLayout />
+                            </ProtectedRoute>
+                        }>
+                            <Route index element={<DashboardEncargado />} />
+                            <Route path="resumen" element={<DashboardEncargado />} />
+                            <Route path="negocios" element={<ListaNegocios />} />
+                            <Route path="sucursal" element={<PerfilEmpresa />} />
+                            <Route path="cotizaciones" element={<Cotizaciones />} />
+                            <Route path="historial" element={<Historial />} />
+                            <Route path="trabajo/:id" element={<TrabajoDetalle />} />
+                            <Route path="trabajo-detalle/:id" element={<AdminDetalleTrabajo />} />
                         </Route>
 
                         {/* FALLBACK */}

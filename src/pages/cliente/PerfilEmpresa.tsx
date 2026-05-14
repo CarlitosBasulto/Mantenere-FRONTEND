@@ -10,16 +10,29 @@ import {
     HiOutlineInformationCircle,
     HiOutlineCamera,
     HiOutlineUserGroup,
-    HiOutlineChevronLeft
+    HiOutlineChevronLeft,
+    HiOutlineKey,
+    HiOutlinePaperAirplane,
+    HiOutlineEye,
+    HiOutlineEyeSlash,
+    HiOutlineExclamationTriangle,
+    HiOutlinePencilSquare,
+    HiOutlineTrash,
+    HiOutlineClipboardDocumentList
 } from "react-icons/hi2";
 
 import { createNegocio, updateNegocio, getNegocio, uploadImage } from "../../services/negociosService";
 import { createNotificacionByRole } from "../../services/notificacionesService";
+import { asignarEncargadoSucursal, getEncargadoSucursal } from "../../services/usersService";
 import LevantamientoModal from "../../components/LevantamientoModal";
 import DetalleEquipoModal from "../../components/DetalleEquipoModal";
 import ReportarProblemaModal from "../../components/ReportarProblemaModal";
+import HistorialEquipoModal from "../../components/modals/HistorialEquipoModal";
+import DetalleReporteModal from "../../components/modals/DetalleReporteModal";
 import { saveSafeLocalInfo, stripBlobUrls } from "../../utils/storageHelper";
-import { createMantenimientoSolicitud } from "../../services/mantenimientoService";
+import { createMantenimientoSolicitud, getMantenimientoSolicitudes } from "../../services/mantenimientoService";
+import { getTrabajos } from "../../services/trabajosService";
+import { getReporteByTrabajoId } from "../../services/reportesService";
 
 export interface Equipment {
     id?: string;
@@ -31,6 +44,8 @@ export interface Equipment {
     anioUso: string;
     foto?: string;
     fotoFile?: File;
+    fotoPlaca?: string;
+    fotoPlacaFile?: File;
 }
 
 export interface LevantamientoSeccion {
@@ -70,7 +85,7 @@ const PerfilEmpresa: React.FC = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
     const { showAlert } = useModal();
-    const canEdit = user?.role === 'cliente';
+    const canEdit = user?.role === 'cliente' || user?.role === 'encargado';
 
     const [formData, setFormData] = useState<BusinessData>({
         nombreSucursal: "",
@@ -92,10 +107,24 @@ const PerfilEmpresa: React.FC = () => {
     const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
     const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null);
     const [reportingEquipment, setReportingEquipment] = useState<Equipment | null>(null);
+    const [activeEquipmentId, setActiveEquipmentId] = useState<string | null>(null);
     const [imageError, setImageError] = useState(false);
+
+    // Bitacora (Historial) states
+    const [bitacoraModalOpen, setBitacoraModalOpen] = useState(false);
+    const [selectedEqForBitacora, setSelectedEqForBitacora] = useState<any>(null);
+    const [allSolicitudes, setAllSolicitudes] = useState<any[]>([]);
+    const [reporteModalOpen, setReporteModalOpen] = useState(false);
+    const [selectedTrabajoId, setSelectedTrabajoId] = useState<number | null>(null);
 
     const [searchParams] = useSearchParams();
     const editId = searchParams.get('id');
+
+    // --- Estado para el encargado de sucursal ---
+    const [encargadoForm, setEncargadoForm] = useState({ name: '', email: '', password: '' });
+    const [showPassword, setShowPassword] = useState(false);
+    const [encargadoExistente, setEncargadoExistente] = useState<{ name: string; email: string } | null>(null);
+    const [encargadoLoading, setEncargadoLoading] = useState(false);
 
     React.useEffect(() => {
         const fetchNegocio = async () => {
@@ -140,6 +169,108 @@ const PerfilEmpresa: React.FC = () => {
         fetchNegocio();
     }, [editId]);
 
+    // Cargar historial de mantenimientos para la bitácora
+    React.useEffect(() => {
+        if (!editId) return;
+        const fetchHistory = async () => {
+            try {
+                const businessId = Number(editId);
+                // 1. Obtener solicitudes de mantenimiento
+                const solicitudesBackend = await getMantenimientoSolicitudes(businessId);
+                const mappedSolicitudes = solicitudesBackend.map((sol: any) => {
+                    const mappedReportes = [];
+                    [sol.visita_trabajo, sol.reparacion_trabajo].forEach(t => {
+                        if (t?.reporte?.solucion) {
+                            try {
+                                const parsed = JSON.parse(t.reporte.solucion);
+                                if (parsed.descripcion || parsed.reporteTienda) {
+                                    mappedReportes.push({
+                                        id: t.id,
+                                        problema_cliente: parsed.reporteTienda || '—',
+                                        trabajo_realizado: parsed.descripcion || '—',
+                                        materiales: parsed.materiales || '',
+                                        refacciones: Array.isArray(parsed.refaccionesList)
+                                            ? parsed.refaccionesList.map((r: any) => `${r.cantidad}x ${r.pieza}`).join(' · ')
+                                            : ''
+                                    });
+                                }
+                            } catch(e) {}
+                        }
+                    });
+                    return {
+                        ...sol,
+                        reportes: mappedReportes,
+                        actualTrabajoId: sol.reparacion_trabajo?.id || sol.reparacion_trabajo_id || sol.visita_trabajo?.id || sol.visita_trabajo_id
+                    };
+                });
+
+                // 2. Obtener trabajos genéricos
+                const trabajos = await getTrabajos();
+                const trabajosGenericos = trabajos.filter((t: any) => t.negocio_id === businessId && t.estado === 'Finalizado');
+                const mappedGenericJobs: any[] = [];
+                for (const job of trabajosGenericos) {
+                    try {
+                        const reporte = await getReporteByTrabajoId(job.id);
+                        if (reporte && reporte.solucion) {
+                            const reportDataRaw = JSON.parse(reporte.solucion);
+                            if (reportDataRaw.involucraEquipo && reportDataRaw.equipoInfo && reportDataRaw.equipoInfo.id) {
+                                mappedGenericJobs.push({
+                                    id: `gen-${job.id}`,
+                                    actualTrabajoId: job.id,
+                                    levantamiento_equipo_id: reportDataRaw.equipoInfo.id,
+                                    descripcion_problema: job.titulo,
+                                    estado: job.estado,
+                                    created_at: job.created_at,
+                                    visitas: [],
+                                    reportes: [{ falla_encontrada: reportDataRaw.problema || 'Mantenimiento General', solucion: "Finalizado" }]
+                                });
+                            }
+                        }
+                    } catch (e) {}
+                }
+
+                setAllSolicitudes([...mappedSolicitudes, ...mappedGenericJobs]);
+            } catch (err) {
+                console.error("Error cargando historial:", err);
+            }
+        };
+        fetchHistory();
+    }, [editId]);
+
+    // Cargar encargado existente cuando hay editId
+    React.useEffect(() => {
+        if (!editId) return;
+        getEncargadoSucursal(Number(editId))
+            .then(data => {
+                if (data?.encargado) {
+                    setEncargadoExistente({ name: data.encargado.name, email: data.encargado.email });
+                    setEncargadoForm(prev => ({ ...prev, name: data.encargado.name, email: data.encargado.email }));
+                }
+            })
+            .catch(() => {}); // silencioso si no hay encargado aún
+    }, [editId]);
+
+    const handleAsignarEncargado = async () => {
+        if (!editId) return;
+        if (!encargadoForm.name.trim()) { showAlert('Campo Requerido', 'Ingresa el nombre del encargado', 'warning'); return; }
+        if (!encargadoForm.email.trim()) { showAlert('Campo Requerido', 'Ingresa el correo del encargado', 'warning'); return; }
+        if (!encargadoForm.password.trim() || encargadoForm.password.length < 8) {
+            showAlert('Contraseña inválida', 'La contraseña debe tener al menos 8 caracteres', 'warning'); return;
+        }
+        try {
+            setEncargadoLoading(true);
+            await asignarEncargadoSucursal(Number(editId), encargadoForm);
+            setEncargadoExistente({ name: encargadoForm.name, email: encargadoForm.email });
+            setEncargadoForm(prev => ({ ...prev, password: '' }));
+            showAlert('✅ Acceso Asignado', `Se asignó el acceso a ${encargadoForm.email}. Las credenciales han sido enviadas al correo.`, 'success');
+        } catch (err: any) {
+            const msg = err?.response?.data?.message || 'No se pudo asignar el acceso. Intenta de nuevo.';
+            showAlert('Error', msg, 'error');
+        } finally {
+            setEncargadoLoading(false);
+        }
+    };
+
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -157,6 +288,7 @@ const PerfilEmpresa: React.FC = () => {
             }
             const tempUrl = URL.createObjectURL(file);
             setFormData(prev => ({ ...prev, imagenPerfil: tempUrl, imagenPerfilFile: file }));
+            setImageError(false); // <--- REINICIAR EL ERROR PARA VER EL PREVIEW
         }
     };
 
@@ -195,10 +327,16 @@ const PerfilEmpresa: React.FC = () => {
             const finalLevantamiento = await Promise.all((formData.levantamiento || []).map(async (section) => {
                 const finalEquipos = await Promise.all(section.equipos.map(async (eq) => {
                     let eqFoto = eq.foto;
+                    let eqFotoPlaca = eq.fotoPlaca;
+                    
                     if (eq.fotoFile) {
                         try { eqFoto = await uploadImage(eq.fotoFile); } catch (ign) { }
                     }
-                    return { ...eq, foto: eqFoto };
+                    if (eq.fotoPlacaFile) {
+                        try { eqFotoPlaca = await uploadImage(eq.fotoPlacaFile); } catch (ign) { }
+                    }
+                    
+                    return { ...eq, foto: eqFoto, fotoPlaca: eqFotoPlaca };
                 }));
                 return { ...section, equipos: finalEquipos };
             }));
@@ -206,7 +344,6 @@ const PerfilEmpresa: React.FC = () => {
                 nombre: formData.nombreSucursal,
                 tipo: formData.tipo,
                 encargado: formData.encargado,
-                user_id: user?.id,
                 estado: formData.estado,
                 ciudad: formData.ciudad,
                 calle: formData.calle,
@@ -243,7 +380,8 @@ const PerfilEmpresa: React.FC = () => {
                 saveSafeLocalInfo('local_negocios_info', editId, fullLocalData, showAlert);
                 showAlert("Éxito", "Información actualizada correctamente", "success");
             } else {
-                const newNegocio = await createNegocio(apiPayload);
+                const createPayload = { ...apiPayload, user_id: user?.id };
+                const newNegocio = await createNegocio(createPayload);
                 if (newNegocio) {
                     const actualId = newNegocio.data?.id || newNegocio.id;
                     if (actualId) {
@@ -269,11 +407,27 @@ const PerfilEmpresa: React.FC = () => {
                 }
                 showAlert("Éxito", "Información guardada correctamente", "success");
             }
-            navigate('/cliente');
+            if (user?.role === 'encargado') {
+                navigate('/encargado');
+            } else {
+                navigate('/cliente');
+            }
         } catch (error) {
             console.error("Error saving negocio:", error);
             showAlert("Error", "Hubo un error al guardar en el servidor. Prueba de nuevo.", "error");
         }
+    };
+
+    const handleDeleteEquipment = (eqId: string, sectionId: string) => {
+        setFormData(prev => {
+            const updatedLevantamiento = (prev.levantamiento || []).map(section => {
+                if (section.id === sectionId) {
+                    return { ...section, equipos: section.equipos.filter(e => e.id !== eqId) };
+                }
+                return section;
+            });
+            return { ...prev, levantamiento: updatedLevantamiento };
+        });
     };
 
     const handleReportarProblemaSubmit = async (descripcion: string) => {
@@ -326,6 +480,8 @@ const PerfilEmpresa: React.FC = () => {
                                     navigate('/menu/negocios');
                                 } else if (user?.role === 'tecnico') {
                                     navigate('/tecnico');
+                                } else if (user?.role === 'encargado') {
+                                    navigate('/encargado');
                                 } else {
                                     navigate('/cliente');
                                 }
@@ -541,6 +697,96 @@ const PerfilEmpresa: React.FC = () => {
                             </div>
                         </div>
 
+                        {/* CARD 4: ACCESO DE ENCARGADO DE SUCURSAL */}
+                        {editId && canEdit && (
+                            <div className={styles.infoCard}>
+                                <h2 className={styles.sectionTitle}>
+                                    <HiOutlineKey /> Acceso de Encargado de Sucursal
+                                </h2>
+
+                                {encargadoExistente && (
+                                    <div style={{
+                                        display: 'flex', alignItems: 'center', gap: '10px',
+                                        background: 'linear-gradient(135deg, #d1fae5, #a7f3d0)',
+                                        borderRadius: '10px', padding: '12px 16px',
+                                        marginBottom: '18px', fontSize: '14px', color: '#065f46', fontWeight: 500
+                                    }}>
+                                        <span style={{ fontSize: '18px' }}>✅</span>
+                                        <span>Encargado asignado: <strong>{encargadoExistente.name}</strong> — {encargadoExistente.email}</span>
+                                    </div>
+                                )}
+
+                                <p style={{ color: '#64748b', fontSize: '13px', marginBottom: '20px', lineHeight: '1.6' }}>
+                                    Asigna credenciales de acceso exclusivas para esta sucursal. El encargado podrá iniciar sesión y consultar únicamente la información de esta sucursal. Recibirá un correo personalizado con sus credenciales.
+                                </p>
+
+                                <div className={styles.formGrid}>
+                                    <div className={styles.inputGroup}>
+                                        <label className={styles.label}>Nombre del Encargado</label>
+                                        <input
+                                            type="text"
+                                            placeholder="Ej: Luis Ramírez"
+                                            className={styles.input}
+                                            value={encargadoForm.name}
+                                            onChange={e => setEncargadoForm(prev => ({ ...prev, name: e.target.value }))}
+                                        />
+                                    </div>
+                                    <div className={styles.inputGroup}>
+                                        <label className={styles.label}>Correo de Acceso</label>
+                                        <input
+                                            type="email"
+                                            placeholder="Ej: encargado@gmail.com"
+                                            className={styles.input}
+                                            value={encargadoForm.email}
+                                            onChange={e => setEncargadoForm(prev => ({ ...prev, email: e.target.value }))}
+                                        />
+                                    </div>
+                                    <div className={styles.inputGroup} style={{ position: 'relative' }}>
+                                        <label className={styles.label}>
+                                            {encargadoExistente ? 'Nueva Contraseña (opcional)' : 'Contraseña'}
+                                        </label>
+                                        <input
+                                            type={showPassword ? 'text' : 'password'}
+                                            placeholder="Mínimo 8 caracteres"
+                                            className={styles.input}
+                                            style={{ paddingRight: '42px' }}
+                                            value={encargadoForm.password}
+                                            onChange={e => setEncargadoForm(prev => ({ ...prev, password: e.target.value }))}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPassword(!showPassword)}
+                                            style={{
+                                                position: 'absolute', right: '12px', bottom: '12px',
+                                                background: 'none', border: 'none', cursor: 'pointer',
+                                                color: '#64748b', display: 'flex', alignItems: 'center'
+                                            }}
+                                        >
+                                            {showPassword ? <HiOutlineEyeSlash size={18} /> : <HiOutlineEye size={18} />}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div style={{ marginTop: '20px' }}>
+                                    <button
+                                        onClick={handleAsignarEncargado}
+                                        disabled={encargadoLoading}
+                                        style={{
+                                            display: 'inline-flex', alignItems: 'center', gap: '8px',
+                                            background: encargadoLoading ? '#94a3b8' : 'linear-gradient(135deg, #f59e0b, #d97706)',
+                                            color: 'white', border: 'none', borderRadius: '10px',
+                                            padding: '12px 24px', fontWeight: 700, fontSize: '14px',
+                                            cursor: encargadoLoading ? 'not-allowed' : 'pointer',
+                                            transition: 'all 0.2s', boxShadow: '0 4px 12px rgba(217,119,6,0.3)'
+                                        }}
+                                    >
+                                        <HiOutlinePaperAirplane size={18} />
+                                        {encargadoLoading ? 'Enviando...' : encargadoExistente ? 'Actualizar Acceso y Reenviar Correo' : 'Asignar Acceso y Enviar Correo'}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
                     </div>
                 ) : (
                     <div className={styles.contentWrapper}>
@@ -581,12 +827,41 @@ const PerfilEmpresa: React.FC = () => {
                                                             <div
                                                                 key={item.id || idx}
                                                                 className={styles.equipoChip}
-                                                                onClick={() => {
-                                                                    setSelectedEquipment(item);
-                                                                    setSelectedSectionId(seccion.id);
-                                                                }}
                                                             >
-                                                                {item.nombre}
+                                                                <span 
+                                                                    className={styles.chipName}
+                                                                    onClick={() => {
+                                                                        setSelectedEquipment(item);
+                                                                        setSelectedSectionId(seccion.id);
+                                                                    }}
+                                                                >
+                                                                    {item.nombre}
+                                                                </span>
+                                                                <div className={styles.chipActions}>
+                                                                    <button onClick={() => { setSelectedEquipment(item); setSelectedSectionId(seccion.id); }} title="Ver Ficha"><HiOutlineEye size={16} color="#2563eb" /></button>
+                                                                    <button onClick={() => setReportingEquipment(item)} title="Reportar"><HiOutlineExclamationTriangle size={16} color="#f59e0b" /></button>
+                                                                    {canEdit && (
+                                                                        <>
+                                                                            <button onClick={() => { 
+                                                                                setActiveSectionId(seccion.id); 
+                                                                                setActiveEquipmentId(item.id!);
+                                                                                setIsLevantamientoModalOpen(true); 
+                                                                            }} title="Editar"><HiOutlinePencilSquare size={16} color="#64748b" /></button>
+                                                                            <button onClick={() => handleDeleteEquipment(item.id!, seccion.id)} title="Borrar" className={styles.deleteBtn}><HiOutlineTrash size={16} color="#ef4444" /></button>
+                                                                        </>
+                                                                    )}
+                                                                </div>
+
+                                                                <button 
+                                                                    onClick={() => {
+                                                                        setSelectedEqForBitacora(item);
+                                                                        setBitacoraModalOpen(true);
+                                                                    }} 
+                                                                    className={styles.bitacoraBtn}
+                                                                >
+                                                                    <HiOutlineClipboardDocumentList size={14} />
+                                                                    Ver Bitácora
+                                                                </button>
                                                             </div>
                                                         ))
                                                     )}
@@ -616,9 +891,13 @@ const PerfilEmpresa: React.FC = () => {
                 {/* MODALS (Functional logic preserved) */}
                 <LevantamientoModal
                     isOpen={isLevantamientoModalOpen}
-                    onClose={() => setIsLevantamientoModalOpen(false)}
+                    onClose={() => {
+                        setIsLevantamientoModalOpen(false);
+                        setActiveEquipmentId(null);
+                    }}
                     data={formData.levantamiento || []}
                     initialSectionId={activeSectionId}
+                    initialEquipmentId={activeEquipmentId}
                     onSave={(newData) => setFormData(prev => ({ ...prev, levantamiento: newData }))}
                     isReadOnly={!canEdit}
                     onReportMaintenance={(eq) => setReportingEquipment(eq)}
@@ -641,6 +920,25 @@ const PerfilEmpresa: React.FC = () => {
                         setIsLevantamientoModalOpen(true);
                     } : undefined}
                 />
+
+                <HistorialEquipoModal 
+                    isOpen={bitacoraModalOpen}
+                    onClose={() => setBitacoraModalOpen(false)}
+                    equipo={selectedEqForBitacora}
+                    historial={selectedEqForBitacora ? allSolicitudes.filter(sol => String(sol.levantamiento_equipo_id) === String(selectedEqForBitacora.id)) : []}
+                    onViewReport={(trabajoId) => {
+                        setSelectedTrabajoId(trabajoId);
+                        setReporteModalOpen(true);
+                    }}
+                />
+
+                {selectedTrabajoId && (
+                    <DetalleReporteModal 
+                        isOpen={reporteModalOpen}
+                        onClose={() => setReporteModalOpen(false)}
+                        trabajoId={selectedTrabajoId}
+                    />
+                )}
             </div>
 
             <style>{`

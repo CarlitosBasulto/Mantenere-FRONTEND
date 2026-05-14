@@ -1,8 +1,8 @@
 .pageContainer {
     display: flex;
     flex-direction: column;
-    min-height: 100vh;
-    padding: 30px 40px;
+    min-height: 100%;
+    padding: 30px 40px 50px;
     background: #f8fafc;
     position: relative;
     overflow-x: hidden;
@@ -123,7 +123,7 @@
 
 .colSpan12 { grid-column: span 12; }
 .colSpan8 { grid-column: span 8; }
-.colSpan4 { grid-column: span 4; }
+.colSpan4 { grid-column: span 4; overflow: visible; }
 
 .sectionHeader {
     display: flex;
@@ -267,6 +267,9 @@
     font-size: 15px;
     color: #1e293b;
     transition: all 0.2s ease;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
 }
 
 .formInput:focus, .formSelect:focus {
@@ -279,6 +282,11 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 20px;
+    min-width: 0;
+}
+
+.rowGrid > * {
+    min-width: 0;
 }
 
 .primaryBtn {

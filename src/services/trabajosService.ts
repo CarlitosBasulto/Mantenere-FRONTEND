@@ -1,15 +1,25 @@
 import api from "./api";
 
+// Función helper para corregir URLs en toda la respuesta
+const fixUrls = (data: any) => {
+    if (!data) return data;
+    let stringified = JSON.stringify(data);
+    stringified = stringified.replace(/http:\/\/mantenere-backend/g, 'https://mantenere-backend');
+    stringified = stringified.replace(/http:\/\/127\.0\.0\.1:8085/g, 'https://mantenere-backend-production.up.railway.app');
+    stringified = stringified.replace(/http:\/\/localhost:8085/g, 'https://mantenere-backend-production.up.railway.app');
+    return JSON.parse(stringified);
+};
+
 // Obtener todos los trabajos (solicitudes)
 export const getTrabajos = async () => {
     const res = await api.get(`/trabajos`);
-    return res.data;
+    return fixUrls(res.data);
 };
 
 // Obtener un trabajo por ID
 export const getTrabajo = async (id: number) => {
     const res = await api.get(`/trabajos/${id}`);
-    return res.data;
+    return fixUrls(res.data);
 };
 
 // Crear un nuevo trabajo

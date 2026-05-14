@@ -6,7 +6,9 @@ import { useAuth } from '../../context/AuthContext';
 import { useModal } from '../../context/ModalContext';
 import { loginUser, registerUser, forgotPassword } from '../../services/authService';
 import type { UserRole } from '../../context/AuthContext';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, FileText, ShieldCheck, X } from 'lucide-react';
+import ReCAPTCHA from "react-google-recaptcha";
+import { TERMS_AND_CONDITIONS, PRIVACY_POLICY } from '../../constants/legalConstants';
 
 const AuthPage: React.FC = () => {
     const [isRightPanelActive, setIsRightPanelActive] = useState(false);
@@ -32,6 +34,16 @@ const AuthPage: React.FC = () => {
     const [showLoginPassword, setShowLoginPassword] = useState(false);
     const [showRegPassword, setShowRegPassword] = useState(false);
     const [showRegConfirm, setShowRegConfirm] = useState(false);
+
+    // Legal states
+    const [acceptedTerms, setAcceptedTerms] = useState(false);
+    const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
+    const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+    const [legalModal, setLegalModal] = useState<{ open: boolean; title: string; content: string }>({
+        open: false,
+        title: '',
+        content: ''
+    });
 
     useEffect(() => {
         if (location.pathname === '/registro-sesion') {
@@ -65,7 +77,13 @@ const AuthPage: React.FC = () => {
             
             let role: UserRole = roleStr as UserRole;
             
-            login({ id: user.id, name: user.name, role: role, email: user.email });
+            login({ 
+                id: user.id, 
+                name: user.name, 
+                role: role, 
+                email: user.email,
+                negocio_id: user.negocio_id 
+            });
             
             setWelcomeName(user.name);
             setShowWelcomeModal(true);
@@ -73,6 +91,7 @@ const AuthPage: React.FC = () => {
                 setShowWelcomeModal(false);
                 if (role === 'admin') navigate('/menu');
                 else if (role === 'tecnico') navigate('/tecnico');
+                else if (role === 'encargado') navigate('/encargado');
                 else navigate('/cliente');
             }, 5000);
         } catch (error: any) {
@@ -85,6 +104,14 @@ const AuthPage: React.FC = () => {
         e.preventDefault();
         if (regPassword !== regConfirm) {
             showAlert("Error de Registro", "Las contraseñas no coinciden.", "warning");
+            return;
+        }
+        if (!acceptedTerms || !acceptedPrivacy) {
+            showAlert("Aceptación Requerida", "Debes aceptar los términos y el aviso de privacidad para continuar.", "warning");
+            return;
+        }
+        if (!captchaToken) {
+            showAlert("Validación Requerida", "Por favor completa el ReCAPTCHA.", "warning");
             return;
         }
         try {
@@ -112,11 +139,22 @@ const AuthPage: React.FC = () => {
                 setShowWelcomeModal(false);
                 if (role === 'admin') navigate('/menu');
                 else if (role === 'tecnico') navigate('/tecnico');
+                else if (role === 'encargado') navigate('/encargado');
                 else navigate('/cliente');
             }, 5000);
         } catch (error: any) {
             console.error(error);
-            showAlert("Error de Registro", error.response?.data?.message || "No se pudo registrar la cuenta. Intente nuevamente.", "error");
+            // Extraer mensaje detallado de Laravel si existe (errors object)
+            const errorData = error.response?.data;
+            let errorMsg = "No se pudo registrar la cuenta. Intente nuevamente.";
+            
+            if (errorData?.errors) {
+                errorMsg = Object.values(errorData.errors).flat().join(' ');
+            } else if (errorData?.message) {
+                errorMsg = errorData.message;
+            }
+
+            showAlert("Error de Registro", errorMsg, "error");
         }
     };
 
@@ -168,6 +206,42 @@ const AuthPage: React.FC = () => {
                                 {showRegConfirm ? <EyeOff size={20} /> : <Eye size={20} />}
                             </button>
                         </div>
+
+                        {/* LEGAL CHECKBOXES */}
+                        <div className={styles.legalContainer}>
+                            <div className={styles.checkboxGroup}>
+                                <input 
+                                    type="checkbox" 
+                                    id="terms" 
+                                    checked={acceptedTerms} 
+                                    onChange={(e) => setAcceptedTerms(e.target.checked)} 
+                                />
+                                <label htmlFor="terms">
+                                    Acepto los <span onClick={() => setLegalModal({ open: true, title: 'Términos y Condiciones', content: TERMS_AND_CONDITIONS })}>términos y condiciones de uso</span>
+                                </label>
+                            </div>
+                            <div className={styles.checkboxGroup}>
+                                <input 
+                                    type="checkbox" 
+                                    id="privacy" 
+                                    checked={acceptedPrivacy} 
+                                    onChange={(e) => setAcceptedPrivacy(e.target.checked)} 
+                                />
+                                <label htmlFor="privacy">
+                                    Acepto el <span onClick={() => setLegalModal({ open: true, title: 'Aviso de Privacidad', content: PRIVACY_POLICY })}>aviso de privacidad</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        {/* RECAPTCHA */}
+                        <div className={styles.captchaContainer}>
+                            <ReCAPTCHA
+                                sitekey="6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI"
+                                onChange={(token) => setCaptchaToken(token)}
+                                size="normal"
+                            />
+                        </div>
+
                         <button type="submit" className={styles.button}>Registrarse</button>
                         
                         {/* Mobile view switch */}
@@ -262,6 +336,26 @@ const AuthPage: React.FC = () => {
                                 <button type="submit" className={styles.button} style={{ flex: 1, margin: 0, padding: '12px' }}>Enviar Enlace</button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* LEGAL MODAL */}
+            {legalModal.open && (
+                <div className={styles.welcomeModalOverlay} style={{ zIndex: 2000 }}>
+                    <div className={styles.legalModalContent}>
+                        <div className={styles.legalModalHeader}>
+                            <h2>{legalModal.title}</h2>
+                            <button onClick={() => setLegalModal({ ...legalModal, open: false })} className={styles.closeBtn}>
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div className={styles.legalModalBody}>
+                            <pre className={styles.legalText}>{legalModal.content}</pre>
+                        </div>
+                        <div className={styles.legalModalFooter}>
+                            <button onClick={() => setLegalModal({ ...legalModal, open: false })} className={styles.button}>Entendido</button>
+                        </div>
                     </div>
                 </div>
             )}

@@ -16,8 +16,7 @@ import { getReporteByTrabajoId } from "../../services/reportesService";
 import ReporteDetailModal from "../../components/modals/ReporteDetailModal";
 import { getTrabajo } from "../../services/trabajosService";
 import { deleteTrabajo } from "../../services/trabajosService";
-import { HiDotsVertical } from "react-icons/hi";
-import { HiOutlinePencil, HiOutlineTrash, HiOutlineClipboardDocumentList, HiOutlineArchiveBox, HiOutlineClock } from "react-icons/hi2";
+import { HiOutlinePencil, HiOutlineTrash, HiOutlineClipboardDocumentList, HiOutlineArchiveBox, HiOutlineClock, HiOutlineUserPlus } from "react-icons/hi2";
 
 interface Trabajo {
     id: number;
@@ -116,7 +115,7 @@ const TrabajoDetalle: React.FC = () => {
 
     // DATOS DESDE LA API
     const [trabajosData, setTrabajosData] = useState<Trabajo[]>([]);
-    const [activeMenuId, setActiveMenuId] = useState<number | null>(null);
+
 
     useEffect(() => {
         const fetchJobs = async () => {
@@ -616,6 +615,7 @@ const TrabajoDetalle: React.FC = () => {
                         ? `[Equipo: ${newRequestData.equipoSeleccionado}]\n${newRequestData.descripcion}`
                         : newRequestData.descripcion,
                     prioridad: isEmergency ? "Alta" : "Media",
+                    tipo: isEmergency ? "SOS" : "Nueva Solicitud",
                     negocio_id: Number(id),
                     fecha_programada: newRequestData.fecha || null
                 };
@@ -654,6 +654,13 @@ const TrabajoDetalle: React.FC = () => {
                 } catch (notiErr) {
                     console.error("Error al notificar admin de nueva solicitud:", notiErr);
                 }
+                showAlert(
+                    isEmergency ? "🚨 ¡Emergencia Enviada!" : "✅ ¡Solicitud Enviada!",
+                    isEmergency
+                        ? "Tu alerta SOS ha sido enviada al administrador. Nos pondremos en contacto contigo a la brevedad posible."
+                        : "Tu solicitud ha sido enviada exitosamente al administrador. Pronto te notificaremos cuando se asigne un técnico.",
+                    "success"
+                );
             } catch (error) {
                 console.error("Error creating record:", error);
                 showAlert("Error", "Hubo un error contactando al servidor.", "error");
@@ -965,7 +972,7 @@ const TrabajoDetalle: React.FC = () => {
                 </div>
 
                 {/* LISTA DE TRABAJOS */}
-                <div className={styles.jobsSection} onClick={() => setActiveMenuId(null)}>
+                <div className={styles.jobsSection}>
                     {sortedDates.map(date => (
                         <div key={date}>
                             {groupedJobs[date].map(trabajo => {
@@ -1024,46 +1031,16 @@ const TrabajoDetalle: React.FC = () => {
                                                     </p>
                                                 </div>
 
-                                                {/* MENU DE TRES PUNTOS - Only for Admin or Cliente */}
-                                                {(user?.role === 'admin' || user?.role === 'cliente') && (
+                                                {/* ACCIONES - Solo Admin o Cliente en la parte derecha del header */}
+                                                {user?.role === 'cliente' && (
                                                     <div className={styles.menuContainer} onClick={(e) => e.stopPropagation()}>
                                                         <button
-                                                            className={styles.dotsBtn}
-                                                            onClick={() => setActiveMenuId(activeMenuId === trabajo.id ? null : trabajo.id)}
+                                                            className={styles.editBtnSmall}
+                                                            onClick={(e) => handleOpenEditRequest(e, trabajo)}
+                                                            title="Editar"
                                                         >
-                                                            <HiDotsVertical />
+                                                            <HiOutlinePencil size={14} />
                                                         </button>
-
-                                                        {activeMenuId === trabajo.id && (
-                                                            <div className={styles.dropdownMenu}>
-                                                                {user?.role === 'cliente' && (
-                                                                    <button
-                                                                        className={styles.menuItem}
-                                                                        onClick={(e) => handleOpenEditRequest(e, trabajo)}
-                                                                    >
-                                                                        <HiOutlinePencil /> Editar
-                                                                    </button>
-                                                                )}
-
-                                                                {user?.role === 'admin' && (
-                                                                    <button
-                                                                        className={styles.menuItem}
-                                                                        onClick={() => openAssignmentModal(trabajo.id)}
-                                                                    >
-                                                                        <HiOutlineClipboardDocumentList /> Asignar
-                                                                    </button>
-                                                                )}
-
-                                                                {user?.role === 'cliente' && (
-                                                                    <button
-                                                                        className={`${styles.menuItem} ${styles.deleteItem}`}
-                                                                        onClick={(e) => handleDeleteRequest(e, trabajo.id)}
-                                                                    >
-                                                                        <HiOutlineTrash /> Borrar
-                                                                    </button>
-                                                                )}
-                                                            </div>
-                                                        )}
                                                     </div>
                                                 )}
                                             </div>
@@ -1125,7 +1102,7 @@ const TrabajoDetalle: React.FC = () => {
                                                             💰 Cotizar
                                                         </button>
                                                     )}
-                                                    {/* Hide type label if unassigned or technician search matches */}
+                                                    {/* Badge de tipo si hay técnico asignado */}
                                                     {trabajo.tecnico &&
                                                         !trabajo.tecnico.toLowerCase().includes("sin asignar") &&
                                                         !trabajo.tecnico.toLowerCase().includes("pendiente") &&
@@ -1134,6 +1111,28 @@ const TrabajoDetalle: React.FC = () => {
                                                                 {trabajo.estado === 'Finalizado' && trabajo.tipo === "SOS" ? 'Finalizado' : trabajo.tipo}
                                                             </span>
                                                         )}
+                                                    {/* Botón Asignar Técnico visible para Admin */}
+                                                    {user?.role === 'admin' && (
+                                                        <div className={styles.actionBtns} onClick={(e) => e.stopPropagation()}>
+                                                            <button
+                                                                className={styles.trashBtn}
+                                                                onClick={(e) => handleDeleteRequest(e, trabajo.id)}
+                                                                title="Eliminar"
+                                                            >
+                                                                <HiOutlineTrash size={15} />
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                    {/* Botones de cliente */}
+                                                    {user?.role === 'cliente' && (
+                                                        <button
+                                                            className={styles.trashBtn}
+                                                            onClick={(e) => handleDeleteRequest(e, trabajo.id)}
+                                                            title="Eliminar"
+                                                        >
+                                                            <HiOutlineTrash size={15} />
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>

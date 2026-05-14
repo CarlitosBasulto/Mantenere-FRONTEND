@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState } from 'react';
 import type { ReactNode } from 'react';
 
 // Tipos de roles disponibles
-export type UserRole = 'admin' | 'cliente' | 'tecnico' | null;
+export type UserRole = 'admin' | 'cliente' | 'tecnico' | 'encargado' | null;
 
 interface User {
     id: number;
@@ -10,6 +10,7 @@ interface User {
     email: string;
     role: UserRole;
     avatar?: string;
+    negocio_id?: number; // Sucursal asignada (solo para rol encargado)
 }
 
 interface AuthContextType {

@@ -30,3 +30,19 @@ export const deleteUser = async (id: number) => {
     const res = await api.delete(`/users/${id}`);
     return res.data;
 };
+
+// Asignar / actualizar encargado de una sucursal (crea el usuario y envía el correo)
+export const asignarEncargadoSucursal = async (negocioId: number, data: {
+    name: string;
+    email: string;
+    password: string;
+}) => {
+    const res = await api.post(`/negocios/${negocioId}/encargado`, data);
+    return res.data;
+};
+
+// Obtener el encargado actual asignado a una sucursal
+export const getEncargadoSucursal = async (negocioId: number) => {
+    const res = await api.get(`/negocios/${negocioId}/encargado`);
+    return res.data;
+};
