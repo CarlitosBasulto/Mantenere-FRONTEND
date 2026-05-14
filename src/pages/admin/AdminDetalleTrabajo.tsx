@@ -51,7 +51,7 @@ interface Trabajo {
     tecnico: string;
     fecha: string;
     estado: "En Espera" | "Finalizado" | "En Proceso" | "Asignado" | "Solicitud" | "Cotización Enviada" | "Cotización Aceptada" | "Cotización Rechazada" | "Cotización Aprobada" | "Pendiente de Cotizar";
-    tipo?: "Visita" | "Trabajo" | "Nueva Solicitud";
+    tipo?: "Visita" | "Trabajo" | "Nueva Solicitud" | "SOS";
     visitado?: boolean;
     descripcion?: string;
     sucursal?: string;

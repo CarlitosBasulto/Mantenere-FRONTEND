@@ -4,15 +4,12 @@ import {
     HiOutlineXMark, 
     HiOutlinePlus, 
     HiOutlineTrash,
-    HiOutlinePencilSquare,
     HiOutlineFolderPlus,
     HiOutlineChevronRight,
     HiOutlineArchiveBox,
     HiOutlineCheckCircle,
     HiOutlineCamera,
     HiOutlinePhoto,
-    HiOutlineEye,
-    HiOutlineExclamationTriangle,
     HiOutlineChevronLeft
 } from "react-icons/hi2";
 import type { Equipment, LevantamientoData, LevantamientoSeccion } from '../pages/cliente/PerfilEmpresa';
@@ -26,11 +23,10 @@ interface LevantamientoModalProps {
     initialSectionId?: string | null;
     onSave: (newData: LevantamientoData) => void;
     isReadOnly?: boolean;
-    onReportMaintenance?: (eq: Equipment) => void;
     initialEquipmentId?: string | null;
 }
 
-const LevantamientoModal: React.FC<LevantamientoModalProps> = ({ isOpen, onClose, data, initialSectionId, onSave, isReadOnly = false, onReportMaintenance, initialEquipmentId }) => {
+const LevantamientoModal: React.FC<LevantamientoModalProps> = ({ isOpen, onClose, data, initialSectionId, onSave, isReadOnly = false, initialEquipmentId }) => {
     const { showConfirm } = useModal();
     const [sections, setSections] = useState<LevantamientoData>([]);
     const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
@@ -192,21 +188,6 @@ const LevantamientoModal: React.FC<LevantamientoModalProps> = ({ isOpen, onClose
         }
     };
 
-    const deleteEquipment = (eqId: string) => {
-        // Encontrar el equipo para revocar su foto si es un blob
-        const equipmentToDelete = activeSection?.equipos.find(e => e.id === eqId);
-        if (equipmentToDelete?.foto && equipmentToDelete.foto.startsWith('blob:')) {
-            URL.revokeObjectURL(equipmentToDelete.foto);
-        }
-
-        const updatedSections = sections.map((section: LevantamientoSeccion) => {
-            if (section.id === activeSectionId) {
-                return { ...section, equipos: section.equipos.filter((e: Equipment) => e.id !== eqId) };
-            }
-            return section;
-        });
-        setSections(updatedSections);
-    };
 
     const handleFinalSave = () => {
         onSave(sections);
