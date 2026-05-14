@@ -2,7 +2,9 @@
 
 
 .body {
-    background-color: #f8fafc;
+    background-image: url('../../assets/imagenes/Fondosesion.png');
+    background-size: cover;
+    background-position: center;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -10,35 +12,8 @@
     font-family: 'Montserrat', sans-serif;
     height: 100vh;
     position: relative;
-    overflow: hidden;
     border-top: 10px solid #e9ab22;
     border-bottom: 10px solid #e9ab22;
-}
-
-.body::before {
-    content: '';
-    position: absolute;
-    left: -15%;
-    top: -20%;
-    width: 40%;
-    height: 140%;
-    background: linear-gradient(135deg, #0ea5e9, #0284c7);
-    border-radius: 50%;
-    z-index: 0;
-    opacity: 0.2;
-}
-
-.body::after {
-    content: '';
-    position: absolute;
-    right: -15%;
-    top: -20%;
-    width: 40%;
-    height: 140%;
-    background: linear-gradient(135deg, #fcd34d, #e9ab22);
-    border-radius: 50%;
-    z-index: 0;
-    opacity: 0.3;
 }
 
 .logoContainer {
@@ -232,11 +207,12 @@
     background-color: #FFFFFF;
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     flex-direction: column;
-    padding: 0 50px;
+    padding: 40px 50px;
     height: 100%;
     text-align: center;
+    overflow-y: auto;
 }
 
 .input {
