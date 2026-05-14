@@ -57,7 +57,8 @@
     overflow: hidden;
     width: 768px;
     max-width: 100%;
-    min-height: 650px;
+    height: 650px;
+    max-height: 85vh;
     transition: all 0.3s ease;
 }
 
@@ -207,12 +208,17 @@
     background-color: #FFFFFF;
     display: flex;
     align-items: center;
-    justify-content: flex-start;
     flex-direction: column;
-    padding: 40px 50px;
+    padding: 30px 50px;
     height: 100%;
     text-align: center;
     overflow-y: auto;
+}
+
+.form::before,
+.form::after {
+    content: '';
+    margin: auto;
 }
 
 .input {
