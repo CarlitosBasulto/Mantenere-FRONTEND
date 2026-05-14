@@ -178,7 +178,7 @@ const PerfilEmpresa: React.FC = () => {
                 // 1. Obtener solicitudes de mantenimiento
                 const solicitudesBackend = await getMantenimientoSolicitudes(businessId);
                 const mappedSolicitudes = solicitudesBackend.map((sol: any) => {
-                    const mappedReportes = [];
+                    const mappedReportes: any[] = [];
                     [sol.visita_trabajo, sol.reparacion_trabajo].forEach(t => {
                         if (t?.reporte?.solucion) {
                             try {
@@ -900,7 +900,6 @@ const PerfilEmpresa: React.FC = () => {
                     initialEquipmentId={activeEquipmentId}
                     onSave={(newData) => setFormData(prev => ({ ...prev, levantamiento: newData }))}
                     isReadOnly={!canEdit}
-                    onReportMaintenance={(eq) => setReportingEquipment(eq)}
                 />
 
                 <ReportarProblemaModal 

@@ -6,7 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useModal } from '../../context/ModalContext';
 import { loginUser, registerUser, forgotPassword } from '../../services/authService';
 import type { UserRole } from '../../context/AuthContext';
-import { Eye, EyeOff, FileText, ShieldCheck, X } from 'lucide-react';
+import { Eye, EyeOff, X } from 'lucide-react';
 import ReCAPTCHA from "react-google-recaptcha";
 import { TERMS_AND_CONDITIONS, PRIVACY_POLICY } from '../../constants/legalConstants';
 

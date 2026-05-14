@@ -16,7 +16,7 @@ import { getReporteByTrabajoId } from "../../services/reportesService";
 import ReporteDetailModal from "../../components/modals/ReporteDetailModal";
 import { getTrabajo } from "../../services/trabajosService";
 import { deleteTrabajo } from "../../services/trabajosService";
-import { HiOutlinePencil, HiOutlineTrash, HiOutlineClipboardDocumentList, HiOutlineArchiveBox, HiOutlineClock, HiOutlineUserPlus } from "react-icons/hi2";
+import { HiOutlinePencil, HiOutlineTrash, HiOutlineArchiveBox, HiOutlineClock } from "react-icons/hi2";
 
 interface Trabajo {
     id: number;
@@ -192,7 +192,7 @@ const TrabajoDetalle: React.FC = () => {
 
     // Modal Asignación
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [selectedJobId, setSelectedJobId] = useState<number | null>(null);
+    const [selectedJobId] = useState<number | null>(null);
     const [selectedAssignments, setSelectedAssignments] = useState<AsignacionTecnico[]>([]);
     const [technicianSearch, setTechnicianSearch] = useState("");
     const [selectedType, setSelectedType] = useState<"Visita" | "Trabajo">("Visita");
@@ -401,41 +401,7 @@ const TrabajoDetalle: React.FC = () => {
     });
 
     // --- HANDLERS ---
-    const openAssignmentModal = (jobId: number) => {
-        const job = trabajosData.find(j => j.id === jobId);
-        setSelectedJobId(jobId);
 
-        // Reset search
-        setTechnicianSearch("");
-
-        // Logic for pre-filling or resetting assignments
-        if (job?.estado === "Solicitud" || job?.estado === "En Espera" || job?.tecnico === "Sin asignar") {
-            // If it's a new request or coming back from a visit, we want it empty to avoid auto-assigning old tech
-            setSelectedAssignments([]);
-            setSelectedType("Visita");
-        } else if (job?.asignaciones && job.asignaciones.length > 0) {
-            setSelectedAssignments(job.asignaciones);
-            setSelectedType("Trabajo");
-        } else if (job?.tecnico && job.tecnico !== "Sin asignar") {
-            const techNames = job.tecnico.split(", ");
-            const convertedAssignments = techNames.map(name => {
-                const foundTech = tecnicosData.find(t => t.nombre === name);
-                return {
-                    tecnicoId: foundTech ? foundTech.id : Date.now() + Math.random(),
-                    tecnicoNombre: name,
-                    fechaAsignada: job.fechaAsignada || "",
-                    horaAsignada: job.horaAsignada || ""
-                } as AsignacionTecnico;
-            });
-            setSelectedAssignments(convertedAssignments);
-            setSelectedType("Trabajo");
-        } else {
-            setSelectedAssignments([]);
-            setSelectedType("Visita");
-        }
-
-        setIsModalOpen(true);
-    };
 
     const handleConfirmAssignment = async () => {
         if (selectedJobId) {
