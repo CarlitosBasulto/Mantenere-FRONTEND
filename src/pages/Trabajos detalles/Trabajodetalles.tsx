@@ -225,6 +225,7 @@ const TrabajoDetalle: React.FC = () => {
     const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
     const [isEditingRequest, setIsEditingRequest] = useState(false);
     const [isSOSRequest, setIsSOSRequest] = useState(false);
+    const [fotoSOS, setFotoSOS] = useState<File | null>(null);
     const [editingRequestId, setEditingRequestId] = useState<number | null>(null);
     const [newRequestData, setNewRequestData] = useState({
         categoria: "Electricidad",
@@ -573,20 +574,37 @@ const TrabajoDetalle: React.FC = () => {
                 }
 
                 const isEmergency = isSOSRequest;
-                const newJobPayload = {
-                    titulo: isEmergency
-                        ? `🚨 SOS: ${finalCategoria} - ${businessName}`
-                        : `${finalCategoria} - ${newRequestData.cliente || businessName}`,
-                    descripcion: (newRequestData.categoria === 'Mantenimiento' && newRequestData.equipoSeleccionado)
-                        ? `[Equipo: ${newRequestData.equipoSeleccionado}]\n${newRequestData.descripcion}`
-                        : newRequestData.descripcion,
-                    prioridad: isEmergency ? "Alta" : "Media",
-                    tipo: isEmergency ? "SOS" : "Nueva Solicitud",
-                    negocio_id: Number(id),
-                    fecha_programada: newRequestData.fecha || null
-                };
+                
+                let dbJob;
+                if (isEmergency && fotoSOS) {
+                    const formData = new FormData();
+                    formData.append('titulo', `🚨 SOS: ${finalCategoria} - ${businessName}`);
+                    formData.append('descripcion', newRequestData.descripcion);
+                    formData.append('prioridad', 'Alta');
+                    formData.append('tipo', 'SOS');
+                    formData.append('negocio_id', id || '');
+                    if (newRequestData.fecha) {
+                        formData.append('fecha_programada', newRequestData.fecha);
+                    }
+                    formData.append('foto', fotoSOS);
+                    
+                    dbJob = await createTrabajo(formData);
+                } else {
+                    const newJobPayload = {
+                        titulo: isEmergency
+                            ? `🚨 SOS: ${finalCategoria} - ${businessName}`
+                            : `${finalCategoria} - ${newRequestData.cliente || businessName}`,
+                        descripcion: (newRequestData.categoria === 'Mantenimiento' && newRequestData.equipoSeleccionado)
+                            ? `[Equipo: ${newRequestData.equipoSeleccionado}]\n${newRequestData.descripcion}`
+                            : newRequestData.descripcion,
+                        prioridad: isEmergency ? "Alta" : "Media",
+                        tipo: isEmergency ? "SOS" : "Nueva Solicitud",
+                        negocio_id: Number(id),
+                        fecha_programada: newRequestData.fecha || null
+                    };
 
-                const dbJob = await createTrabajo(newJobPayload);
+                    dbJob = await createTrabajo(newJobPayload);
+                }
 
                 // Update purely visual UI State immediately
                 const newJobView = {
@@ -636,6 +654,7 @@ const TrabajoDetalle: React.FC = () => {
         setIsRequestModalOpen(false);
         setIsEditingRequest(false);
         setIsSOSRequest(false);
+        setFotoSOS(null);
         setEditingRequestId(null);
         // Reset form
         setNewRequestData({
@@ -1358,11 +1377,43 @@ const TrabajoDetalle: React.FC = () => {
                             </div>
                         </div>
 
+                        {/* INPUT FOTO SOS */}
+                        {isSOSRequest && (
+                            <div style={{ marginTop: '15px', marginBottom: '15px' }}>
+                                <label className={styles.formLabel}>Adjuntar foto del problema (Opcional)</label>
+                                <div style={{
+                                    border: '2px dashed #f44336',
+                                    borderRadius: '12px',
+                                    padding: '20px',
+                                    textAlign: 'center',
+                                    background: '#fff5f5',
+                                    cursor: 'pointer',
+                                    position: 'relative'
+                                }}>
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={(e) => setFotoSOS(e.target.files ? e.target.files[0] : null)}
+                                        style={{
+                                            position: 'absolute',
+                                            top: 0, left: 0, width: '100%', height: '100%',
+                                            opacity: 0, cursor: 'pointer'
+                                        }}
+                                    />
+                                    <span style={{ fontSize: '24px', display: 'block', marginBottom: '8px' }}>📸</span>
+                                    <span style={{ fontSize: '14px', color: '#c62828', fontWeight: 'bold' }}>
+                                        {fotoSOS ? fotoSOS.name : 'Haz clic para seleccionar una imagen'}
+                                    </span>
+                                </div>
+                            </div>
+                        )}
+
                         <div className={styles.requestModalActions}>
                             <button
                                 onClick={() => {
                                     setIsRequestModalOpen(false);
                                     setIsSOSRequest(false);
+                                    setFotoSOS(null);
                                 }}
                                 className={styles.cancelBtnLarge}
                             >

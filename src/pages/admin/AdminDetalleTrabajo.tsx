@@ -79,6 +79,7 @@ interface Trabajo {
     }[];
     fechaSolicitud?: string;
     clienteUserId?: number;  // user_id del negocio (cliente) para notificaciones
+    foto_url?: string;
 }
 
 interface SubTarea {
@@ -267,7 +268,8 @@ const AdminDetalleTrabajo: React.FC = () => {
                     referencias: data.negocio?.referencias || "Por definir",
                     fechaSolicitud: data.created_at ? new Date(data.created_at).toLocaleDateString('es-MX') : "No registrada",
                     businessId: data.negocio_id || data.negocio?.id,
-                    clienteUserId: data.negocio?.user_id || null
+                    clienteUserId: data.negocio?.user_id || null,
+                    foto_url: data.foto_url || null
                 };
                 
                 // Autofill Marca and Modelo if there is a linked MantenimientoSolicitud
@@ -1459,6 +1461,20 @@ const AdminDetalleTrabajo: React.FC = () => {
                                         <div className={styles.descriptionBox}>
                                             <span className={styles.bentoLabel} style={{ marginBottom: '4px', color: '#334155' }}>Problema Reportado</span>
                                             <p className={styles.descriptionQuote}>"{trabajo.descripcion}"</p>
+                                            {trabajo.foto_url && (
+                                                <div style={{ marginTop: '10px' }}>
+                                                    <span className={styles.bentoLabel} style={{ marginBottom: '4px', color: '#334155', display: 'block' }}>Foto Adjunta:</span>
+                                                    <img 
+                                                        src={trabajo.foto_url} 
+                                                        alt="Evidencia SOS" 
+                                                        style={{ width: '120px', height: '120px', objectFit: 'cover', borderRadius: '8px', cursor: 'pointer', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }} 
+                                                        onClick={(e) => {
+                                                            e.stopPropagation(); // Evitar abrir modal de sucursal
+                                                            setSelectedZoomImage(trabajo.foto_url || null);
+                                                        }} 
+                                                    />
+                                                </div>
+                                            )}
                                         </div>
                                     )}
                                 </div>
