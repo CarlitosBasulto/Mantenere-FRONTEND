@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { createPortal } from "react-dom";
-import { HiOutlineCalendarDays, HiOutlineWrenchScrewdriver, HiOutlineCheckCircle, HiXMark, HiChevronDown, HiChevronUp, HiOutlineClipboardDocumentList } from "react-icons/hi2";
+import { HiOutlineCalendarDays, HiOutlineWrenchScrewdriver, HiOutlineCheckCircle, HiChevronDown, HiChevronUp, HiOutlineClipboardDocumentList } from "react-icons/hi2";
 
 interface HistorialEquipoModalProps {
     isOpen: boolean;
@@ -12,6 +12,17 @@ interface HistorialEquipoModalProps {
 
 const HistorialEquipoModal: React.FC<HistorialEquipoModalProps> = ({ isOpen, onClose, equipo, historial, onViewReport }) => {
     const [expandedIds, setExpandedIds] = useState<number[]>([]);
+
+    React.useEffect(() => {
+        if (isOpen && equipo) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = '';
+        }
+        return () => {
+            document.body.style.overflow = '';
+        };
+    }, [isOpen, equipo]);
 
     if (!isOpen || !equipo) return null;
 
@@ -42,7 +53,7 @@ const HistorialEquipoModal: React.FC<HistorialEquipoModalProps> = ({ isOpen, onC
                     onMouseEnter={e => { e.currentTarget.style.background = '#e2e8f0'; e.currentTarget.style.color = '#0f172a'; }}
                     onMouseLeave={e => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#64748b'; }}
                 >
-                    <HiXMark size={20} />
+                    <span style={{ fontSize: '20px', fontWeight: 'bold', color: 'inherit' }}>✕</span>
                 </button>
 
                 <div style={{ display: 'flex', gap: '25px', flexWrap: 'wrap', marginBottom: '30px' }}>

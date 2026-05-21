@@ -668,7 +668,7 @@ const DashboardCliente: React.FC = () => {
                                                 <div className={styles.equipoPhotoContainer}>
                                                     {eq.imagen ? (
                                                         <img 
-                                                            src={`https://mantenere-backend-production.up.railway.app/storage/${eq.imagen}`} 
+                                                            src={eq.imagen.startsWith('http') ? eq.imagen : `${(import.meta.env.VITE_API_URL || 'http://127.0.0.1:8085/api').replace(/\/api\/?$/, '')}/storage/${eq.imagen}`} 
                                                             alt="Equipo" 
                                                             className={styles.equipoMainPhoto}
                                                             onError={(e) => { e.currentTarget.style.display = 'none'; }}

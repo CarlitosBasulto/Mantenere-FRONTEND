@@ -50,3 +50,23 @@ export const updateNegocio = async (id: number, data: any) => {
     const res = await api.put(`/negocios/${id}`, data);
     return res.data;
 };
+
+// Actualizar datos de un equipo individual (Admin)
+export const updateEquipo = async (id: number, data: {
+    nombre?: string;
+    marca?: string;
+    modelo?: string;
+    serie?: string;
+    anioFabricacion?: string;
+    anioUso?: string;
+    categoria_id?: number | null;
+}) => {
+    const res = await api.put(`/equipos/${id}`, data);
+    return res.data;
+};
+
+// Historial de solicitudes de mantenimiento de un equipo
+export const getEquipoHistorial = async (equipoId: number) => {
+    const res = await api.get(`/equipos/${equipoId}/historial`);
+    return fixUrls(res.data);
+};

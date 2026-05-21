@@ -776,18 +776,10 @@ const AdminDetalleTrabajo: React.FC = () => {
                 try {
                     if (isVisita) {
                         await updateEstadoTrabajo(trabajo.id, { estado: "En Espera", visitado: true });
-                        try {
-                            await assignTrabajador(trabajo.id, null as any);
-                        } catch (e: any) {
-                            if (e.response && (e.response.status === 422 || e.response.status === 405)) {
-                                try { await updateTrabajo(trabajo.id, { trabajador_id: null }); } catch (e2) {}
-                            }
-                        }
                         const updatedJob = {
                             ...trabajo,
                             estado: "En Espera" as any,
-                            visitado: true,
-                            tecnico: "Sin asignar"
+                            visitado: true
                         };
                         setTrabajo(updatedJob);
 
@@ -1554,7 +1546,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                     onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-1px)')}
                                                     onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}
                                                 >
-                                                    🚨 Asignar Técnico (Emergencia)
+                                                    {trabajo.tecnico && trabajo.tecnico !== 'Sin asignar' && trabajo.tecnico !== 'Sin Asignar' ? `🚨 Técnico: ${trabajo.tecnico}` : '🚨 Asignar Técnico (Emergencia)'}
                                                 </button>
                                             ) : null
                                         ) : (
@@ -1583,7 +1575,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                 onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-1px)')}
                                                 onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}
                                             >
-                                                👤 Asignar Técnico
+                                                {trabajo.tecnico && trabajo.tecnico !== 'Sin asignar' && trabajo.tecnico !== 'Sin Asignar' ? `👤 Técnico: ${trabajo.tecnico}` : '👤 Asignar Técnico'}
                                             </button>
                                         )
                                     )}
@@ -1673,13 +1665,13 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                         {cotiz.descripcion && (
                                                             <div className={styles.quoteNotesBox}>
                                                                 <p className={styles.notesLabel}>Descripción y Alcance</p>
-                                                                <p className={styles.notesText}>{cotiz.descripcion}</p>
+                                                                <p className={styles.notesText} style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>{cotiz.descripcion}</p>
                                                             </div>
                                                         )}
 
                                                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
                                                             {cotiz.archivo && (
-                                                                <a href={cotiz.archivo.startsWith('http') ? cotiz.archivo : `https://mantenere-backend-production.up.railway.app/storage/${cotiz.archivo}`} 
+                                                                <a href={cotiz.archivo.startsWith('http') ? cotiz.archivo : `${(import.meta.env.VITE_API_URL || 'http://127.0.0.1:8085/api').replace(/\/api\/?$/, '')}/storage/${cotiz.archivo}`} 
                                                                    target="_blank" 
                                                                    rel="noreferrer"
                                                                    className={styles.attachmentLink}

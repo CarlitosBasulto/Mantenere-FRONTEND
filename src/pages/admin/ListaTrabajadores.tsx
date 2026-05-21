@@ -81,6 +81,7 @@ const ListaTrabajadores: React.FC = () => {
     const [newWorkerPhone, setNewWorkerPhone] = useState("");
     const [newWorkerEmail, setNewWorkerEmail] = useState("");
     const [newWorkerPassword, setNewWorkerPassword] = useState("");
+    const [newWorkerType, setNewWorkerType] = useState<"Interno" | "Externo">("Interno");
     const [newCategoryName, setNewCategoryName] = useState("");
 
     const [availableRoles, setAvailableRoles] = useState(["General", "Electricista", "Plomero", "Albañil", "Pintor"]);
@@ -141,11 +142,12 @@ const ListaTrabajadores: React.FC = () => {
 
         try {
             const rolesSeleccionados = newWorkerRoles.length > 0 ? newWorkerRoles.join(", ") : "General";
+            const puestoConTipo = `${rolesSeleccionados} - ${newWorkerType}`;
             await createTrabajador({
                 nombre: newWorkerName,
                 correo: newWorkerEmail,
                 password: newWorkerPassword,
-                puesto: rolesSeleccionados,
+                puesto: puestoConTipo,
                 telefono: newWorkerPhone || null
             });
 
@@ -158,6 +160,7 @@ const ListaTrabajadores: React.FC = () => {
             setNewWorkerPhone("");
             setNewWorkerEmail("");
             setNewWorkerPassword("");
+            setNewWorkerType("Interno");
             setIsAddModalOpen(false);
             showAlert("Éxito", "Trabajador creado exitosamente.", "success");
         } catch (error: any) {
@@ -284,10 +287,33 @@ Line: 97
                                 <div className={styles.cardInfo}>
                                     <span className={styles.cardDate}>{worker.fecha}</span>
                                     <h3>{worker.nombre}</h3>
-                                    <p style={{ color: '#666', fontSize: '14px', margin: '2px 0' }}>{worker.puesto}</p>
-                                    <p style={{ fontWeight: 'bold', color: worker.estado === 'Activo' ? '#4CAF50' : '#F44336' }}>
-                                        {worker.estado}
-                                    </p>
+                                    {(() => {
+                                        const isExterno = worker.puesto.includes('- Externo');
+                                        const isInterno = worker.puesto.includes('- Interno');
+                                        const displayPuesto = worker.puesto.replace('- Externo', '').replace('- Interno', '').trim();
+                                        return (
+                                            <>
+                                                <p style={{ color: '#666', fontSize: '14px', margin: '2px 0' }}>{displayPuesto}</p>
+                                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                                    <p style={{ fontWeight: 'bold', color: worker.estado === 'Activo' ? '#4CAF50' : '#F44336', margin: 0 }}>
+                                                        {worker.estado}
+                                                    </p>
+                                                    {(isExterno || isInterno) && (
+                                                        <span style={{ 
+                                                            fontSize: '11px', 
+                                                            fontWeight: 'bold', 
+                                                            padding: '2px 8px', 
+                                                            borderRadius: '12px', 
+                                                            background: isExterno ? '#fef3c7' : '#e0e7ff', 
+                                                            color: isExterno ? '#d97706' : '#4338ca' 
+                                                        }}>
+                                                            {isExterno ? 'Técnico Externo' : 'Técnico Interno'}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </>
+                                        );
+                                    })()}
                                 </div>
 
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginRight: '20px', zIndex: 10 }}>
@@ -432,6 +458,32 @@ Line: 97
                                         placeholder="Mínimo 6 caracteres"
                                         required
                                     />
+                                </div>
+                            </div>
+
+                            <div className={styles.typeSection} style={{ marginBottom: '20px', marginTop: '10px' }}>
+                                <label className={styles.sectionLabel} style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: '#334155', fontWeight: '600' }}>Tipo de Técnico</label>
+                                <div style={{ display: 'flex', gap: '20px' }}>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', cursor: 'pointer' }}>
+                                        <input 
+                                            type="radio" 
+                                            name="workerType" 
+                                            value="Interno" 
+                                            checked={newWorkerType === "Interno"} 
+                                            onChange={(e) => setNewWorkerType(e.target.value as "Interno" | "Externo")}
+                                        />
+                                        Técnico Interno
+                                    </label>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', cursor: 'pointer' }}>
+                                        <input 
+                                            type="radio" 
+                                            name="workerType" 
+                                            value="Externo" 
+                                            checked={newWorkerType === "Externo"} 
+                                            onChange={(e) => setNewWorkerType(e.target.value as "Interno" | "Externo")}
+                                        />
+                                        Técnico Externo
+                                    </label>
                                 </div>
                             </div>
 

@@ -213,7 +213,7 @@
 .responsiveTable {
     width: 100%;
     border-collapse: collapse;
-    textAlign: left;
+    text-align: left;
     min-width: 1000px;
 }
 
@@ -227,7 +227,7 @@
 
 .responsiveTable th {
     padding: 12px 15px;
-    fontWeight: 800;
+    font-weight: 800;
     border-bottom: 2px solid #e2e8f0;
 }
 

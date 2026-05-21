@@ -1,7 +1,6 @@
 import React from 'react';
 import styles from './DetalleEquipoModal.module.css';
 import { 
-    HiOutlineXMark, 
     HiOutlinePencilSquare,
     HiOutlineCalendarDays,
     HiOutlineHashtag,
@@ -18,6 +17,17 @@ interface DetalleEquipoModalProps {
 }
 
 const DetalleEquipoModal: React.FC<DetalleEquipoModalProps> = ({ isOpen, onClose, equipment, onEdit }) => {
+    React.useEffect(() => {
+        if (isOpen && equipment) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = '';
+        }
+        return () => {
+            document.body.style.overflow = '';
+        };
+    }, [isOpen, equipment]);
+
     if (!isOpen || !equipment) return null;
 
     return (
@@ -29,8 +39,8 @@ const DetalleEquipoModal: React.FC<DetalleEquipoModalProps> = ({ isOpen, onClose
                         <h3 className={styles.modalTitle}>{equipment.nombre}</h3>
                         <span className={styles.brandSubtitle}>{equipment.marca} • {equipment.modelo}</span>
                     </div>
-                    <button className={styles.closeButton} onClick={onClose}>
-                        <HiOutlineXMark size={22} color="#1e293b" />
+                    <button className={styles.closeButton} onClick={onClose} title="Cerrar">
+                        <span style={{ fontSize: '20px', fontWeight: 'bold', color: 'inherit' }}>✕</span>
                     </button>
                 </div>
 
@@ -62,6 +72,14 @@ const DetalleEquipoModal: React.FC<DetalleEquipoModalProps> = ({ isOpen, onClose
 
                     {/* DATA GRID */}
                     <div className={styles.dataGrid}>
+                        {equipment.categoria && (
+                            <div className={styles.dataItem}>
+                                <div className={styles.iconWrapper}><HiOutlineTag size={18} color="#10b981" /></div>
+                                <div className={styles.dataLabel}>Categoría</div>
+                                <div className={styles.dataValue}>{equipment.categoria.nombre}</div>
+                            </div>
+                        )}
+
                         <div className={styles.dataItem}>
                             <div className={styles.iconWrapper}><HiOutlineTag size={18} color="#3b82f6" /></div>
                             <div className={styles.dataLabel}>Marca / Modelo</div>

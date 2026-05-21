@@ -8,7 +8,7 @@ import {
     HiOutlineUser, HiOutlineBell, HiOutlineBriefcase, 
     HiOutlineUsers, HiOutlineDocumentText, HiOutlineClock,
     HiOutlineCurrencyDollar, HiOutlineWrench, HiOutlineSquares2X2,
-    HiCheckBadge
+    HiCheckBadge, HiOutlineArchiveBox
 } from "react-icons/hi2";
 import { LuHardHat } from "react-icons/lu";
 import { 
@@ -116,7 +116,7 @@ const MenuLayout: React.FC = () => {
         let baseOptions: string[] = [];
 
         if (user.role === 'admin') {
-            baseOptions = ["Dashboard", "Negocios", "Trabajadores", "Usuarios", "Solicitudes", "Reportes Mantenimiento", "Trabajos Realizados"];
+            baseOptions = ["Dashboard", "Negocios", "Inventario General", "Trabajadores", "Usuarios", "Solicitudes", "Reportes Mantenimiento", "Trabajos Realizados"];
         } else if (user.role === 'cliente') {
             baseOptions = ["Resumen", "Mis Negocios", "Cotizaciones", "Historial"];
         } else if (user.role === 'tecnico') {
@@ -139,6 +139,7 @@ const MenuLayout: React.FC = () => {
             if (path.startsWith("/menu")) {
                 if (path === "/menu" || path === "/menu/") setActiveOption("Dashboard");
                 else if (path.includes("dashboard")) setActiveOption("Dashboard");
+                else if (path.includes("inventario-general")) setActiveOption("Inventario General");
                 else if (path.includes("trabajadores")) setActiveOption("Trabajadores");
                 else if (path.includes("usuarios")) setActiveOption("Usuarios");
                 else if (path.includes("solicitudes")) setActiveOption("Solicitudes");
@@ -171,6 +172,7 @@ const MenuLayout: React.FC = () => {
         if (option === "Dashboard") navigate("/menu/dashboard");
         // Mapeo de navegación según opción
         if (option === "Negocios") navigate("/menu/negocios");
+        if (option === "Inventario General") navigate("/menu/inventario-general");
         if (option === "Trabajadores") navigate("/menu/trabajadores");
         if (option === "Usuarios") navigate("/menu/usuarios");
         if (option === "Solicitudes") navigate("/menu/solicitudes");
@@ -217,6 +219,8 @@ const MenuLayout: React.FC = () => {
         switch (option) {
             case "Dashboard":
                 return <HiOutlineSquares2X2 size={22} />;
+            case "Inventario General":
+                return <HiOutlineArchiveBox size={22} />;
             case "Negocios":
             case "Mis Negocios":
                 return <HiOutlineBriefcase size={22} />;

@@ -158,6 +158,9 @@ const AdminReporte: React.FC = () => {
                 try {
                     const jobData = await getTrabajo(Number(id));
                     setTrabajoBase(jobData);
+                    let desc = jobData.descripcion || '';
+                    desc = desc.replace(/^.*Problema reportado:\s*/i, '');
+                    setReporteTienda(desc);
                     const solicitud = jobData.mantenimiento_solicitud_visita || jobData.mantenimientoSolicitudVisita || jobData.mantenimiento_solicitud_reparacion || jobData.mantenimientoSolicitudReparacion;
                     equipmentFromJob = solicitud ? (solicitud.levantamiento_equipo || solicitud.levantamientoEquipo) : null;
                 } catch (err) {
@@ -195,7 +198,7 @@ const AdminReporte: React.FC = () => {
                     
                     // Solo aplicamos el autollenado si el campo actual está vacío
                     setRefaccionesList(prev => prev.length === 0 ? newRefList : prev);
-                    setReporteTienda(prev => prev || concatenatedDesc);
+                    setDescripcion(prev => prev || concatenatedDesc);
 
                     // Determinar si existe alguna actividad de tipo Mantenimiento o Instalación
                     const hasEquipoActivity = acts.some((a: any) =>
@@ -477,8 +480,9 @@ const AdminReporte: React.FC = () => {
                                     <textarea
                                         className={styles.textarea}
                                         value={reporteTienda}
-                                        onChange={(e) => setReporteTienda(e.target.value)}
-                                        placeholder="Ej. Falla en compresor..."
+                                        readOnly={true}
+                                        style={{ backgroundColor: '#f8fafc', color: '#64748b', cursor: 'not-allowed' }}
+                                        placeholder="No se proporcionó un diagnóstico inicial de la tienda."
                                     />
                                 </div>
 
@@ -517,17 +521,7 @@ const AdminReporte: React.FC = () => {
                                                 }}
                                                 style={{ width: '80px', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px' }}
                                             />
-                                            <input
-                                                type="number"
-                                                placeholder="Precio ($)"
-                                                value={ref.costo_estimado || ""}
-                                                onChange={(e) => {
-                                                    const newR = [...refaccionesList];
-                                                    newR[i].costo_estimado = e.target.value;
-                                                    setRefaccionesList(newR);
-                                                }}
-                                                style={{ width: '100px', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px' }}
-                                            />
+
                                             <button
                                                 onClick={() => setRefaccionesList(refaccionesList.filter((_, idx) => idx !== i))}
                                                 style={{ background: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca', padding: '10px 15px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}

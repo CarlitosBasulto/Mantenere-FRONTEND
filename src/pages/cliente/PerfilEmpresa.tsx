@@ -46,6 +46,8 @@ export interface Equipment {
     fotoFile?: File;
     fotoPlaca?: string;
     fotoPlacaFile?: File;
+    categoria_id?: number | string | null;
+    categoria?: { id: number; nombre: string } | null;
 }
 
 export interface LevantamientoSeccion {

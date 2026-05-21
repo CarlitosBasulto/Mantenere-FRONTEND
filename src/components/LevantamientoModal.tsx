@@ -28,6 +28,18 @@ interface LevantamientoModalProps {
 
 const LevantamientoModal: React.FC<LevantamientoModalProps> = ({ isOpen, onClose, data, initialSectionId, onSave, isReadOnly = false, initialEquipmentId }) => {
     const { showConfirm } = useModal();
+    
+    useEffect(() => {
+        if (isOpen) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = '';
+        }
+        return () => {
+            document.body.style.overflow = '';
+        };
+    }, [isOpen]);
+
     const [sections, setSections] = useState<LevantamientoData>([]);
     const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
     const [isAddingSection, setIsAddingSection] = useState(false);
@@ -43,8 +55,10 @@ const LevantamientoModal: React.FC<LevantamientoModalProps> = ({ isOpen, onClose
         anioFabricacion: '',
         anioUso: '',
         foto: '',
-        fotoPlaca: ''
+        fotoPlaca: '',
+        categoria_id: ''
     });
+
 
     const fileInputRef = React.useRef<HTMLInputElement>(null);
     const fileInputPlacaRef = React.useRef<HTMLInputElement>(null);
@@ -60,7 +74,10 @@ const LevantamientoModal: React.FC<LevantamientoModalProps> = ({ isOpen, onClose
                     if (eq) {
                         setActiveSectionId(section.id);
                         setEditingEquipment(eq);
-                        setEquipmentForm({ ...eq });
+                        setEquipmentForm({ 
+                            ...eq,
+                            categoria_id: eq.categoria_id || ''
+                        });
                         break;
                     }
                 }
@@ -77,7 +94,8 @@ const LevantamientoModal: React.FC<LevantamientoModalProps> = ({ isOpen, onClose
             anioFabricacion: '',
             anioUso: '',
             foto: '',
-            fotoPlaca: ''
+            fotoPlaca: '',
+            categoria_id: ''
         });
         setEditingEquipment(null);
     };
@@ -116,13 +134,18 @@ const LevantamientoModal: React.FC<LevantamientoModalProps> = ({ isOpen, onClose
     const handleAddOrUpdateEquipment = () => {
         if (!activeSectionId || !equipmentForm.nombre || !equipmentForm.marca) return;
 
+        const finalForm = {
+            ...equipmentForm,
+            categoria: null  // Admin assigns category from Inventario General
+        };
+
         const updatedSections = sections.map((section: LevantamientoSeccion) => {
             if (section.id === activeSectionId) {
                 let updatedEquipos;
                 if (editingEquipment) {
-                    updatedEquipos = section.equipos.map((e: Equipment) => e.id === editingEquipment.id ? { ...equipmentForm, id: e.id } : e);
+                    updatedEquipos = section.equipos.map((e: Equipment) => e.id === editingEquipment.id ? { ...finalForm, id: e.id } : e);
                 } else {
-                    updatedEquipos = [...section.equipos, { ...equipmentForm, id: `temp_${Date.now()}` }];
+                    updatedEquipos = [...section.equipos, { ...finalForm, id: `temp_${Date.now()}` }];
                 }
                 return { ...section, equipos: updatedEquipos };
             }
@@ -163,7 +186,10 @@ const LevantamientoModal: React.FC<LevantamientoModalProps> = ({ isOpen, onClose
 
     const startEditEquipment = (eq: Equipment) => {
         setEditingEquipment(eq);
-        setEquipmentForm({ ...eq });
+        setEquipmentForm({ 
+            ...eq,
+            categoria_id: eq.categoria_id || ''
+        });
     };
 
     const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -305,11 +331,16 @@ const LevantamientoModal: React.FC<LevantamientoModalProps> = ({ isOpen, onClose
                                     ) : (
                                         <div className={styles.gridEquipos}>
                                             {activeSection.equipos.map((eq: Equipment) => (
-                                                <div key={eq.id} className={styles.eqCard}>
+                                                <div key={eq.id} className={styles.eqCard} onClick={() => setViewingEquipment(eq)} style={{ cursor: 'pointer' }}>
                                                     <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                                                         {eq.foto && <img src={eq.foto} alt="Eq" style={{ width: '40px', height: '40px', borderRadius: '8px', objectFit: 'cover' }} />}
                                                         <div className={styles.eqInfo}>
-                                                            <strong>{eq.nombre}</strong>
+                                                            <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                                                <strong>{eq.nombre}</strong>
+                                                                {eq.categoria && (
+                                                                    <span className={styles.catBadge}>{eq.categoria.nombre}</span>
+                                                                )}
+                                                            </div>
                                                             <span>{eq.marca} • {eq.modelo}</span>
                                                         </div>
                                                     </div>

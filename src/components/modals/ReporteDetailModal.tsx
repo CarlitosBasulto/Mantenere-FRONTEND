@@ -1,14 +1,14 @@
 import React, { useState } from "react";
 import { 
     HiOutlineClipboardDocumentList, 
-    HiOutlineXMark, 
     HiOutlinePencilSquare, 
     HiOutlineIdentification, 
     HiOutlineClock, 
     HiOutlineBuildingOffice2, 
     HiOutlineWrench, 
     HiOutlineCurrencyDollar,
-    HiOutlineArrowDownTray
+    HiOutlineArrowDownTray,
+    HiOutlineXMark
 } from "react-icons/hi2";
 import { createPortal } from "react-dom";
 import styles from "./ReporteDetailModal.module.css";
@@ -48,6 +48,17 @@ const ReporteDetailModal: React.FC<ReporteDetailModalProps> = ({
 }) => {
     const [selectedZoomImage, setSelectedZoomImage] = useState<string | null>(null);
     const [showCotizacionDetail, setShowCotizacionDetail] = useState(false);
+
+    React.useEffect(() => {
+        if (isOpen) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = '';
+        }
+        return () => {
+            document.body.style.overflow = '';
+        };
+    }, [isOpen]);
 
     if (!isOpen) return null;
 
@@ -113,8 +124,8 @@ const ReporteDetailModal: React.FC<ReporteDetailModalProps> = ({
                                 <span>Editar Reporte</span>
                             </button>
                         )}
-                        <button className={styles.closeButtonCircle} onClick={onClose}>
-                            <HiOutlineXMark size={22} />
+                        <button onClick={onClose} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#94a3b8', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '5px' }}>
+                            <HiOutlineXMark size={28} />
                         </button>
                     </div>
                 </div>
@@ -354,10 +365,10 @@ const ReporteDetailModal: React.FC<ReporteDetailModalProps> = ({
                 >
                     <img src={selectedZoomImage} alt="Zoom" style={{ maxWidth: '100%', maxHeight: '100%', borderRadius: '12px', boxShadow: '0 0 40px rgba(0,0,0,0.5)' }} />
                     <button 
-                        style={{ position: 'absolute', top: '20px', right: '20px', background: 'white', border: 'none', borderRadius: '50%', width: '40px', height: '40px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        style={{ position: 'absolute', top: '20px', right: '20px', background: 'white', border: 'none', borderRadius: '50%', width: '40px', height: '40px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '26px', lineHeight: '1', paddingBottom: '3px', color: '#64748b' }}
                         onClick={() => setSelectedZoomImage(null)}
                     >
-                        <HiOutlineXMark size={24} />
+                        &times;
                     </button>
                 </div>
             )}

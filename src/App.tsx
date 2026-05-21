@@ -32,6 +32,7 @@ import AdminHistorial from "./pages/admin/AdminHistorial";
 import ListaUsuarios from "./pages/admin/ListaUsuarios";
 import ListaMantenimiento from "./pages/admin/ListaMantenimiento";
 import MantenimientoDetalle from "./pages/admin/MantenimientoDetalle";
+import InventarioGeneral from "./pages/admin/InventarioGeneral";
 import EncargadoLayout from "./layouts/EncargadoLayout";
 import DashboardCliente from "./pages/cliente/DashboardCliente";
 import DashboardEncargado from "./pages/encargado/DashboardEncargado";
@@ -60,6 +61,7 @@ function App() {
                             <Route index element={<Dashboard />} />
                             <Route path="dashboard" element={<Dashboard />} />
                             <Route path="negocios" element={<ListaNegocios />} />
+                            <Route path="inventario-general" element={<InventarioGeneral />} />
                             <Route path="trabajadores" element={<ListaTrabajadores />} />
                             <Route path="usuarios" element={<ListaUsuarios />} />
                             <Route path="trabajos-realizados" element={<AdminHistorial />} />

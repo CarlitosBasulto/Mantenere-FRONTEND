@@ -43,3 +43,8 @@ export const asignarMantenimientoReparacion = async (id: string, data: any) => {
     const res = await api.post(`/mantenimiento-solicitudes/${id}/asignar-reparacion`, data);
     return res.data;
 };
+
+export const getConsumoReporte = async () => {
+    const res = await api.get('/equipos-consumo');
+    return res.data;
+};

@@ -15,7 +15,6 @@ import {
     HiOutlineClock,
     HiOutlineBuildingOffice2,
     HiOutlineWrench,
-    HiOutlineXMark,
     HiOutlineUser
 } from "react-icons/hi2";
 
@@ -156,6 +155,17 @@ const Historial: React.FC<HistorialProps> = ({ businessId }) => {
     };
 
 
+    useEffect(() => {
+        if (selectedHistoryTask) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = '';
+        }
+        return () => {
+            document.body.style.overflow = '';
+        };
+    }, [selectedHistoryTask]);
+
     return (
         <div className={styles.container}>
             <div className={styles.header}>
@@ -251,8 +261,9 @@ const Historial: React.FC<HistorialProps> = ({ businessId }) => {
                             <button
                                 className={styles.closeButtonCircle}
                                 onClick={() => { setSelectedHistoryTask(null); setReportData(null); }}
+                                title="Cerrar"
                             >
-                                <HiOutlineXMark size={22} />
+                                <span style={{ fontSize: '20px', fontWeight: 'bold', color: 'inherit' }}>✕</span>
                             </button>
                         </div>
 
