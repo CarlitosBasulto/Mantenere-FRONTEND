@@ -266,3 +266,82 @@
     font-size: 12px;
     cursor: pointer;
 }
+
+/* Modal Styles */
+.modalOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modalContent {
+    background: white;
+    padding: 30px;
+    border-radius: 20px;
+    width: 90%;
+    max-width: 400px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+.modalContent h3 {
+    margin-top: 0;
+    margin-bottom: 20px;
+    color: #111;
+}
+
+.modalInput {
+    width: 100%;
+    padding: 12px 15px;
+    border: 1px solid #ddd;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    font-size: 15px;
+    outline: none;
+}
+
+.modalInput:focus {
+    border-color: #FFB800;
+}
+
+.modalFooter {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.btnPrimary {
+    background: #FFB800;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 12px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btnPrimary:hover {
+    background: #e5a600;
+}
+
+.btnSecondary {
+    background: #eee;
+    color: #555;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 12px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btnSecondary:hover {
+    background: #ddd;
+}

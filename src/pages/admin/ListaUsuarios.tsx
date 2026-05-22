@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import styles from "./ListaUsuarios.module.css";
-import { HiOutlineUser, HiOutlineEnvelope, HiOutlineFingerPrint, HiOutlineUsers, HiOutlinePencil, HiOutlineLockClosed, HiOutlineLockOpen, HiCheck, HiXMark } from 'react-icons/hi2';
+import { HiOutlineUser, HiOutlineEnvelope, HiOutlineFingerPrint, HiOutlineUsers, HiOutlinePencil, HiOutlineLockClosed, HiOutlineLockOpen, HiOutlineKey, HiCheck, HiXMark } from 'react-icons/hi2';
 import { getUsers, updateUser } from "../../services/usersService";
 import { useModal } from "../../context/ModalContext";
 
@@ -25,6 +25,10 @@ export default function ListaUsuarios() {
     // Estados para edición
     const [editingUserId, setEditingUserId] = useState<number | null>(null);
     const [editEmail, setEditEmail] = useState("");
+
+    // Estados para resetear contraseña
+    const [resetPasswordUserId, setResetPasswordUserId] = useState<number | null>(null);
+    const [newPassword, setNewPassword] = useState("");
 
     const fetchUsers = async () => {
         try {
@@ -88,6 +92,29 @@ export default function ListaUsuarios() {
         } catch (error) {
             console.error("Error al actualizar email:", error);
             showAlert("Error", "No se pudo actualizar el correo.", "error");
+        }
+    };
+
+    const handlePasswordResetStart = (user: User) => {
+        setResetPasswordUserId(user.id);
+        setNewPassword("");
+    };
+
+    const handleSavePassword = async () => {
+        if (!resetPasswordUserId) return;
+        if (newPassword.length < 6) {
+            showAlert("Atención", "La contraseña debe tener al menos 6 caracteres.", "warning");
+            return;
+        }
+
+        try {
+            await updateUser(resetPasswordUserId, { password: newPassword });
+            setResetPasswordUserId(null);
+            setNewPassword("");
+            showAlert("Éxito", "Contraseña cambiada correctamente.", "success");
+        } catch (error) {
+            console.error("Error al cambiar contraseña:", error);
+            showAlert("Error", "No se pudo cambiar la contraseña.", "error");
         }
     };
 
@@ -199,6 +226,14 @@ export default function ListaUsuarios() {
                                                 <HiOutlinePencil size={18} />
                                             </button>
                                             <button 
+                                                className={`${styles.iconBtn}`} 
+                                                title="Cambiar Contraseña"
+                                                onClick={() => handlePasswordResetStart(u)}
+                                                style={{ color: '#eab308' }}
+                                            >
+                                                <HiOutlineKey size={18} />
+                                            </button>
+                                            <button 
                                                 className={`${styles.iconBtn} ${u.status === 'blocked' ? styles.unblockBtn : styles.blockBtn}`}
                                                 title={u.status === 'blocked' ? "Desbloquear" : "Bloquear"}
                                                 onClick={() => handleToggleBlock(u)}
@@ -250,6 +285,29 @@ export default function ListaUsuarios() {
                     <div className={styles.noResults}>No se encontraron usuarios.</div>
                 )}
             </div>
+
+            {/* Modal de Cambio de Contraseña */}
+            {resetPasswordUserId && (
+                <div className={styles.modalOverlay}>
+                    <div className={styles.modalContent}>
+                        <h3>Cambiar Contraseña</h3>
+                        <p style={{ fontSize: '14px', color: '#666', marginBottom: '15px' }}>
+                            Ingresa la nueva contraseña para este usuario.
+                        </p>
+                        <input 
+                            type="password"
+                            placeholder="Nueva contraseña (mínimo 6 caracteres)"
+                            className={styles.modalInput}
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                        />
+                        <div className={styles.modalFooter}>
+                            <button className={styles.btnSecondary} onClick={() => setResetPasswordUserId(null)}>Cancelar</button>
+                            <button className={styles.btnPrimary} onClick={handleSavePassword}>Guardar</button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
