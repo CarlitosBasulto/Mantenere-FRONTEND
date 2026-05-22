@@ -89,9 +89,15 @@ export default function ListaUsuarios() {
             setUsers(users.map(u => u.id === userId ? { ...u, email: editEmail } : u));
             setEditingUserId(null);
             showAlert("Éxito", "Correo actualizado correctamente.", "success");
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error al actualizar email:", error);
-            showAlert("Error", "No se pudo actualizar el correo.", "error");
+            let errorMsg = "No se pudo actualizar el correo.";
+            if (error.response?.data?.errors?.email) {
+                errorMsg = error.response.data.errors.email[0];
+            } else if (error.response?.data?.message) {
+                errorMsg = error.response.data.message;
+            }
+            showAlert("Error", errorMsg, "error");
         }
     };
 
@@ -112,9 +118,13 @@ export default function ListaUsuarios() {
             setResetPasswordUserId(null);
             setNewPassword("");
             showAlert("Éxito", "Contraseña cambiada correctamente.", "success");
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error al cambiar contraseña:", error);
-            showAlert("Error", "No se pudo cambiar la contraseña.", "error");
+            let errorMsg = "No se pudo cambiar la contraseña.";
+            if (error.response?.data?.message) {
+                errorMsg = error.response.data.message;
+            }
+            showAlert("Error", errorMsg, "error");
         }
     };
 
