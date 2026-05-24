@@ -41,36 +41,31 @@ export const generateMaintenanceReportPDF = async (data: PDFReportData) => {
         const goldColor = [201, 155, 33]; // Dorado aproximado del logo
         const navyColor = [30, 41, 59]; // Navy slate
 
+        const drawHeader = (titleText: string) => {
+            doc.setFillColor(navyColor[0], navyColor[1], navyColor[2]);
+            doc.rect(0, 0, 210, 26, 'F');
+            try {
+                doc.addImage(getLogoBase64(), 'PNG', 10, 3, 42, 20);
+            } catch (e) {
+                console.error("No se pudo cargar el logo en el PDF", e);
+            }
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(16);
+            doc.setFont("helvetica", "bold");
+            doc.text(titleText, 65, 12);
+            doc.setFontSize(9);
+            doc.setFont("helvetica", "normal");
+            doc.text(`FOLIO: ${dynamicFolio}`, 65, 19);
+            doc.text(`FECHA: ${data.fecha}`, 130, 19);
+            doc.setFillColor(goldColor[0], goldColor[1], goldColor[2]);
+            doc.rect(0, 26, 210, 2, 'F');
+        };
+
         // --- 1. CABECERA ---
-        // Barra superior decorativa
-        doc.setFillColor(navyColor[0], navyColor[1], navyColor[2]);
-        doc.rect(0, 0, 210, 26, 'F');
-
-        // Logo
-        try {
-            doc.addImage(getLogoBase64(), 'PNG', 10, 3, 42, 20);
-        } catch (e) {
-            console.error("No se pudo cargar el logo en el PDF", e);
-        }
-
-        // Título y Folio
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(16);
-        doc.setFont("helvetica", "bold");
-        doc.text("REPORTE DE SERVICIO", 65, 12);
-
-        doc.setFontSize(9);
-        doc.setFont("helvetica", "normal");
-        doc.text(`FOLIO: ${dynamicFolio}`, 65, 19);
-        doc.text(`FECHA: ${data.fecha}`, 130, 19);
-
-        // Barra dorada de acento
-        doc.setFillColor(goldColor[0], goldColor[1], goldColor[2]);
-        doc.rect(0, 26, 210, 2, 'F');
+        drawHeader("REPORTE DE SERVICIO");
 
         let nextY = 35;
 
-        // --- 2. SECCIÓN: DATOS GENERALES (Diseño de Rejilla) ---
         const drawSectionTitle = (title: string, y: number) => {
             doc.setFillColor(240, 240, 240);
             doc.rect(15, y, 180, 5, 'F');
@@ -81,78 +76,70 @@ export const generateMaintenanceReportPDF = async (data: PDFReportData) => {
             return y + 7;
         };
 
-        nextY = drawSectionTitle("Información General", nextY);
+        const drawSectionTitleHalf = (title: string, x: number, y: number, width: number) => {
+            doc.setFillColor(240, 240, 240);
+            doc.rect(x, y, width, 5, 'F');
+            doc.setTextColor(navyColor[0], navyColor[1], navyColor[2]);
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(9);
+            doc.text(title.toUpperCase(), x + 2, y + 4);
+            return y + 7;
+        };
 
+        const leftX = 15;
+        const rightX = 105;
+        const colWidthHalf = 88;
+
+        let leftY = 35;
+        let rightY = 35;
+
+        // --- 2. SECCIÓN: DATOS GENERALES ---
+        leftY = drawSectionTitleHalf("Información General", leftX, leftY, colWidthHalf);
         doc.setFontSize(9);
         doc.setTextColor(80, 80, 80);
 
-        const drawField = (label: string, value: string, x: number, y: number) => {
+        const drawFieldHalf = (label: string, value: string, x: number, y: number) => {
             doc.setFont("helvetica", "bold");
-            doc.text(label, x, y);
+            doc.text(label, x + 2, y);
             doc.setFont("helvetica", "normal");
-            doc.text(value || '---', x + 20, y);
+            doc.text(value || '---', x + 22, y);
         };
 
-        drawField("Sucursal:", data.sucursal, 20, nextY);
-        drawField("Técnico:", data.tecnico, 110, nextY);
-        nextY += 6;
-        drawField("Encargado:", data.encargado, 20, nextY);
-        nextY += 8;
+        drawFieldHalf("Sucursal:", data.sucursal, leftX, leftY);
+        leftY += 5;
+        drawFieldHalf("Encargado:", data.encargado, leftX, leftY);
+        leftY += 5;
+        drawFieldHalf("Técnico:", data.tecnico, leftX, leftY);
+        leftY += 8;
 
-        // --- 3. DETALLES DEL TRABAJO ---
-        nextY = drawSectionTitle("Detalles del Servicio", nextY);
-
-        const drawTextArea = (label: string, text: string, y: number) => {
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(8);
-            doc.text(label, 20, y);
-            doc.setFont("helvetica", "normal");
-            const lines = doc.splitTextToSize(text || 'Sin información registrada.', 170);
-            doc.text(lines, 20, y + 4);
-            return y + (lines.length * 3.5) + 5;
-        };
-
-        nextY = drawTextArea("Diagnóstico / Reporte:", data.diagnostico, nextY);
-        nextY = drawTextArea("Trabajo Realizado:", data.descripcion, nextY);
-
-        // Materiales
-        nextY = drawSectionTitle("Refacciones y Materiales", nextY);
+        // --- 3. REFACCIONES Y MATERIALES ---
+        leftY = drawSectionTitleHalf("Refacciones y Materiales", leftX, leftY, colWidthHalf);
         doc.setFont("helvetica", "normal");
         if (!data.materiales) {
-            doc.text("No se utilizaron refacciones.", 20, nextY + 3);
-            nextY += 12;
+            doc.text("No se utilizaron refacciones.", leftX + 2, leftY + 3);
+            leftY += 8;
         } else {
-            const matItems = data.materiales.split('\n').map(item => item.trim()).filter(item => item !== '');
-            if (matItems.length === 1 && matItems[0].length > 50) {
-                // Not a list but a paragraph
-                const matLines = doc.splitTextToSize(matItems[0], 170);
-                doc.text(matLines, 20, nextY + 3);
-                nextY += (matLines.length * 3.5) + 5;
-            } else {
-                // List of items in columns
-                const maxPerCol = 4;
-                const colWidth = 60;
-                let currentX = 20;
-                let currentY = nextY + 3;
-                let itemsInCol = 0;
-
-                matItems.forEach(item => {
-                    const shortItem = item.length > 35 ? item.substring(0, 32) + '...' : item;
-                    doc.text(shortItem, currentX, currentY);
-                    currentY += 4;
-                    itemsInCol++;
-
-                    if (itemsInCol >= maxPerCol) {
-                        currentX += colWidth;
-                        currentY = nextY + 3;
-                        itemsInCol = 0;
-                    }
-                });
-
-                const rows = Math.min(matItems.length, maxPerCol);
-                nextY += (rows * 3.5) + 4;
-            }
+            const matLines = doc.splitTextToSize(data.materiales, colWidthHalf - 4);
+            doc.text(matLines, leftX + 2, leftY + 3);
+            leftY += (matLines.length * 3.5) + 5;
         }
+
+        // --- 4. DETALLES DEL TRABAJO ---
+        rightY = drawSectionTitleHalf("Detalles del Servicio", rightX, rightY, 90);
+        const drawTextAreaHalf = (label: string, text: string, x: number, y: number, width: number) => {
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(8);
+            doc.text(label, x + 2, y);
+            doc.setFont("helvetica", "normal");
+            const lines = doc.splitTextToSize(text || 'Sin información registrada.', width - 4);
+            doc.text(lines, x + 2, y + 4);
+            return y + (lines.length * 3.5) + 6;
+        };
+
+        rightY = drawTextAreaHalf("Diagnóstico / Reporte:", data.diagnostico, rightX, rightY, 90);
+        rightY = drawTextAreaHalf("Trabajo Realizado:", data.descripcion, rightX, rightY, 90);
+
+        nextY = Math.max(leftY, rightY) + 5;
 
         // --- 4. EQUIPO ---
         if (data.equipo) {
@@ -211,7 +198,7 @@ export const generateMaintenanceReportPDF = async (data: PDFReportData) => {
         const lineStartX = 55;
         const lineEndX = 95;
 
-        let leftY = nextY;
+        leftY = nextY;
         const drawRatingField = (label: string, y: number) => {
             doc.text(label, leftColX, y);
             doc.line(lineStartX, y, lineEndX, y);
@@ -226,7 +213,7 @@ export const generateMaintenanceReportPDF = async (data: PDFReportData) => {
 
         // Right Column (Empresa)
         const rightColX = 115;
-        let rightY = nextY;
+        rightY = nextY;
 
         doc.text("Tiempo de respuesta", rightColX, rightY);
         doc.text("CALIFICACION", rightColX + 45, rightY);
@@ -305,9 +292,10 @@ export const generateMaintenanceReportPDF = async (data: PDFReportData) => {
 
         // --- 7. PÁGINA 2: EVIDENCIA Y OBSERVACIONES ---
         doc.addPage();
-        nextY = 25;
+        drawHeader("TESTIGOS FOTOGRÁFICOS");
+        nextY = 35;
 
-        nextY = drawSectionTitle("Evidencia Fotográfica del Servicio", nextY);
+        nextY = drawSectionTitle("Testigos Fotográficos", nextY);
 
         const imgSize = 42; // Tamaño más parejo y de menor altura
         let currentX = 18;

@@ -54,7 +54,6 @@ const ListaMantenimiento: React.FC = () => {
     return (
         <div className={styles.dashboardLayout}>
             <div className={styles.leftColumn}>
-                <h2>Reportes de Mantenimiento</h2>
                 <div className={styles.searchSection} style={{ marginTop: '20px' }}>
                     <div className={menuStyles.searchCard}>
                         <input
