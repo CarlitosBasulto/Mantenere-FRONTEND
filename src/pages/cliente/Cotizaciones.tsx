@@ -174,10 +174,6 @@ const Cotizaciones: React.FC<CotizacionesProps> = ({ businessId }) => {
 
     return (
         <div className={styles.container}>
-            <div className={styles.header}>
-                <h1 className={styles.title}>Mis Cotizaciones</h1>
-            </div>
-
             {/* BUSCADOR Y FILTRO */}
             <div className={styles.searchSection}>
                 <div className={menuStyles.searchCard}>

@@ -30,6 +30,12 @@
     margin-bottom: 30px;
 }
 
+.searchSection > div:first-child {
+    flex: none !important;
+    width: 450px !important;
+    max-width: 100%;
+}
+
 .searchCard {
     display: flex;
     gap: 10px;
@@ -64,6 +70,12 @@
     overflow-y: auto;
     min-height: 0;
     padding-right: 10px;
+    -ms-overflow-style: none;  /* IE y Edge */
+    scrollbar-width: none;  /* Firefox */
+}
+
+.jobsSection::-webkit-scrollbar {
+    display: none; /* Chrome, Safari y Opera */
 }
 
 .jobCard {
@@ -73,19 +85,20 @@
     border-radius: 30px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
     width: 100%;
-    border: 1px solid #f0f0f0;
+    border: 2px solid #eaeaea;
     min-height: 100px;
     display: flex;
     flex-direction: column;
     position: relative;
     overflow: visible;
     cursor: pointer;
-    transition: transform 0.2s, box-shadow 0.2s;
+    transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
 }
 
 .jobCard:hover {
     transform: translateY(-3px);
     box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
+    border-color: #FFB800;
 }
 
 /* Status Bar at the very top */
@@ -366,5 +379,9 @@
         padding: 20px;
         max-height: 85vh;
         overflow-y: auto;
+    }
+
+    .searchSection > div:first-child {
+        width: 100% !important;
     }
 }

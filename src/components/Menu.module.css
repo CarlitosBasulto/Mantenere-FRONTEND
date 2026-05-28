@@ -16,13 +16,22 @@
     background: #0d192b;
     color: rgb(40, 40, 40);
     padding: 20px;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    -ms-overflow-style: none;  /* IE y Edge */
+    scrollbar-width: none;  /* Firefox */
+}
+
+.sidebar::-webkit-scrollbar {
+    display: none; /* Chrome, Safari y Opera */
 }
 
 .logoContainer {
     display: flex;
     justify-content: center;
     align-items: center;
-    margin-bottom: 24px;
+    margin-bottom: 16px;
     padding: 8px 0;
     cursor: pointer;
 }
@@ -37,21 +46,21 @@
 .menu {
     display: flex;
     flex-direction: column;
-    gap: 25px;
+    gap: 10px; /* Reducido de 25px para encajar mejor todos los ítems */
 }
 
 .menuItem {
     background: none;
     border: none;
     color: white;
-    padding: 12px 20px;
+    padding: 10px 16px; /* Reducido de 12px 20px para mayor compacidad */
     text-align: left;
     cursor: pointer;
     display: flex;
     flex-direction: row;
     align-items: center;
     gap: 15px;
-    font-size: 16px;
+    font-size: 15px; /* Reducido de 16px */
     border-radius: 12px;
     transition: all 0.2s ease;
 }
@@ -111,6 +120,12 @@
     flex: 1;
     padding: 10px 100px;
     overflow-y: auto;
+    -ms-overflow-style: none;  /* IE y Edge */
+    scrollbar-width: none;  /* Firefox */
+}
+
+.content::-webkit-scrollbar {
+    display: none; /* Chrome, Safari y Opera */
 }
 
 /* ===========================
@@ -757,6 +772,7 @@
         /* WhatsApp style top bar */
         z-index: 10;
         overflow-x: auto;
+        overflow-y: hidden !important; /* Evitamos scroll vertical en barra horizontal móvil */
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     }
 

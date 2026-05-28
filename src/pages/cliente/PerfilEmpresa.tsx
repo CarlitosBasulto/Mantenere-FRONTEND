@@ -10,7 +10,6 @@ import {
     HiOutlineInformationCircle,
     HiOutlineCamera,
     HiOutlineUserGroup,
-    HiOutlineChevronLeft,
     HiOutlineKey,
     HiOutlinePaperAirplane,
     HiOutlineEye,
@@ -475,22 +474,6 @@ const PerfilEmpresa: React.FC = () => {
                         <h1 className={styles.pageTitle}>
                             {editId ? "Editar Sucursal" : "Nueva Sucursal"}
                         </h1>
-                        <button 
-                            className={styles.tab} 
-                            onClick={() => {
-                                if (user?.role === 'admin') {
-                                    navigate('/menu/negocios');
-                                } else if (user?.role === 'tecnico') {
-                                    navigate('/tecnico');
-                                } else if (user?.role === 'encargado') {
-                                    navigate('/encargado');
-                                } else {
-                                    navigate('/cliente');
-                                }
-                            }}
-                        >
-                           <HiOutlineChevronLeft size={20} /> Volver
-                        </button>
                     </div>
                     <p className={styles.pageSubtitle}>
                         Completa los datos de tu negocio para gestionar mantenimientos y equipos.

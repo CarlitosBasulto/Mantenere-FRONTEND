@@ -57,7 +57,7 @@
     overflow: hidden;
     width: 768px;
     max-width: 100%;
-    height: 650px;
+    height: 600px;
     max-height: 85vh;
     transition: all 0.3s ease;
 }
@@ -65,15 +65,19 @@
 @media (max-width: 768px) {
     .container {
         width: 90%;
-        min-height: 700px;
-        margin: 100px 0 20px;
+        height: auto !important;
+        min-height: 540px !important;
+        max-height: none !important;
+        margin: 40px 0 20px;
     }
 }
 
 @media (max-width: 480px) {
     .container {
         width: 95%;
-        min-height: 750px;
+        height: auto !important;
+        min-height: 540px !important;
+        max-height: none !important;
     }
 }
 
@@ -209,7 +213,7 @@
     display: flex;
     align-items: center;
     flex-direction: column;
-    padding: 30px 50px;
+    padding: 25px 30px;
     height: 100%;
     text-align: center;
     overflow-y: auto;
@@ -224,8 +228,8 @@
 .input {
     background-color: #eee;
     border: 2px solid #e9ab22;
-    padding: 12px 15px;
-    margin: 4px 0;
+    padding: 10px 15px;
+    margin: 3px 0;
     width: 100%;
     border-radius: 20px;
     color: #333;
@@ -307,12 +311,12 @@
     color: #FFFFFF;
     font-size: 12px;
     font-weight: bold;
-    padding: 12px 45px;
+    padding: 10px 40px;
     letter-spacing: 1px;
     text-transform: uppercase;
     transition: transform 80ms ease-in;
     cursor: pointer;
-    margin-top: 20px;
+    margin-top: 15px;
 }
 
 .button:active {
@@ -333,7 +337,7 @@
     font-weight: 100;
     line-height: 20px;
     letter-spacing: 0.5px;
-    margin: 20px 0 30px;
+    margin: 15px 0 25px;
     color: #FFFFFF;
 }
 
@@ -353,17 +357,30 @@
 @media (max-width: 768px) {
     .signInContainer, .signUpContainer {
         width: 100% !important;
+        min-height: 540px !important;
     }
 
-    .container.rightPanelActive .signInContainer {
-        transform: translateX(-100%);
-        opacity: 0;
+    /* Inactivo por defecto: signUp oculto, signIn visible */
+    .signUpContainer {
+        display: none !important;
+    }
+    .signInContainer {
+        position: relative !important;
+        display: flex !important;
+        flex-direction: column !important;
     }
 
+    /* Activo: signUp visible, signIn oculto */
     .container.rightPanelActive .signUpContainer {
-        transform: translateX(0);
-        opacity: 1;
+        display: flex !important;
+        position: relative !important;
+        transform: none !important;
+        opacity: 1 !important;
         z-index: 5;
+        flex-direction: column !important;
+    }
+    .container.rightPanelActive .signInContainer {
+        display: none !important;
     }
 
     .overlayContainer {
@@ -371,7 +388,18 @@
     }
 
     .form {
-        padding: 0 25px;
+        padding: 30px 25px !important;
+        height: 100% !important;
+        flex-grow: 1 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: center !important;
+        align-items: center !important;
+    }
+    
+    .form::before,
+    .form::after {
+        display: none !important;
     }
     
     .title {
@@ -416,10 +444,10 @@
 
 .legalContainer {
     width: 100%;
-    margin-top: 15px;
+    margin-top: 10px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
     text-align: left;
 }
 
@@ -445,7 +473,7 @@
 }
 
 .captchaContainer {
-    margin-top: 15px;
+    margin-top: 10px;
     transform: scale(0.85);
     transform-origin: center;
 }
@@ -527,3 +555,33 @@
     margin: 0;
     padding: 10px 30px;
 }
+
+/* Optimización para evitar que el formulario de Inicio de Sesión se vea vacío (solo en escritorio) */
+@media (min-width: 769px) {
+    .signInContainer .form {
+        padding: 35px 40px; /* Más padding vertical y horizontal para el login */
+    }
+
+    .signInContainer .span {
+        margin-bottom: 20px; /* Mayor separación bajo el subtítulo */
+    }
+
+    .signInContainer .input {
+        padding: 12px 15px; /* Inputs con altura premium original */
+        margin: 8px 0;      /* Más separación vertical entre inputs */
+    }
+
+    .signInContainer .passwordContainer {
+        margin: 8px 0;      /* Más separación vertical para el input de contraseña */
+    }
+
+    .signInContainer .link {
+        margin: 20px 0;     /* Mayor espacio para el enlace de contraseña olvidada */
+    }
+
+    .signInContainer .button {
+        margin-top: 25px;   /* Mayor separación antes de botón de ingresar */
+        padding: 12px 45px; /* Botón con su tamaño premium original */
+    }
+}
+

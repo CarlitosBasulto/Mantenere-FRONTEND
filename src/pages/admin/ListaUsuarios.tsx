@@ -170,8 +170,9 @@ export default function ListaUsuarios() {
         const matchesRole = 
             filterRole === "Todos" || 
             roleName.toLowerCase() === filterRole.toLowerCase() ||
-            (filterRole === "Técnico" && roleName.toLowerCase() === "tecnico") ||
-            (filterRole === "Cliente" && roleName.toLowerCase() === "cliente");
+            (filterRole === "Trabajador" && (roleName.toLowerCase() === "trabajador" || roleName.toLowerCase() === "tecnico")) ||
+            (filterRole === "Cliente" && roleName.toLowerCase() === "cliente") ||
+            (filterRole === "Admin" && roleName.toLowerCase() === "admin");
 
         return matchesSearch && matchesRole;
     });
@@ -199,7 +200,7 @@ export default function ListaUsuarios() {
                     >
                         <option value="Todos">Todos los roles</option>
                         <option value="Cliente">Clientes</option>
-                        <option value="Tecnico">Técnicos</option>
+                        <option value="Trabajador">Trabajadores</option>
                         <option value="Admin">Administradores</option>
                     </select>
                 </div>

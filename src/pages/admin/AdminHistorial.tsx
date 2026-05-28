@@ -71,9 +71,7 @@ const AdminHistorial: React.FC = () => {
 
     return (
         <div className={styles.container}>
-            <div className={styles.header}>
-                <h1 className={styles.title}>Historial Global de Trabajos</h1>
-            </div>
+
 
             {/* BUSCADOR */}
             <div className={styles.searchSection}>

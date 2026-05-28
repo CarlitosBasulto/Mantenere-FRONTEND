@@ -245,7 +245,7 @@ const DashboardCliente: React.FC = () => {
             </header>
 
             <div className={styles.statsGrid}>
-                <div className={styles.statCard}>
+                <div className={`${styles.statCard} ${styles.borderBlue}`}>
                     <div className={`${styles.iconBg} ${styles.blue}`}>
                         <HiOutlineBriefcase size={24} />
                     </div>
@@ -255,7 +255,7 @@ const DashboardCliente: React.FC = () => {
                     </div>
                 </div>
 
-                <div className={styles.statCard}>
+                <div className={`${styles.statCard} ${styles.borderPurple}`}>
                     <div className={`${styles.iconBg} ${styles.purple}`}>
                         <HiOutlineClipboardDocumentCheck size={24} />
                     </div>
@@ -265,7 +265,7 @@ const DashboardCliente: React.FC = () => {
                     </div>
                 </div>
 
-                <div className={styles.statCard}>
+                <div className={`${styles.statCard} ${styles.borderYellow}`}>
                     <div className={`${styles.iconBg} ${styles.yellow}`}>
                         <HiOutlineDocumentText size={24} />
                     </div>
@@ -276,8 +276,8 @@ const DashboardCliente: React.FC = () => {
                 </div>
 
                 <div 
-                    className={styles.statCard}
-                    style={{ cursor: 'pointer', border: '1px solid #bbf7d0' }}
+                    className={`${styles.statCard} ${styles.borderGreen}`}
+                    style={{ cursor: 'pointer' }}
                     onClick={() => setShowEquiposModal(true)}
                 >
                     <div className={`${styles.iconBg} ${styles.green}`}>
@@ -290,8 +290,8 @@ const DashboardCliente: React.FC = () => {
                 </div>
 
                 <div 
-                    className={styles.statCard} 
-                    style={{ cursor: 'pointer', border: '1px solid #c7d2fe' }}
+                    className={`${styles.statCard} ${styles.borderIndigo}`} 
+                    style={{ cursor: 'pointer' }}
                     onClick={() => setShowPiezasModal(true)}
                 >
                     <div className={`${styles.iconBg} ${styles.blue}`}>

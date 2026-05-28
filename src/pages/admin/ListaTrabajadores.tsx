@@ -366,8 +366,7 @@ Line: 97
                 </div>
             </div>
 
-            {/* COLUMNA DERECHA */}
-            <div className={styles.rightColumn}></div>
+
 
             {/* MODAL DE FILTRO */}
             {isFilterModalOpen && (

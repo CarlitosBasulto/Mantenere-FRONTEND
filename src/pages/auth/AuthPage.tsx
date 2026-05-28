@@ -189,7 +189,6 @@ const AuthPage: React.FC = () => {
                 <div className={`${styles.formContainer} ${styles.signUpContainer}`}>
                     <form className={styles.form} onSubmit={handleRegisterSubmit}>
                         <h1 className={styles.title}>Crear Cuenta</h1>
-                        <div className={styles.socialContainer}></div>
                         <span className={styles.span}>Crea una cuenta para tu empresa hoy mismo</span>
                         <input type="text" placeholder="Nombre(s)" className={styles.input} value={regName} onChange={(e) => setRegName(e.target.value)} />
                         <input type="text" placeholder="Apellidos" className={styles.input} value={regLastName} onChange={(e) => setRegLastName(e.target.value)} />
@@ -258,7 +257,6 @@ const AuthPage: React.FC = () => {
                 <div className={`${styles.formContainer} ${styles.signInContainer}`}>
                     <form className={styles.form} onSubmit={handleLoginSubmit}>
                         <h1 className={styles.title}>Iniciar Sesión</h1>
-                        <div className={styles.socialContainer}></div>
                         <span className={styles.span}>o usa tu cuenta existente</span>
                         <input
                             type="email"

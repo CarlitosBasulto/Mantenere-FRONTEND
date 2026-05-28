@@ -803,16 +803,7 @@ const TrabajoDetalle: React.FC = () => {
         return (
             <div className={menuStyles.dashboardLayout}>
                 <div style={{ width: '100%', maxWidth: '900px', margin: '0 auto' }}>
-                    <div className={styles.headerWrapper} style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '15px' }}>
-                        <button
-                            onClick={() => {
-                                searchParams.delete('tab');
-                                setSearchParams(searchParams);
-                            }}
-                            style={{ background: '#f5f5f5', border: '1px solid #ddd', padding: '8px 15px', borderRadius: '15px', cursor: 'pointer', fontWeight: 'bold', color: '#333' }}
-                        >
-                            ← Volver
-                        </button>
+                    <div className={styles.headerWrapper} style={{ marginBottom: '20px' }}>
                         <div>
                             <p className={styles.subTitle}>Historial de la sucursal:</p>
                             <h2 className={styles.businessName}>{businessName}</h2>
@@ -842,17 +833,11 @@ const TrabajoDetalle: React.FC = () => {
         return (
             <div className={menuStyles.dashboardLayout}>
                 <div style={{ width: '100%', maxWidth: '900px', margin: '0 auto' }}>
-                    <div className={styles.headerWrapper} style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div className={styles.headerWrapper} style={{ marginBottom: '20px' }}>
                         <div>
                             <p className={styles.subTitle}>Equipos en la sucursal:</p>
                             <h2 className={styles.businessName}>{businessName}</h2>
                         </div>
-                        <button
-                            onClick={() => setSearchParams({})}
-                            style={{ background: '#f1f5f9', color: '#334155', border: 'none', padding: '10px 15px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
-                        >
-                            ← Volver a Trabajos
-                        </button>
                     </div>
                     <EquiposNegocio
                         businessId={Number(id)}

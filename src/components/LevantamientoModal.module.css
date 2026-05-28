@@ -29,21 +29,29 @@
 
 .modalHeader {
     padding: 20px 32px;
-    border-bottom: 1px solid #f1f5f9;
+    background: #febf01;
+    border-bottom: 1px solid #e0a600;
     display: flex;
     justify-content: space-between;
     align-items: center;
+}
+
+.modalHeader p {
+    margin: 0;
+    font-size: 12px;
+    color: #334155 !important;
+    font-weight: 500;
 }
 
 .modalTitle {
     margin: 0;
     font-size: 20px;
     font-weight: 900;
-    color: #1e293b;
+    color: #0f172a;
 }
 
 .closeButton {
-    background: #f1f5f9;
+    background: rgba(0, 0, 0, 0.08);
     border: none;
     width: 32px;
     height: 32px;
@@ -52,12 +60,12 @@
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    color: #64748b;
+    color: #0f172a;
     transition: all 0.2s;
 }
 
 .closeButton:hover {
-    background: #fee2e2;
+    background: rgba(239, 68, 68, 0.2);
     color: #ef4444;
 }
 
@@ -90,8 +98,8 @@
 /* SIDEBAR */
 .sidebar {
     width: 320px;
-    background: #f8fafc;
-    border-right: 1px solid #f1f5f9;
+    background: #0f172a;
+    border-right: 1px solid #1e293b;
     display: flex;
     flex-direction: column;
 }
@@ -108,8 +116,8 @@
 }
 
 .miniAddBtn {
-    background: #2563eb;
-    color: white;
+    background: #febf01;
+    color: #0f172a;
     border: none;
     width: 24px;
     height: 24px;
@@ -118,6 +126,11 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    transition: all 0.2s;
+}
+
+.miniAddBtn:hover {
+    background: #e0a600;
 }
 
 .miniAddBtn svg {
@@ -134,10 +147,12 @@
 .newSectionInput input {
     width: 100%;
     padding: 8px 12px;
-    border: 1px solid #cbd5e1;
+    border: 1px solid #334155;
     border-radius: 8px;
     font-size: 13px;
     margin-bottom: 8px;
+    background: #1e293b;
+    color: white;
 }
 
 .inputActions {
@@ -153,8 +168,13 @@
     font-size: 18px;
 }
 
-.inputActions button:first-child { color: #10b981; }
-.inputActions button:last-child { color: #ef4444; }
+.inputActions button:first-child {
+    color: #10b981;
+}
+
+.inputActions button:last-child {
+    color: #ef4444;
+}
 
 .sectionsList {
     flex: 1;
@@ -171,18 +191,19 @@
     justify-content: space-between;
     align-items: center;
     transition: all 0.2s;
-    color: #475569;
+    color: #cbd5e1;
 }
 
 .sectionItem:hover {
-    background: #f1f5f9;
+    background: rgba(255, 255, 255, 0.05);
+    color: #ffffff;
 }
 
 .sectionItemActive {
-    background: white;
-    color: #2563eb;
-    font-weight: 700;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    background: #febf01 !important;
+    color: #0f172a !important;
+    font-weight: 800;
+    box-shadow: 0 4px 12px rgba(254, 191, 1, 0.3);
 }
 
 .sectionActions {
@@ -203,24 +224,35 @@
     opacity: 1;
 }
 
-.secDeleteBtn:hover { color: #ef4444; }
+.secDeleteBtn:hover {
+    color: #ef4444;
+}
 
 .sidebarEmpty {
     padding: 40px 20px;
     text-align: center;
 }
 
-.sidebarEmpty p { font-size: 13px; color: #94a3b8; }
+.sidebarEmpty p {
+    font-size: 13px;
+    color: #64748b;
+}
+
 .sidebarEmpty button {
     background: none;
-    border: 1px solid #2563eb;
-    color: #2563eb;
+    border: 1.5px solid #febf01;
+    color: #febf01;
     padding: 6px 12px;
     border-radius: 8px;
     font-size: 12px;
     font-weight: 700;
     margin-top: 10px;
     cursor: pointer;
+    transition: all 0.2s;
+}
+
+.sidebarEmpty button:hover {
+    background: rgba(254, 191, 1, 0.1);
 }
 
 /* MAIN CONTENT */
@@ -228,8 +260,9 @@
     flex: 1;
     display: flex;
     flex-direction: column;
-    padding: 24px; /* Un poco menos de padding para ganar espacio */
-    background: white;
+    padding: 24px;
+    /* Un poco menos de padding para ganar espacio */
+    background: #f8fafc;
     overflow-y: auto;
     overflow-x: hidden;
 }
@@ -241,7 +274,10 @@
     margin-bottom: 20px;
 }
 
-.contentHeader h4 { margin: 0; font-size: 18px; }
+.contentHeader h4 {
+    margin: 0;
+    font-size: 18px;
+}
 
 .badge {
     background: #eff6ff;
@@ -256,9 +292,11 @@
     margin-bottom: 24px;
     padding-right: 10px;
     max-height: 220px;
-    min-height: 120px; /* Asegura que la lista nunca desaparezca por completo */
+    min-height: 120px;
+    /* Asegura que la lista nunca desaparezca por completo */
     overflow-y: auto;
-    flex-shrink: 0; /* Mantiene el tamaño mínimo definido */
+    flex-shrink: 0;
+    /* Mantiene el tamaño mínimo definido */
 }
 
 .scrollArea::-webkit-scrollbar {
@@ -286,20 +324,41 @@
 }
 
 .eqCard {
-    background: #fcfcfc;
-    border: 1px solid #f1f5f9;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
     border-radius: 16px;
     padding: 16px;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.02);
 }
 
-.eqInfo strong { display: block; font-size: 14px; color: #1e293b; }
-.eqInfo span { display: block; font-size: 13px; color: #64748b; }
-.eqInfo small { display: block; font-size: 11px; color: #94a3b8; margin-top: 4px; font-family: monospace; }
+.eqInfo strong {
+    display: block;
+    font-size: 14px;
+    color: #1e293b;
+}
 
-.eqActions { display: flex; gap: 8px; }
+.eqInfo span {
+    display: block;
+    font-size: 13px;
+    color: #64748b;
+}
+
+.eqInfo small {
+    display: block;
+    font-size: 11px;
+    color: #94a3b8;
+    margin-top: 4px;
+    font-family: monospace;
+}
+
+.eqActions {
+    display: flex;
+    gap: 8px;
+}
+
 .eqActions button {
     background: white;
     border: 1px solid #e2e8f0;
@@ -320,17 +379,25 @@
     height: 18px;
 }
 
-.btnDanger:hover { color: #ef4444 !important; border-color: #fee2e2 !important; }
+.btnDanger:hover {
+    color: #ef4444 !important;
+    border-color: #fee2e2 !important;
+}
 
 /* EQUIP FORM */
 .eqFormContainer {
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
     padding: 24px;
     border-radius: 20px;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.03);
 }
 
-.eqFormContainer h5 { margin: 0 0 16px; font-size: 14px; color: #1e293b; }
+.eqFormContainer h5 {
+    margin: 0 0 16px;
+    font-size: 14px;
+    color: #1e293b;
+}
 
 .eqFormGrid {
     display: grid;
@@ -339,8 +406,18 @@
     margin-bottom: 20px;
 }
 
-.inputGroup { display: flex; flex-direction: column; gap: 4px; }
-.inputGroup label { font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; }
+.inputGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.inputGroup label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+}
 
 .inputGroup input {
     width: 100%;
@@ -360,14 +437,21 @@
 }
 
 .btnAddEq {
-    background: #10b981;
-    color: white;
+    background: #febf01;
+    color: #0f172a;
     border: none;
     padding: 10px 20px;
     border-radius: 10px;
-    font-weight: 700;
+    font-weight: 800;
     font-size: 13px;
     cursor: pointer;
+    box-shadow: 0 3px 8px rgba(254, 191, 1, 0.2);
+    transition: all 0.2s;
+}
+
+.btnAddEq:hover {
+    background: #e0a600;
+    box-shadow: 0 4px 12px rgba(254, 191, 1, 0.3);
 }
 
 .btnCancel {
@@ -442,7 +526,7 @@
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
     overflow: hidden;
     flex-shrink: 0;
     padding: 0;
@@ -469,26 +553,40 @@
 
 .modalFooter {
     padding: 20px 32px;
-    border-top: 1px solid #f1f5f9;
+    background: #ffffff;
+    border-top: 1px solid #ffffff;
     display: flex;
     justify-content: flex-end;
     gap: 12px;
 }
 
 .primaryBtn {
-    background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
-    color: white;
+    background: linear-gradient(135deg, #febf01 0%, #e0a600 100%);
+    color: #0f172a;
     border: none;
     padding: 14px 40px;
     border-radius: 14px;
     font-weight: 800;
     cursor: pointer;
-    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+    box-shadow: 0 4px 12px rgba(254, 191, 1, 0.25);
+    transition: all 0.2s ease;
+}
+
+.primaryBtn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(254, 191, 1, 0.35);
 }
 
 @keyframes zoomIn {
-    from { transform: scale(0.95); opacity: 0; }
-    to { transform: scale(1); opacity: 1; }
+    from {
+        transform: scale(0.95);
+        opacity: 0;
+    }
+
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
 }
 
 @media (max-width: 768px) {
@@ -502,8 +600,15 @@
     }
 
     @keyframes slideUp {
-        from { transform: translateY(20%); opacity: 0; }
-        to { transform: translateY(0); opacity: 1; }
+        from {
+            transform: translateY(20%);
+            opacity: 0;
+        }
+
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
     }
 
     .modalHeader {

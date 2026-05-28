@@ -116,7 +116,7 @@ const MenuLayout: React.FC = () => {
         let baseOptions: string[] = [];
 
         if (user.role === 'admin') {
-            baseOptions = ["Dashboard", "Negocios", "Inventario General", "Trabajadores", "Usuarios", "Solicitudes", "Reportes Mantenimiento", "Trabajos Realizados"];
+            baseOptions = ["Dashboard", "Negocios", "Inventario General", "Trabajadores", "Usuarios", "Solicitudes", "Reportes Mantenimiento", "Trabajos Globales Realizados"];
         } else if (user.role === 'cliente') {
             baseOptions = ["Resumen", "Mis Negocios", "Cotizaciones", "Historial"];
         } else if (user.role === 'tecnico') {
@@ -144,7 +144,7 @@ const MenuLayout: React.FC = () => {
                 else if (path.includes("usuarios")) setActiveOption("Usuarios");
                 else if (path.includes("solicitudes")) setActiveOption("Solicitudes");
                 else if (path.includes("mantenimiento")) setActiveOption("Reportes Mantenimiento");
-                else if (path.includes("trabajos-realizados")) setActiveOption("Trabajos Realizados");
+                else if (path.includes("trabajos-realizados")) setActiveOption("Trabajos Globales Realizados");
                 else setActiveOption("Negocios");
             } else if (path.startsWith("/cliente")) {
                 if (path === "/cliente" || path === "/cliente/") setActiveOption("Resumen");
@@ -177,7 +177,7 @@ const MenuLayout: React.FC = () => {
         if (option === "Usuarios") navigate("/menu/usuarios");
         if (option === "Solicitudes") navigate("/menu/solicitudes");
         if (option === "Reportes Mantenimiento") navigate("/menu/mantenimiento");
-        if (option === "Trabajos Realizados") navigate("/menu/trabajos-realizados");
+        if (option === "Trabajos Globales Realizados") navigate("/menu/trabajos-realizados");
 
         if (option === "Resumen") {
             if (user?.role === 'cliente') navigate("/cliente/resumen");
@@ -215,6 +215,30 @@ const MenuLayout: React.FC = () => {
         }
     };
 
+    const handleBackClick = () => {
+        const params = new URLSearchParams(location.search);
+        if (location.pathname.includes("/trabajo/")) {
+            if (params.has("tab")) {
+                navigate(location.pathname);
+            } else {
+                // Navegación explícita según el rol para evitar que navigate(-1) vuelva a un tab anterior en el historial
+                if (user?.role === 'admin') {
+                    navigate("/menu/negocios");
+                } else if (user?.role === 'cliente') {
+                    navigate("/cliente/negocios");
+                } else if (user?.role === 'encargado') {
+                    navigate("/encargado/negocios");
+                } else if (user?.role === 'tecnico') {
+                    navigate("/tecnico");
+                } else {
+                    navigate(-1);
+                }
+            }
+        } else {
+            navigate(-1);
+        }
+    };
+
     const getIconForOption = (option: string) => {
         switch (option) {
             case "Dashboard":
@@ -231,7 +255,7 @@ const MenuLayout: React.FC = () => {
             case "Solicitudes":
             case "Nueva Solicitud":
                 return <HiOutlineDocumentText size={22} />;
-            case "Trabajos Realizados":
+            case "Trabajos Globales Realizados":
             case "Historial":
                 return <HiOutlineClock size={22} />;
             case "Cotizaciones":
@@ -281,7 +305,7 @@ const MenuLayout: React.FC = () => {
                         <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                             {location.pathname !== getBaseRoute() && location.pathname !== getBaseRoute() + "/dashboard" && location.pathname !== getBaseRoute() + "/" && (
                                 <button 
-                                    onClick={() => navigate(-1)} 
+                                    onClick={handleBackClick} 
                                     style={{ 
                                         background: 'rgba(0,0,0,0.2)', 
                                         border: 'none', 

@@ -1,15 +1,19 @@
 /* ListaUsuarios.module.css */
 .container {
-    padding: 20px;
+    padding: 0 20px;
     display: flex;
     flex-direction: column;
     gap: 20px;
     height: 100%;
+    width: 100%;
+    max-width: 1000px;
+    margin: 0 auto;
 }
 
 .topActions {
     display: flex;
     gap: 15px;
+    justify-content: center;
     align-items: center;
     margin-top: 10px;
     margin-bottom: 20px;
@@ -23,8 +27,9 @@
     padding: 12px 25px;
     border-radius: 44px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-    flex: 1;
-    max-width: 500px;
+    flex: none;
+    width: 450px;
+    max-width: 100%;
     border: 1px solid #eee;
 }
 
@@ -67,6 +72,12 @@
     gap: 20px;
     overflow-y: auto;
     padding-bottom: 30px;
+    -ms-overflow-style: none;  /* IE y Edge */
+    scrollbar-width: none;  /* Firefox */
+}
+
+.listGrid::-webkit-scrollbar {
+    display: none; /* Chrome, Safari y Opera */
 }
 
 .userCard {
@@ -78,7 +89,7 @@
     flex-direction: column;
     gap: 15px;
     transition: transform 0.2s, box-shadow 0.2s;
-    border: 1px solid #f0f0f0;
+    border: 2px solid #eaeaea;
 }
 
 .userCard:hover {
@@ -102,6 +113,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    flex-shrink: 0;
 }
 
 .mainInfo {
@@ -172,7 +184,7 @@
     }
     .searchCard, .filterWrapper {
         max-width: none;
-        width: 100%;
+        width: 100% !important;
     }
     .listGrid {
         grid-template-columns: 1fr;
