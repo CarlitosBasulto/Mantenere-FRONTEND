@@ -80,13 +80,13 @@
 
 .jobCard {
     background: white;
-    padding: 0 0 25px 0;
+    padding: 0 0 16px 0;
     /* No padding at top to let statusBar take full width */
-    border-radius: 30px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    border-radius: 24px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
     width: 100%;
     border: 2px solid #eaeaea;
-    min-height: 100px;
+    min-height: 80px;
     display: flex;
     flex-direction: column;
     position: relative;
@@ -97,22 +97,21 @@
 
 .jobCard:hover {
     transform: translateY(-3px);
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
     border-color: #FFB800;
 }
 
-/* Status Bar at the very top */
 .statusBar {
-    height: 35px;
+    height: 28px;
     width: 100%;
     display: flex;
     align-items: center;
-    padding: 0 25px;
-    font-size: 11px;
+    padding: 0 20px;
+    font-size: 10px;
     font-weight: 900;
     text-transform: uppercase;
     letter-spacing: 1px;
-    margin-bottom: 20px;
+    margin-bottom: 12px;
 }
 
 .statusBar.yellow {
@@ -138,7 +137,7 @@
 .cardContent {
     display: flex;
     flex-direction: column;
-    padding: 0 30px;
+    padding: 0 20px;
     width: 100%;
 }
 
@@ -146,7 +145,7 @@
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    margin-bottom: 15px;
+    margin-bottom: 10px;
 }
 
 .dateGroup {
@@ -162,23 +161,23 @@
 }
 
 .cardInfo h3 {
-    margin: 0 0 10px 0;
-    font-size: 22px;
+    margin: 0 0 8px 0;
+    font-size: 17px;
     color: #000;
     font-weight: 700;
 }
 
 .descriptionBox {
     background: #f4f7f9;
-    padding: 12px 18px;
-    border-radius: 12px;
-    margin-bottom: 15px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    margin-bottom: 10px;
     border-left: 4px solid #cfd8dc;
 }
 
 .descriptionBox p {
     margin: 0;
-    font-size: 14px;
+    font-size: 13px;
     color: #455a64;
     line-height: 1.5;
     font-weight: 500;
@@ -241,9 +240,9 @@
     background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
     color: white;
     border: none;
-    padding: 8px 16px;
+    padding: 6px 14px;
     border-radius: 20px;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 700;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -264,10 +263,10 @@
     background: #fef2f2;
     color: #dc2626;
     border: 1px solid #fecaca;
-    width: 34px;
-    height: 34px;
-    min-width: 34px;
-    min-height: 34px;
+    width: 30px;
+    height: 30px;
+    min-width: 30px;
+    min-height: 30px;
     border-radius: 50%;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -286,9 +285,9 @@
     background: linear-gradient(135deg, #fffaf2 0%, #fff3e0 100%);
     border: 1px solid #ffe0b2;
     border-left: 5px solid #ff9800;
-    border-radius: 16px;
-    margin: 0 30px 20px 30px;
-    padding: 15px 20px;
+    border-radius: 12px;
+    margin: 0 20px 12px 20px;
+    padding: 10px 15px;
     display: flex;
     align-items: center;
     gap: 15px;
@@ -383,5 +382,12 @@
 
     .searchSection > div:first-child {
         width: 100% !important;
+    }
+
+    .searchSection {
+        margin-top: 15px;
+        margin-bottom: 15px;
+        margin-left: 15px;
+        margin-right: 15px;
     }
 }

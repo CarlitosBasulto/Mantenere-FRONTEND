@@ -187,11 +187,11 @@ const EquiposNegocio: React.FC<EquiposNegocioProps> = ({ businessId, onViewRepor
                         onClick={() => handleCardClick(equipo)}
                         style={{ 
                             background: '#ffffff', 
-                            border: '1px solid #f1f5f9', 
+                            border: '1px solid #e2e8f0', 
                             borderRadius: '24px', 
                             padding: '24px',
-                            boxShadow: '0 15px 35px rgba(0,0,0,0.03)',
-                            transition: 'all 0.3s ease',
+                            boxShadow: '0 10px 30px rgba(15, 23, 42, 0.03)',
+                            transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
                             display: 'flex',
                             flexDirection: 'column',
                             gap: '18px',
@@ -199,20 +199,44 @@ const EquiposNegocio: React.FC<EquiposNegocioProps> = ({ businessId, onViewRepor
                         }}
                         onMouseEnter={(e) => {
                             e.currentTarget.style.transform = 'translateY(-5px)';
-                            e.currentTarget.style.boxShadow = '0 20px 45px rgba(0,0,0,0.06)';
+                            e.currentTarget.style.boxShadow = '0 20px 40px rgba(15, 23, 42, 0.08)';
+                            e.currentTarget.style.borderColor = '#febf01';
                         }}
                         onMouseLeave={(e) => {
                             e.currentTarget.style.transform = 'translateY(0)';
-                            e.currentTarget.style.boxShadow = '0 15px 35px rgba(0,0,0,0.03)';
+                            e.currentTarget.style.boxShadow = '0 10px 30px rgba(15, 23, 42, 0.03)';
+                            e.currentTarget.style.borderColor = '#e2e8f0';
                         }}
                         >
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                <div style={{ display: 'flex', gap: '15px' }}>
-                                    {equipo.foto && (
-                                        <img src={equipo.foto} alt="equipo" style={{ width: '60px', height: '60px', borderRadius: '12px', objectFit: 'cover' }} />
-                                    )}
+                                <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
+                                    {equipo.foto ? (
+                                        <img 
+                                            src={equipo.foto} 
+                                            alt="equipo" 
+                                            onError={(e) => {
+                                                e.currentTarget.style.display = 'none';
+                                                const sibling = e.currentTarget.nextSibling as HTMLElement;
+                                                if (sibling) sibling.style.display = 'flex';
+                                            }}
+                                            style={{ width: '60px', height: '60px', borderRadius: '12px', objectFit: 'cover' }} 
+                                        />
+                                    ) : null}
+                                    <div className="img-placeholder" style={{ 
+                                        display: equipo.foto ? 'none' : 'flex',
+                                        width: '60px', 
+                                        height: '60px', 
+                                        borderRadius: '12px', 
+                                        background: '#f1f5f9', 
+                                        border: '1px solid #e2e8f0',
+                                        alignItems: 'center', 
+                                        justifyContent: 'center', 
+                                        color: '#0f172a' 
+                                    }}>
+                                        <HiOutlineCube size={28} />
+                                    </div>
                                     <div>
-                                        <h4 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: '#1e293b', textTransform: 'capitalize' }}>
+                                        <h4 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: '#0f172a', textTransform: 'capitalize' }}>
                                             {equipo.marca}
                                         </h4>
                                         <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#64748b', fontWeight: '600' }}>
@@ -222,49 +246,80 @@ const EquiposNegocio: React.FC<EquiposNegocioProps> = ({ businessId, onViewRepor
                                 </div>
                                 <span style={{ 
                                     padding: '6px 14px', 
-                                    borderRadius: '12px', 
+                                    borderRadius: '10px', 
                                     fontSize: '11px', 
                                     fontWeight: '800',
                                     textTransform: 'uppercase',
                                     letterSpacing: '0.5px',
-                                    background: '#f8fafc',
-                                    color: '#64748b',
-                                    border: '1px solid #e2e8f0'
+                                    background: '#0f172a',
+                                    color: '#ffffff',
+                                    border: 'none'
                                 }}>
                                     {equipo.areaNombre}
                                 </span>
                             </div>
 
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '5px' }}>
-                                <div style={{ padding: '12px', border: '1px solid #f1f5f9', borderRadius: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <HiOutlineCube style={{ color: '#3b82f6', fontSize: '16px' }} />
+                                <div style={{ padding: '12px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <HiOutlineCube style={{ color: '#0f172a', fontSize: '18px' }} />
                                     <div style={{ fontSize: '12px' }}>
-                                        <span style={{ color: '#64748b', display: 'block', fontSize: '10px' }}>MODELO</span>
-                                        <span style={{ fontWeight: '700', color: '#1e293b' }}>{equipo.modelo}</span>
+                                        <span style={{ color: '#64748b', display: 'block', fontSize: '10px', fontWeight: '600' }}>MODELO</span>
+                                        <span style={{ fontWeight: '700', color: '#0f172a' }}>{equipo.modelo}</span>
                                     </div>
                                 </div>
-                                <div style={{ padding: '12px', border: '1px solid #f1f5f9', borderRadius: '15px', display: 'flex', alignItems: 'center', gap: '8px', background: maintenanceCount > 0 ? '#f0fdf4' : 'transparent', borderColor: maintenanceCount > 0 ? '#bbf7d0' : '#f1f5f9' }}>
-                                    <HiOutlineShieldCheck style={{ color: maintenanceCount > 0 ? '#16a34a' : '#10b981', fontSize: '16px' }} />
+                                <div style={{ 
+                                    padding: '12px', 
+                                    border: '1px solid #e2e8f0', 
+                                    borderRadius: '15px', 
+                                    display: 'flex', 
+                                    alignItems: 'center', 
+                                    gap: '8px', 
+                                    background: maintenanceCount > 0 ? '#f0fdf4' : '#f8fafc', 
+                                    borderColor: maintenanceCount > 0 ? '#bbf7d0' : '#e2e8f0' 
+                                }}>
+                                    <HiOutlineShieldCheck style={{ color: maintenanceCount > 0 ? '#16a34a' : '#64748b', fontSize: '18px' }} />
                                     <div style={{ fontSize: '12px' }}>
-                                        <span style={{ color: maintenanceCount > 0 ? '#15803d' : '#64748b', display: 'block', fontSize: '10px' }}>INTERVENCIONES</span>
-                                        <span style={{ fontWeight: '700', color: maintenanceCount > 0 ? '#166534' : '#1e293b' }}>{maintenanceCount}</span>
+                                        <span style={{ color: maintenanceCount > 0 ? '#15803d' : '#64748b', display: 'block', fontSize: '10px', fontWeight: '600' }}>INTERVENCIONES</span>
+                                        <span style={{ fontWeight: '700', color: maintenanceCount > 0 ? '#166534' : '#0f172a' }}>{maintenanceCount}</span>
                                     </div>
                                 </div>
                             </div>
 
-                            <button type="button" style={{
+                            <button type="button" 
+                            style={{
                                 width: '100%',
-                                padding: '10px',
-                                background: maintenanceCount > 0 ? '#0284c7' : '#f8fafc',
-                                color: maintenanceCount > 0 ? 'white' : '#64748b',
-                                border: maintenanceCount > 0 ? 'none' : '1px solid #e2e8f0',
-                                borderRadius: '12px',
-                                fontWeight: 'bold',
+                                padding: '12px',
+                                background: maintenanceCount > 0 
+                                    ? 'linear-gradient(135deg, #febf01 0%, #e0a600 100%)' 
+                                    : '#ffffff',
+                                color: '#0f172a',
+                                border: maintenanceCount > 0 ? 'none' : '1px solid #cbd5e1',
+                                borderRadius: '14px',
+                                fontWeight: '800',
+                                fontSize: '13px',
                                 marginTop: '5px',
                                 cursor: 'pointer',
+                                boxShadow: maintenanceCount > 0 ? '0 4px 12px rgba(254, 191, 1, 0.2)' : 'none',
                                 transition: 'all 0.2s ease'
-                            }} onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleCardClick(equipo); }}>
-                                {maintenanceCount > 0 ? 'Ver bitacora de equipo' : 'Ver Detalles de Registro'}
+                            }} 
+                            onMouseEnter={(e) => {
+                                if (maintenanceCount > 0) {
+                                    e.currentTarget.style.transform = 'translateY(-1px)';
+                                    e.currentTarget.style.boxShadow = '0 6px 14px rgba(254, 191, 1, 0.3)';
+                                } else {
+                                    e.currentTarget.style.background = '#f8fafc';
+                                }
+                            }}
+                            onMouseLeave={(e) => {
+                                if (maintenanceCount > 0) {
+                                    e.currentTarget.style.transform = 'translateY(0)';
+                                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(254, 191, 1, 0.2)';
+                                } else {
+                                    e.currentTarget.style.background = '#ffffff';
+                                }
+                            }}
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleCardClick(equipo); }}>
+                                {maintenanceCount > 0 ? 'Ver bitácora de equipo' : 'Ver Detalles de Registro'}
                             </button>
                         </div>
                     );

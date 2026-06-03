@@ -44,6 +44,7 @@ const ReporteDetailModal: React.FC<ReporteDetailModalProps> = ({
     trabajo, 
     task, 
     reporte, 
+    userRole,
     onEdit 
 }) => {
     const [selectedZoomImage, setSelectedZoomImage] = useState<string | null>(null);
@@ -103,29 +104,28 @@ const ReporteDetailModal: React.FC<ReporteDetailModalProps> = ({
             <div className={styles.premiumModalContent}>
                 <div className={styles.premiumModalHeader}>
                     <h2>
-                        <HiOutlineClipboardDocumentList size={26} color="#3b82f6" />
+                        <HiOutlineClipboardDocumentList size={26} />
                         Detalles del Reporte
                         {isPreReport && <span style={{ color: '#f59e0b', fontSize: '13px', background: '#fffbeb', padding: '4px 10px', borderRadius: '10px', border: '1px solid #fef3c7', marginLeft: '10px' }}>Pre-Reporte</span>}
                     </h2>
                     <div className={styles.headerActions}>
                         {reporte && (
                             <button
-                                className={styles.editReportBtn}
-                                style={{ background: '#ecfdf5', color: '#059669', border: '1px solid #d1fae5' }}
+                                className={styles.downloadPdfBtn}
                                 onClick={handleDownloadPDF}
                             >
                                 <HiOutlineArrowDownTray size={18} />
                                 <span>Descargar PDF</span>
                             </button>
                         )}
-                        {onEdit && (
+                        {onEdit && (userRole === 'admin' || userRole === 'tecnico') && (
                             <button className={styles.editReportBtn} onClick={onEdit}>
                                 <HiOutlinePencilSquare size={18} />
                                 <span>Editar Reporte</span>
                             </button>
                         )}
-                        <button onClick={onClose} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#94a3b8', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '5px' }}>
-                            <HiOutlineXMark size={28} />
+                        <button onClick={onClose} className={styles.closeHeaderBtn} title="Cerrar">
+                            <HiOutlineXMark size={20} />
                         </button>
                     </div>
                 </div>

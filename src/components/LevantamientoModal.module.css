@@ -553,8 +553,8 @@
 
 .modalFooter {
     padding: 20px 32px;
-    background: #ffffff;
-    border-top: 1px solid #ffffff;
+    background: #f8fafc;
+    border-top: 1px solid #e2e8f0;
     display: flex;
     justify-content: flex-end;
     gap: 12px;

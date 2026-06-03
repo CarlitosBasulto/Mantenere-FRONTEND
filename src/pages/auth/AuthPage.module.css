@@ -16,40 +16,29 @@
     border-bottom: 10px solid #e9ab22;
 }
 
-.logoContainer {
-    z-index: 800;
-    margin-bottom: 30px;
-    display: flex;
-    justify-content: center;
-}
-
-.externalLogo {
-    width: 250px;
+.cardLogo {
+    width: 200px;
     height: auto;
-    filter: drop-shadow(0px 4px 8px rgba(0, 0, 0, 0.15));
+    margin-bottom: 15px;
+    filter: drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.08));
     transition: transform 0.3s ease;
 }
 
-@media (max-width: 768px) {
-    .externalLogo {
-        width: 200px;
-    }
+.cardLogo:hover {
+    transform: scale(1.05);
 }
 
 @media (max-width: 480px) {
-    .externalLogo {
-        width: 180px;
+    .cardLogo {
+        width: 170px;
+        margin-bottom: 10px;
     }
-}
-
-/* Opcional: que crezca un poco más al poner el mouse */
-.externalLogo:hover {
-    transform: scale(1.05);
 }
 
 .container {
     background-color: #fff;
     border-radius: 10px;
+    border: 1.5px solid #e9ab22;
     box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25),
         0 10px 10px rgba(0, 0, 0, 0.22);
     position: relative;
@@ -233,6 +222,11 @@
     width: 100%;
     border-radius: 20px;
     color: #333;
+}
+
+.input::-ms-reveal,
+.input::-ms-clear {
+    display: none;
 }
 
 .passwordContainer {

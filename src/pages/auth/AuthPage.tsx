@@ -178,16 +178,12 @@ const AuthPage: React.FC = () => {
     return (
         <div className={styles.body}>
 
-            {/* --- LOGO FUERA DE LA CARD --- */}
-            <div className={styles.logoContainer}>
-                <img src={logoAgente} alt="Agente Business" className={styles.externalLogo} />
-            </div>
-
             <div className={`${styles.container} ${isRightPanelActive ? styles.rightPanelActive : ''}`} id="container">
 
                 {/* SIGN UP FORM */}
                 <div className={`${styles.formContainer} ${styles.signUpContainer}`}>
                     <form className={styles.form} onSubmit={handleRegisterSubmit}>
+                        <img src={logoAgente} alt="Agente Business" className={styles.cardLogo} />
                         <h1 className={styles.title}>Crear Cuenta</h1>
                         <span className={styles.span}>Crea una cuenta para tu empresa hoy mismo</span>
                         <input type="text" placeholder="Nombre(s)" className={styles.input} value={regName} onChange={(e) => setRegName(e.target.value)} />
@@ -256,6 +252,7 @@ const AuthPage: React.FC = () => {
                 {/* SIGN IN FORM */}
                 <div className={`${styles.formContainer} ${styles.signInContainer}`}>
                     <form className={styles.form} onSubmit={handleLoginSubmit}>
+                        <img src={logoAgente} alt="Agente Business" className={styles.cardLogo} />
                         <h1 className={styles.title}>Iniciar Sesión</h1>
                         <span className={styles.span}>o usa tu cuenta existente</span>
                         <input

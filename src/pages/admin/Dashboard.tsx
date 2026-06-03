@@ -219,7 +219,7 @@ const Dashboard: React.FC = () => {
             </header>
 
             <div className={styles.statsGrid}>
-                <div className={styles.statCard}>
+                <div className={`${styles.statCard} ${styles.borderBlue}`}>
                     <div className={`${styles.iconBg} ${styles.blue}`}>
                         <HiOutlineUsers size={24} />
                     </div>
@@ -229,7 +229,7 @@ const Dashboard: React.FC = () => {
                     </div>
                 </div>
 
-                <div className={styles.statCard}>
+                <div className={`${styles.statCard} ${styles.borderGreen}`}>
                     <div className={`${styles.iconBg} ${styles.green}`}>
                         <HiOutlineBriefcase size={24} />
                     </div>
@@ -239,7 +239,7 @@ const Dashboard: React.FC = () => {
                     </div>
                 </div>
 
-                <div className={styles.statCard}>
+                <div className={`${styles.statCard} ${styles.borderYellow}`}>
                     <div className={`${styles.iconBg} ${styles.yellow}`}>
                         <HiOutlineDocumentText size={24} />
                     </div>
@@ -249,7 +249,7 @@ const Dashboard: React.FC = () => {
                     </div>
                 </div>
 
-                <div className={styles.statCard}>
+                <div className={`${styles.statCard} ${styles.borderPurple}`}>
                     <div className={`${styles.iconBg} ${styles.purple}`}>
                         <HiOutlineClipboardDocumentCheck size={24} />
                     </div>
@@ -260,16 +260,16 @@ const Dashboard: React.FC = () => {
                 </div>
 
                 <div 
-                    className={styles.statCard} 
-                    style={{ cursor: 'pointer', border: '1px solid #e0e7ff', background: '#f8fafc' }} 
+                    className={`${styles.statCard} ${styles.borderIndigo}`} 
+                    style={{ cursor: 'pointer' }} 
                     onClick={() => setShowPiezasModal(true)}
                 >
-                    <div className={`${styles.iconBg} ${styles.blue}`} style={{ backgroundColor: '#6366f1' }}>
-                        <HiOutlineCube size={24} />
+                    <div className={`${styles.iconBg} ${styles.blue}`}>
+                        <HiOutlineCube size={24} color="#6366f1" />
                     </div>
                     <div className={styles.statInfo}>
-                        <h3>{stats.piezas}</h3>
-                        <p>Piezas y Refacciones</p>
+                        <h3 style={{ color: '#4f46e5' }}>{stats.piezas}</h3>
+                        <p style={{ color: '#4f46e5', fontWeight: 600 }}>Piezas y Refacciones &rarr;</p>
                     </div>
                 </div>
             </div>

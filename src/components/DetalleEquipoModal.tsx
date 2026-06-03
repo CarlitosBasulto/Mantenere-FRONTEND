@@ -28,6 +28,14 @@ const DetalleEquipoModal: React.FC<DetalleEquipoModalProps> = ({ isOpen, onClose
         };
     }, [isOpen, equipment]);
 
+    const [fotoError, setFotoError] = React.useState(false);
+    const [placaError, setPlacaError] = React.useState(false);
+
+    React.useEffect(() => {
+        setFotoError(false);
+        setPlacaError(false);
+    }, [equipment]);
+
     if (!isOpen || !equipment) return null;
 
     return (
@@ -49,8 +57,13 @@ const DetalleEquipoModal: React.FC<DetalleEquipoModalProps> = ({ isOpen, onClose
                     <div className={styles.photosGrid}>
                         <div className={styles.photoContainer}>
                             <span className={styles.photoLabel}>VISTA GENERAL</span>
-                            {equipment.foto ? (
-                                <img src={equipment.foto} alt={equipment.nombre} className={styles.mainPhoto} />
+                            {equipment.foto && !fotoError ? (
+                                <img 
+                                    src={equipment.foto} 
+                                    alt={equipment.nombre} 
+                                    className={styles.mainPhoto} 
+                                    onError={() => setFotoError(true)}
+                                />
                             ) : (
                                 <div className={styles.noPhoto}>
                                     <span>Sin foto de evidencia</span>
@@ -60,8 +73,13 @@ const DetalleEquipoModal: React.FC<DetalleEquipoModalProps> = ({ isOpen, onClose
 
                         <div className={styles.photoContainer}>
                             <span className={styles.photoLabel}>PLACA DE DATOS</span>
-                            {equipment.fotoPlaca ? (
-                                <img src={equipment.fotoPlaca} alt="Placa" className={styles.mainPhoto} />
+                            {equipment.fotoPlaca && !placaError ? (
+                                <img 
+                                    src={equipment.fotoPlaca} 
+                                    alt="Placa" 
+                                    className={styles.mainPhoto} 
+                                    onError={() => setPlacaError(true)}
+                                />
                             ) : (
                                 <div className={styles.noPhoto}>
                                     <span>Sin foto de placa</span>
@@ -74,32 +92,32 @@ const DetalleEquipoModal: React.FC<DetalleEquipoModalProps> = ({ isOpen, onClose
                     <div className={styles.dataGrid}>
                         {equipment.categoria && (
                             <div className={styles.dataItem}>
-                                <div className={styles.iconWrapper}><HiOutlineTag size={18} color="#10b981" /></div>
+                                <div className={styles.iconWrapper}><HiOutlineTag size={18} /></div>
                                 <div className={styles.dataLabel}>Categoría</div>
                                 <div className={styles.dataValue}>{equipment.categoria.nombre}</div>
                             </div>
                         )}
 
                         <div className={styles.dataItem}>
-                            <div className={styles.iconWrapper}><HiOutlineTag size={18} color="#3b82f6" /></div>
+                            <div className={styles.iconWrapper}><HiOutlineTag size={18} /></div>
                             <div className={styles.dataLabel}>Marca / Modelo</div>
                             <div className={styles.dataValue}>{equipment.marca} - {equipment.modelo}</div>
                         </div>
 
                         <div className={styles.dataItem}>
-                            <div className={styles.iconWrapper}><HiOutlineHashtag size={18} color="#3b82f6" /></div>
+                            <div className={styles.iconWrapper}><HiOutlineHashtag size={18} /></div>
                             <div className={styles.dataLabel}>Número de Serie</div>
                             <div className={styles.dataValue}>{equipment.serie || 'N/A'}</div>
                         </div>
 
                         <div className={styles.dataItem}>
-                            <div className={styles.iconWrapper}><HiOutlineCalendarDays size={18} color="#3b82f6" /></div>
+                            <div className={styles.iconWrapper}><HiOutlineCalendarDays size={18} /></div>
                             <div className={styles.dataLabel}>Año Fabricación</div>
                             <div className={styles.dataValue}>{equipment.anioFabricacion || 'N/A'}</div>
                         </div>
 
                         <div className={styles.dataItem}>
-                            <div className={styles.iconWrapper}><HiOutlineClock size={18} color="#3b82f6" /></div>
+                            <div className={styles.iconWrapper}><HiOutlineClock size={18} /></div>
                             <div className={styles.dataLabel}>Tiempo en Uso</div>
                             <div className={styles.dataValue}>{equipment.anioUso || 'N/A'}</div>
                         </div>

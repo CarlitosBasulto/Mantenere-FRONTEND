@@ -801,7 +801,7 @@ const TrabajoDetalle: React.FC = () => {
 
     if (isHistorialTab) {
         return (
-            <div className={menuStyles.dashboardLayout}>
+            <div className={menuStyles.dashboardLayout} style={{ background: '#f8fafc', padding: '24px', borderRadius: '24px', minHeight: '80vh', border: '1px solid #e2e8f0', boxShadow: 'inset 0 0 20px rgba(0,0,0,0.01)' }}>
                 <div style={{ width: '100%', maxWidth: '900px', margin: '0 auto' }}>
                     <div className={styles.headerWrapper} style={{ marginBottom: '20px' }}>
                         <div>
@@ -817,7 +817,7 @@ const TrabajoDetalle: React.FC = () => {
 
     if (isCotizacionesTab) {
         return (
-            <div className={menuStyles.dashboardLayout}>
+            <div className={menuStyles.dashboardLayout} style={{ background: '#f8fafc', padding: '24px', borderRadius: '24px', minHeight: '80vh', border: '1px solid #e2e8f0', boxShadow: 'inset 0 0 20px rgba(0,0,0,0.01)' }}>
                 <div style={{ width: '100%', maxWidth: '900px', margin: '0 auto' }}>
                     <div className={styles.headerWrapper} style={{ marginBottom: '20px' }}>
                         <p className={styles.subTitle}>Cotizaciones de la sucursal:</p>
@@ -831,7 +831,7 @@ const TrabajoDetalle: React.FC = () => {
 
     if (isEquiposTab) {
         return (
-            <div className={menuStyles.dashboardLayout}>
+            <div className={menuStyles.dashboardLayout} style={{ background: '#f8fafc', padding: '24px', borderRadius: '24px', minHeight: '80vh', border: '1px solid #e2e8f0', boxShadow: 'inset 0 0 20px rgba(0,0,0,0.01)' }}>
                 <div style={{ width: '100%', maxWidth: '900px', margin: '0 auto' }}>
                     <div className={styles.headerWrapper} style={{ marginBottom: '20px' }}>
                         <div>
@@ -1267,9 +1267,9 @@ const TrabajoDetalle: React.FC = () => {
 
             {/* MODAL NUEVA SOLICITUD (CLIENTE) */}
             {isRequestModalOpen && (
-                <div className={menuStyles.modalOverlay}>
-                    <div className={`${menuStyles.modalContent} ${styles.modalContentMedium}`}>
-                        <h2 className={styles.modalTitle} style={isSOSRequest ? { fontWeight: '900', fontSize: '26px', color: '#c62828' } : { fontWeight: '900', fontSize: '26px' }}>
+                <div className={styles.modalOverlay}>
+                    <div className={styles.modalContentMedium}>
+                        <h2 className={styles.modalTitle} style={isSOSRequest ? { color: '#e11d48' } : {}}>
                             {isSOSRequest ? "🚨 Nueva Emergencia SOS" : (isEditingRequest ? "Editar Solicitud" : "Nuevo Servicio")}
                         </h2>
 
@@ -1278,7 +1278,7 @@ const TrabajoDetalle: React.FC = () => {
                                 <div className={styles.formField}>
                                     <label className={styles.formLabel}>Categoría</label>
                                     <select
-                                        className={styles.newServiceInput}
+                                        className={`${styles.newServiceInput} ${isSOSRequest ? styles.newServiceInputSos : ''}`}
                                         value={newRequestData.categoria}
                                         onChange={(e) => {
                                             setNewRequestData({ ...newRequestData, categoria: e.target.value });
@@ -1296,7 +1296,7 @@ const TrabajoDetalle: React.FC = () => {
                                     {newRequestData.categoria === "Otro" && (
                                         <input
                                             type="text"
-                                            className={styles.newServiceInput}
+                                            className={`${styles.newServiceInput} ${isSOSRequest ? styles.newServiceInputSos : ''}`}
                                             style={{ marginTop: '10px' }}
                                             placeholder="Escribe la categoría..."
                                             value={customCategoria}
@@ -1309,7 +1309,7 @@ const TrabajoDetalle: React.FC = () => {
                                     <label className={styles.formLabel}>Fecha Estimada</label>
                                     <input
                                         type="date"
-                                        className={styles.newServiceInput}
+                                        className={`${styles.newServiceInput} ${isSOSRequest ? styles.newServiceInputSos : ''}`}
                                         value={newRequestData.fecha}
                                         onChange={(e) => setNewRequestData({ ...newRequestData, fecha: e.target.value })}
                                     />
@@ -1321,7 +1321,7 @@ const TrabajoDetalle: React.FC = () => {
                                     <label className={styles.formLabel}>Equipo a mantener</label>
                                     <div className={styles.selectWrapper}>
                                         <select
-                                            className={styles.newServiceInput}
+                                            className={`${styles.newServiceInput} ${isSOSRequest ? styles.newServiceInputSos : ''}`}
                                             value={newRequestData.equipoSeleccionado}
                                             onChange={(e) => setNewRequestData({ ...newRequestData, equipoSeleccionado: e.target.value })}
                                         >
@@ -1344,7 +1344,7 @@ const TrabajoDetalle: React.FC = () => {
                                 <label className={styles.formLabel}>Sucursal / Cliente</label>
                                 <input
                                     type="text"
-                                    className={styles.newServiceInput}
+                                    className={`${styles.newServiceInput} ${isSOSRequest ? styles.newServiceInputSos : ''}`}
                                     placeholder="Ej: Pokémon Center"
                                     value={newRequestData.cliente}
                                     onChange={(e) => setNewRequestData({ ...newRequestData, cliente: e.target.value })}
@@ -1354,7 +1354,7 @@ const TrabajoDetalle: React.FC = () => {
                             <div className={styles.formField}>
                                 <label className={styles.formLabel}>Descripción del problema</label>
                                 <textarea
-                                    className={styles.newServiceTextArea}
+                                    className={`${styles.newServiceTextArea} ${isSOSRequest ? styles.newServiceTextAreaSos : ''}`}
                                     placeholder="Detalla lo que sucede o los requerimientos del servicio..."
                                     value={newRequestData.descripcion}
                                     onChange={(e) => setNewRequestData({ ...newRequestData, descripcion: e.target.value })}
@@ -1366,15 +1366,7 @@ const TrabajoDetalle: React.FC = () => {
                         {isSOSRequest && (
                             <div style={{ marginTop: '15px', marginBottom: '15px' }}>
                                 <label className={styles.formLabel}>Adjuntar foto del problema (Opcional)</label>
-                                <div style={{
-                                    border: '2px dashed #f44336',
-                                    borderRadius: '12px',
-                                    padding: '20px',
-                                    textAlign: 'center',
-                                    background: '#fff5f5',
-                                    cursor: 'pointer',
-                                    position: 'relative'
-                                }}>
+                                <div className={styles.uploadContainer}>
                                     <input
                                         type="file"
                                         accept="image/*"
@@ -1385,10 +1377,11 @@ const TrabajoDetalle: React.FC = () => {
                                             opacity: 0, cursor: 'pointer'
                                         }}
                                     />
-                                    <span style={{ fontSize: '24px', display: 'block', marginBottom: '8px' }}>📸</span>
-                                    <span style={{ fontSize: '14px', color: '#c62828', fontWeight: 'bold' }}>
+                                    <span className={styles.uploadIcon}>📸</span>
+                                    <span className={styles.uploadText}>
                                         {fotoSOS ? fotoSOS.name : 'Haz clic para seleccionar una imagen'}
                                     </span>
+                                    <span className={styles.uploadSubtext}>Formatos soportados: JPG, PNG</span>
                                 </div>
                             </div>
                         )}
@@ -1406,8 +1399,7 @@ const TrabajoDetalle: React.FC = () => {
                             </button>
                             <button
                                 onClick={handleConfirmRequest}
-                                className={styles.confirmBtnLarge}
-                                style={isSOSRequest ? { background: '#f44336', boxShadow: '0 4px 10px rgba(244, 67, 54, 0.3)' } : {}}
+                                className={`${styles.confirmBtnLarge} ${isSOSRequest ? styles.confirmBtnLargeSos : ''}`}
                             >
                                 {isSOSRequest ? "Confirmar Emergencia" : "Confirmar"}
                             </button>

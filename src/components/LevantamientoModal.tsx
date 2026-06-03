@@ -486,7 +486,7 @@ const LevantamientoModal: React.FC<LevantamientoModalProps> = ({ isOpen, onClose
                             Guardar Levantamiento Completo
                         </button>
                     ) : (
-                        <button className={styles.primaryBtn} onClick={onClose} style={{ background: '#3b82f6' }}>
+                        <button className={styles.primaryBtn} onClick={onClose}>
                             Cerrar Vista
                         </button>
                     )}

@@ -229,18 +229,17 @@ Line: 97
 
                 {/* BUSCADOR Y ACCIONES */}
                 <div className={styles.searchSection}>
-                    <div className={menuStyles.searchCard}>
-                        <input
-                            type="text"
-                            placeholder="Buscar..."
-                            className={menuStyles.searchInput}
-                            value={searchText}
-                            onChange={(e) => setSearchText(e.target.value)}
-                        />
-                    </div>
+                    <div className={styles.searchBarContainer}>
+                        <div className={menuStyles.searchCard}>
+                            <input
+                                type="text"
+                                placeholder="Buscar..."
+                                className={menuStyles.searchInput}
+                                value={searchText}
+                                onChange={(e) => setSearchText(e.target.value)}
+                            />
+                        </div>
 
-                    {/* BOTONES DE ACCION */}
-                    <div style={{ display: 'flex', gap: '10px' }}>
                         {/* BOTON FILTRO */}
                         <button
                             className={styles.filterBtn}
@@ -249,17 +248,17 @@ Line: 97
                         >
                             <span style={{ fontSize: '18px' }}>⚙️</span>
                         </button>
-
-                        {/* BOTON NUEVO TRABAJADOR */}
-                        <button
-                            className={styles.primaryBtn}
-                            onClick={() => setIsAddModalOpen(true)}
-                            style={{ display: 'flex', alignItems: 'center', gap: '5px', borderRadius: '30px' }}
-                        >
-                            <span style={{ fontSize: '18px', fontWeight: 'bold' }}>+</span>
-                            <span>Nuevo</span>
-                        </button>
                     </div>
+
+                    {/* BOTON NUEVO TRABAJADOR */}
+                    <button
+                        className={styles.primaryBtn}
+                        onClick={() => setIsAddModalOpen(true)}
+                        style={{ display: 'flex', alignItems: 'center', gap: '5px', borderRadius: '30px' }}
+                    >
+                        <span style={{ fontSize: '18px', fontWeight: 'bold' }}>+</span>
+                        <span>Nuevo</span>
+                    </button>
                 </div>
 
                 {/* LISTA DE TRABAJADORES */}
@@ -285,7 +284,6 @@ Line: 97
                                     )}
                                 </div>
                                 <div className={styles.cardInfo}>
-                                    <span className={styles.cardDate}>{worker.fecha}</span>
                                     <h3>{worker.nombre}</h3>
                                     {(() => {
                                         const isExterno = worker.puesto.includes('- Externo');
@@ -316,7 +314,8 @@ Line: 97
                                     })()}
                                 </div>
 
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginRight: '20px', zIndex: 10 }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', marginRight: '20px', zIndex: 10, flexShrink: 0 }}>
+                                    <span className={styles.cardDate}>{worker.fecha}</span>
                                     {worker.estado === "Activo" && (
                                         <button
                                             onClick={(e) => {
@@ -331,7 +330,8 @@ Line: 97
                                                 borderRadius: '15px',
                                                 fontSize: '12px',
                                                 fontWeight: 'bold',
-                                                cursor: 'pointer'
+                                                cursor: 'pointer',
+                                                whiteSpace: 'nowrap'
                                             }}
                                         >
                                             Dar de Baja
@@ -351,7 +351,8 @@ Line: 97
                                                 borderRadius: '15px',
                                                 fontSize: '12px',
                                                 fontWeight: 'bold',
-                                                cursor: 'pointer'
+                                                cursor: 'pointer',
+                                                whiteSpace: 'nowrap'
                                             }}
                                         >
                                             Activar

@@ -13,7 +13,7 @@
 }
 
 .modalContent {
-    background: white;
+    background: #f8fafc;
     width: 95%;
     max-width: 800px;
     max-height: 95vh;
@@ -21,6 +21,14 @@
     box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.2);
     overflow-y: auto;
     animation: zoomIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    /* Hide scrollbar for IE, Edge and Firefox */
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.modalContent::-webkit-scrollbar {
+    display: none;
 }
 
 @keyframes zoomIn {
@@ -32,8 +40,9 @@
     padding: 24px 32px;
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
-    border-bottom: 1px solid #f1f5f9;
+    align-items: center;
+    background: #febf01;
+    border-bottom: 1px solid #e0a600;
 }
 
 .headerInfo {
@@ -45,8 +54,8 @@
 .categoryBadge {
     font-size: 10px;
     font-weight: 800;
-    color: #2563eb;
-    background: #eff6ff;
+    color: #ffffff;
+    background: #0f172a;
     padding: 2px 8px;
     border-radius: 6px;
     width: fit-content;
@@ -55,41 +64,41 @@
 
 .modalTitle {
     margin: 4px 0 0;
-    font-size: 20px;
+    font-size: 22px;
     font-weight: 900;
-    color: #1e293b;
+    color: #0f172a;
 }
 
 .brandSubtitle {
     font-size: 13px;
-    color: #64748b;
-    font-weight: 600;
+    color: #334155;
+    font-weight: 700;
 }
 
 .closeButton {
-    background: #f1f5f9;
+    background: rgba(0, 0, 0, 0.08);
     border: none;
     width: 32px;
     height: 32px;
-    border-radius: 12px;
+    border-radius: 10px;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    color: #64748b;
+    color: #0f172a;
     transition: all 0.2s;
 }
 
 .closeButton:hover {
-    background: #fee2e2;
+    background: rgba(239, 68, 68, 0.2);
     color: #ef4444;
 }
 
 .modalBody {
-    padding: 32px;
+    padding: 24px 32px;
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 32px;
+    gap: 24px;
 }
 
 @media (max-width: 768px) {
@@ -130,6 +139,13 @@
 
     .modalFooter {
         padding: 20px;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .editBtn, .closeBtn {
+        width: 100%;
+        min-width: 0;
     }
 }
 
@@ -138,16 +154,17 @@
     grid-template-columns: 1fr 1fr;
     gap: 16px;
     grid-column: span 2;
-    margin-bottom: 24px;
+    margin-bottom: 16px;
 }
 
 .photoContainer {
     width: 100%;
-    min-height: 200px;
-    background: #f8fafc;
+    min-height: 240px;
+    background: #ffffff;
     border-radius: 20px;
     overflow: hidden;
-    border: 1px solid #f1f5f9;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
     position: relative;
 }
 
@@ -185,30 +202,35 @@
 
 .dataGrid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 12px;
+    grid-column: span 2;
 }
 
 .dataItem {
-    padding: 16px;
-    background: #fcfcfc;
-    border: 1px solid #f1f5f9;
+    padding: 12px 16px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
     border-radius: 20px;
     display: flex;
     flex-direction: column;
     gap: 4px;
-    transition: all 0.2s;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .dataItem:hover {
-    border-color: #e2e8f0;
-    background: white;
+    border-color: #febf01;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.05);
 }
 
 .iconWrapper {
-    font-size: 16px;
-    color: #3b82f6;
+    font-size: 18px;
+    color: #0f172a;
     margin-bottom: 4px;
+    display: flex;
+    align-items: center;
 }
 
 .dataLabel {
@@ -225,46 +247,57 @@
 }
 
 .modalFooter {
-    padding: 20px 24px;
+    padding: 16px 32px;
     background: #f8fafc;
+    border-top: 1px solid #e2e8f0;
     display: flex;
-    flex-direction: column;
+    justify-content: flex-end;
     gap: 12px;
 }
 
 .editBtn {
-    width: 100%;
-    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-    color: white;
+    width: auto;
+    min-width: 180px;
+    background: linear-gradient(135deg, #febf01 0%, #e0a600 100%);
+    color: #0f172a;
     border: none;
-    padding: 14px;
-    border-radius: 16px;
+    padding: 10px 20px;
+    border-radius: 12px;
     font-weight: 800;
-    font-size: 14px;
+    font-size: 13px;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
+    gap: 8px;
     cursor: pointer;
-    box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.2);
+    box-shadow: 0 4px 12px rgba(254, 191, 1, 0.25);
     transition: all 0.2s;
 }
 
 .editBtn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 20px 25px -5px rgba(37, 99, 235, 0.2);
+    box-shadow: 0 6px 18px rgba(254, 191, 1, 0.35);
 }
 
 .closeBtn {
-    width: 100%;
-    background: white;
-    border: 1px solid #e2e8f0;
-    color: #64748b;
-    padding: 12px;
-    border-radius: 16px;
-    font-weight: 700;
-    font-size: 14px;
+    width: auto;
+    min-width: 100px;
+    background: #0f172a;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 12px;
+    font-weight: 800;
+    font-size: 13px;
     cursor: pointer;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);
+    transition: all 0.2s ease;
+}
+
+.closeBtn:hover {
+    background: #1e293b;
+    transform: translateY(-1.5px);
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.25);
 }
 
 @keyframes slideUp {
