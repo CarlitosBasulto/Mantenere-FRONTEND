@@ -8,9 +8,9 @@
     display: flex;
     flex-direction: column;
     width: 100%;
-    max-width: 1000px;
+    max-width: 1200px;
     margin: 0 auto;
-    padding: 0 20px;
+    padding: 0 30px;
 }
 
 .rightColumn {
@@ -70,7 +70,7 @@
 }
 
 .primaryBtn {
-    background: #FFB800;
+    background: #f26522;
     color: white;
     border: none;
     padding: 8px 16px;
@@ -78,113 +78,117 @@
     cursor: pointer;
     font-weight: bold;
     transition: all 0.2s ease;
-    box-shadow: 0 4px 10px rgba(255, 184, 0, 0.25);
+    box-shadow: 0 4px 10px rgba(242, 101, 34, 0.25);
 }
 
 .primaryBtn:hover {
-    background: #e6a600;
+    background: #d14d13;
     transform: translateY(-1px);
-    box-shadow: 0 6px 14px rgba(255, 184, 0, 0.35);
+    box-shadow: 0 6px 14px rgba(242, 101, 34, 0.35);
 }
 
 .jobsSection {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-    flex: 1;
-    overflow-y: auto;
-    min-height: 0;
-    padding-right: 10px;
-    -ms-overflow-style: none;  /* IE y Edge */
-    scrollbar-width: none;  /* Firefox */
-}
-
-.jobsSection::-webkit-scrollbar {
-    display: none; /* Chrome, Safari y Opera */
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    align-content: start;
+    padding-bottom: 30px;
 }
 
 .jobCard {
     background: white;
-    padding: 20px 30px;
-    border-radius: 40px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    padding: 24px 20px 20px;
+    border-radius: 24px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.06);
     width: 100%;
     border: 2px solid #eaeaea;
-    min-height: 100px;
+    min-height: 160px;
     display: flex;
     flex-direction: column;
+    align-items: center;
     justify-content: center;
     position: relative;
     overflow: hidden;
     cursor: pointer;
     transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+    text-align: center;
 }
 
 .jobCard:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
-    border-color: #FFB800;
+    transform: translateY(-3px);
+    box-shadow: 0 12px 30px rgba(242, 101, 34, 0.15);
+    border-color: #f26522;
 }
 
 .cardContent {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 25px;
+    gap: 10px;
     width: 100%;
-    padding-right: 20px;
 }
 
 .cardIcon {
-    width: 50px;
-    height: 50px;
+    width: 70px;
+    height: 70px;
     background: #f4f4f4;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 24px;
+    font-size: 30px;
     flex-shrink: 0;
-}
-
-.cardInfo {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-}
-
-.cardDate {
-    font-size: 13px;
-    color: #999;
+    border: 3px solid #eee;
+    overflow: hidden;
     margin-bottom: 4px;
 }
 
+.cardInfo {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    width: 100%;
+}
+
+.cardDate {
+    font-size: 11px;
+    color: #aaa;
+    margin-top: 6px;
+}
+
 .cardInfo h3 {
-    margin-bottom: 2px;
-    font-size: 19px;
+    margin: 0;
+    font-size: 15px;
     color: #111;
     font-weight: 700;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
 }
 
 .cardInfo p {
     margin: 0;
-    font-size: 14px;
-    color: #555;
+    font-size: 13px;
+    color: #777;
+    text-align: center;
 }
 
 .cardIndicator {
     position: absolute;
-    right: 0;
     top: 0;
-    bottom: 0;
-    width: 35px;
+    left: 0;
+    right: 0;
+    height: 5px;
     background: #d4ebf9;
-    border-top-left-radius: 40px;
-    border-bottom-left-radius: 40px;
+    border-radius: 24px 24px 0 0;
 }
 
 .blue {
-    background: #d4ebf9;
+    background: linear-gradient(90deg, #93c5fd, #60a5fa);
 }
 
 /* Modal styles Improved */
@@ -281,9 +285,9 @@
 }
 
 .premiumInput:focus {
-    border-color: #FFB800;
+    border-color: #f26522;
     background: white;
-    box-shadow: 0 0 0 4px rgba(255, 184, 0, 0.1);
+    box-shadow: 0 0 0 4px rgba(242, 101, 34, 0.1);
     outline: none;
 }
 
@@ -329,15 +333,15 @@
 }
 
 .roleChip:has(input:checked) {
-    border-color: #FFB800;
-    background: rgba(255, 184, 0, 0.05);
+    border-color: #f26522;
+    background: rgba(242, 101, 34, 0.05);
 }
 
 .roleChip input {
     width: 16px;
     height: 16px;
     cursor: pointer;
-    accent-color: #FFB800;
+    accent-color: #f26522;
 }
 
 .chipLabel {
@@ -397,7 +401,7 @@
 
 .addCategoryInput:focus {
     border-style: solid;
-    border-color: #FFB800;
+    border-color: #f26522;
     outline: none;
 }
 
@@ -422,7 +426,7 @@
 }
 
 .saveWorkerBtn {
-    background: #FFB800;
+    background: #f26522;
     color: white;
     border: none;
     padding: 14px 28px;
@@ -430,13 +434,13 @@
     font-weight: 700;
     font-size: 15px;
     cursor: pointer;
-    box-shadow: 0 4px 12px rgba(255, 184, 0, 0.25);
+    box-shadow: 0 4px 12px rgba(242, 101, 34, 0.25);
     transition: transform 0.2s;
 }
 
 .saveWorkerBtn:hover {
     transform: translateY(-2px);
-    background: #f2ae00;
+    background: #d14d13;
 }
 
 .cancelLink {
@@ -493,7 +497,7 @@
 }
 
 .dateInput:focus {
-    border-color: #FFB800;
+    border-color: #f26522;
 }
 
 .modalActions {
@@ -504,7 +508,7 @@
 }
 
 .applyBtn {
-    background: #FFB800;
+    background: #f26522;
     color: white;
     border: none;
     padding: 14px 40px;
@@ -514,11 +518,11 @@
     cursor: pointer;
     width: 100%;
     margin-top: 10px;
-    box-shadow: 0 4px 10px rgba(255, 184, 0, 0.3);
+    box-shadow: 0 4px 10px rgba(242, 101, 34, 0.3);
 }
 
 .applyBtn:hover {
-    background: #e6a600;
+    background: #d14d13;
 }
 
 .cancelBtn {
@@ -534,18 +538,28 @@
    RESPONISVE / MOBILE
  =========================== */
 
+@media (max-width: 1024px) {
+    .jobsSection {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
 @media (max-width: 768px) {
     .dashboardLayout {
         flex-direction: column;
         gap: 0;
     }
     
+    .leftColumn {
+        padding: 0 15px;
+    }
+
     .rightColumn { display: none; }
     
     .searchSection {
         flex-direction: column;
         align-items: stretch;
-        margin: 10px 15px;
+        margin: 10px 0;
     }
     
     .searchSection > div:first-child {
@@ -572,65 +586,35 @@
         margin-top: 5px;
     }
     
-    .jobsSection { padding: 0; gap: 0; }
+    .jobsSection {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+        padding: 0 0 20px;
+    }
     
     .jobCard {
-        padding: 12px 15px;
-        border-radius: 0;
-        border: none;
-        border-bottom: 1px solid #f0f0f0;
-        background: white;
-        margin: 0;
-        box-shadow: none;
+        padding: 20px 15px;
+        border-radius: 20px;
+        text-align: center;
     }
     
     .cardContent {
-        flex-direction: row;
+        flex-direction: column;
         align-items: center;
-        gap: 15px;
-        padding: 0;
-        word-break: break-word;
+        gap: 10px;
     }
-    
+
     .cardIcon {
-        width: 50px;
-        height: 50px;
-        border-radius: 50%;
-        background: #e0e0e0;
-        font-size: 20px;
-        flex-shrink: 0;
+        width: 60px;
+        height: 60px;
+        font-size: 24px;
     }
-    
-    .cardInfo { flex: 1; position: relative; min-width: 0; }
     
     .cardInfo h3 {
-        font-size: 16px;
-        font-weight: 600;
-        color: #111;
-        margin-bottom: 2px;
-        display: inline-block;
-        max-width: 75%;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+        font-size: 14px;
     }
-    
-    .cardDate {
-        font-size: 11px;
-        color: #888;
-        margin-bottom: 2px;
-    }
-    
-    .cardInfo p {
-        font-size: 13px;
-        color: #666;
-        margin: 0;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-    
-    .cardIndicator { display: none; }
+
+    .cardIndicator { display: block; }
     
     .modalContent {
         width: 92%;
@@ -671,6 +655,10 @@
 }
 
 @media (max-width: 480px) {
+    .jobsSection {
+        grid-template-columns: 1fr;
+    }
+
     .rolesGrid {
         grid-template-columns: 1fr;
     }

@@ -30,11 +30,17 @@
     flex: none;
     width: 450px;
     max-width: 100%;
-    border: 1px solid #eee;
+    border: 2.5px solid #f26522;
+    transition: all 0.3s ease;
+}
+
+.searchCard:focus-within {
+    border-color: #d14d13;
+    box-shadow: 0 0 8px rgba(242, 101, 34, 0.25);
 }
 
 .searchIcon {
-    color: #FFB800;
+    color: #f26522;
 }
 
 .searchInput {
@@ -63,7 +69,7 @@
 }
 
 .roleSelect:focus {
-    border-color: #FFB800;
+    border-color: #f26522;
 }
 
 .listGrid {
@@ -95,7 +101,7 @@
 .userCard:hover {
     transform: translateY(-3px);
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
-    border-color: #FFB800;
+    border-color: #f26522;
 }
 
 .cardHeader {
@@ -107,8 +113,8 @@
 .avatar {
     width: 40px;
     height: 40px;
-    background: #FFB80022;
-    color: #FFB800;
+    background: #f2652222;
+    color: #f26522;
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -250,7 +256,7 @@
 }
 
 .editInput {
-    border: 1px solid #FFB800;
+    border: 1px solid #f26522;
     padding: 4px 8px;
     border-radius: 8px;
     font-size: 14px;
@@ -259,7 +265,7 @@
 }
 
 .saveBtn {
-    background: #FFB800;
+    background: #f26522;
     color: white;
     border: none;
     padding: 4px 12px;
@@ -319,7 +325,7 @@
 }
 
 .modalInput:focus {
-    border-color: #FFB800;
+    border-color: #f26522;
 }
 
 .modalFooter {
@@ -329,7 +335,7 @@
 }
 
 .btnPrimary {
-    background: #FFB800;
+    background: #f26522;
     color: white;
     border: none;
     padding: 10px 20px;
@@ -340,7 +346,7 @@
 }
 
 .btnPrimary:hover {
-    background: #e5a600;
+    background: #d14d13;
 }
 
 .btnSecondary {

@@ -41,8 +41,8 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: #febf01;
-    border-bottom: 1px solid #e0a600;
+    background: #f26522;
+    border-bottom: 1px solid #d14d13;
 }
 
 .headerInfo {
@@ -220,7 +220,7 @@
 }
 
 .dataItem:hover {
-    border-color: #febf01;
+    border-color: #f26522;
     transform: translateY(-2px);
     box-shadow: 0 6px 16px rgba(0, 0, 0, 0.05);
 }
@@ -258,7 +258,7 @@
 .editBtn {
     width: auto;
     min-width: 180px;
-    background: linear-gradient(135deg, #febf01 0%, #e0a600 100%);
+    background: linear-gradient(135deg, #f26522 0%, #d14d13 100%);
     color: #0f172a;
     border: none;
     padding: 10px 20px;

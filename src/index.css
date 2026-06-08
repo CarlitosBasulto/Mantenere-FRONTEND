@@ -24,11 +24,7 @@ a:hover {
 
 body {
   font-size: 16px;
-  background-image: url('./assets/imagenes/cambio.png');
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  background-attachment: fixed;
+  background-color: #f1f5f9;
   min-height: 100vh;
   overflow: hidden;
 }

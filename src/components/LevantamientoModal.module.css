@@ -29,8 +29,8 @@
 
 .modalHeader {
     padding: 20px 32px;
-    background: #febf01;
-    border-bottom: 1px solid #e0a600;
+    background: #f26522;
+    border-bottom: 1px solid #d14d13;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -116,7 +116,7 @@
 }
 
 .miniAddBtn {
-    background: #febf01;
+    background: #f26522;
     color: #0f172a;
     border: none;
     width: 24px;
@@ -130,7 +130,7 @@
 }
 
 .miniAddBtn:hover {
-    background: #e0a600;
+    background: #d14d13;
 }
 
 .miniAddBtn svg {
@@ -200,7 +200,7 @@
 }
 
 .sectionItemActive {
-    background: #febf01 !important;
+    background: #f26522 !important;
     color: #0f172a !important;
     font-weight: 800;
     box-shadow: 0 4px 12px rgba(254, 191, 1, 0.3);
@@ -240,8 +240,8 @@
 
 .sidebarEmpty button {
     background: none;
-    border: 1.5px solid #febf01;
-    color: #febf01;
+    border: 1.5px solid #f26522;
+    color: #f26522;
     padding: 6px 12px;
     border-radius: 8px;
     font-size: 12px;
@@ -437,7 +437,7 @@
 }
 
 .btnAddEq {
-    background: #febf01;
+    background: #f26522;
     color: #0f172a;
     border: none;
     padding: 10px 20px;
@@ -450,7 +450,7 @@
 }
 
 .btnAddEq:hover {
-    background: #e0a600;
+    background: #d14d13;
     box-shadow: 0 4px 12px rgba(254, 191, 1, 0.3);
 }
 
@@ -561,7 +561,7 @@
 }
 
 .primaryBtn {
-    background: linear-gradient(135deg, #febf01 0%, #e0a600 100%);
+    background: linear-gradient(135deg, #f26522 0%, #d14d13 100%);
     color: #0f172a;
     border: none;
     padding: 14px 40px;

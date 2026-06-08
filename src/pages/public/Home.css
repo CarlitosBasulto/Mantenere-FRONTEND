@@ -14,8 +14,8 @@
 
     position: relative;
 
-    border-top: 20px solid #e9ab22;
-    border-bottom: 20px solid #e9ab22;
+    border-top: 20px solid #f26522;
+    border-bottom: 20px solid #f26522;
 }
 
 /* Capa oscura */
@@ -57,7 +57,7 @@
 
 /* Botón */
 .home-btn {
-    background-color: #e9ab22;
+    background-color: #f26522;
     color: white;
     padding: 14px 40px;
     border-radius: 44px;
@@ -74,7 +74,7 @@
 }
 
 .home-btn:hover {
-    background-color: #7b5a13;
+    background-color: #d65318;
     transform: scale(1.05);
 }
 

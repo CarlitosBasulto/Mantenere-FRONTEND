@@ -179,7 +179,7 @@
 }
 
 .input:focus {
-    border-color: #febf01;
+    border-color: #f26522;
     background: white;
     box-shadow: 0 0 0 2px rgba(254, 191, 1, 0.2);
 }
@@ -199,7 +199,7 @@
 }
 
 .textarea:focus {
-    border-color: #febf01;
+    border-color: #f26522;
     background: white;
     box-shadow: 0 0 0 2px rgba(254, 191, 1, 0.2);
 }

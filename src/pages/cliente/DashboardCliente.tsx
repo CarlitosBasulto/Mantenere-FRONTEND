@@ -200,7 +200,7 @@ const DashboardCliente: React.FC = () => {
                 });
 
                 setEstadoTrabajos([
-                    { name: 'Pendientes', value: counts.Pendientes, color: '#fbbc04' },
+                    { name: 'Pendientes', value: counts.Pendientes, color: '#f26522' },
                     { name: 'En Progreso', value: counts['En Progreso'], color: '#3b82f6' },
                     { name: 'Finalizados', value: counts.Finalizados, color: '#10b981' },
                 ]);

@@ -106,7 +106,7 @@ const ReporteDetailModal: React.FC<ReporteDetailModalProps> = ({
                     <h2>
                         <HiOutlineClipboardDocumentList size={26} />
                         Detalles del Reporte
-                        {isPreReport && <span style={{ color: '#f59e0b', fontSize: '13px', background: '#fffbeb', padding: '4px 10px', borderRadius: '10px', border: '1px solid #fef3c7', marginLeft: '10px' }}>Pre-Reporte</span>}
+                        {isPreReport && <span style={{ color: '#f26522', fontSize: '13px', background: '#fffbeb', padding: '4px 10px', borderRadius: '10px', border: '1px solid #fef3c7', marginLeft: '10px' }}>Pre-Reporte</span>}
                     </h2>
                     <div className={styles.headerActions}>
                         {reporte && (
@@ -297,7 +297,7 @@ const ReporteDetailModal: React.FC<ReporteDetailModalProps> = ({
                         <div className={styles.approvedQuoteBox} style={{ cursor: 'pointer' }} onClick={() => setShowCotizacionDetail(!showCotizacionDetail)}>
                             <div className={styles.quoteHeader}>
                                 <div className={styles.quoteTitle}>
-                                    <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#f59e0b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#f26522', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                         <HiOutlineCurrencyDollar size={20} color="white" />
                                     </div>
                                     Cotización Aprobada

@@ -256,7 +256,7 @@ const Historial: React.FC<HistorialProps> = ({ businessId }) => {
                             <h2>
                                 <HiOutlineClipboardDocumentList size={26} color="#3b82f6" />
                                 Detalles del Reporte
-                                {selectedHistoryTask.estado === 'Pre-Reporte' && <span style={{ color: '#f59e0b', fontSize: '13px', background: '#fffbeb', padding: '4px 10px', borderRadius: '10px', border: '1px solid #fef3c7', marginLeft: '10px' }}>Pre-Reporte</span>}
+                                {selectedHistoryTask.estado === 'Pre-Reporte' && <span style={{ color: '#f26522', fontSize: '13px', background: '#fffbeb', padding: '4px 10px', borderRadius: '10px', border: '1px solid #fef3c7', marginLeft: '10px' }}>Pre-Reporte</span>}
                             </h2>
                             <button
                                 className={styles.closeButtonCircle}

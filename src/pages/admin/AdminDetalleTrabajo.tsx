@@ -1012,11 +1012,11 @@ const AdminDetalleTrabajo: React.FC = () => {
     const renderTaskCard = (tarea: SubTarea, isInteractive: boolean = true) => {
         const getCategoryIcon = (titulo: string) => {
             const t = titulo?.toLowerCase() || '';
-            if (t.includes('mantenimiento')) return <HiOutlineCog6Tooth size={24} style={{ color: '#FFB800' }} />;
+            if (t.includes('mantenimiento')) return <HiOutlineCog6Tooth size={24} style={{ color: '#f26522' }} />;
             if (t.includes('instalacion')) return <HiOutlineBuildingOffice2 size={24} style={{ color: '#6366f1' }} />;
             if (t.includes('electricidad')) return <HiOutlineBolt size={24} style={{ color: '#fbbf24' }} />;
             if (t.includes('plomeria')) return <HiOutlineWrench size={24} style={{ color: '#0ea5e9' }} />;
-            if (t.includes('albañil')) return <HiOutlineSquare3Stack3D size={24} style={{ color: '#f59e0b' }} />;
+            if (t.includes('albañil')) return <HiOutlineSquare3Stack3D size={24} style={{ color: '#f26522' }} />;
             if (t.includes('carpinter')) return <HiOutlinePencilSquare size={24} style={{ color: '#b45309' }} />;
             if (t.includes('pintura')) return <HiOutlinePencilSquare size={24} style={{ color: '#db2777' }} />;
             return <HiOutlineClipboardDocumentList size={24} style={{ color: '#94a3b8' }} />;
@@ -1306,7 +1306,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                     width: '28px',
                                                     height: '28px',
                                                     borderRadius: '50%',
-                                                    background: isCompleted ? '#4caf50' : (isActive ? '#ffb800' : '#f5f5f5'),
+                                                    background: isCompleted ? '#4caf50' : (isActive ? '#f26522' : '#f5f5f5'),
                                                     color: '#fff',
                                                     display: 'flex',
                                                     alignItems: 'center',
@@ -1315,7 +1315,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                     transition: 'all 0.5s ease',
                                                     animation: isActive ? 'pulseTracker 2s infinite' : 'none',
                                                     transform: isActive ? 'scale(1.1)' : 'scale(1)',
-                                                    boxShadow: isCompleted ? '0 2px 6px rgba(76, 175, 80, 0.2)' : (isActive ? '0 2px 8px rgba(255, 184, 0, 0.3)' : 'none'),
+                                                    boxShadow: isCompleted ? '0 2px 6px rgba(76, 175, 80, 0.2)' : (isActive ? '0 2px 8px rgba(242, 101, 34, 0.3)' : 'none'),
                                                     border: !isCompleted && !isActive ? '1.5px solid #e0e0e0' : 'none'
                                                 }}>
                                                     {isCompleted ? "✓" : step.icon}
@@ -1502,7 +1502,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                         display: 'inline-flex',
                                                         alignItems: 'center',
                                                         gap: '8px',
-                                                        background: 'linear-gradient(135deg, #d97706 0%, #f59e0b 100%)',
+                                                        background: 'linear-gradient(135deg, #d14d13 0%, #f26522 100%)',
                                                         color: 'white',
                                                         border: 'none',
                                                         padding: '10px 20px',
@@ -1592,7 +1592,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                                             <button
                                                 onClick={() => setActiveTab('Cotización')}
                                                 className={styles.actionButton}
-                                                style={{ flex: 1, padding: '12px', borderRadius: '12px', fontSize: '14px', background: '#f59e0b', color: '#fff', position: 'relative' }}
+                                                style={{ flex: 1, padding: '12px', borderRadius: '12px', fontSize: '14px', background: '#f26522', color: '#fff', position: 'relative' }}
                                             >
                                                 💰 Crear Cotización
                                                 {cotizaciones.length === 0 && (
@@ -1626,7 +1626,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                                 {user?.role === 'cliente' && (
                                     <div className={styles.clientQuoteList}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '8px' }}>
-                                            <div style={{ width: '44px', height: '44px', borderRadius: '14px', background: 'linear-gradient(135deg, #FFB800, #f59e0b)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(255, 184, 0, 0.2)' }}>
+                                            <div style={{ width: '44px', height: '44px', borderRadius: '14px', background: 'linear-gradient(135deg, #f26522, #d14d13)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(242, 101, 34, 0.2)' }}>
                                                 <HiOutlineCurrencyDollar size={22} color="white" />
                                             </div>
                                             <div>
@@ -1752,7 +1752,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                                                             <p style={{ margin: '0 0 4px 0', fontSize: '12px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase' }}>Editando Opción {idx + 1}</p>
                                                                             <div style={{ position: 'relative' }}>
-                                                                                <span style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', fontWeight: '900', color: '#FFB800', fontSize: '16px' }}>$</span>
+                                                                                <span style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', fontWeight: '900', color: '#f26522', fontSize: '16px' }}>$</span>
                                                                                 <input type="number" value={editCosto} onChange={e => setEditCosto(e.target.value)}
                                                                                     style={{ width: '100%', padding: '12px 14px 12px 30px', borderRadius: '12px', border: '2px solid #e2e8f0', fontSize: '16px', fontWeight: '700', boxSizing: 'border-box' }} />
                                                                             </div>
@@ -1763,7 +1763,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                                                 {editArchivoFile ? `✓ ${editNombreArchivo}` : '📎 Cambiar documento (opcional)'}
                                                                             </button>
                                                                             <div style={{ display: 'flex', gap: '8px' }}>
-                                                                                <button onClick={handleUpdateCotizacion} style={{ flex: 1, padding: '12px', background: 'linear-gradient(135deg, #FFB800, #f59e0b)', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: '800', cursor: 'pointer', fontSize: '14px' }}>💾 Guardar cambios</button>
+                                                                                <button onClick={handleUpdateCotizacion} style={{ flex: 1, padding: '12px', background: 'linear-gradient(135deg, #f26522, #d14d13)', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: '800', cursor: 'pointer', fontSize: '14px' }}>💾 Guardar cambios</button>
                                                                                 <button onClick={() => setEditingCotizacion(null)} style={{ padding: '12px 16px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', fontWeight: '700', cursor: 'pointer', fontSize: '14px', color: '#475569' }}>Cancelar</button>
                                                                             </div>
                                                                         </div>
@@ -1811,7 +1811,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                 /* FORMULARIO NUEVA COTIZACIÓN */
                                                 <div style={{ background: '#fff', borderRadius: '24px', padding: '28px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '22px', paddingBottom: '16px', borderBottom: '2px solid #f8fafc' }}>
-                                                        <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'linear-gradient(135deg, #FFB800, #f59e0b)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                        <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'linear-gradient(135deg, #f26522, #d14d13)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                                             <HiOutlineCurrencyDollar size={20} color="white" />
                                                         </div>
                                                         <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#1e293b' }}>
@@ -1822,7 +1822,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                     <div style={{ marginBottom: '16px' }}>
                                                         <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>Monto ($)</label>
                                                         <div style={{ position: 'relative' }}>
-                                                            <span style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', fontSize: '18px', fontWeight: '900', color: '#FFB800' }}>$</span>
+                                                            <span style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', fontSize: '18px', fontWeight: '900', color: '#f26522' }}>$</span>
                                                             <input type="number" placeholder="1500" value={costo} onChange={e => setCosto(e.target.value)}
                                                                 style={{ width: '100%', padding: '13px 16px 13px 36px', borderRadius: '14px', border: '2px solid #e2e8f0', fontSize: '17px', fontWeight: '700', color: '#1e293b', boxSizing: 'border-box' }} />
                                                         </div>
@@ -1847,7 +1847,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                                         <div style={{ display: 'flex', gap: '12px' }}>
                                                             <button onClick={() => handleEnviarCotizacion(false)}
-                                                                style={{ flex: 2, padding: '15.5px', background: 'linear-gradient(135deg, #FFB800, #f59e0b)', color: '#fff', border: 'none', borderRadius: '15px', fontSize: '14px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 8px 20px rgba(255,184,0,0.3) ', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                                                style={{ flex: 2, padding: '15.5px', background: 'linear-gradient(135deg, #f26522, #d14d13)', color: '#fff', border: 'none', borderRadius: '15px', fontSize: '14px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 8px 20px rgba(242,101,34,0.3) ', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                                                                 <span>Enviar Cotización</span>
                                                             </button>
                                                             <button onClick={() => setShowAddQuoteForm(false)}
@@ -1858,7 +1858,7 @@ const AdminDetalleTrabajo: React.FC = () => {
 
                                                         {/* BOTÓN SOLICITADO: Agregar otra y seguir en la hoja */}
                                                         <button onClick={() => handleEnviarCotizacion(true)}
-                                                            style={{ width: '100%', padding: '15px', background: '#fff', border: '2.5px solid #FFB800', color: '#FFB800', borderRadius: '15px', fontSize: '14px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'all 0.2s' }}>
+                                                            style={{ width: '100%', padding: '15px', background: '#fff', border: '2.5px solid #f26522', color: '#f26522', borderRadius: '15px', fontSize: '14px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'all 0.2s' }}>
                                                             ➕ Agregar nueva cotización
                                                         </button>
                                                     </div>
@@ -1871,7 +1871,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                                             {subTareas.some(t => t.esCotizacion) && (
                                                 <div style={{ background: '#fff', borderRadius: '24px', padding: '28px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px', paddingBottom: '16px', borderBottom: '2px solid #f8fafc' }}>
-                                                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#FFB800' }} />
+                                                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#f26522' }} />
                                                         <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#1e293b' }}>Sugerencias del Técnico</h3>
                                                         <span style={{ marginLeft: 'auto', background: '#fff7ed', color: '#d97706', fontSize: '12px', fontWeight: '800', padding: '4px 12px', borderRadius: '20px', border: '1px solid #fed7aa' }}>
                                                             {subTareas.filter(t => t.esCotizacion).length} registros
@@ -1894,7 +1894,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                                             <span style={{ display: 'inline-block', fontSize: '10px', background: '#e0f2fe', color: '#0369a1', padding: '2px 8px', borderRadius: '20px', fontWeight: '700', marginTop: '2px' }}>{tarea.titulo}</span>
                                                                         </div>
                                                                     </div>
-                                                                    <p style={{ margin: 0, fontSize: '18px', fontWeight: '900', color: tarea.cotizacionMonto === 'Por Evaluar' ? '#94a3b8' : '#FFB800' }}>
+                                                                    <p style={{ margin: 0, fontSize: '18px', fontWeight: '900', color: tarea.cotizacionMonto === 'Por Evaluar' ? '#94a3b8' : '#f26522' }}>
                                                                         {tarea.cotizacionMonto === 'Por Evaluar' ? 'Sin monto' : `$${tarea.cotizacionMonto}`}
                                                                     </p>
                                                                 </div>
@@ -2166,7 +2166,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                             </div>
 
                             <div style={{ marginTop: '20px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-                                <button onClick={handleConfirmAssignment} className={styles.applyBtn} disabled={selectedTechnicians.length === 0} style={{ background: selectedTechnicians.length === 0 ? '#ccc' : '#fbbc04', color: selectedTechnicians.length === 0 ? '#666' : '#fff', width: 'auto', padding: '12px 40px', border: 'none', borderRadius: '30px', cursor: selectedTechnicians.length === 0 ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '16px', boxShadow: selectedTechnicians.length === 0 ? 'none' : '0 4px 10px rgba(251, 188, 4, 0.3)' }}>Confirmar</button>
+                                <button onClick={handleConfirmAssignment} className={styles.applyBtn} disabled={selectedTechnicians.length === 0} style={{ background: selectedTechnicians.length === 0 ? '#ccc' : '#f26522', color: selectedTechnicians.length === 0 ? '#666' : '#fff', width: 'auto', padding: '12px 40px', border: 'none', borderRadius: '30px', cursor: selectedTechnicians.length === 0 ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '16px', boxShadow: selectedTechnicians.length === 0 ? 'none' : '0 4px 10px rgba(251, 188, 4, 0.3)' }}>Confirmar</button>
                                 <button className={styles.cancelBtn} onClick={() => setIsModalOpen(false)}>Cancelar</button>
                             </div>
                         </div>
@@ -2319,7 +2319,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                                         ))}
                                         <button
                                             onClick={() => setRefacciones([...refacciones, { pieza: '', cantidad: 1 }])}
-                                            style={{ background: 'transparent', color: '#FFB800', border: '1px dashed #FFB800', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold', width: '100%', marginTop: '5px' }}
+                                            style={{ background: 'transparent', color: '#f26522', border: '1px dashed #f26522', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold', width: '100%', marginTop: '5px' }}
                                         >
                                             + Agregar Pieza/Refacción
                                         </button>
@@ -2342,7 +2342,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                 type="checkbox"
                                                 checked={isQuoteIncluded}
                                                 onChange={(e) => setIsQuoteIncluded(e.target.checked)}
-                                                style={{ width: '18px', height: '18px', accentColor: '#FFB800' }}
+                                                style={{ width: '18px', height: '18px', accentColor: '#f26522' }}
                                             />
                                             Agregar Cotización para el Administrador
                                         </label>
@@ -2394,7 +2394,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                     ))}
                                                     <button
                                                         onClick={() => setNewQuoteMaterials([...newQuoteMaterials, { material: '', piezas: '' }])}
-                                                        style={{ background: 'transparent', color: '#FFB800', border: '1px dashed #FFB800', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold', width: '100%', marginBottom: '15px' }}
+                                                        style={{ background: 'transparent', color: '#f26522', border: '1px dashed #f26522', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold', width: '100%', marginBottom: '15px' }}
                                                     >
                                                         + Añadir material o refacción
                                                     </button>
@@ -2455,7 +2455,7 @@ const AdminDetalleTrabajo: React.FC = () => {
 
                                 <button
                                     onClick={handleAddTask}
-                                    style={{ background: '#FFB800', color: 'white', border: 'none', padding: '15px 40px', borderRadius: '30px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer' }}
+                                    style={{ background: '#f26522', color: 'white', border: 'none', padding: '15px 40px', borderRadius: '30px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer' }}
                                 >
                                     {editingTaskId ? "Actualizar" : "Guardar y enviar"}
                                 </button>
@@ -2509,7 +2509,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                                         navigate(`${baseRoute}/reporte-tarea/${trabajo.id}`, { state: { trabajoId: trabajo.id, actividadId: selectedTaskForReport.id } });
                                     }
                                 }}
-                                style={{ padding: '12px 30px', borderRadius: '30px', border: 'none', background: '#fbbc04', color: '#fff', fontWeight: 'bold', cursor: 'pointer', fontSize: '16px', boxShadow: '0 4px 10px rgba(251, 188, 4, 0.3)' }}
+                                style={{ padding: '12px 30px', borderRadius: '30px', border: 'none', background: '#f26522', color: '#fff', fontWeight: 'bold', cursor: 'pointer', fontSize: '16px', boxShadow: '0 4px 10px rgba(251, 188, 4, 0.3)' }}
                             >
                                 Entendido, Continuar
                             </button>

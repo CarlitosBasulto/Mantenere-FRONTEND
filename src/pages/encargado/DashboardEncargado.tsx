@@ -80,7 +80,7 @@ const DashboardEncargado: React.FC = () => {
                 });
 
                 setEstadoCotizaciones([
-                    { name: 'Pendientes', value: counts.Pendientes, color: '#fbbc04' },
+                    { name: 'Pendientes', value: counts.Pendientes, color: '#f26522' },
                     { name: 'Aceptadas', value: counts.Aceptadas, color: '#10b981' },
                     { name: 'Rechazadas', value: counts.Rechazadas, color: '#ef4444' },
                 ]);

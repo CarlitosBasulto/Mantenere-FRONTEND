@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import styles from './AdminPerfilTrabajador.module.css';
 import { useModal } from '../../context/ModalContext';
-import { HiOutlineCamera, HiOutlinePhoto, HiXMark } from 'react-icons/hi2';
+import { HiOutlineCamera, HiOutlinePhoto, HiXMark, HiOutlineEnvelope, HiOutlinePhone, HiOutlineMapPin, HiOutlineWrenchScrewdriver } from 'react-icons/hi2';
 import api from '../../services/api';
 
 interface Trabajador {
@@ -121,105 +121,111 @@ const AdminPerfilTrabajador: React.FC = () => {
         );
     }
 
+    const displayPuesto = worker.puesto.replace('- Externo', '').replace('- Interno', '').trim();
+
     return (
         <div className={styles.dashboardLayout}>
             <div className={styles.mainCard}>
-                <div className={styles.bgShape1}></div>
-                <div className={styles.bgShape2}></div>
-                <div className={styles.sideDecoration}></div>
 
-                <div className={styles.contentWrapper}>
+                {/* HERO BANNER */}
+                <div className={styles.heroBanner}>
+                    <div className={styles.heroBannerDot}></div>
+                </div>
 
-                    <div className={styles.profileHeader}>
-                        <div className={styles.infoGrid}>
-                            <div className={styles.infoRow}>
-                                <span className={styles.label}>Nombre:</span>
-                                <span className={styles.value}>{worker.nombre}</span>
-                            </div>
-
-                            <div className={styles.infoRow}>
-                                <span className={styles.label}>Correo:</span>
-                                <span className={styles.value}>{worker.correo}</span>
-                            </div>
-
-                            <div className={styles.infoRow}>
-                                <span className={styles.label}>Teléfono:</span>
-                                <span className={styles.value}>{worker.telefono}</span>
-                            </div>
-
-                            <div className={styles.infoRow}>
-                                <span className={styles.label}>Estado:</span>
-                                <span className={styles.value}>{worker.ciudad}</span>
-                            </div>
-
-                            <div className={styles.infoRow}>
-                                <span className={styles.label}>Estatus:</span>
-                                <span className={styles.value} style={{ color: worker.estado === 'Activo' ? '#4CAF50' : '#F44336' }}>
-                                    {worker.estado}
-                                </span>
-                            </div>
-                        </div>
-
-                        <div className={styles.avatarContainer}>
-                            <div 
-                                className={styles.avatarCircle} 
-                                onClick={() => setShowPhotoModal(true)}
-                                style={{ 
-                                    overflow: 'hidden', display: 'flex', alignItems: 'center', 
-                                    justifyContent: 'center', position: 'relative',
-                                    cursor: isUploading ? 'wait' : 'pointer'
-                                }}
-                            >
-                                {worker.avatar ? (
-                                    <img 
-                                        src={worker.avatar} 
-                                        alt={worker.nombre} 
-                                        style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: isUploading ? 0.5 : 1 }} 
-                                    />
-                                ) : (
-                                    <span style={{ opacity: isUploading ? 0.5 : 1 }}>👤</span>
-                                )}
-                                
-                                {isUploading ? (
-                                    <div style={{ position: 'absolute', background: 'rgba(0,0,0,0.5)', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '12px', fontWeight: 'bold' }}>
-                                        CARGANDO
-                                    </div>
-                                ) : (
-                                    <span className={styles.editLabel}>EDITAR</span>
-                                )}
-                            </div>
-                            
-                            {/* Inputs Ocultos */}
-                            <input
-                                type="file"
-                                accept="image/*"
-                                capture="user"
-                                ref={cameraInputRef}
-                                style={{ display: 'none' }}
-                                onChange={handleImageSelection}
+                {/* AVATAR + NOMBRE */}
+                <div className={styles.avatarZone}>
+                    <div
+                        className={styles.avatarCircle}
+                        onClick={() => setShowPhotoModal(true)}
+                        style={{ cursor: isUploading ? 'wait' : 'pointer' }}
+                    >
+                        {worker.avatar ? (
+                            <img
+                                src={worker.avatar}
+                                alt={worker.nombre}
+                                style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: isUploading ? 0.5 : 1 }}
                             />
-                            <input
-                                type="file"
-                                accept="image/*"
-                                ref={galleryInputRef}
-                                style={{ display: 'none' }}
-                                onChange={handleImageSelection}
-                            />
+                        ) : (
+                            <span style={{ opacity: isUploading ? 0.5 : 1 }}>👤</span>
+                        )}
+                        <div className={styles.editOverlay}>
+                            <HiOutlineCamera size={22} />
+                            {isUploading ? 'CARGANDO...' : 'EDITAR'}
                         </div>
                     </div>
 
-                    <div className={styles.statsSection}>
-                        <div className={styles.statItem}>
-                            <span className={styles.statValue}>{worker.trabajos_count || 0}</span>
-                            <span className={styles.statLabel}>Trabajos Realizados</span>
+                    <h2 className={styles.workerName}>{worker.nombre}</h2>
+                    <span className={styles.workerRole}>{displayPuesto}</span>
+                    <span className={`${styles.statusBadge} ${worker.estado === 'Activo' ? styles.activo : styles.baja}`}>
+                        {worker.estado}
+                    </span>
+                </div>
+
+                <div className={styles.divider} />
+
+                {/* GRID DE INFO */}
+                <div className={styles.infoGrid}>
+                    <div className={styles.infoCard}>
+                        <div className={`${styles.infoIcon} ${styles.orange}`}>
+                            <HiOutlineEnvelope size={18} />
                         </div>
-                        <div className={styles.statItem}>
-                            <span className={styles.statValue}>{worker.fecha}</span>
-                            <span className={styles.statLabel}>Fecha de Ingreso</span>
+                        <div className={styles.infoTextBlock}>
+                            <span className={styles.infoLabel}>Correo</span>
+                            <span className={styles.infoValue}>{worker.correo || '—'}</span>
+                        </div>
+                    </div>
+
+                    <div className={styles.infoCard}>
+                        <div className={`${styles.infoIcon} ${styles.blue}`}>
+                            <HiOutlinePhone size={18} />
+                        </div>
+                        <div className={styles.infoTextBlock}>
+                            <span className={styles.infoLabel}>Teléfono</span>
+                            <span className={styles.infoValue}>{worker.telefono || '—'}</span>
+                        </div>
+                    </div>
+
+                    <div className={styles.infoCard}>
+                        <div className={`${styles.infoIcon} ${styles.green}`}>
+                            <HiOutlineMapPin size={18} />
+                        </div>
+                        <div className={styles.infoTextBlock}>
+                            <span className={styles.infoLabel}>Ciudad / Estado</span>
+                            <span className={styles.infoValue}>{worker.ciudad || '—'}</span>
+                        </div>
+                    </div>
+
+                    <div className={styles.infoCard}>
+                        <div className={`${styles.infoIcon} ${styles.purple}`}>
+                            <HiOutlineWrenchScrewdriver size={18} />
+                        </div>
+                        <div className={styles.infoTextBlock}>
+                            <span className={styles.infoLabel}>Tipo de Técnico</span>
+                            <span className={styles.infoValue}>
+                                {worker.puesto.includes('- Externo') ? 'Externo' : 'Interno'}
+                            </span>
                         </div>
                     </div>
                 </div>
+
+                {/* STATS */}
+                <div className={styles.statsSection}>
+                    <div className={styles.statItem}>
+                        <span className={styles.statValue}>{worker.trabajos_count ?? 0}</span>
+                        <span className={styles.statLabel}>Trabajos Realizados</span>
+                    </div>
+                    <div className={styles.statItem}>
+                        <span className={styles.statValue}>{worker.fecha}</span>
+                        <span className={styles.statLabel}>Fecha de Ingreso</span>
+                    </div>
+                </div>
             </div>
+
+            {/* Inputs Ocultos */}
+            <input type="file" accept="image/*" capture="user" ref={cameraInputRef}
+                style={{ display: 'none' }} onChange={handleImageSelection} />
+            <input type="file" accept="image/*" ref={galleryInputRef}
+                style={{ display: 'none' }} onChange={handleImageSelection} />
 
             {/* Modal de Selección de Foto */}
             {showPhotoModal && (
@@ -228,48 +234,32 @@ const AdminPerfilTrabajador: React.FC = () => {
                     display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: '16px',
                     animation: 'fadeIn 0.2s ease-out'
                 }} onClick={() => setShowPhotoModal(false)}>
-                    
                     <div style={{
                         background: '#fff', width: '100%', maxWidth: '400px', borderRadius: '24px',
                         padding: '24px', paddingBottom: '32px', animation: 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
                     }} onClick={e => e.stopPropagation()}>
-                        
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                             <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>Actualizar Foto</h3>
                             <button onClick={() => setShowPhotoModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}>
                                 <HiXMark size={24} />
                             </button>
                         </div>
-
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                            <button
-                                onClick={() => cameraInputRef.current?.click()}
-                                style={{
-                                    display: 'flex', alignItems: 'center', gap: '12px', padding: '16px',
-                                    background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '16px',
-                                    fontSize: '15px', fontWeight: '700', color: '#1e293b', cursor: 'pointer',
-                                    transition: 'background 0.2s'
-                                }}
-                                onMouseEnter={e => e.currentTarget.style.background = '#f1f5f9'}
-                                onMouseLeave={e => e.currentTarget.style.background = '#f8fafc'}
-                            >
+                            <button onClick={() => cameraInputRef.current?.click()} style={{
+                                display: 'flex', alignItems: 'center', gap: '12px', padding: '16px',
+                                background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '16px',
+                                fontSize: '15px', fontWeight: '700', color: '#1e293b', cursor: 'pointer'
+                            }}>
                                 <div style={{ background: '#e0e7ff', color: '#4f46e5', padding: '10px', borderRadius: '12px', display: 'flex' }}>
                                     <HiOutlineCamera size={22} />
                                 </div>
                                 Tomar Fotografía
                             </button>
-
-                            <button
-                                onClick={() => galleryInputRef.current?.click()}
-                                style={{
-                                    display: 'flex', alignItems: 'center', gap: '12px', padding: '16px',
-                                    background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '16px',
-                                    fontSize: '15px', fontWeight: '700', color: '#1e293b', cursor: 'pointer',
-                                    transition: 'background 0.2s'
-                                }}
-                                onMouseEnter={e => e.currentTarget.style.background = '#f1f5f9'}
-                                onMouseLeave={e => e.currentTarget.style.background = '#f8fafc'}
-                            >
+                            <button onClick={() => galleryInputRef.current?.click()} style={{
+                                display: 'flex', alignItems: 'center', gap: '12px', padding: '16px',
+                                background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '16px',
+                                fontSize: '15px', fontWeight: '700', color: '#1e293b', cursor: 'pointer'
+                            }}>
                                 <div style={{ background: '#dcfce7', color: '#16a34a', padding: '10px', borderRadius: '12px', display: 'flex' }}>
                                     <HiOutlinePhoto size={22} />
                                 </div>
@@ -279,9 +269,8 @@ const AdminPerfilTrabajador: React.FC = () => {
                     </div>
                 </div>
             )}
-            
-            <style>
-                {`
+
+            <style>{`
                 @keyframes slideUp {
                     from { transform: translateY(100%); opacity: 0; }
                     to { transform: translateY(0); opacity: 1; }
@@ -290,8 +279,7 @@ const AdminPerfilTrabajador: React.FC = () => {
                     from { opacity: 0; }
                     to { opacity: 1; }
                 }
-                `}
-            </style>
+            `}</style>
         </div>
     );
 };

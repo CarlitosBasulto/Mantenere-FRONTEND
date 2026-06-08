@@ -273,7 +273,7 @@ const Cotizaciones: React.FC<CotizacionesProps> = ({ businessId }) => {
                         </div>
 
                         <div style={{ display: 'grid', gap: '20px' }}>
-                            <div style={{ background: '#f8f9fa', padding: '20px', borderRadius: '15px', borderLeft: '4px solid #FFB800' }}>
+                            <div style={{ background: '#f8f9fa', padding: '20px', borderRadius: '15px', borderLeft: '4px solid #f26522' }}>
                                 <h3 style={{ margin: '0 0 10px 0', color: '#d49a00', fontSize: '18px' }}>{selectedCotizacion.titulo}</h3>
                                 <p style={{ margin: 0, color: '#555', fontSize: '15px', lineHeight: '1.5' }}>{selectedCotizacion.descripcion || 'Sin descripción.'}</p>
                                 <div style={{ marginTop: '15px', display: 'flex', gap: '10px' }}>

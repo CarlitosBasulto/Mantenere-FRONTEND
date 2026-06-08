@@ -83,7 +83,7 @@ const HistorialEquipoModal: React.FC<HistorialEquipoModalProps> = ({ isOpen, onC
                         <HiOutlineCube size={48} />
                     </div>
                     <div style={{ flex: 1, minWidth: '250px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                        <span style={{ fontSize: '13px', fontWeight: '800', color: '#e0a600', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '5px' }}>
+                        <span style={{ fontSize: '13px', fontWeight: '800', color: '#d14d13', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '5px' }}>
                             {equipo.nombre}
                         </span>
                         <h3 style={{ margin: '0 0 15px', fontSize: '26px', color: '#0f172a', fontWeight: '900', lineHeight: '1.2' }}>
@@ -167,13 +167,13 @@ const HistorialEquipoModal: React.FC<HistorialEquipoModalProps> = ({ isOpen, onC
                                             boxShadow: isExpanded ? '0 10px 25px -5px rgba(15, 23, 42, 0.05)' : 'none'
                                         }}
                                         onMouseEnter={(e) => {
-                                            e.currentTarget.style.borderColor = '#febf01';
+                                            e.currentTarget.style.borderColor = '#f26522';
                                         }}
                                         onMouseLeave={(e) => {
-                                            e.currentTarget.style.borderColor = isExpanded ? '#febf01' : '#e2e8f0';
+                                            e.currentTarget.style.borderColor = isExpanded ? '#f26522' : '#e2e8f0';
                                         }}
                                     >
-                                        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '4px', background: req.estado === 'Finalizado' || req.estado?.includes('Aceptada') ? '#10b981' : '#febf01' }}></div>
+                                        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '4px', background: req.estado === 'Finalizado' || req.estado?.includes('Aceptada') ? '#10b981' : '#f26522' }}></div>
 
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
                                             <span style={{ fontSize: '14px', fontWeight: '700', color: '#475569', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -193,7 +193,7 @@ const HistorialEquipoModal: React.FC<HistorialEquipoModalProps> = ({ isOpen, onC
                                         </div>
 
                                         <div style={{ fontSize: '15px', color: '#1e293b', margin: '0', display: 'flex', alignItems: 'flex-start', gap: '10px', lineHeight: '1.5' }}>
-                                            <HiOutlineWrenchScrewdriver style={{ marginTop: '3px', flexShrink: 0, color: '#f59e0b', fontSize: '18px' }} />
+                                            <HiOutlineWrenchScrewdriver style={{ marginTop: '3px', flexShrink: 0, color: '#f26522', fontSize: '18px' }} />
                                             <div>
                                                 <span style={{ fontWeight: '800', color: '#64748b', fontSize: '11px', display: 'block', marginBottom: '2px' }}>REPORTE DEL CLIENTE</span>
                                                 <span style={{ fontWeight: '500' }}>"{req.descripcion_problema}"</span>
@@ -285,7 +285,7 @@ const HistorialEquipoModal: React.FC<HistorialEquipoModalProps> = ({ isOpen, onC
                                                                                     width: '100%',
                                                                                     marginTop: '15px',
                                                                                     padding: '12px',
-                                                                                    background: 'linear-gradient(135deg, #febf01, #e0a600)',
+                                                                                    background: 'linear-gradient(135deg, #f26522, #d14d13)',
                                                                                     color: '#0f172a',
                                                                                     border: 'none',
                                                                                     borderRadius: '12px',

@@ -30,11 +30,11 @@
 
 .premiumModalHeader {
     padding: 24px 32px;
-    border-bottom: 1px solid #e0a600;
+    border-bottom: 1px solid #d14d13;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: #febf01;
+    background: #f26522;
     position: sticky;
     top: 0;
     z-index: 10;
@@ -113,7 +113,7 @@
 }
 
 .reportDetailCard:hover {
-    border-color: #febf01;
+    border-color: #f26522;
     box-shadow: 0 6px 16px rgba(15, 23, 42, 0.05);
 }
 
@@ -130,7 +130,7 @@
 }
 
 .detailSectionTitle svg {
-    color: #e0a600;
+    color: #d14d13;
 }
 
 .dataLabel {
@@ -153,7 +153,7 @@
 .folioBadge {
     font-family: 'Poppins', sans-serif;
     font-weight: 800;
-    color: #e0a600;
+    color: #d14d13;
     font-size: 18px;
 }
 
@@ -230,13 +230,13 @@
 }
 
 .quoteTitle svg {
-    color: #e0a600;
+    color: #d14d13;
 }
 
 .quoteAmount {
     font-size: 24px;
     font-weight: 900;
-    color: #e0a600;
+    color: #d14d13;
 }
 
 .quoteDocBtn {
@@ -258,7 +258,7 @@
 
 .quoteDocBtn:hover {
     background: #f8fafc;
-    border-color: #febf01;
+    border-color: #f26522;
 }
 
 .downloadPdfBtn {

@@ -200,7 +200,7 @@ const EquiposNegocio: React.FC<EquiposNegocioProps> = ({ businessId, onViewRepor
                         onMouseEnter={(e) => {
                             e.currentTarget.style.transform = 'translateY(-5px)';
                             e.currentTarget.style.boxShadow = '0 20px 40px rgba(15, 23, 42, 0.08)';
-                            e.currentTarget.style.borderColor = '#febf01';
+                            e.currentTarget.style.borderColor = '#f26522';
                         }}
                         onMouseLeave={(e) => {
                             e.currentTarget.style.transform = 'translateY(0)';
@@ -290,7 +290,7 @@ const EquiposNegocio: React.FC<EquiposNegocioProps> = ({ businessId, onViewRepor
                                 width: '100%',
                                 padding: '12px',
                                 background: maintenanceCount > 0 
-                                    ? 'linear-gradient(135deg, #febf01 0%, #e0a600 100%)' 
+                                    ? 'linear-gradient(135deg, #f26522 0%, #d14d13 100%)' 
                                     : '#ffffff',
                                 color: '#0f172a',
                                 border: maintenanceCount > 0 ? 'none' : '1px solid #cbd5e1',

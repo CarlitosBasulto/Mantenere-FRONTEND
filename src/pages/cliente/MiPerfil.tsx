@@ -37,10 +37,11 @@ const MiPerfil: React.FC = () => {
     });
 
     const [workerId, setWorkerId] = useState<number | null>(null);
+    const [misNegocios, setMisNegocios] = useState<any[]>([]);
     const [showPassword, setShowPassword] = useState(false);
     const [showPhotoModal, setShowPhotoModal] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
-    
+
     const cameraInputRef = useRef<HTMLInputElement>(null);
     const galleryInputRef = useRef<HTMLInputElement>(null);
     const profileKey = `profile_${user?.name?.replace(/\s+/g, '') || 'default'}`;
@@ -84,6 +85,7 @@ const MiPerfil: React.FC = () => {
                             const negocios = await getNegocios();
                             const myNegocios = negocios.filter((n: any) => Number(n.user_id) === Number(user.id));
                             if (myNegocios.length > 0) adminData.empresa = myNegocios[0].nombre;
+                            setMisNegocios(myNegocios);
                         } catch (err) { /* sin negocios */ }
                     }
                 } catch (err) {
@@ -150,19 +152,19 @@ const MiPerfil: React.FC = () => {
             try {
                 // Comprimir la imagen antes de subirla
                 const compressedBase64 = await compressImage(file, 800, 0.8);
-                
+
                 // Convertir base64 a File real para enviarlo
                 const res = await fetch(compressedBase64);
                 const blob = await res.blob();
                 const compressedFile = new File([blob], file.name || 'foto_perfil.jpg', { type: 'image/jpeg' });
-                
+
                 const form = new FormData();
                 form.append("foto", compressedFile);
-                
+
                 const response = await api.post('/upload-imagen', form, {
                     headers: { 'Content-Type': 'multipart/form-data' }
                 });
-                
+
                 if (response.data && response.data.url) {
                     setFormData(prev => ({ ...prev, imagenPerfil: response.data.url }));
                     showAlert("Éxito", "Foto subida correctamente", "success");
@@ -228,202 +230,234 @@ const MiPerfil: React.FC = () => {
     };
 
     return (
-        <div style={{ padding: '30px', minHeight: '100vh', backgroundColor: '#f8fafc', fontFamily: "'Plus Jakarta Sans', 'Inter', sans-serif" }}>
-            <div style={{ maxWidth: '700px', margin: '0 auto' }}>
+        <div style={{ padding: '24px 30px', fontFamily: "'Plus Jakarta Sans', 'Inter', sans-serif" }}>
+            <div style={{ maxWidth: '1100px', margin: '0 auto', display: 'flex', gap: '24px', alignItems: 'flex-start' }}>
 
-                {/* ── HEADER ── */}
-                <div style={{
-                    background: '#ffffff', borderRadius: '28px', padding: '36px 40px',
-                    boxShadow: '0 10px 25px -5px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9',
-                    marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '28px'
-                }}>
-                    {/* Avatar clicable con overlay de cámara */}
-                    <div
-                        onClick={() => setShowPhotoModal(true)}
-                        title="Toca para cambiar tu foto"
-                        style={{
-                            position: 'relative', flexShrink: 0, cursor: isUploading ? 'wait' : 'pointer',
-                            width: '110px', height: '110px', borderRadius: '24px',
-                            overflow: 'hidden',
-                            border: '3px solid #fff', boxShadow: '0 8px 20px rgba(0,0,0,0.1)'
-                        }}
-                        onMouseEnter={e => {
-                            if (isUploading) return;
-                            const overlay = e.currentTarget.querySelector('.cam-overlay') as HTMLElement;
-                            if (overlay) overlay.style.opacity = '1';
-                        }}
-                        onMouseLeave={e => {
-                            const overlay = e.currentTarget.querySelector('.cam-overlay') as HTMLElement;
-                            if (overlay) overlay.style.opacity = '0';
-                        }}
-                    >
-                        {/* Imagen o ícono */}
-                        {formData.imagenPerfil
-                            ? <img src={formData.imagenPerfil} alt="Perfil" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: isUploading ? 0.5 : 1 }} />
-                            : <div style={{ width: '100%', height: '100%', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: isUploading ? 0.5 : 1 }}>
-                                <HiOutlineUser size={52} color="#94a3b8" />
-                              </div>
-                        }
+                {/* ── COLUMNA IZQUIERDA: Avatar + Botón ── */}
+                <div style={{ width: '260px', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
-                        {/* Overlay oscuro con ícono de cámara */}
-                        <div className="cam-overlay" style={{
-                            position: 'absolute', inset: 0,
-                            background: 'rgba(0,0,0,0.45)',
-                            display: 'flex', flexDirection: 'column',
-                            alignItems: 'center', justifyContent: 'center', gap: '4px',
-                            opacity: isUploading ? 1 : 0, transition: 'opacity 0.2s ease', color: 'white'
-                        }}>
-                            {isUploading ? (
-                                <span style={{ fontSize: '11px', fontWeight: '700' }}>SUBIENDO...</span>
-                            ) : (
-                                <>
-                                    <HiOutlineCamera size={26} />
-                                    <span style={{ fontSize: '10px', fontWeight: '700' }}>CAMBIAR</span>
-                                </>
-                            )}
-                        </div>
-
-                        {/* Inputs Ocultos */}
-                        <input
-                            type="file"
-                            accept="image/*"
-                            capture="user"
-                            ref={cameraInputRef}
-                            style={{ display: 'none' }}
-                            onChange={handleImageSelection}
-                        />
-                        <input
-                            type="file"
-                            accept="image/*"
-                            ref={galleryInputRef}
-                            style={{ display: 'none' }}
-                            onChange={handleImageSelection}
-                        />
-                    </div>
-
-                    <div>
-                        <h1 style={{ margin: '0 0 4px', fontSize: '26px', fontWeight: '800', color: '#0f172a' }}>
-                            Mi Perfil
-                        </h1>
-                        <p style={{ margin: 0, fontSize: '13px', color: '#64748b', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                            Información Personal
-                        </p>
-                        <p style={{ margin: '8px 0 0', fontSize: '12px', color: '#94a3b8' }}>
-                            Toca la cámara 📷 para cambiar tu foto
-                        </p>
-                    </div>
-                </div>
-
-                {/* ── DATOS PERSONALES ── */}
-                <div style={{
-                    background: '#ffffff', borderRadius: '24px', padding: '32px 36px',
-                    boxShadow: '0 6px 20px rgba(0,0,0,0.04)', border: '1px solid #f1f5f9', marginBottom: '20px'
-                }}>
-                    <p style={{ fontSize: '12px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 22px' }}>
-                        📋 Datos de contacto
-                    </p>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '18px' }}>
-
-                        <div style={{ gridColumn: user?.role === 'tecnico' ? 'span 2' : 'span 1' }}>
-                            <Label>Nombre Completo</Label>
-                            <Input name="nombre" value={formData.nombre} onChange={handleChange} />
-                        </div>
-
-                        {user?.role !== 'tecnico' && (
-                            <div title="Se llena automáticamente con tu primer negocio">
-                                <Label>Empresa Principal</Label>
-                                <Input name="empresa" value={formData.empresa} onChange={handleChange} disabled style={{ background: '#f5f5f5', cursor: 'not-allowed' }} placeholder="Sin sucursales aún" />
+                    {/* TARJETA DE AVATAR */}
+                    <div style={{
+                        background: '#ffffff', borderRadius: '24px', padding: '28px 24px',
+                        boxShadow: '0 6px 20px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9',
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', textAlign: 'center'
+                    }}>
+                        {/* Avatar clicable */}
+                        <div
+                            onClick={() => setShowPhotoModal(true)}
+                            title="Toca para cambiar tu foto"
+                            style={{
+                                position: 'relative', cursor: isUploading ? 'wait' : 'pointer',
+                                width: '120px', height: '120px', borderRadius: '50%',
+                                overflow: 'hidden',
+                                border: '4px solid #fff', boxShadow: '0 6px 18px rgba(0,0,0,0.12)'
+                            }}
+                            onMouseEnter={e => {
+                                if (isUploading) return;
+                                const overlay = e.currentTarget.querySelector('.cam-overlay') as HTMLElement;
+                                if (overlay) overlay.style.opacity = '1';
+                            }}
+                            onMouseLeave={e => {
+                                const overlay = e.currentTarget.querySelector('.cam-overlay') as HTMLElement;
+                                if (overlay) overlay.style.opacity = '0';
+                            }}
+                        >
+                            {formData.imagenPerfil
+                                ? <img src={formData.imagenPerfil} alt="Perfil" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: isUploading ? 0.5 : 1 }} />
+                                : <div style={{ width: '100%', height: '100%', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: isUploading ? 0.5 : 1 }}>
+                                    <HiOutlineUser size={52} color="#94a3b8" />
+                                </div>
+                            }
+                            {/* Overlay de cámara */}
+                            <div className="cam-overlay" style={{
+                                position: 'absolute', inset: 0,
+                                background: 'rgba(0,0,0,0.45)',
+                                display: 'flex', flexDirection: 'column',
+                                alignItems: 'center', justifyContent: 'center', gap: '4px',
+                                opacity: isUploading ? 1 : 0, transition: 'opacity 0.2s ease', color: 'white',
+                                borderRadius: '50%'
+                            }}>
+                                {isUploading ? (
+                                    <span style={{ fontSize: '11px', fontWeight: '700' }}>SUBIENDO...</span>
+                                ) : (
+                                    <>
+                                        <HiOutlineCamera size={26} />
+                                        <span style={{ fontSize: '10px', fontWeight: '700' }}>CAMBIAR</span>
+                                    </>
+                                )}
                             </div>
-                        )}
+
+                            {/* Inputs Ocultos */}
+                            <input type="file" accept="image/*" capture="user" ref={cameraInputRef}
+                                style={{ display: 'none' }} onChange={handleImageSelection} />
+                            <input type="file" accept="image/*" ref={galleryInputRef}
+                                style={{ display: 'none' }} onChange={handleImageSelection} />
+                        </div>
 
                         <div>
-                            <Label>Correo Electrónico</Label>
-                            <Input type="email" name="email" value={formData.email} onChange={handleChange} />
-                        </div>
-                        <div style={{ position: 'relative' }}>
-                            <Label>Contraseña (Opcional)</Label>
-                            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                                <Input 
-                                    type={showPassword ? "text" : "password"} 
-                                    name="password" 
-                                    value={formData.password || ''} 
-                                    onChange={handleChange} 
-                                    placeholder="••••••••"
-                                    style={{ paddingRight: '40px' }}
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPassword(!showPassword)}
-                                    style={{
-                                        position: 'absolute',
-                                        right: '12px',
-                                        background: 'transparent',
-                                        border: 'none',
-                                        cursor: 'pointer',
-                                        color: '#64748b',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        padding: 0
-                                    }}
-                                    title={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
-                                >
-                                    {showPassword ? <HiOutlineEyeSlash size={20} /> : <HiOutlineEye size={20} />}
-                                </button>
-                            </div>
-                        </div>
-                        <div style={{ gridColumn: 'span 2' }}>
-                            <Label>Teléfono de Contacto</Label>
-                            <Input name="telefono" value={formData.telefono} onChange={handleChange} />
+                            <h1 style={{ margin: '0 0 2px', fontSize: '18px', fontWeight: '800', color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '210px' }}>
+                                {formData.nombre || 'Mi Perfil'}
+                            </h1>
+                            <p style={{ margin: '0 0 4px', fontSize: '11px', color: '#f26522', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                                {user?.role === 'admin' ? 'Administrador' : user?.role === 'tecnico' ? 'Técnico' : user?.role === 'encargado' ? 'Encargado' : 'Cliente'}
+                            </p>
+                            <p style={{ margin: 0, fontSize: '11px', color: '#94a3b8' }}>
+                                Toca la foto para editarla
+                            </p>
                         </div>
                     </div>
+
+                    {/* BOTÓN GUARDAR */}
+                    <button
+                        onClick={handleSave}
+                        style={{
+                            width: '100%', padding: '16px', background: 'linear-gradient(135deg, #f26522, #ff8c42)',
+                            color: 'white', border: 'none', borderRadius: '18px', fontSize: '15px',
+                            fontWeight: '800', cursor: 'pointer', boxShadow: '0 8px 18px rgba(242,101,34,0.3)',
+                            transition: 'all 0.3s ease'
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 12px 24px rgba(242,101,34,0.4)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 8px 18px rgba(242,101,34,0.3)'; }}
+                    >
+                        Guardar Cambios
+                    </button>
+
+                    {/* TARJETAS DE SUCURSALES */}
+                    {misNegocios.length > 0 && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            <p style={{ fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 }}>
+                                🏢 Mis Sucursales
+                            </p>
+                            {misNegocios.map((neg: any) => {
+                                const ubicacion = neg.tipo === 'W/M'
+                                    ? [neg.calleAv, neg.manzana ? `Mza ${neg.manzana}` : '', neg.lote ? `Lote ${neg.lote}` : ''].filter(Boolean).join(', ')
+                                    : [neg.tipo !== 'FS' && neg.nombrePlaza ? `${neg.nombrePlaza}` : '', neg.calle, neg.numero ? `#${neg.numero}` : '', neg.colonia].filter(Boolean).join(', ');
+                                const estadoCiudad = [neg.ciudad, neg.estado].filter(Boolean).join(', ');
+                                return (
+                                    <div key={neg.id} style={{
+                                        background: '#ffffff', borderRadius: '16px', padding: '14px 16px',
+                                        border: '1px solid #f1f5f9', boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
+                                    }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
+                                            <p style={{ margin: 0, fontSize: '13px', fontWeight: '800', color: '#0f172a', lineHeight: 1.3, flex: 1, marginRight: '8px' }}>
+                                                {neg.nombre}
+                                            </p>
+                                            <span style={{
+                                                fontSize: '10px', fontWeight: '700', padding: '2px 8px',
+                                                borderRadius: '8px', flexShrink: 0,
+                                                background: neg.tipo === 'FC' ? 'rgba(242,101,34,0.1)' : neg.tipo === 'FS' ? 'rgba(59,130,246,0.1)' : neg.tipo === 'W/M' ? 'rgba(16,185,129,0.1)' : 'rgba(139,92,246,0.1)',
+                                                color: neg.tipo === 'FC' ? '#f26522' : neg.tipo === 'FS' ? '#3b82f6' : neg.tipo === 'W/M' ? '#10b981' : '#8b5cf6'
+                                            }}>{neg.tipo}</span>
+                                        </div>
+                                        {ubicacion && (
+                                            <p style={{ margin: '0 0 2px', fontSize: '11px', color: '#64748b', lineHeight: 1.4 }}>
+                                                📍 {ubicacion}
+                                            </p>
+                                        )}
+                                        {estadoCiudad && (
+                                            <p style={{ margin: 0, fontSize: '11px', color: '#94a3b8' }}>
+                                                {estadoCiudad}{neg.cp ? ` · CP ${neg.cp}` : ''}
+                                            </p>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
 
-                {/* ── DATOS FISCALES (solo clientes) ── */}
-                {user?.role !== 'tecnico' && (
+                {/* ── COLUMNA DERECHA: Formularios ── */}
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '16px' }}>
+
+                    {/* DATOS DE CONTACTO */}
                     <div style={{
-                        background: '#ffffff', borderRadius: '24px', padding: '32px 36px',
-                        boxShadow: '0 6px 20px rgba(0,0,0,0.04)', border: '1px solid #f1f5f9', marginBottom: '20px'
+                        background: '#ffffff', borderRadius: '24px', padding: '28px 30px',
+                        boxShadow: '0 6px 20px rgba(0,0,0,0.04)', border: '1px solid #f1f5f9'
                     }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '22px' }}>
-                            <p style={{ fontSize: '12px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
-                                🧾 Información Fiscal (Facturación)
-                            </p>
-                            <span style={{ fontSize: '11px', background: '#e3f2fd', color: '#1565c0', padding: '3px 10px', borderRadius: '10px', fontWeight: 'bold' }}>
-                                Solo dueños
-                            </span>
-                        </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '18px' }}>
+                        <p style={{ fontSize: '12px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 20px' }}>
+                            📋 Datos de contacto
+                        </p>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+
+                            <div style={{ gridColumn: user?.role === 'tecnico' ? 'span 2' : 'span 1' }}>
+                                <Label>Nombre Completo</Label>
+                                <Input name="nombre" value={formData.nombre} onChange={handleChange} />
+                            </div>
+
+                            {user?.role !== 'tecnico' && (
+                                <div title="Se llena automáticamente con tu primer negocio">
+                                    <Label>Empresa Principal</Label>
+                                    <Input name="empresa" value={formData.empresa} onChange={handleChange} disabled style={{ background: '#f5f5f5', cursor: 'not-allowed' }} placeholder="Sin sucursales aún" />
+                                </div>
+                            )}
+
                             <div>
-                                <Label>RFC</Label>
-                                <Input name="rfc" placeholder="Ej: ABC123456XYZ" value={formData.rfc} onChange={handleChange} />
+                                <Label>Correo Electrónico</Label>
+                                <Input type="email" name="email" value={formData.email} onChange={handleChange} />
+                            </div>
+                            <div style={{ position: 'relative' }}>
+                                <Label>Contraseña (Opcional)</Label>
+                                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                                    <Input
+                                        type={showPassword ? "text" : "password"}
+                                        name="password"
+                                        value={formData.password || ''}
+                                        onChange={handleChange}
+                                        placeholder="••••••••"
+                                        style={{ paddingRight: '40px' }}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPassword(!showPassword)}
+                                        style={{
+                                            position: 'absolute', right: '12px', background: 'transparent',
+                                            border: 'none', cursor: 'pointer', color: '#64748b',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0
+                                        }}
+                                        title={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                                    >
+                                        {showPassword ? <HiOutlineEyeSlash size={20} /> : <HiOutlineEye size={20} />}
+                                    </button>
+                                </div>
                             </div>
                             <div style={{ gridColumn: 'span 2' }}>
-                                <Label>Razón Social</Label>
-                                <Input name="razonSocial" placeholder="Nombre Legal de la Empresa" value={formData.razonSocial} onChange={handleChange} />
-                            </div>
-                            <div style={{ gridColumn: 'span 2' }}>
-                                <Label>Dirección Fiscal Completa</Label>
-                                <Input name="direccionFiscal" placeholder="Calle, Número, Colonia, CP, Mérida, Yucatán" value={formData.direccionFiscal} onChange={handleChange} />
+                                <Label>Teléfono de Contacto</Label>
+                                <Input name="telefono" value={formData.telefono} onChange={handleChange} />
                             </div>
                         </div>
                     </div>
-                )}
 
-                {/* ── BOTÓN GUARDAR ── */}
-                <button
-                    onClick={handleSave}
-                    style={{
-                        width: '100%', padding: '18px', background: 'linear-gradient(135deg, #f9ab0f, #f59e0b)',
-                        color: 'white', border: 'none', borderRadius: '20px', fontSize: '16px',
-                        fontWeight: '800', cursor: 'pointer', boxShadow: '0 10px 20px rgba(249,171,15,0.3)',
-                        transition: 'all 0.3s ease', marginBottom: '40px'
-                    }}
-                    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 15px 30px rgba(249,171,15,0.4)'; }}
-                    onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 10px 20px rgba(249,171,15,0.3)'; }}
-                >
-                    Guardar Cambios
-                </button>
+                    {/* DATOS FISCALES (solo clientes) */}
+                    {user?.role !== 'tecnico' && (
+                        <div style={{
+                            background: '#ffffff', borderRadius: '24px', padding: '28px 30px',
+                            boxShadow: '0 6px 20px rgba(0,0,0,0.04)', border: '1px solid #f1f5f9'
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
+                                <p style={{ fontSize: '12px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
+                                    🧾 Información Fiscal (Facturación)
+                                </p>
+                                <span style={{ fontSize: '11px', background: '#e3f2fd', color: '#1565c0', padding: '3px 10px', borderRadius: '10px', fontWeight: 'bold' }}>
+                                    Solo dueños
+                                </span>
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                <div>
+                                    <Label>RFC</Label>
+                                    <Input name="rfc" placeholder="Ej: ABC123456XYZ" value={formData.rfc} onChange={handleChange} />
+                                </div>
+                                <div style={{ gridColumn: 'span 2' }}>
+                                    <Label>Razón Social</Label>
+                                    <Input name="razonSocial" placeholder="Nombre Legal de la Empresa" value={formData.razonSocial} onChange={handleChange} />
+                                </div>
+                                <div style={{ gridColumn: 'span 2' }}>
+                                    <Label>Dirección Fiscal Completa</Label>
+                                    <Input name="direccionFiscal" placeholder="Calle, Número, Colonia, CP, Mérida, Yucatán" value={formData.direccionFiscal} onChange={handleChange} />
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
             </div>
 
             {/* Modal de Selección de Foto */}
@@ -433,12 +467,12 @@ const MiPerfil: React.FC = () => {
                     display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: '16px',
                     animation: 'fadeIn 0.2s ease-out'
                 }} onClick={() => setShowPhotoModal(false)}>
-                    
+
                     <div style={{
                         background: '#fff', width: '100%', maxWidth: '400px', borderRadius: '24px',
                         padding: '24px', paddingBottom: '32px', animation: 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
                     }} onClick={e => e.stopPropagation()}>
-                        
+
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                             <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>Actualizar Foto</h3>
                             <button onClick={() => setShowPhotoModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}>
@@ -484,7 +518,7 @@ const MiPerfil: React.FC = () => {
                     </div>
                 </div>
             )}
-            
+
             <style>
                 {`
                 @keyframes slideUp {

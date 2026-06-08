@@ -261,15 +261,17 @@ Line: 97
                     </button>
                 </div>
 
-                {/* LISTA DE TRABAJADORES */}
+                {/* LISTA DE TRABAJADORES - GRID 3 COLUMNAS */}
                 <div className={styles.jobsSection}>
                     {filteredWorkers.map((worker) => (
                         <div
                             key={worker.id}
                             className={styles.jobCard}
                             onClick={() => navigate(`/menu/trabajador/${worker.id}`)}
-                            style={{ cursor: 'pointer' }}
                         >
+                            {/* Barra de color superior */}
+                            <div className={`${styles.cardIndicator} ${styles.blue}`}></div>
+
                             <div className={styles.cardContent}>
                                 {/* AVATAR */}
                                 <div className={styles.cardIcon}>
@@ -277,12 +279,14 @@ Line: 97
                                         <img 
                                             src={worker.avatar} 
                                             alt={worker.nombre} 
-                                            style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover' }} 
+                                            style={{ width: '70px', height: '70px', borderRadius: '50%', objectFit: 'cover' }} 
                                         />
                                     ) : (
-                                        <HiOutlineUser size={30} color="#333" />
+                                        <HiOutlineUser size={36} color="#555" />
                                     )}
                                 </div>
+
+                                {/* INFO */}
                                 <div className={styles.cardInfo}>
                                     <h3>{worker.nombre}</h3>
                                     {(() => {
@@ -291,31 +295,32 @@ Line: 97
                                         const displayPuesto = worker.puesto.replace('- Externo', '').replace('- Interno', '').trim();
                                         return (
                                             <>
-                                                <p style={{ color: '#666', fontSize: '14px', margin: '2px 0' }}>{displayPuesto}</p>
-                                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                                    <p style={{ fontWeight: 'bold', color: worker.estado === 'Activo' ? '#4CAF50' : '#F44336', margin: 0 }}>
+                                                <p>{displayPuesto}</p>
+                                                <div style={{ display: 'flex', gap: '6px', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', marginTop: '4px' }}>
+                                                    <span style={{ fontWeight: 'bold', fontSize: '13px', color: worker.estado === 'Activo' ? '#16a34a' : '#dc2626' }}>
                                                         {worker.estado}
-                                                    </p>
+                                                    </span>
                                                     {(isExterno || isInterno) && (
                                                         <span style={{ 
                                                             fontSize: '11px', 
                                                             fontWeight: 'bold', 
-                                                            padding: '2px 8px', 
-                                                            borderRadius: '12px', 
+                                                            padding: '2px 7px', 
+                                                            borderRadius: '10px', 
                                                             background: isExterno ? '#fef3c7' : '#e0e7ff', 
                                                             color: isExterno ? '#d97706' : '#4338ca' 
                                                         }}>
-                                                            {isExterno ? 'Técnico Externo' : 'Técnico Interno'}
+                                                            {isExterno ? 'Externo' : 'Interno'}
                                                         </span>
                                                     )}
                                                 </div>
+                                                <span className={styles.cardDate}>{worker.fecha}</span>
                                             </>
                                         );
                                     })()}
                                 </div>
 
-                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', marginRight: '20px', zIndex: 10, flexShrink: 0 }}>
-                                    <span className={styles.cardDate}>{worker.fecha}</span>
+                                {/* BOTÓN ACCIÓN */}
+                                <div style={{ marginTop: '4px', zIndex: 10 }}>
                                     {worker.estado === "Activo" && (
                                         <button
                                             onClick={(e) => {
@@ -326,7 +331,7 @@ Line: 97
                                                 background: '#fee2e2',
                                                 color: '#dc2626',
                                                 border: 'none',
-                                                padding: '5px 12px',
+                                                padding: '6px 16px',
                                                 borderRadius: '15px',
                                                 fontSize: '12px',
                                                 fontWeight: 'bold',
@@ -347,7 +352,7 @@ Line: 97
                                                 background: '#dcfce7',
                                                 color: '#16a34a',
                                                 border: 'none',
-                                                padding: '5px 12px',
+                                                padding: '6px 16px',
                                                 borderRadius: '15px',
                                                 fontSize: '12px',
                                                 fontWeight: 'bold',
@@ -359,8 +364,6 @@ Line: 97
                                         </button>
                                     )}
                                 </div>
-                                {/* Indicador lateral */}
-                                <div className={`${styles.cardIndicator} ${styles.blue}`}></div>
                             </div>
                         </div>
                     ))}

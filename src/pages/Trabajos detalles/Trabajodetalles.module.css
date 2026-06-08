@@ -128,7 +128,7 @@
 }
 
 .equiposBtn {
-    background: linear-gradient(135deg, #FFB800 0%, #f2ae00 100%) !important;
+    background: linear-gradient(135deg, #f26522 0%, #d14d13 100%) !important;
     color: white !important;
     font-weight: 800 !important;
     padding: 10px 24px !important;
@@ -139,20 +139,20 @@
     gap: 10px !important;
     cursor: pointer !important;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-    box-shadow: 0 4px 12px rgba(255, 184, 0, 0.3) !important;
+    box-shadow: 0 4px 12px rgba(242, 101, 34, 0.3) !important;
     font-size: 14px !important;
     min-width: 140px;
     justify-content: center;
 }
 
 .equiposBtn:hover {
-    background: linear-gradient(135deg, #f2ae00 0%, #e6a600 100%) !important;
+    background: linear-gradient(135deg, #d14d13 0%, #d14d13 100%) !important;
     transform: translateY(-2px) scale(1.02) !important;
-    box-shadow: 0 8px 20px rgba(255, 184, 0, 0.45) !important;
+    box-shadow: 0 8px 20px rgba(242, 101, 34, 0.45) !important;
 }
 
 .historialBtn {
-    background: linear-gradient(135deg, #FFB800 0%, #f2ae00 100%) !important;
+    background: linear-gradient(135deg, #f26522 0%, #d14d13 100%) !important;
     color: white !important;
     font-weight: 800 !important;
     padding: 10px 24px !important;
@@ -163,16 +163,16 @@
     gap: 10px !important;
     cursor: pointer !important;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-    box-shadow: 0 4px 12px rgba(255, 184, 0, 0.3) !important;
+    box-shadow: 0 4px 12px rgba(242, 101, 34, 0.3) !important;
     font-size: 14px !important;
     min-width: 140px;
     justify-content: center;
 }
 
 .historialBtn:hover {
-    background: linear-gradient(135deg, #f2ae00 0%, #e6a600 100%) !important;
+    background: linear-gradient(135deg, #d14d13 0%, #d14d13 100%) !important;
     transform: translateY(-2px) scale(1.02) !important;
-    box-shadow: 0 8px 20px rgba(255, 184, 0, 0.45) !important;
+    box-shadow: 0 8px 20px rgba(242, 101, 34, 0.45) !important;
 }
 
 .equiposBtn svg,
@@ -605,7 +605,7 @@
 
 .techSearchInput {
     width: 100% !important;
-    background: #f5f5f5 !important;
+    background: #fff !important;
 }
 
 .techList {
@@ -761,7 +761,7 @@
 
 .confirmBtnLarge {
     flex: 1;
-    background: #fbbc04;
+    background: #f26522;
     color: white;
     border: none;
     padding: 14px 24px;
@@ -806,7 +806,7 @@
 }
 
 .newServiceInput:focus {
-    border-color: #fbbc04;
+    border-color: #f26522;
     background: #fff;
     box-shadow: 0 0 0 4px rgba(251, 188, 4, 0.15);
 }
@@ -835,7 +835,7 @@
 }
 
 .newServiceTextArea:focus {
-    border-color: #fbbc04;
+    border-color: #f26522;
     background: #fff;
     box-shadow: 0 0 0 4px rgba(251, 188, 4, 0.15);
 }

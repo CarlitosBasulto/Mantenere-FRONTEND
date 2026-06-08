@@ -276,6 +276,12 @@ const MenuLayout: React.FC = () => {
 
     return (
         <div className={styles.container}>
+            {/* BRILLOS AMBIENTALES DE FONDO (AURORA MESH) */}
+            <div className={styles.glowBgContainer}>
+                <div className={`${styles.glowBlob} ${styles.glow1}`}></div>
+                <div className={`${styles.glowBlob} ${styles.glow2}`}></div>
+                <div className={`${styles.glowBlob} ${styles.glow3}`}></div>
+            </div>
 
             {/* SIDEBAR IZQUIERDO */}
             <aside className={styles.sidebar}>

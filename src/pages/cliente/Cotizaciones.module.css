@@ -282,7 +282,7 @@
 }
 
 .radioLabel input[type="radio"] {
-    accent-color: #fbbc04;
+    accent-color: #f26522;
     transform: scale(1.2);
 }
 
@@ -294,7 +294,7 @@
 }
 
 .applyBtn {
-    background: #fbbc04;
+    background: #f26522;
     /* Amarillo del sistema */
     color: #fff;
     border: none;

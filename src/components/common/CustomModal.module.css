@@ -114,9 +114,9 @@
 }
 
 .btnConfirmDefault {
-  background: #ffb800;
+  background: #f26522;
   color: white;
-  box-shadow: 0 4px 10px rgba(255, 184, 0, 0.3);
+  box-shadow: 0 4px 10px rgba(242, 101, 34, 0.3);
 }
 
 .btnConfirmDefault:hover {

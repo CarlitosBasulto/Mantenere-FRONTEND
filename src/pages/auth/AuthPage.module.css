@@ -3,7 +3,7 @@
 
 .body {
     background-image: url('../../assets/imagenes/Fondosesion.png');
-    background-size: cover;
+    background-size: 115% 115%;
     background-position: center;
     display: flex;
     justify-content: center;
@@ -12,8 +12,21 @@
     font-family: 'Montserrat', sans-serif;
     height: 100vh;
     position: relative;
-    border-top: 10px solid #e9ab22;
-    border-bottom: 10px solid #e9ab22;
+    border-top: 10px solid #f26522;
+    border-bottom: 10px solid #f26522;
+    animation: moveBg 40s ease-in-out infinite;
+}
+
+@keyframes moveBg {
+    0% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+    100% {
+        background-position: 0% 50%;
+    }
 }
 
 .cardLogo {
@@ -38,7 +51,7 @@
 .container {
     background-color: #fff;
     border-radius: 10px;
-    border: 1.5px solid #e9ab22;
+    border: 1.5px solid #f26522;
     box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25),
         0 10px 10px rgba(0, 0, 0, 0.22);
     position: relative;
@@ -216,7 +229,7 @@
 
 .input {
     background-color: #eee;
-    border: 2px solid #e9ab22;
+    border: 2px solid #f26522;
     padding: 10px 15px;
     margin: 3px 0;
     width: 100%;
@@ -238,7 +251,10 @@
 /* Modal de Bienvenida CSS */
 .welcomeModalOverlay {
     position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
     background: rgba(0, 0, 0, 0.6);
     display: flex;
     align-items: center;
@@ -261,6 +277,7 @@
         opacity: 0;
         transform: scale(0.85);
     }
+
     to {
         opacity: 1;
         transform: scale(1);
@@ -300,8 +317,8 @@
 
 .button {
     border-radius: 20px;
-    border: 1px solid #e9ab22;
-    background-color: #e9ab22;
+    border: 1px solid #f26522;
+    background-color: #f26522;
     color: #FFFFFF;
     font-size: 12px;
     font-weight: bold;
@@ -349,7 +366,9 @@
 
 /* Modificaciones para Mobile */
 @media (max-width: 768px) {
-    .signInContainer, .signUpContainer {
+
+    .signInContainer,
+    .signUpContainer {
         width: 100% !important;
         min-height: 540px !important;
     }
@@ -358,6 +377,7 @@
     .signUpContainer {
         display: none !important;
     }
+
     .signInContainer {
         position: relative !important;
         display: flex !important;
@@ -373,6 +393,7 @@
         z-index: 5;
         flex-direction: column !important;
     }
+
     .container.rightPanelActive .signInContainer {
         display: none !important;
     }
@@ -390,12 +411,12 @@
         justify-content: center !important;
         align-items: center !important;
     }
-    
+
     .form::before,
     .form::after {
         display: none !important;
     }
-    
+
     .title {
         font-size: 1.8rem;
     }
@@ -426,8 +447,8 @@
 
 .switchButton {
     background: none;
-    border: 1px solid #e9ab22;
-    color: #e9ab22;
+    border: 1px solid #f26522;
+    color: #f26522;
     padding: 8px 20px;
     border-radius: 20px;
     cursor: pointer;
@@ -487,7 +508,7 @@
     border-radius: 20px;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
     animation: fadeInScale 0.3s ease-out;
 }
 
@@ -553,29 +574,36 @@
 /* Optimización para evitar que el formulario de Inicio de Sesión se vea vacío (solo en escritorio) */
 @media (min-width: 769px) {
     .signInContainer .form {
-        padding: 35px 40px; /* Más padding vertical y horizontal para el login */
+        padding: 35px 40px;
+        /* Más padding vertical y horizontal para el login */
     }
 
     .signInContainer .span {
-        margin-bottom: 20px; /* Mayor separación bajo el subtítulo */
+        margin-bottom: 20px;
+        /* Mayor separación bajo el subtítulo */
     }
 
     .signInContainer .input {
-        padding: 12px 15px; /* Inputs con altura premium original */
-        margin: 8px 0;      /* Más separación vertical entre inputs */
+        padding: 12px 15px;
+        /* Inputs con altura premium original */
+        margin: 8px 0;
+        /* Más separación vertical entre inputs */
     }
 
     .signInContainer .passwordContainer {
-        margin: 8px 0;      /* Más separación vertical para el input de contraseña */
+        margin: 8px 0;
+        /* Más separación vertical para el input de contraseña */
     }
 
     .signInContainer .link {
-        margin: 20px 0;     /* Mayor espacio para el enlace de contraseña olvidada */
+        margin: 20px 0;
+        /* Mayor espacio para el enlace de contraseña olvidada */
     }
 
     .signInContainer .button {
-        margin-top: 25px;   /* Mayor separación antes de botón de ingresar */
-        padding: 12px 45px; /* Botón con su tamaño premium original */
+        margin-top: 25px;
+        /* Mayor separación antes de botón de ingresar */
+        padding: 12px 45px;
+        /* Botón con su tamaño premium original */
     }
 }
-
