@@ -1,6 +1,6 @@
 .container {
     padding: 24px;
-    background: #f8fafc;
+    background: #f8fafc00;
     min-height: calc(100vh - 100px);
     display: flex;
     flex-direction: column;
@@ -30,8 +30,13 @@
 }
 
 @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
 }
 
 /* TABS HEADER */
@@ -466,18 +471,18 @@
     .container {
         padding: 16px;
     }
-    
+
     .tabsHeader {
         overflow-x: auto;
         padding-bottom: 8px;
     }
-    
+
     .tabBtn {
         padding: 10px 14px;
         font-size: 13px;
         white-space: nowrap;
     }
-    
+
     .tableCard {
         padding: 16px;
     }

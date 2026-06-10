@@ -37,15 +37,29 @@ const ListaNegocios: React.FC = () => {
                 const localData = JSON.parse(localStorage.getItem('local_negocios_info') || '{}');
                 const mapped = data.map((n: any) => {
                     const localInfo = localData[n.id] || {};
+                    const buildUbicacion = () => {
+                        if (n.tipo === 'W/M') {
+                            return [n.calleAv, n.manzana ? `Mza ${n.manzana}` : '', n.lote ? `Lote ${n.lote}` : ''].filter(Boolean).join(', ');
+                        } else {
+                            return [n.tipo !== 'FS' && n.nombrePlaza ? `${n.nombrePlaza}` : '', n.calle, n.numero ? `#${n.numero}` : '', n.colonia].filter(Boolean).join(', ');
+                        }
+                    };
+                    const buildEstadoGeografico = () => {
+                        const ciudad = localInfo.ciudad || n.ciudad;
+                        const estado = localInfo.estado || n.estado;
+                        const cp = localInfo.cp || n.cp;
+                        const geoParts = [ciudad, estado].filter(Boolean).join(', ');
+                        return cp ? `${geoParts} · CP ${cp}` : geoParts;
+                    };
                     return {
                         ...n,
                         id: n.id,
                         nombre: n.nombre,
-                        ubicacion: n.tipo === "W/M" ? `${n.calleAv || ''} Mza ${n.manzana || ''}` : (n.nombrePlaza || n.colonia || "Mérida"),
+                        ubicacion: buildUbicacion() || "Mérida",
                         dueno: n.encargado || "Cliente",
                         fecha: new Date(n.created_at).toLocaleDateString('es-MX'),
                         status: n.estado_aprobacion || "En Espera", // Mantenemos el estatus interno
-                        estado_geografico: localInfo.ciudad || n.ciudad || n.estado || "Mérida", // Prioridad a lo local
+                        estado_geografico: buildEstadoGeografico() || "Mérida", // Prioridad a lo local
                         user_id: n.user_id,
                         imagenPerfil: n.imagenPerfil
                     };

@@ -71,6 +71,7 @@ const TrabajoDetalle: React.FC = () => {
     const [businessName, setBusinessName] = useState("Cargando...");
     const [businessImage, setBusinessImage] = useState<string | null>(null);
     const [businessAreas, setBusinessAreas] = useState<any[]>([]);
+    const [businessDetails, setBusinessDetails] = useState<any>(null);
 
     React.useEffect(() => {
         const fetchBusiness = async () => {
@@ -85,6 +86,10 @@ const TrabajoDetalle: React.FC = () => {
                     setBusinessAreas(individual.areas);
                 }
 
+                if (individual || current) {
+                    setBusinessDetails({ ...current, ...individual });
+                }
+
                 if (current) {
                     const plaza = current.nombrePlaza || current.nombre_plaza;
                     const fullName = plaza ? `${current.nombre} - ${plaza}` : current.nombre;
@@ -93,7 +98,6 @@ const TrabajoDetalle: React.FC = () => {
                     setNewRequestData(prev => ({ ...prev, cliente: fullName }));
                 } else {
                     // Si falla el query batch, try individual
-                    const individual = await getNegocio(Number(id));
                     if (individual && individual.nombre) {
                         const indPlaza = individual.nombrePlaza || individual.nombre_plaza;
                         const fullName = indPlaza ? `${individual.nombre} - ${indPlaza}` : individual.nombre;
@@ -112,6 +116,16 @@ const TrabajoDetalle: React.FC = () => {
 
         fetchBusiness();
     }, [id]);
+
+    const getBusinessAddress = () => {
+        if (!businessDetails) return "";
+        const neg = businessDetails;
+        const ubicacion = neg.tipo === 'W/M'
+            ? [neg.calleAv, neg.manzana ? `Mza ${neg.manzana}` : '', neg.lote ? `Lote ${neg.lote}` : ''].filter(Boolean).join(', ')
+            : [neg.calle, neg.numero ? `#${neg.numero}` : '', neg.colonia].filter(Boolean).join(', ');
+        const estadoCiudad = [neg.ciudad, neg.estado].filter(Boolean).join(', ');
+        return [ubicacion, estadoCiudad, neg.cp ? `CP ${neg.cp}` : ''].filter(Boolean).join(' · ');
+    };
 
     // DATOS DESDE LA API
     const [trabajosData, setTrabajosData] = useState<Trabajo[]>([]);
@@ -226,6 +240,7 @@ const TrabajoDetalle: React.FC = () => {
     const [isEditingRequest, setIsEditingRequest] = useState(false);
     const [isSOSRequest, setIsSOSRequest] = useState(false);
     const [fotoSOS, setFotoSOS] = useState<File | null>(null);
+    const [fotoPreviewUrl, setFotoPreviewUrl] = useState<string | null>(null);
     const [editingRequestId, setEditingRequestId] = useState<number | null>(null);
     const [newRequestData, setNewRequestData] = useState({
         categoria: "Electricidad",
@@ -576,12 +591,18 @@ const TrabajoDetalle: React.FC = () => {
                 const isEmergency = isSOSRequest;
                 
                 let dbJob;
-                if (isEmergency && fotoSOS) {
+                if (fotoSOS) {
                     const formData = new FormData();
-                    formData.append('titulo', `🚨 SOS: ${finalCategoria} - ${businessName}`);
-                    formData.append('descripcion', newRequestData.descripcion);
-                    formData.append('prioridad', 'Alta');
-                    formData.append('tipo', 'SOS');
+                    formData.append('titulo', isEmergency
+                        ? `🚨 SOS: ${finalCategoria} - ${businessName}`
+                        : `${finalCategoria} - ${newRequestData.cliente || businessName}`
+                    );
+                    formData.append('descripcion', (newRequestData.categoria === 'Mantenimiento' && newRequestData.equipoSeleccionado)
+                        ? `[Equipo: ${newRequestData.equipoSeleccionado}]\n${newRequestData.descripcion}`
+                        : newRequestData.descripcion
+                    );
+                    formData.append('prioridad', isEmergency ? 'Alta' : 'Media');
+                    formData.append('tipo', isEmergency ? 'SOS' : 'Nueva Solicitud');
                     formData.append('negocio_id', id || '');
                     if (newRequestData.fecha) {
                         formData.append('fecha_programada', newRequestData.fecha);
@@ -645,9 +666,18 @@ const TrabajoDetalle: React.FC = () => {
                         : "Tu solicitud ha sido enviada exitosamente al administrador. Pronto te notificaremos cuando se asigne un técnico.",
                     "success"
                 );
-            } catch (error) {
+            } catch (error: any) {
                 console.error("Error creating record:", error);
-                showAlert("Error", "Hubo un error contactando al servidor.", "error");
+                let errorMessage = "Hubo un error contactando al servidor.";
+                if (error.response && error.response.data) {
+                    if (error.response.data.errors) {
+                        const errorDetails = Object.values(error.response.data.errors).flat().join(" ");
+                        errorMessage = `${error.response.data.message || "Error de validación"}: ${errorDetails}`;
+                    } else if (error.response.data.message) {
+                        errorMessage = error.response.data.message;
+                    }
+                }
+                showAlert("Error", errorMessage, "error");
             }
         }
 
@@ -655,6 +685,7 @@ const TrabajoDetalle: React.FC = () => {
         setIsEditingRequest(false);
         setIsSOSRequest(false);
         setFotoSOS(null);
+        setFotoPreviewUrl(null);
         setEditingRequestId(null);
         // Reset form
         setNewRequestData({
@@ -716,6 +747,8 @@ const TrabajoDetalle: React.FC = () => {
             descripcion: job.descripcion || "",
             equipoSeleccionado: ""
         });
+        setFotoSOS(null);
+        setFotoPreviewUrl(null);
         setIsEditingRequest(true);
         setEditingRequestId(job.id);
         setIsRequestModalOpen(true);
@@ -871,53 +904,74 @@ const TrabajoDetalle: React.FC = () => {
                                 <div className={styles.bannerContent}>
                                     <span className={styles.bannerLabel}>TRABAJOS DE LA SUCURSAL</span>
                                     <h1 className={styles.bannerTitle}>{businessName}</h1>
+                                    {businessDetails && (
+                                        <p className={styles.bannerStats} style={{ margin: '4px 0 0 0' }}>
+                                            📍 {getBusinessAddress()}
+                                        </p>
+                                    )}
                                 </div>
                             </div>
                         </div>
                     ) : (
                         <div className={styles.simpleHeader}>
                             <h1 className={styles.businessTitle}>{businessName}</h1>
+                            {businessDetails && (
+                                <p className={styles.businessSubtitle} style={{ margin: '8px 0 0 0', color: '#64748b' }}>
+                                    📍 {getBusinessAddress()}
+                                </p>
+                            )}
                         </div>
                     )}
                 </div>
 
                 {/* SEARCH & ACTIONS */}
-                <div className={`${menuStyles.searchCard} ${styles.searchWrapperMobile}`}>
+                {/* FILA 1: BUSCADOR Y FILTRO */}
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', justifyContent: 'center', marginBottom: '16px', width: '100%' }}>
                     <input
                         type="text"
                         placeholder="Buscar..."
                         className={menuStyles.searchInput}
                         value={searchText}
                         onChange={(e) => setSearchText(e.target.value)}
+                        style={{ margin: 0 }}
                     />
-                    {/* BOTON FILTRO */}
                     <button
                         className={menuStyles.filterBtn}
                         onClick={() => setIsFilterModalOpen(true)}
                     >
                         ⚙️
                     </button>
+                </div>
 
-                    {user?.role === 'cliente' && (
-                        <div style={{ display: 'flex', gap: '10px' }}>
+                {/* FILA 2: BOTONES DE ACCIÓN */}
+                {(user?.role === 'cliente' || user?.role === 'admin' || user?.role === 'encargado' || user?.role === 'tecnico') && (
+                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '20px', justifyContent: 'center' }}>
+                        {/* Botón SOS (solo para cliente) */}
+                        {user?.role === 'cliente' && (
                             <button
-                                className={`${menuStyles.filterBtn} ${styles.sosBtn}`}
+                                className={styles.sosBtn}
                                 onClick={handleSOSRequest}
                                 translate="no"
                             >
                                 SOS
                             </button>
+                        )}
+
+                        {/* Botón Solicitud (solo para cliente) */}
+                        {user?.role === 'cliente' && (
                             <button
-                                className={`${menuStyles.filterBtn} ${styles.newRequestBtn}`}
-                                onClick={() => setIsRequestModalOpen(true)}
+                                className={styles.newRequestBtn}
+                                onClick={() => {
+                                    setIsSOSRequest(false);
+                                    setIsRequestModalOpen(true);
+                                }}
                             >
                                 Solicitud
                             </button>
-                        </div>
-                    )}
+                        )}
 
-                    {user?.role === 'admin' && (
-                        <div style={{ display: 'flex', gap: '10px' }}>
+                        {/* Botón Equipos (visible para admin, cliente y encargado) */}
+                        {(user?.role === 'admin' || user?.role === 'cliente' || user?.role === 'encargado') && (
                             <button
                                 className={styles.equiposBtn}
                                 onClick={() => setSearchParams({ tab: 'equipos' })}
@@ -925,11 +979,10 @@ const TrabajoDetalle: React.FC = () => {
                                 <HiOutlineArchiveBox size={20} />
                                 Equipos
                             </button>
-                        </div>
-                    )}
+                        )}
 
-                    {user?.role === 'tecnico' && (
-                        <div style={{ display: 'flex', gap: '10px' }}>
+                        {/* Botón Ver Historial (visible para técnico) */}
+                        {user?.role === 'tecnico' && (
                             <button
                                 className={styles.historialBtn}
                                 onClick={() => setSearchParams({ tab: 'historial' })}
@@ -937,9 +990,9 @@ const TrabajoDetalle: React.FC = () => {
                                 <HiOutlineClock size={20} />
                                 Ver Historial
                             </button>
-                        </div>
-                    )}
-                </div>
+                        )}
+                    </div>
+                )}
 
                 {/* LISTA DE TRABAJOS */}
                 <div className={styles.jobsSection}>
@@ -1362,29 +1415,61 @@ const TrabajoDetalle: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* INPUT FOTO SOS */}
-                        {isSOSRequest && (
-                            <div style={{ marginTop: '15px', marginBottom: '15px' }}>
-                                <label className={styles.formLabel}>Adjuntar foto del problema (Opcional)</label>
-                                <div className={styles.uploadContainer}>
-                                    <input
-                                        type="file"
-                                        accept="image/*"
-                                        onChange={(e) => setFotoSOS(e.target.files ? e.target.files[0] : null)}
-                                        style={{
-                                            position: 'absolute',
-                                            top: 0, left: 0, width: '100%', height: '100%',
-                                            opacity: 0, cursor: 'pointer'
-                                        }}
-                                    />
-                                    <span className={styles.uploadIcon}>📸</span>
-                                    <span className={styles.uploadText}>
-                                        {fotoSOS ? fotoSOS.name : 'Haz clic para seleccionar una imagen'}
-                                    </span>
-                                    <span className={styles.uploadSubtext}>Formatos soportados: JPG, PNG</span>
-                                </div>
+                        {/* INPUT FOTO */}
+                        <div style={{ marginTop: '15px', marginBottom: '15px' }}>
+                            <label className={styles.formLabel}>Adjuntar foto del problema (Opcional)</label>
+                            <div className={`${styles.uploadContainer} ${isSOSRequest ? styles.uploadContainerSos : ''} ${fotoPreviewUrl ? styles.uploadContainerWithPreview : ''}`}>
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={(e) => {
+                                        const file = e.target.files ? e.target.files[0] : null;
+                                        setFotoSOS(file);
+                                        if (file) {
+                                            setFotoPreviewUrl(URL.createObjectURL(file));
+                                        } else {
+                                            setFotoPreviewUrl(null);
+                                        }
+                                    }}
+                                    style={{
+                                        position: 'absolute',
+                                        top: 0, left: 0, width: '100%', height: '100%',
+                                        opacity: 0, cursor: 'pointer',
+                                        zIndex: 2
+                                    }}
+                                />
+                                {fotoPreviewUrl ? (
+                                    <div className={styles.previewContent}>
+                                        <img src={fotoPreviewUrl} alt="Vista previa" className={styles.previewImage} />
+                                        <div className={styles.previewInfo}>
+                                            <span className={styles.previewName}>{fotoSOS?.name}</span>
+                                            <span className={styles.previewActionText}>Toca para cambiar de imagen</span>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            className={styles.removePreviewBtn}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                e.preventDefault();
+                                                setFotoSOS(null);
+                                                setFotoPreviewUrl(null);
+                                            }}
+                                            title="Quitar foto"
+                                        >
+                                            ✕
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <span className={styles.uploadIcon}>📸</span>
+                                        <span className={`${styles.uploadText} ${isSOSRequest ? styles.uploadTextSos : ''}`}>
+                                            Haz clic para seleccionar una imagen
+                                        </span>
+                                        <span className={`${styles.uploadSubtext} ${isSOSRequest ? styles.uploadSubtextSos : ''}`}>Formatos soportados: JPG, PNG</span>
+                                    </>
+                                )}
                             </div>
-                        )}
+                        </div>
 
                         <div className={styles.requestModalActions}>
                             <button
@@ -1392,6 +1477,7 @@ const TrabajoDetalle: React.FC = () => {
                                     setIsRequestModalOpen(false);
                                     setIsSOSRequest(false);
                                     setFotoSOS(null);
+                                    setFotoPreviewUrl(null);
                                 }}
                                 className={styles.cancelBtnLarge}
                             >

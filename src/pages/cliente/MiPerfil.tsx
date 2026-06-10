@@ -83,10 +83,18 @@ const MiPerfil: React.FC = () => {
                         };
                         try {
                             const negocios = await getNegocios();
-                            const myNegocios = negocios.filter((n: any) => Number(n.user_id) === Number(user.id));
+                            const myNegocios = negocios.filter((n: any) => {
+                                const isOwner = Number(n.user_id) === Number(user.id) || 
+                                                (n.encargado && user.name && n.encargado === user.name) ||
+                                                (n.dueno && user.name && n.dueno === user.name);
+                                const isEncargado = user.role === 'encargado' && Number(n.id) === Number(user.negocio_id);
+                                return isOwner || isEncargado;
+                            });
                             if (myNegocios.length > 0) adminData.empresa = myNegocios[0].nombre;
                             setMisNegocios(myNegocios);
-                        } catch (err) { /* sin negocios */ }
+                        } catch (err) {
+                            console.error("Error fetching negocios in MiPerfil:", err);
+                        }
                     }
                 } catch (err) {
                     console.error("Error fetching user data:", err);

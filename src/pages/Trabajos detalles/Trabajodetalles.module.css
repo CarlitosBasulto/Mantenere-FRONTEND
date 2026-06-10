@@ -847,11 +847,11 @@
 }
 
 .uploadContainer {
-    border: 2px dashed #fca5a5;
+    border: 2px dashed #cbd5e1;
     border-radius: 16px;
     padding: 24px;
     text-align: center;
-    background: #fff5f5;
+    background: #f8fafc;
     cursor: pointer;
     position: relative;
     transition: all 0.25s ease;
@@ -863,9 +863,19 @@
 }
 
 .uploadContainer:hover {
-    background: #fff1f1;
-    border-color: #ef4444;
+    background: #f1f5f9;
+    border-color: #f26522;
     transform: translateY(-1px);
+}
+
+.uploadContainerSos {
+    border-color: #fca5a5 !important;
+    background: #fff5f5 !important;
+}
+
+.uploadContainerSos:hover {
+    background: #fff1f1 !important;
+    border-color: #ef4444 !important;
 }
 
 .uploadIcon {
@@ -880,19 +890,31 @@
 
 .uploadText {
     font-size: 14px;
-    color: #dc2626;
+    color: #475569;
     font-weight: 800;
     transition: color 0.2s;
 }
 
 .uploadContainer:hover .uploadText {
-    color: #b91c1c;
+    color: #f26522;
+}
+
+.uploadTextSos {
+    color: #dc2626 !important;
+}
+
+.uploadContainerSos:hover .uploadTextSos {
+    color: #b91c1c !important;
 }
 
 .uploadSubtext {
     font-size: 12px;
-    color: #f87171;
+    color: #94a3b8;
     font-weight: 600;
+}
+
+.uploadSubtextSos {
+    color: #f87171 !important;
 }
 
 .btnCotizar {
@@ -1066,4 +1088,83 @@
     font-weight: 800;
     margin: 0 !important;
     letter-spacing: -0.5px;
+}
+
+.uploadContainerWithPreview {
+    border-style: solid;
+    padding: 16px;
+    background: #f8fafc;
+}
+
+.previewContent {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    position: relative;
+}
+
+.previewImage {
+    width: 120px;
+    height: 120px;
+    object-fit: cover;
+    border-radius: 12px;
+    border: 2px solid #e2e8f0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    transition: transform 0.2s ease;
+}
+
+.uploadContainer:hover .previewImage {
+    transform: scale(1.02);
+}
+
+.previewInfo {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+}
+
+.previewName {
+    font-size: 13px;
+    font-weight: 700;
+    color: #334155;
+    max-width: 250px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.previewActionText {
+    font-size: 11px;
+    font-weight: 600;
+    color: #94a3b8;
+}
+
+.removePreviewBtn {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: rgba(15, 23, 42, 0.6);
+    border: none;
+    color: white;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 10;
+    font-size: 12px;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+}
+
+.removePreviewBtn:hover {
+    background: #ef4444;
+    transform: scale(1.1);
+    color: white;
 }

@@ -8,11 +8,18 @@ export const uploadImage = async (file: File): Promise<string> => {
     });
     
     let url = response.data.url;
-    // Forzar HTTPS para evitar errores de Mixed Content en producción
-    url = url.replace('http://mantenere-backend', 'https://mantenere-backend');
-    // Corregir imágenes subidas en local que hayan quedado con la IP
-    url = url.replace('http://127.0.0.1:8085', 'https://mantenere-backend-production.up.railway.app');
-    url = url.replace('http://localhost:8085', 'https://mantenere-backend-production.up.railway.app');
+    const backendBaseUrl = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8085/api').replace(/\/api\/?$/, '');
+    
+    if (!backendBaseUrl.includes('localhost') && !backendBaseUrl.includes('127.0.0.1')) {
+        url = url.replace('http://mantenere-backend', 'https://mantenere-backend');
+        url = url.replace('http://127.0.0.1:8085', 'https://mantenere-backend-production.up.railway.app');
+        url = url.replace('http://localhost:8085', 'https://mantenere-backend-production.up.railway.app');
+    } else {
+        url = url.replace('https://mantenere-backend-production.up.railway.app', backendBaseUrl);
+        url = url.replace('http://mantenere-backend', backendBaseUrl);
+        url = url.replace('http://localhost:8085', backendBaseUrl);
+        url = url.replace('http://127.0.0.1:8085', backendBaseUrl);
+    }
     
     return url;
 };
@@ -20,10 +27,19 @@ export const uploadImage = async (file: File): Promise<string> => {
 // Función helper para corregir URLs en toda la respuesta
 const fixUrls = (data: any) => {
     if (!data) return data;
+    const backendBaseUrl = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8085/api').replace(/\/api\/?$/, '');
     let stringified = JSON.stringify(data);
-    stringified = stringified.replace(/http:\/\/mantenere-backend/g, 'https://mantenere-backend');
-    stringified = stringified.replace(/http:\/\/127\.0\.0\.1:8085/g, 'https://mantenere-backend-production.up.railway.app');
-    stringified = stringified.replace(/http:\/\/localhost:8085/g, 'https://mantenere-backend-production.up.railway.app');
+    
+    if (!backendBaseUrl.includes('localhost') && !backendBaseUrl.includes('127.0.0.1')) {
+        stringified = stringified.replace(/http:\/\/mantenere-backend/g, 'https://mantenere-backend');
+        stringified = stringified.replace(/http:\/\/127\.0\.0\.1:8085/g, 'https://mantenere-backend-production.up.railway.app');
+        stringified = stringified.replace(/http:\/\/localhost:8085/g, 'https://mantenere-backend-production.up.railway.app');
+    } else {
+        stringified = stringified.replace(/https:\/\/mantenere-backend-production\.up\.railway\.app/g, backendBaseUrl);
+        stringified = stringified.replace(/http:\/\/mantenere-backend/g, backendBaseUrl);
+        stringified = stringified.replace(/http:\/\/localhost:8085/g, backendBaseUrl);
+        stringified = stringified.replace(/http:\/\/127\.0\.0\.1:8085/g, backendBaseUrl);
+    }
     return JSON.parse(stringified);
 };
 

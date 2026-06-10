@@ -3,10 +3,19 @@ import api from "./api";
 // Función helper para corregir URLs en toda la respuesta
 const fixUrls = (data: any) => {
     if (!data) return data;
+    const backendBaseUrl = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8085/api').replace(/\/api\/?$/, '');
     let stringified = JSON.stringify(data);
-    stringified = stringified.replace(/http:\/\/mantenere-backend/g, 'https://mantenere-backend');
-    stringified = stringified.replace(/http:\/\/127\.0\.0\.1:8085/g, 'https://mantenere-backend-production.up.railway.app');
-    stringified = stringified.replace(/http:\/\/localhost:8085/g, 'https://mantenere-backend-production.up.railway.app');
+    
+    if (!backendBaseUrl.includes('localhost') && !backendBaseUrl.includes('127.0.0.1')) {
+        stringified = stringified.replace(/http:\/\/mantenere-backend/g, 'https://mantenere-backend');
+        stringified = stringified.replace(/http:\/\/127\.0\.0\.1:8085/g, 'https://mantenere-backend-production.up.railway.app');
+        stringified = stringified.replace(/http:\/\/localhost:8085/g, 'https://mantenere-backend-production.up.railway.app');
+    } else {
+        stringified = stringified.replace(/https:\/\/mantenere-backend-production\.up\.railway\.app/g, backendBaseUrl);
+        stringified = stringified.replace(/http:\/\/mantenere-backend/g, backendBaseUrl);
+        stringified = stringified.replace(/http:\/\/localhost:8085/g, backendBaseUrl);
+        stringified = stringified.replace(/http:\/\/127\.0\.0\.1:8085/g, backendBaseUrl);
+    }
     return JSON.parse(stringified);
 };
 
