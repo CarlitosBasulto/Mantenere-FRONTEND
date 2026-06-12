@@ -50,14 +50,13 @@ const ListaSolicitudes: React.FC = () => {
 
                     if (isTecnico) {
                         const status = (j.estado || "").toLowerCase();
-                        // El técnico solo debe ver lo que tiene activamente para TRABAJAR (Asignado, En Proceso)
-                        // EXCLUIMOS: Finalizado, Cancelado, En Espera (Diagnóstico terminado), Solicitud (Aún es visita), Cotización Enviada
+                        // El técnico solo debe ver lo que tiene activamente para TRABAJAR (Asignado, En Proceso) y Propuestas (Cotización Enviada)
+                        // EXCLUIMOS: Finalizado, Cancelado, En Espera (Diagnóstico terminado), Solicitud (Aún es visita)
                         return assignedToMe && 
                                status !== 'finalizado' && 
                                status !== 'cancelado' && 
                                status !== 'en espera' && 
                                status !== 'solicitud' && 
-                               status !== 'cotización enviada' &&
                                status !== 'pendiente';
                     }
 
@@ -169,17 +168,41 @@ const ListaSolicitudes: React.FC = () => {
         if (status === "finalizado") {
             barClass = styles.green;
             text = "Finalizado";
+        } else if (status === "rechazado por técnico" || status === "rechazado por tecnico") {
+            barClass = styles.red;
+            text = user?.role === 'tecnico' ? "RECHAZASTE ESTA ASIGNACIÓN" : "RECHAZADO POR TÉCNICO";
         } else if (job.tipo === "SOS") {
             barClass = styles.red;
             text = "¡ALERTA SOS!";
         } else if (status.includes("cotizaci") || status === "asignado" || (job.tecnico && job.tecnico !== "Sin asignar" && job.tecnico !== "Sin Asignar")) {
-            barClass = styles.blue;
             const hasTech = job.tecnico && job.tecnico !== "Sin asignar" && job.tecnico !== "Sin Asignar";
-            text = hasTech
-                ? ((user?.role === 'tecnico' && (job.visitado || job.tipo === 'Trabajo'))
-                    ? "Se te asignó este trabajo 🛠️"
-                    : "TÉCNICO ASIGNADO")
-                : "Cotización Enviada";
+
+            if (user?.role === 'tecnico') {
+                if (status === 'cotización enviada' || status === 'cotización rechazada') {
+                    barClass = styles.orange;
+                    text = "EN PROCESO DE COTIZACIÓN";
+                } else if (status === 'cotización aceptada') {
+                    barClass = styles.blue;
+                    text = "COTIZACIÓN ACEPTADA";
+                } else if (hasTech) {
+                    barClass = styles.blue;
+                    text = job.tipo === 'Visita' ? "ASIGNACIÓN DE VISITA" : "SE TE ASIGNÓ ESTE TRABAJO 🛠️";
+                } else {
+                    barClass = styles.orange;
+                    text = "Cotización Pendiente";
+                }
+            } else {
+                if (status.includes('cotizaci')) {
+                    barClass = styles.orange;
+                    text = "EN PROCESO DE COTIZACIÓN";
+                } else if (hasTech) {
+                    barClass = styles.blue;
+                    text = "TÉCNICO ASIGNADO";
+                } else {
+                    barClass = styles.blue;
+                    text = "COTIZACIÓN DEL TRABAJO";
+                }
+            }
         } else {
             text = job.estado;
         }
@@ -223,7 +246,10 @@ const ListaSolicitudes: React.FC = () => {
                         <div
                             key={req.id}
                             className={styles.jobCard}
-                            onClick={() => navigate(user?.role === 'tecnico' ? `/tecnico/trabajo-detalle/${req.id}` : `/menu/trabajo-detalle/${req.id}`)}
+                            onClick={() => {
+                                const basePath = user?.role === 'tecnico' ? '/tecnico' : (user?.role === 'autonomo' ? '/autonomo' : '/menu');
+                                navigate(`${basePath}/trabajo-detalle/${req.id}`);
+                            }}
                         >
                             {/* BARRA DE ESTADO SUPERIOR */}
                             {renderStatusBar(req)}
@@ -290,7 +316,11 @@ const ListaSolicitudes: React.FC = () => {
                                             <div className={styles.actionBtns} onClick={(e) => e.stopPropagation()}>
                                                 <button
                                                     className={styles.assignBtn}
-                                                    onClick={(e) => { e.stopPropagation(); navigate(`/menu/trabajo-detalle/${req.id}`); }}
+                                                    onClick={(e) => { 
+                                                        e.stopPropagation(); 
+                                                        const basePath = user?.role === 'tecnico' ? '/tecnico' : (user?.role === 'autonomo' ? '/autonomo' : '/menu');
+                                                        navigate(`${basePath}/trabajo-detalle/${req.id}`); 
+                                                    }}
                                                     title="Asignar Técnico"
                                                 >
                                                     <HiOutlineUserPlus size={15} />

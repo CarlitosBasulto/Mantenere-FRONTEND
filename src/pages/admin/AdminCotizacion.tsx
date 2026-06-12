@@ -2,6 +2,7 @@ import React, { useState, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import styles from "./AdminCotizacion.module.css";
 import { useModal } from "../../context/ModalContext";
+import { useAuth } from "../../context/AuthContext";
 import { HiOutlineDocumentAdd } from "react-icons/hi";
 import { updateEstadoTrabajo } from "../../services/trabajosService";
 import { saveCotizacion } from "../../services/cotizacionesService";
@@ -10,6 +11,7 @@ const AdminCotizacion: React.FC = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const { showAlert } = useModal();
+    const { user } = useAuth();
 
     const [costo, setCosto] = useState("");
     const [notas, setNotas] = useState("");
@@ -78,7 +80,8 @@ const AdminCotizacion: React.FC = () => {
             window.dispatchEvent(new Event('storage'));
 
             showAlert("Éxito", "Cotización enviada exitosamente al cliente.", "success");
-            navigate(`/menu/trabajo-detalle/${id}`);
+            const basePath = user?.role === 'tecnico' ? '/tecnico' : (user?.role === 'autonomo' ? '/autonomo' : '/menu');
+            navigate(`${basePath}/trabajo-detalle/${id}`);
         } catch (error: any) {
             console.error("Error al enviar cotización:", error);
             showAlert("Error de Servidor", "No se pudo guardar la cotización en la base de datos: " + (error.response?.data?.message || error.message), "error");

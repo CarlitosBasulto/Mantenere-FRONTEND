@@ -21,7 +21,8 @@ import {
     HiOutlineXMark,
     HiOutlineCheckCircle,
     HiOutlineXCircle,
-    HiOutlineDocumentText
+    HiOutlineDocumentText,
+    HiOutlineArrowLeft
 } from "react-icons/hi2";
 import ReporteDetailModal from "../../components/modals/ReporteDetailModal";
 import { getTrabajo, updateEstadoTrabajo, assignTrabajador, updateTrabajo } from "../../services/trabajosService";
@@ -33,6 +34,8 @@ import { getReporteByTrabajoId } from "../../services/reportesService";
 import { useModal } from "../../context/ModalContext";
 import { getNegocio } from "../../services/negociosService";
 import LevantamientoModal from "../../components/LevantamientoModal";
+import CotizacionPDFPreview from "../../components/modals/CotizacionPDFPreview";
+import ChatTrabajo from "../../components/ChatTrabajo";
 
 
 export interface CotizacionData {
@@ -153,13 +156,19 @@ const AdminDetalleTrabajo: React.FC = () => {
     }, [location.search]);
 
     // Modal Imagen Full-Screen
-    const [selectedZoomImage, setSelectedZoomImage] = useState<string | null>(null);
+    const [showZoomModal, setShowZoomModal] = useState<boolean>(false);
+    
+    // Modal PDF Preview
+    const [showPDFPreview, setShowPDFPreview] = useState<boolean>(false);
 
     // MOCK DATA
     const [trabajo, setTrabajo] = useState<Trabajo | null>(null);
     const [subTareas, setSubTareas] = useState<SubTarea[]>([]);
     const [reporteFinal, setReporteFinal] = useState<any>(null);
     // const [isFromNewReq, setIsFromNewReq] = useState(false);
+    
+    // Historial Tab State
+    const [expandedHistoryMonths, setExpandedHistoryMonths] = useState<Record<string, boolean>>({});
 
     // MODAL DE SEGURIDAD
     const [isSecurityModalOpen, setIsSecurityModalOpen] = useState(false);
@@ -580,6 +589,59 @@ const AdminDetalleTrabajo: React.FC = () => {
         setIsModalOpen(false);
     };
 
+    const handleAceptarAsignacion = async () => {
+        try {
+            await updateEstadoTrabajo(trabajo.id, { estado: "En Espera" });
+            setTrabajo((prev: any) => prev ? { ...prev, estado: "En Espera" } : prev);
+            showAlert("Trabajo Aceptado", "Has aceptado la asignación. Ahora puedes iniciar el trabajo o visita cuando llegues.", "success");
+        } catch (error) {
+            console.error("Error aceptando asignación:", error);
+            showAlert("Error", "No se pudo aceptar la asignación.", "error");
+        }
+    };
+
+    const handleRechazarAsignacion = async () => {
+        const motivo = prompt("Por favor, ingresa el motivo del rechazo:");
+        if (!motivo) return;
+
+        try {
+            const newState = (trabajo.tipo === "SOS" || trabajo.tipo === "Nueva Solicitud") ? "Solicitud" : "Cotización Aceptada";
+            await updateEstadoTrabajo(trabajo.id, { estado: newState, tecnico: "Sin asignar" });
+            
+            const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+            const token = localStorage.getItem('token');
+            const chatMessage = `❌ ASIGNACIÓN RECHAZADA\nMotivo: ${motivo}`;
+            await fetch(`${API_URL}/trabajos/${trabajo.id}/chat`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: chatMessage })
+            });
+
+            setTrabajo((prev: any) => prev ? { ...prev, estado: newState, tecnico: "Sin asignar" } : prev);
+            showAlert("Trabajo Rechazado", "Has rechazado el trabajo y se ha notificado al administrador.", "info");
+        } catch (error) {
+            console.error("Error rechazando asignación:", error);
+            showAlert("Error", "No se pudo rechazar la asignación.", "error");
+        }
+    };
+
+    const handleEmpezarTrabajoTipo = async (tipo: 'Visita' | 'Trabajo') => {
+        try {
+            const isVisita = tipo === 'Visita';
+            const nuevoTitulo = trabajo.titulo ? trabajo.titulo.replace("(Visita)", "").replace("(Reparación)", "").trim() + (isVisita ? " (Visita)" : " (Reparación)") : (isVisita ? "Nueva Visita" : "Nueva Reparación");
+            
+            await updateEstadoTrabajo(trabajo.id, { estado: "En Proceso", visitado: !isVisita });
+            await updateTrabajo(trabajo.id, { tipo, titulo: nuevoTitulo });
+
+            setTrabajo((prev: any) => prev ? { ...prev, estado: "En Proceso", tipo, titulo: nuevoTitulo, visitado: !isVisita } : prev);
+            setActiveTab(isVisita ? 'Registro' : 'Trabajo');
+            showAlert("Actividad Iniciada", `Has iniciado como ${tipo}. Ahora puedes agregar registros.`, "success");
+        } catch (error) {
+            console.error("Error iniciando trabajo:", error);
+            showAlert("Error", "No se pudo iniciar la actividad.", "error");
+        }
+    };
+
     const handleAddTask = async () => {
         try {
             if (editingTaskId) {
@@ -785,9 +847,17 @@ const AdminDetalleTrabajo: React.FC = () => {
 
                         // Notificar al Admin via BD
                         try {
+                            if (trabajo.clienteUserId) {
+                                await createNotificacion({
+                                    user_id: trabajo.clienteUserId,
+                                    titulo: '📍 Visita Finalizada',
+                                    mensaje: `El técnico ${user?.name || 'Sistema'} ha concluido la visita en ${trabajo.sucursal || 'la sucursal'}. Ya puede enviar cotización al cliente.`,
+                                    enlace: `/menu/trabajo-detalle/${trabajo.id}`
+                                });
+                            }
                             await createNotificacionByRole({
                                 role: 'admin',
-                                titulo: '🔍 Visita Finalizada',
+                                titulo: '📍 Visita Finalizada',
                                 mensaje: `El técnico ${user?.name || 'Sistema'} ha concluido la visita en ${trabajo.sucursal || 'la sucursal'}. Ya puede enviar cotización al cliente.`,
                                 enlace: `/menu/trabajo-detalle/${trabajo.id}`
                             });
@@ -805,6 +875,14 @@ const AdminDetalleTrabajo: React.FC = () => {
 
                         // Notificar al Admin que el trabajo fue finalizado
                         try {
+                            if (trabajo.clienteUserId) {
+                                await createNotificacion({
+                                    user_id: trabajo.clienteUserId,
+                                    titulo: '✅ Trabajo Finalizado',
+                                    mensaje: `El técnico ${user?.name || 'Sistema'} finalizó el trabajo en ${trabajo.sucursal || 'la sucursal'}. El reporte ya está disponible.`,
+                                    enlace: `/menu/trabajo-detalle/${trabajo.id}`
+                                });
+                            }
                             await createNotificacionByRole({
                                 role: 'admin',
                                 titulo: '✅ Trabajo Finalizado',
@@ -851,50 +929,67 @@ const AdminDetalleTrabajo: React.FC = () => {
         }
     };
 
-    const handleEnviarCotizacion = async (keepOpen: boolean = false) => {
+    const handleEnviarCotizacion = async (action: 'send' | 'accept_and_assign' = 'send') => {
         if (!costo || !trabajo) {
             showAlert('Campos Incompletos', 'Por favor, ingresa el monto de la cotización.', 'info');
             return;
         }
         try {
-            if (cotizaciones.length === 0) {
-                await updateEstadoTrabajo(trabajo.id, { estado: "Cotización Enviada" });
-                setTrabajo((prev: any) => prev ? { ...prev, estado: "Cotización Enviada" } : prev);
-            }
+            const newState = action === 'accept_and_assign' ? "Cotización Aceptada" : "Cotización Enviada";
+            await updateEstadoTrabajo(trabajo.id, { estado: newState });
+            setTrabajo((prev: any) => prev ? { ...prev, estado: newState } : prev);
+            
             const formData = new FormData();
             formData.append('trabajo_id', trabajo.id.toString());
             formData.append('monto', costo);
             formData.append('descripcion', notas);
-            formData.append('estado', "Pendiente");
-            if (archivoFile) {
-                formData.append('archivo', archivoFile);
-            }
+            formData.append('estado', action === 'accept_and_assign' ? "Aprobada" : "Pendiente");
+
             const savedCotiz = await saveCotizacion(formData as any);
             setCotizaciones(prev => [...prev, savedCotiz]);
 
-            // Notificar al cliente que recibió una cotización
-            const clientUserId = (trabajo as any).clienteUserId;
-            if (clientUserId) {
-                try {
-                    await createNotificacion({
-                        user_id: clientUserId,
-                        titulo: '📄 Cotización Recibida',
-                        mensaje: `Has recibido una propuesta de presupuesto para tu sucursal "${trabajo.sucursal || 'tu sucursal'}". Revísala en la sección de Cotizaciones.`,
-                        enlace: `/cliente/cotizaciones`
-                    });
-                } catch (notiErr) {
-                    console.error("Error notificando al cliente de cotización:", notiErr);
-                }
-            }
-
             // RESET FIELDS
             setCosto(""); setNotas(""); setArchivoFile(null); setNombreArchivo("");
-            
-            if (!keepOpen) {
-                setShowAddQuoteForm(false);
-            }
+            setShowAddQuoteForm(false);
 
-            showAlert('Cotización Agregada', `Cotización #${cotizaciones.length + 1} agregada y enviada al cliente.`, 'success');
+            if (action === 'accept_and_assign') {
+                showAlert('Cotización Aceptada', `La propuesta fue guardada. Por favor asigna un técnico a continuación.`, 'success');
+                handleOpenAssignModal();
+            } else {
+                // Enviar propuesta al chat
+                const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+                const token = localStorage.getItem('token');
+                try {
+                    const chatMessage = `PROPUESTA DE PRECIO: $${costo}\nNotas: ${notas || "Ninguna"}`;
+                    await fetch(`${API_URL}/trabajos/${trabajo.id}/chat`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ message: chatMessage })
+                    });
+                } catch (err) {
+                    console.error("Error enviando propuesta al chat:", err);
+                }
+
+                // Notificar al técnico
+                const tecnicoUserId = (trabajo as any).tecnicoUserId || (trabajo as any).trabajador?.user_id || (trabajo as any).trabajador_id;
+                if (tecnicoUserId) {
+                    try {
+                        await createNotificacion({
+                            user_id: tecnicoUserId,
+                            titulo: '📄 Nueva Propuesta de Precio',
+                            mensaje: `El administrador ha ajustado el precio para el trabajo en "${trabajo.sucursal || 'la sucursal'}". Revisa la propuesta.`,
+                            enlace: `/tecnico/trabajo-detalle/${trabajo.id}`
+                        });
+                    } catch (err) {
+                        console.error("Error enviando notificación al técnico:", err);
+                    }
+                }
+
+                showAlert('Propuesta Enviada', `La propuesta fue enviada al técnico para su revisión.`, 'success');
+            }
         } catch (error: any) {
             showAlert('Error', error.response?.data?.message || error.message, 'error');
         }
@@ -985,6 +1080,22 @@ const AdminDetalleTrabajo: React.FC = () => {
                 mensaje: `El cliente ha rechazado una opción de presupuesto para "${trabajo.sucursal || 'Servicio'}". Motivo: ${rejectionReason}`,
                 enlace: `/menu/trabajo-detalle/${trabajo.id}?tab=cotizacion`
             });
+
+            // 2.5 Enviar el motivo de rechazo al chat automáticamente
+            const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+            const token = localStorage.getItem('token');
+            try {
+                await fetch(`${API_URL}/trabajos/${trabajo.id}/chat`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ message: `MOTIVO DE RECHAZO: ${rejectionReason}` })
+                });
+            } catch (err) {
+                console.error("Error al enviar mensaje de chat automático:", err);
+            }
 
             // 3. Actualizar estado local
             setCotizaciones(prev => prev.map(c => c.id === quoteToReject ? { ...c, estado: "Rechazada" as const } : c));
@@ -1092,12 +1203,39 @@ const AdminDetalleTrabajo: React.FC = () => {
                 </div>
 
                 <div style={{ padding: '0 0 0 63px' }}>
-                    <p className={styles.taskDesc} style={{ color: '#475569', fontSize: '15px', marginBottom: '15px', fontWeight: 'normal' }}>
-                        {tarea.descripcion}
-                    </p>
+                    {(() => {
+                        const descText = tarea.descripcion || '';
+                        const parts = descText.split(/Notas de cotizaci[óo]n:\s*-?/i);
+                        const mainDesc = parts[0].trim();
+                        const materialsText = parts.length > 1 ? parts.slice(1).join('Notas de cotización:').trim() : '';
+
+                        return (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginBottom: '15px' }}>
+                                {mainDesc && (
+                                    <p className={styles.taskDesc} style={{ color: '#475569', fontSize: '15px', margin: 0, fontWeight: 'normal', lineHeight: '1.6' }}>
+                                        {mainDesc}
+                                    </p>
+                                )}
+                                {materialsText && (
+                                    <div style={{ background: '#f8fafc', padding: '15px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '10px', letterSpacing: '0.5px' }}>
+                                            <HiOutlineClipboardDocumentList size={14} /> Materiales Solicitados
+                                        </span>
+                                        <ul style={{ margin: 0, paddingLeft: '20px', color: '#334155', fontSize: '13px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                            {materialsText.split('-').map((item, index) => {
+                                                const cleanItem = item.trim();
+                                                if (!cleanItem) return null;
+                                                return <li key={index} style={{ lineHeight: '1.4' }}>{cleanItem}</li>;
+                                            })}
+                                        </ul>
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })()}
 
                     {/* BOTÓN DE ACCIÓN PARA TÉCNICO */}
-                    {isInteractive && tarea.estado !== 'Completa' && (
+                    {isInteractive && tarea.estado !== 'Completa' && user?.role === 'tecnico' && (
                         <div style={{ marginTop: '10px' }}>
                             <button
                                 style={{
@@ -1262,7 +1400,16 @@ const AdminDetalleTrabajo: React.FC = () => {
                 <div className={styles.contentWrapper}>
 
                     <div className={styles.headerContainer}>
-                        <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                            <div 
+                                onClick={() => navigate(-1)} 
+                                style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '5px' }}
+                                title="Volver atrás"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="#1e293b" strokeWidth={2.5}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+                                </svg>
+                            </div>
                             <h1 className={styles.pageTitle}>
                                 {activeTab === 'Trabajo' ? 'tareas por realizar' :
                                     (activeTab === 'Registro' ? 'Registro de Actividad' :
@@ -1274,16 +1421,15 @@ const AdminDetalleTrabajo: React.FC = () => {
                     {/* STEPS LOGIC */}
                     {(() => {
                         const getStepIndex = (estado: string) => {
-                            if (estado === "Finalizado") return 4;
-                            if (["En Proceso"].includes(estado)) return 3;
-                            const isAuthTech = user?.role === 'tecnico';
-                            // Usamos includes para manejar los estados que tienen texto extra
-                            if (estado.includes("Cotización") || estado.includes("Asignado")) {
-                                if (estado === "Asignado" && trabajo.visitado) return 3;
-                                if (estado.includes("Cotización Aceptada") || estado.includes("Cotización Aprobada")) {
-                                    if (isAuthTech || (trabajo.tecnico !== "Sin asignar" && trabajo.tecnico !== "Sin Asignar")) return 3;
+                            if (estado === "Finalizado") return 5;
+                            if (estado.includes("Cotización")) return 3;
+                            
+                            if (["En Proceso", "En Espera", "Asignado"].includes(estado)) {
+                                if (trabajo.tipo === "Visita") {
+                                    if (trabajo.visitado && estado === "En Espera") return 3; // Finished visit, waiting for quote
+                                    return 2;
                                 }
-                                return 2;
+                                return 4; // Trabajo or SOS
                             }
                             return 1;
                         };
@@ -1291,10 +1437,11 @@ const AdminDetalleTrabajo: React.FC = () => {
                         return (
                             <div style={{ padding: '8px 15px', background: '#fff', borderRadius: '12px', marginBottom: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.02)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid #f0f0f0' }}>
                                 {[
-                                    { id: 1, label: "Solicitud", icon: "📥" },
-                                    { id: 2, label: "Cotización", icon: "👨‍🔧" },
-                                    { id: 3, label: "En Proceso", icon: "🛠️" },
-                                    { id: 4, label: "Finalizado", icon: "✅" }
+                                    { id: 1, label: "Solicitud", icon: "📋" },
+                                    { id: 2, label: "Visita", icon: "📍" },
+                                    { id: 3, label: "Cotización", icon: "💲" },
+                                    { id: 4, label: "En Proceso", icon: "🛠️" },
+                                    { id: 5, label: "Finalizado", icon: "✅" }
                                 ].map((step, index, arr) => {
                                     const isActive = currentStep === step.id;
                                     const isCompleted = currentStep > step.id;
@@ -1306,8 +1453,8 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                     width: '28px',
                                                     height: '28px',
                                                     borderRadius: '50%',
-                                                    background: isCompleted ? '#4caf50' : (isActive ? '#f26522' : '#f5f5f5'),
-                                                    color: '#fff',
+                                                    background: isCompleted ? '#1e293b' : (isActive ? '#f26522' : '#f8fafc'),
+                                                    color: isCompleted || isActive ? '#fff' : '#94a3b8',
                                                     display: 'flex',
                                                     alignItems: 'center',
                                                     justifyContent: 'center',
@@ -1315,31 +1462,31 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                     transition: 'all 0.5s ease',
                                                     animation: isActive ? 'pulseTracker 2s infinite' : 'none',
                                                     transform: isActive ? 'scale(1.1)' : 'scale(1)',
-                                                    boxShadow: isCompleted ? '0 2px 6px rgba(76, 175, 80, 0.2)' : (isActive ? '0 2px 8px rgba(242, 101, 34, 0.3)' : 'none'),
-                                                    border: !isCompleted && !isActive ? '1.5px solid #e0e0e0' : 'none'
+                                                    boxShadow: isCompleted ? '0 2px 6px rgba(30, 41, 59, 0.3)' : (isActive ? '0 4px 12px rgba(242, 101, 34, 0.3)' : 'none'),
+                                                    border: !isCompleted && !isActive ? '1.5px solid #cbd5e1' : 'none'
                                                 }}>
-                                                    {isCompleted ? "✓" : step.icon}
+                                                    {isCompleted ? '✓' : step.id}
                                                 </div>
                                                 <span style={{
-                                                    marginTop: '4px',
-                                                    fontSize: '10px',
-                                                    fontWeight: (isActive || isCompleted) ? '700' : '600',
-                                                    color: isCompleted ? '#2e7d32' : (isActive ? '#d89b00' : '#94a3b8'),
+                                                    marginTop: '6px',
+                                                    fontSize: '11px',
+                                                    fontWeight: isCompleted || isActive ? '700' : '500',
+                                                    color: isCompleted ? '#1e293b' : (isActive ? '#f26522' : '#94a3b8'),
                                                     textAlign: 'center',
-                                                    transition: 'color 0.4s ease'
+                                                    transition: 'all 0.3s ease'
                                                 }}>
                                                     {step.label}
                                                 </span>
                                             </div>
 
                                             {index < arr.length - 1 && (
-                                                <div style={{ flex: 1, height: '3px', background: '#f5f5f5', borderRadius: '2px', position: 'relative', margin: '0 4px', bottom: '8px', overflow: 'hidden' }}>
+                                                <div style={{ flex: 1, height: '4px', background: '#e2e8f0', borderRadius: '2px', position: 'relative', margin: '0 8px', bottom: '8px', overflow: 'hidden' }}>
                                                     <div style={{
                                                         position: 'absolute',
                                                         top: 0,
                                                         left: 0,
                                                         height: '100%',
-                                                        background: '#4caf50',
+                                                        background: '#1e293b',
                                                         borderRadius: '2px',
                                                         width: isCompleted ? '100%' : '0%',
                                                         transition: 'width 1s cubic-bezier(0.4, 0, 0.2, 1)'
@@ -1366,9 +1513,18 @@ const AdminDetalleTrabajo: React.FC = () => {
                                     return tabName === 'Datos' || tabName === 'Historial';
                                 }
                                 if (tabName === 'Cotización') {
-                                    return user?.role === 'admin' && trabajo.visitado;
+                                    if (user?.role === 'tecnico') {
+                                        return trabajo.estado === 'Cotización Enviada' || trabajo.estado === 'Cotización Rechazada';
+                                    }
+                                    return user?.role === 'admin' || user?.role === 'autonomo';
                                 }
-                                return tabName !== 'Trabajo' || trabajo?.tipo !== "Visita" || user?.role === 'admin' || user?.role === 'tecnico';
+                                if (tabName === 'Registro') {
+                                    return trabajo.tipo === 'Visita';
+                                }
+                                if (tabName === 'Trabajo') {
+                                    return trabajo.tipo === 'Trabajo' || trabajo.tipo === 'SOS';
+                                }
+                                return true;
                             })
                             .map((tabName) => (
                                 <button
@@ -1385,7 +1541,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                     tabName === 'Historial' ? <HiOutlineClock size={22} /> :
                                                         tabName === 'Cotización' ? <HiOutlineCurrencyDollar size={22} /> : <HiOutlineInformationCircle size={22} />}
                                     </span>
-                                    <span className={styles.tabText}>{tabName}</span>
+                                    <span className={styles.tabText}>{tabName === 'Datos' ? 'Trabajos' : tabName}</span>
 
                                     {/* INDICADOR DE NOTIFICACIÓN (ROJO) PARA COTIZACIÓN PENDIENTE */}
                                     {tabName === 'Cotización' && (
@@ -1426,17 +1582,17 @@ const AdminDetalleTrabajo: React.FC = () => {
                     {activeTab === 'Datos' && (
                         <div className={styles.bentoGrid}>
                             {/* Card 1: Información General (8/12) */}
-                            <div 
-                                className={`${styles.bentoCard} ${styles.colSpan8}`}
-                                onClick={() => setIsSucursalModalOpen(true)}
-                                style={{ cursor: 'pointer', transition: 'transform 0.2s', ':hover': { transform: 'scale(1.02)' } } as any}
-                                title="Ver detalles de contacto y ubicación"
-                            >
-                                <div className={styles.cardHeader}>
+                            <div className={`${styles.bentoCard} ${styles.colSpan8}`}>
+                                <div 
+                                    className={styles.cardHeader} 
+                                    onClick={() => setIsSucursalModalOpen(true)} 
+                                    style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+                                    title="Ver detalles de contacto y ubicación"
+                                >
                                     <div className={`${styles.iconBox} ${styles.bgBlue}`}>
                                         <HiOutlineBuildingOffice2 size={20} />
                                     </div>
-                                    <h3 className={styles.cardTitle}>Sucursal</h3>
+                                    <h3 className={styles.cardTitle} style={{ cursor: 'pointer', textDecoration: 'underline' }}>Sucursal</h3>
                                 </div>
                                 <div className={styles.bentoContent}>
                                     <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '15px' }}>
@@ -1449,21 +1605,26 @@ const AdminDetalleTrabajo: React.FC = () => {
                                         </div>
                                     </div>
 
-                                    {trabajo.descripcion && (
-                                        <div className={styles.descriptionBox}>
-                                            <span className={styles.bentoLabel} style={{ marginBottom: '4px', color: '#334155' }}>Problema Reportado</span>
-                                            <p className={styles.descriptionQuote}>"{trabajo.descripcion}"</p>
+                                    {(trabajo.descripcion || trabajo.foto_url) && (
+                                        <div 
+                                            className={styles.descriptionBox}
+                                            onClick={() => setShowZoomModal(true)}
+                                            style={{ cursor: 'pointer', transition: 'transform 0.2s', ':hover': { transform: 'scale(1.02)' } } as any}
+                                            title="Ver detalles del problema"
+                                        >
+                                            {trabajo.descripcion && (
+                                                <>
+                                                    <span className={styles.bentoLabel} style={{ marginBottom: '4px', color: '#334155' }}>Problema Reportado</span>
+                                                    <p className={styles.descriptionQuote}>"{trabajo.descripcion}"</p>
+                                                </>
+                                            )}
                                             {trabajo.foto_url && (
                                                 <div style={{ marginTop: '10px' }}>
                                                     <span className={styles.bentoLabel} style={{ marginBottom: '4px', color: '#334155', display: 'block' }}>Foto Adjunta:</span>
                                                     <img 
                                                         src={trabajo.foto_url} 
                                                         alt="Evidencia SOS" 
-                                                        style={{ width: '120px', height: '120px', objectFit: 'cover', borderRadius: '8px', cursor: 'pointer', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }} 
-                                                        onClick={(e) => {
-                                                            e.stopPropagation(); // Evitar abrir modal de sucursal
-                                                            setSelectedZoomImage(trabajo.foto_url || null);
-                                                        }} 
+                                                        style={{ width: '120px', height: '120px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }} 
                                                     />
                                                 </div>
                                             )}
@@ -1578,6 +1739,31 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                 {trabajo.tecnico && trabajo.tecnico !== 'Sin asignar' && trabajo.tecnico !== 'Sin Asignar' ? `👤 Técnico: ${trabajo.tecnico}` : '👤 Asignar Técnico'}
                                             </button>
                                         )
+                                    )}
+
+                                    {/* BOTONES PARA TÉCNICO: Aceptar, Rechazar, Empezar */}
+                                    {user?.role === 'tecnico' && (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%', marginTop: '12px' }}>
+                                            {trabajo.estado === 'Asignado' && (
+                                                <>
+                                                    <button onClick={handleAceptarAsignacion} style={{ padding: '12px 20px', background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', color: '#fff', border: 'none', borderRadius: '12px', fontSize: '14px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 4px 12px rgba(16,185,129,0.25)', transition: 'all 0.2s ease', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }} onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)', e.currentTarget.style.boxShadow = '0 6px 16px rgba(16,185,129,0.35)')} onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)', e.currentTarget.style.boxShadow = '0 4px 12px rgba(16,185,129,0.25)')}>
+                                                        <span>✅</span> Aceptar Trabajo
+                                                    </button>
+                                                    <button onClick={handleRechazarAsignacion} style={{ padding: '12px 20px', background: '#fff', color: '#ef4444', border: '1px solid #fecaca', borderRadius: '12px', fontSize: '14px', fontWeight: '700', cursor: 'pointer', transition: 'all 0.2s ease', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }} onMouseEnter={e => (e.currentTarget.style.background = '#fef2f2')} onMouseLeave={e => (e.currentTarget.style.background = '#fff')}>
+                                                        <span>❌</span> Rechazar
+                                                    </button>
+                                                </>
+                                            )}
+                                            {trabajo.estado === 'En Espera' && (
+                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '10px' }}>
+                                                    {trabajo.tipo === 'Visita' ? (
+                                                        <button onClick={() => handleEmpezarTrabajoTipo('Visita')} style={{ padding: '12px 10px', background: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)', color: '#fff', border: 'none', borderRadius: '12px', fontSize: '13px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 4px 12px rgba(30,41,59,0.2)', transition: 'all 0.2s ease' }} onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')} onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}>📍 Iniciar Visita</button>
+                                                    ) : (
+                                                        <button onClick={() => handleEmpezarTrabajoTipo('Trabajo')} style={{ padding: '12px 10px', background: 'linear-gradient(135deg, #f26522 0%, #d14d13 100%)', color: '#fff', border: 'none', borderRadius: '12px', fontSize: '13px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 4px 12px rgba(242,101,34,0.25)', transition: 'all 0.2s ease' }} onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')} onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}>🛠️ Iniciar Trabajo</button>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
                                     )}
                                 </div>
                             </div>
@@ -1725,11 +1911,30 @@ const AdminDetalleTrabajo: React.FC = () => {
 
                                 {/* VISTA ADMIN: columna izquierda (gestión de cotizaciones), columna derecha (actividades del técnico) */}
                                 {user?.role !== 'cliente' && (
-                                    <div className={styles.infoGrid2} style={{ gap: '30px' }}>
-                                        {/* IZQUIERDA: lista + agregar */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                                        {/* SECCIÓN SUPERIOR: Reporte del Técnico */}
+                                        {subTareas.length > 0 && (
+                                            <div style={{ background: '#fff', borderRadius: '24px', padding: '24px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)', border: '2px solid #fef3c7' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '18px', paddingBottom: '14px', borderBottom: '2px solid #fef3c7' }}>
+                                                    <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'linear-gradient(135deg, #f59e0b, #d97706)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                        <span style={{ fontSize: '20px' }}>🔧</span>
+                                                    </div>
+                                                    <div>
+                                                        <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#1e293b' }}>Reporte del Técnico</h3>
+                                                        <p style={{ margin: 0, fontSize: '12px', color: '#94a3b8', fontWeight: '600' }}>Información enviada por el técnico para elaborar la cotización</p>
+                                                    </div>
+                                                    <span style={{ marginLeft: 'auto', background: '#fef3c7', color: '#92400e', fontSize: '12px', fontWeight: '800', padding: '4px 12px', borderRadius: '20px', border: '1px solid #fde68a' }}>
+                                                        {subTareas.length} actividad{subTareas.length !== 1 ? 'es' : ''}
+                                                    </span>
+                                                </div>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                    {subTareas.map(tarea => renderTaskCard(tarea, false))}
+                                                </div>
+                                            </div>
+                                        )}
+                                        <div className={styles.infoGrid2} style={{ gap: '30px' }}>
+                                        {/* IZQUIERDA: lista de cotizaciones y formulario */}
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-
-                                            {/* LISTA DE COTIZACIONES EXISTENTES */}
                                             {cotizaciones.length > 0 && (
                                                 <div style={{ background: '#fff', borderRadius: '24px', padding: '28px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px', paddingBottom: '16px', borderBottom: '2px solid #f8fafc' }}>
@@ -1745,6 +1950,8 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                             const isEditing = editingCotizacion?.id === cotiz.id;
                                                             const estadoBadge: Record<string, string> = { Pendiente: '#fffbeb', Aprobada: '#ecfdf5', Rechazada: '#fef2f2' };
                                                             const estadoText: Record<string, string> = { Pendiente: '#92400e', Aprobada: '#065f46', Rechazada: '#7f1d1d' };
+                                                            const displayEstado = (trabajo?.estado === 'Cotización Aceptada') ? 'Aprobada' : (cotiz.estado || 'Pendiente');
+                                                            const displayEstadoText = (trabajo?.estado === 'Cotización Aceptada') ? 'Aceptada' : (cotiz.estado || 'Pendiente');
                                                             return (
                                                                 <div key={cotiz.id} style={{ background: '#fafafa', border: '1.5px solid #f1f5f9', borderRadius: '18px', padding: '18px' }}>
                                                                     {isEditing ? (
@@ -1776,12 +1983,13 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                                                 {cotiz.descripcion && <p style={{ margin: 0, fontSize: '12px', color: '#64748b', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cotiz.descripcion}</p>}
                                                                             </div>
                                                                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
-                                                                                <span style={{ padding: '4px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: '800', background: estadoBadge[cotiz.estado || 'Pendiente'], color: estadoText[cotiz.estado || 'Pendiente'] }}>
-                                                                                    {cotiz.estado}
+                                                                                <span style={{ padding: '4px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: '800', background: estadoBadge[displayEstado], color: estadoText[displayEstado] }}>
+                                                                                    {displayEstadoText}
                                                                                 </span>
                                                                                 <div style={{ display: 'flex', gap: '6px' }}>
-                                                                                    <button onClick={() => handleEditarCotizacion(cotiz)} style={{ padding: '7px 12px', borderRadius: '10px', background: '#f1f5f9', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: '700', color: '#475569' }}>✏️ Editar</button>
-                                                                                    <button onClick={() => handleEliminarCotizacion(cotiz.id!)} style={{ padding: '7px 12px', borderRadius: '10px', background: '#fef2f2', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: '700', color: '#ef4444' }}>🗑️</button>
+                                                                                    <button onClick={() => { setCosto(cotiz.monto?.toString() || ''); setNotas(cotiz.descripcion || ''); setShowPDFPreview(true); }} style={{ padding: '7px 12px', borderRadius: '10px', background: '#fef2f2', border: '1px solid #fecaca', cursor: 'pointer', fontSize: '13px', fontWeight: '700', color: '#ef4444', display: 'flex', alignItems: 'center', gap: '4px' }}><HiOutlineDocumentText size={16} /> Preview PDF</button>
+                                                                                    {trabajo?.estado !== 'Cotización Aceptada' && trabajo?.estado !== 'Asignado' && <button onClick={() => handleEditarCotizacion(cotiz)} style={{ padding: '7px 12px', borderRadius: '10px', background: '#f1f5f9', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: '700', color: '#475569' }}>✏️ Editar</button>}
+                                                                                    {trabajo?.estado !== 'Cotización Aceptada' && trabajo?.estado !== 'Asignado' && <button onClick={() => handleEliminarCotizacion(cotiz.id!)} style={{ padding: '7px 12px', borderRadius: '10px', background: '#fef2f2', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: '700', color: '#ef4444' }}>🗑️</button>}
                                                                                 </div>
                                                                             </div>
                                                                         </div>
@@ -1793,13 +2001,22 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                 </div>
                                             )}
 
+                                            {/* BOTÓN DE ASIGNACIÓN CUANDO SE ACEPTA LA COTIZACIÓN */}
+                                            {(trabajo?.estado === 'Cotización Aceptada' || trabajo?.estado === 'Cotización Aprobada') && (
+                                                <button onClick={handleOpenAssignModal}
+                                                    style={{ width: '100%', padding: '16px', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', borderRadius: '15px', fontSize: '15px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 8px 20px rgba(16,185,129,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', marginTop: '10px' }}>
+                                                    <span style={{ fontSize: '18px' }}>✅</span> Asignar Trabajo al Técnico
+                                                </button>
+                                            )}
+
                                             {/* BOTÓN PARA DESPLEGAR NUEVA COTIZACIÓN */}
-                                            {!showAddQuoteForm ? (
-                                                <button
-                                                    onClick={() => setShowAddQuoteForm(true)}
-                                                    className={styles.addTaskButton}
-                                                    style={{ borderStyle: 'solid', background: '#fff', height: '100px', justifyContent: 'center' }}
-                                                >
+                                            {trabajo?.estado !== 'Cotización Enviada' && trabajo?.estado !== 'Cotización Aceptada' && trabajo?.estado !== 'Cotización Rechazada' && trabajo?.estado !== 'Asignado' && (
+                                                !showAddQuoteForm ? (
+                                                    <button
+                                                        onClick={() => setShowAddQuoteForm(true)}
+                                                        className={styles.addTaskButton}
+                                                        style={{ borderStyle: 'solid', background: '#fff', height: '100px', justifyContent: 'center' }}
+                                                    >
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                                                         <div className={styles.addTaskIcon} style={{ width: '36px', height: '36px', fontSize: '20px' }}>+</div>
                                                         <span style={{ fontSize: '18px', fontWeight: '800', color: '#1e293b' }}>
@@ -1829,41 +2046,44 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                     </div>
 
                                                     <div style={{ marginBottom: '16px' }}>
-                                                        <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>Notas para el cliente</label>
+                                                        <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>Notas para el técnico</label>
                                                         <textarea placeholder="Ej: Incluye mano de obra y materiales..." value={notas} onChange={e => setNotas(e.target.value)}
-                                                            style={{ width: '100%', padding: '13px 16px', borderRadius: '14px', border: '2px solid #e2e8f0', fontSize: '14px', color: '#475569', minHeight: '90px', resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit', lineHeight: '1.6' }} />
-                                                    </div>
-
-                                                    <input type="file" accept="image/*, .pdf" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileChange} />
-                                                    <div onClick={() => fileInputRef.current?.click()}
-                                                        style={{ border: `2.5px dashed ${archivoFile ? '#10b981' : '#e2e8f0'}`, padding: '22px 16px', borderRadius: '16px', cursor: 'pointer', background: archivoFile ? '#f0fdf4' : '#f8fafc', textAlign: 'center', transition: 'all 0.3s', marginBottom: '16px' }}>
-                                                        <div style={{ fontSize: '28px', marginBottom: '8px' }}>{archivoFile ? '✅' : '📎'}</div>
-                                                        <p style={{ margin: 0, fontWeight: '700', fontSize: '13px', color: archivoFile ? '#059669' : '#64748b' }}>
-                                                            {archivoFile ? `✓ ${nombreArchivo}` : 'Adjuntar PDF o imagen'}
-                                                        </p>
-                                                        {!archivoFile && <p style={{ margin: '4px 0 0 0', fontSize: '11px', color: '#94a3b8' }}>PDF, PNG, JPG — Máx. 10MB</p>}
+                                                            style={{ width: '100%', padding: '13px 16px', borderRadius: '14px', border: '2px solid #e2e8f0', fontSize: '14px', color: '#475569', minHeight: '90px', resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit', lineHeight: '1.6', marginBottom: '16px' }} />
+                                                        
+                                                        <button 
+                                                            onClick={() => setShowPDFPreview(true)}
+                                                            style={{ width: '100%', padding: '12px', background: '#f8fafc', border: '2px solid #e2e8f0', color: '#1e293b', borderRadius: '12px', fontSize: '13px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'all 0.2s' }}
+                                                        >
+                                                            <HiOutlineDocumentText size={18} color="#ef4444" /> Generar Preview PDF
+                                                        </button>
                                                     </div>
 
                                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                                        <div style={{ display: 'flex', gap: '12px' }}>
-                                                            <button onClick={() => handleEnviarCotizacion(false)}
-                                                                style={{ flex: 2, padding: '15.5px', background: 'linear-gradient(135deg, #f26522, #d14d13)', color: '#fff', border: 'none', borderRadius: '15px', fontSize: '14px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 8px 20px rgba(242,101,34,0.3) ', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                                                                <span>Enviar Cotización</span>
-                                                            </button>
-                                                            <button onClick={() => setShowAddQuoteForm(false)}
-                                                                style={{ flex: 1, padding: '15px', background: '#f8fafc', border: '2px solid #e2e8f0', color: '#64748b', borderRadius: '15px', fontSize: '14px', fontWeight: '700', cursor: 'pointer' }}>
-                                                                Cancelar
-                                                            </button>
-                                                        </div>
-
-                                                        {/* BOTÓN SOLICITADO: Agregar otra y seguir en la hoja */}
-                                                        <button onClick={() => handleEnviarCotizacion(true)}
-                                                            style={{ width: '100%', padding: '15px', background: '#fff', border: '2.5px solid #f26522', color: '#f26522', borderRadius: '15px', fontSize: '14px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'all 0.2s' }}>
-                                                            ➕ Agregar nueva cotización
+                                                        {trabajo?.estado !== 'Cotización Aceptada' && (
+                                                            <div style={{ display: 'flex', gap: '12px' }}>
+                                                                <button onClick={() => handleEnviarCotizacion('send')}
+                                                                    style={{ flex: 2, padding: '15.5px', background: 'linear-gradient(135deg, #f26522, #d14d13)', color: '#fff', border: 'none', borderRadius: '15px', fontSize: '14px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 8px 20px rgba(242,101,34,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                                                    <span>Enviar Propuesta al Técnico</span>
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                        
+                                                        {(trabajo?.estado === 'Cotización Aceptada' || trabajo?.estado === 'Cotización Aprobada') && (
+                                                            <div style={{ display: 'flex', gap: '12px' }}>
+                                                                <button onClick={() => handleEnviarCotizacion('accept_and_assign')}
+                                                                    style={{ flex: 2, padding: '15.5px', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', borderRadius: '15px', fontSize: '14px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 8px 20px rgba(16,185,129,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                                                    <span>Aceptar Cotización y Asignar Trabajo</span>
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                        
+                                                        <button onClick={() => setShowAddQuoteForm(false)}
+                                                            style={{ width: '100%', padding: '15px', background: '#f8fafc', border: '2px solid #e2e8f0', color: '#64748b', borderRadius: '15px', fontSize: '14px', fontWeight: '700', cursor: 'pointer' }}>
+                                                            Cancelar
                                                         </button>
                                                     </div>
                                                 </div>
-                                            )}
+                                            ))}
                                         </div>
 
                                         {/* DERECHA: actividades del técnico */}
@@ -1908,30 +2128,21 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                 </div>
                                             )}
 
-                                            <div style={{ background: '#fff', borderRadius: '24px', padding: '28px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px', paddingBottom: '16px', borderBottom: '2px solid #f8fafc' }}>
-                                                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#6366f1' }} />
-                                                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#1e293b' }}>Actividades Registradas</h3>
-                                                    <span style={{ marginLeft: 'auto', background: '#eef2ff', color: '#4f46e5', fontSize: '12px', fontWeight: '800', padding: '4px 12px', borderRadius: '20px', border: '1px solid #c7d2fe' }}>
-                                                        {subTareas.length} total
-                                                    </span>
-                                                </div>
-                                                <div className={styles.taskList}>
-                                                    {subTareas.length > 0 ? subTareas.map(tarea => renderTaskCard(tarea, false)) : (
-                                                        <div style={{ textAlign: 'center', padding: '30px 20px', color: '#94a3b8' }}>
-                                                            <div style={{ fontSize: '32px', marginBottom: '10px' }}>📋</div>
-                                                            <p style={{ margin: 0, fontWeight: '600', fontSize: '14px' }}>No hay actividades registradas</p>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
+
                                         </div>
+                                    </div>
                                     </div>
                                 )}
                             </div>
                         )
                     }
 
+            {/* VISTA CHAT DE NEGOCIACIÓN */}
+            {activeTab === 'Cotización' && (cotizaciones.some(c => c.estado === 'Rechazada') || trabajo.estado === 'Cotización Enviada' || trabajo.estado === 'Cotización Rechazada' || trabajo.estado === 'Cotización Aceptada') && (
+                <div style={{ marginTop: '24px', animation: 'fadeIn 0.5s ease-out' }}>
+                    <ChatTrabajo trabajoId={trabajo.id} adminAutonomoId={trabajo.clienteUserId} />
+                </div>
+            )}
 
                     {
                         activeTab === 'Trabajo' && (
@@ -2037,32 +2248,98 @@ const AdminDetalleTrabajo: React.FC = () => {
                                         }
 
                                         if (tasksToShow.length > 0) {
-                                            return tasksToShow.map(tarea => {
-                                                const isPreReport = tarea.estado !== 'Completa' && !!localStorage.getItem(`report_data_temporal_${tarea.id}`);
+                                            const grouped = tasksToShow.reduce((acc, tarea) => {
+                                                const reportDataRaw = localStorage.getItem(`report_data_${tarea.id}`);
+                                                const reportData = reportDataRaw ? JSON.parse(reportDataRaw) : null;
+                                                // Intentar obtener fecha del reporte (ej. "12/06/2026"), o de fecha_programada, o created_at
+                                                let dateObj = new Date();
+                                                if (reportData?.fecha) {
+                                                    const parts = reportData.fecha.split('/');
+                                                    if (parts.length === 3) dateObj = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T00:00:00`);
+                                                } else if (trabajo.fecha_programada) {
+                                                    dateObj = new Date(`${trabajo.fecha_programada}T00:00:00`);
+                                                } else if (trabajo.created_at) {
+                                                    dateObj = new Date(trabajo.created_at);
+                                                }
+                                                const isInvalid = isNaN(dateObj.getTime());
+                                                const finalDate = isInvalid ? new Date() : dateObj;
+                                                const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+                                                const monthYear = capitalize(finalDate.toLocaleString('es-MX', { month: 'long', year: 'numeric' }));
+                                                
+                                                if (!acc[monthYear]) acc[monthYear] = [];
+                                                acc[monthYear].push(tarea);
+                                                return acc;
+                                            }, {} as Record<string, typeof tasksToShow>);
+
+                                            return Object.entries(grouped).map(([monthYear, tareasGroup]) => {
+                                                const isExpanded = expandedHistoryMonths[monthYear] !== false; // Default true
                                                 return (
-                                                    <div
-                                                        key={tarea.id}
-                                                        className={historialStyles.card}
-                                                        onClick={() => setSelectedHistoryTask(tarea)}
-                                                        style={{ cursor: 'pointer', marginBottom: '15px' }}
-                                                    >
-                                                        <div className={`${historialStyles.cardIndicator} ${historialStyles.borderSuccess}`} style={{ background: isPreReport ? '#ff9800' : undefined }}></div>
-                                                        <div className={historialStyles.cardContent}>
-                                                            <div className={historialStyles.cardIcon} style={{ background: isPreReport ? '#fff3e0' : undefined }}>
-                                                                <span className={historialStyles.iconHistory} style={{ color: isPreReport ? '#e65100' : undefined }}>📋</span>
+                                                    <div key={monthYear} style={{ marginBottom: '10px' }}>
+                                                        <div onClick={() => setExpandedHistoryMonths(prev => ({ ...prev, [monthYear]: !isExpanded }))} style={{ cursor: 'pointer', background: '#f8fafc', padding: '15px 20px', borderRadius: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontWeight: 'bold', fontSize: '18px', color: '#1e293b', boxShadow: '0 2px 5px rgba(0,0,0,0.05)', marginBottom: '15px', border: '1px solid #e2e8f0', transition: 'all 0.2s ease' }} onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'} onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                                <span style={{ fontSize: '24px' }}>{isExpanded ? '📂' : '📁'}</span>
+                                                                <span style={{ textTransform: 'capitalize' }}>{monthYear}</span>
+                                                                <span style={{ background: '#e2e8f0', color: '#475569', fontSize: '13px', padding: '2px 10px', borderRadius: '20px' }}>{tareasGroup.length} reporte{tareasGroup.length !== 1 ? 's' : ''}</span>
                                                             </div>
-                                                            <div className={historialStyles.cardInfo}>
-                                                                <div className={historialStyles.cardHeader}>
-                                                                    <div>
-                                                                        <h3 className={historialStyles.concepto} style={{ marginTop: '0' }}>{tarea.titulo}</h3>
-                                                                    </div>
-                                                                    <div className={`${historialStyles.statusBadge} ${historialStyles.badgeSuccess}`} style={{ background: isPreReport ? '#fff3e0' : undefined, color: isPreReport ? '#e65100' : undefined }}>
-                                                                        <span className={historialStyles.statusIcon}>{isPreReport ? '⚠️' : '✓'}</span> {isPreReport ? 'Pre-Reporte' : 'Completado'}
-                                                                    </div>
-                                                                </div>
-                                                                <p className={historialStyles.descripcion}>{tarea.descripcion}</p>
-                                                            </div>
+                                                            <span style={{ color: '#94a3b8', fontSize: '14px', transition: 'transform 0.3s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>▼</span>
                                                         </div>
+                                                        {isExpanded && (
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', paddingLeft: '15px', borderLeft: '2px solid #e2e8f0', marginLeft: '10px' }}>
+                                                                {tareasGroup.map(tarea => {
+                                                                    const isPreReport = tarea.estado !== 'Completa' && !!localStorage.getItem(`report_data_temporal_${tarea.id}`);
+                                                                    return (
+                                                                        <div
+                                                                            key={tarea.id}
+                                                                            className={historialStyles.card}
+                                                                            onClick={() => setSelectedHistoryTask(tarea)}
+                                                                            style={{ cursor: 'pointer', marginBottom: '0', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}
+                                                                        >
+                                                                            <div className={`${historialStyles.cardIndicator} ${historialStyles.borderSuccess}`} style={{ background: isPreReport ? '#ff9800' : undefined }}></div>
+                                                                            <div className={historialStyles.cardContent}>
+                                                                                <div className={historialStyles.cardIcon} style={{ background: isPreReport ? '#fff3e0' : undefined }}>
+                                                                                    <span className={historialStyles.iconHistory} style={{ color: isPreReport ? '#e65100' : undefined }}>📋</span>
+                                                                                </div>
+                                                                                <div className={historialStyles.cardInfo}>
+                                                                                    <div className={historialStyles.cardHeader}>
+                                                                                        <div>
+                                                                                            <h3 className={historialStyles.concepto} style={{ marginTop: '0' }}>{tarea.titulo}</h3>
+                                                                                        </div>
+                                                                                        <div className={`${historialStyles.statusBadge} ${historialStyles.badgeSuccess}`} style={{ background: isPreReport ? '#fff3e0' : undefined, color: isPreReport ? '#e65100' : undefined }}>
+                                                                                            <span className={historialStyles.statusIcon}>{isPreReport ? '⚠️' : '✓'}</span> {isPreReport ? 'Pre-Reporte' : 'Completado'}
+                                                                                        </div>
+                                                                                    </div>
+                                                                                    {(() => {
+                                                                                        let descText = tarea.descripcion || '';
+                                                                                        let notasText = "";
+                                                                                        const parts = descText.split(/Notas de cotizaci[oó]n:\s*-?/i);
+                                                                                        if (parts.length > 1) {
+                                                                                            descText = parts[0].trim();
+                                                                                            notasText = parts.slice(1).join('Notas de cotización:').trim();
+                                                                                        }
+                                                                                        
+                                                                                        return (
+                                                                                            <div style={{ padding: '0 15px 15px' }}>
+                                                                                                {descText && <p className={historialStyles.descripcion} style={{ margin: 0, color: '#475569' }}>{descText}</p>}
+                                                                                                {notasText && (
+                                                                                                    <div style={{ marginTop: '12px', padding: '12px', background: '#f8fafc', borderRadius: '10px', fontSize: '13px', color: '#475569', border: '1px solid #e2e8f0' }}>
+                                                                                                        <strong style={{ display: 'block', marginBottom: '8px', color: '#1e293b', fontSize: '12px', textTransform: 'uppercase' }}>📝 Notas de cotización</strong>
+                                                                                                        <ul style={{ margin: '0', paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                                                                            {notasText.split(/(?=\s-\s)|(?=^-)/).map(s => s.replace(/^-/, '').trim()).filter(s => s.length > 0).map((nota, i) => (
+                                                                                                                <li key={i}>{nota}</li>
+                                                                                                            ))}
+                                                                                                        </ul>
+                                                                                                    </div>
+                                                                                                )}
+                                                                                            </div>
+                                                                                        );
+                                                                                    })()}
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 );
                                             });
@@ -2074,7 +2351,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                         )}
                 </div>
             </div>
-            {/* MODAL ASIGNAR T├ëCNICO */}
+            {/* MODAL ASIGNAR TÉCNICO */}
             {
                 isModalOpen && (
                     <div className={styles.modalOverlay}>
@@ -2517,8 +2794,8 @@ const AdminDetalleTrabajo: React.FC = () => {
                     </div>
                 </div>
             )}
-            {/* IMAGE ZOOM MODAL */}
-            {selectedZoomImage && (
+            {/* PROBLEM DETAILS / IMAGE ZOOM MODAL */}
+            {showZoomModal && (
                 <div
                     style={{
                         position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
@@ -2526,21 +2803,41 @@ const AdminDetalleTrabajo: React.FC = () => {
                         alignItems: 'center', justifyContent: 'center', padding: '20px',
                         backdropFilter: 'blur(5px)'
                     }}
-                    onClick={() => setSelectedZoomImage(null)}
+                    onClick={() => setShowZoomModal(false)}
                 >
-                    <div style={{ position: 'relative', maxWidth: '95%', maxHeight: '95%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <div 
+                        style={{ 
+                            position: 'relative', maxWidth: '95%', maxHeight: '95%', display: 'flex', flexDirection: 'column', 
+                            alignItems: 'center', background: '#fff', padding: '30px', borderRadius: '24px', overflowY: 'auto'
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
                         <button
-                            onClick={() => setSelectedZoomImage(null)}
-                            style={{ position: 'absolute', top: '-40px', right: '0', background: 'none', border: 'none', color: '#fff', fontSize: '30px', cursor: 'pointer', fontWeight: 'bold' }}
+                            onClick={() => setShowZoomModal(false)}
+                            style={{ position: 'absolute', top: '15px', right: '15px', background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569', cursor: 'pointer', fontSize: '20px', fontWeight: 'bold' }}
                         >
-                            ├ù
+                            ✕
                         </button>
-                        <img
-                            src={selectedZoomImage}
-                            alt="Zoomed Evidence"
-                            style={{ maxWidth: '100%', maxHeight: '90vh', objectFit: 'contain', borderRadius: '15px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}
-                            onClick={(e) => e.stopPropagation()}
-                        />
+                        
+                        <h2 style={{ fontSize: '24px', fontWeight: '800', color: '#1e293b', marginBottom: '20px', width: '100%', textAlign: 'left' }}>Detalles del Problema</h2>
+                        
+                        {trabajo?.descripcion && (
+                            <div style={{ width: '100%', marginBottom: '24px' }}>
+                                <span style={{ display: 'block', fontSize: '12px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '8px' }}>Problema Reportado</span>
+                                <p style={{ fontSize: '18px', color: '#334155', background: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0', margin: 0, lineHeight: '1.6' }}>"{trabajo.descripcion}"</p>
+                            </div>
+                        )}
+                        
+                        {trabajo?.foto_url && (
+                            <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                <span style={{ display: 'block', fontSize: '12px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '12px', alignSelf: 'flex-start' }}>Foto Adjunta</span>
+                                <img
+                                    src={trabajo.foto_url}
+                                    alt="Zoomed Evidence"
+                                    style={{ maxWidth: '100%', maxHeight: '60vh', objectFit: 'contain', borderRadius: '15px', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
+                                />
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
@@ -2730,6 +3027,17 @@ const AdminDetalleTrabajo: React.FC = () => {
                     data={adminLevantamientoData}
                     onSave={() => {}} 
                     isReadOnly={true}
+                />
+            )}
+
+            {/* PDF PREVIEW MODAL */}
+            {showPDFPreview && trabajo && (
+                <CotizacionPDFPreview 
+                    trabajo={trabajo} 
+                    subTareas={subTareas} 
+                    costo={costo} 
+                    notas={notas} 
+                    onClose={() => setShowPDFPreview(false)} 
                 />
             )}
         </div>

@@ -86,7 +86,7 @@ const PerfilEmpresa: React.FC = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
     const { showAlert } = useModal();
-    const canEdit = user?.role === 'cliente' || user?.role === 'encargado';
+    const canEdit = user?.role === 'cliente' || user?.role === 'encargado' || user?.role === 'autonomo';
 
     const [formData, setFormData] = useState<BusinessData>({
         nombreSucursal: "",
@@ -110,6 +110,7 @@ const PerfilEmpresa: React.FC = () => {
     const [reportingEquipment, setReportingEquipment] = useState<Equipment | null>(null);
     const [activeEquipmentId, setActiveEquipmentId] = useState<string | null>(null);
     const [imageError, setImageError] = useState(false);
+    const [customTipoValue, setCustomTipoValue] = useState("");
 
     // Bitacora (Historial) states
     const [bitacoraModalOpen, setBitacoraModalOpen] = useState(false);
@@ -136,9 +137,18 @@ const PerfilEmpresa: React.FC = () => {
                     const localData = JSON.parse(localStorage.getItem('local_negocios_info') || '{}');
                     const localInfo = stripBlobUrls(localData[editId] || {});
 
+                    const loadedTipo = existing.tipo || "FC";
+                    const standardTipos = ['FC', 'FS', 'MALL', 'W/M'];
+                    const isCustom = !standardTipos.includes(loadedTipo);
+                    
+                    if (isCustom) {
+                        setCustomTipoValue(loadedTipo);
+                    }
+
                     setFormData(prev => ({
                         ...prev,
                         ...existing,
+                        tipo: isCustom ? 'Otro' : loadedTipo,
                         nombreSucursal: existing.nombre,
                         gerente: localInfo.gerente || existing.gerente || "",
                         telefonoGerente: localInfo.telefonoGerente || existing.telefonoGerente || "",
@@ -263,7 +273,7 @@ const PerfilEmpresa: React.FC = () => {
             await asignarEncargadoSucursal(Number(editId), encargadoForm);
             setEncargadoExistente({ name: encargadoForm.name, email: encargadoForm.email });
             setEncargadoForm(prev => ({ ...prev, password: '' }));
-            showAlert('✅ Acceso Asignado', `Se asignó el acceso a ${encargadoForm.email}. Las credenciales han sido enviadas al correo.`, 'success');
+            showAlert('✅ Acceso Asignado', `Se asignó el acceso a ${encargadoForm.email}.`, 'success');
         } catch (err: any) {
             const msg = err?.response?.data?.message || 'No se pudo asignar el acceso. Intenta de nuevo.';
             showAlert('Error', msg, 'error');
@@ -305,14 +315,14 @@ const PerfilEmpresa: React.FC = () => {
         if (!formData.nombreSucursal) { showAlert("Campo Requerido", "Por favor ingresa el nombre de la sucursal", "warning"); return; }
         if (!formData.encargado) { showAlert("Campo Requerido", `Por favor ingresa el ${formData.tipo === 'FC' ? 'encargado' : 'dueño'} de la empresa`, "warning"); return; }
         if (formData.tipo !== 'W/M') {
-            if (formData.tipo === 'FS' && !formData.calle) { showAlert("Campo Requerido", "Por favor ingresa la calle principal", "warning"); return; }
-            if (formData.tipo !== 'FS' && !formData.nombrePlaza) { showAlert("Campo Requerido", "Por favor ingresa el nombre de la plaza", "warning"); return; }
+            if ((formData.tipo === 'FS' || formData.tipo === 'Otro') && !formData.calle) { showAlert("Campo Requerido", "Por favor ingresa la calle principal", "warning"); return; }
+            if (formData.tipo !== 'FS' && formData.tipo !== 'Otro' && !formData.nombrePlaza) { showAlert("Campo Requerido", "Por favor ingresa el nombre de la plaza", "warning"); return; }
             if (!formData.estado) { showAlert("Campo Requerido", "Por favor ingresa el estado", "warning"); return; }
             if (!formData.ciudad) { showAlert("Campo Requerido", "Por favor ingresa la ciudad", "warning"); return; }
             if (!formData.calle) { showAlert("Campo Requerido", "Por favor ingresa la calle", "warning"); return; }
             if (!formData.numero) { showAlert("Campo Requerido", "Por favor ingresa el número", "warning"); return; }
             if (!formData.colonia) { showAlert("Campo Requerido", "Por favor ingresa la colonia", "warning"); return; }
-            if (formData.tipo === 'FS' && !formData.referencia) { showAlert("Campo Requerido", "Por favor ingresa la referencia", "warning"); return; }
+            if ((formData.tipo === 'FS' || formData.tipo === 'Otro') && !formData.referencia) { showAlert("Campo Requerido", "Por favor ingresa la referencia", "warning"); return; }
         } else {
             if (!formData.calleAv) { showAlert("Campo Requerido", "Por favor ingresa la calle/Av", "warning"); return; }
             if (!formData.manzana) { showAlert("Campo Requerido", "Por favor ingresa la manzana", "warning"); return; }
@@ -341,9 +351,12 @@ const PerfilEmpresa: React.FC = () => {
                 }));
                 return { ...section, equipos: finalEquipos };
             }));
+            
+            const finalTipo = formData.tipo === 'Otro' ? (customTipoValue || 'Otro') : formData.tipo;
+
             const apiPayload = {
                 nombre: formData.nombreSucursal,
-                tipo: formData.tipo,
+                tipo: finalTipo,
                 encargado: formData.encargado,
                 estado: formData.estado,
                 ciudad: formData.ciudad,
@@ -410,6 +423,8 @@ const PerfilEmpresa: React.FC = () => {
             }
             if (user?.role === 'encargado') {
                 navigate('/encargado');
+            } else if (user?.role === 'autonomo') {
+                navigate('/autonomo/negocios');
             } else {
                 navigate('/cliente');
             }
@@ -565,7 +580,19 @@ const PerfilEmpresa: React.FC = () => {
                                         <option value="FS">FS (Freestanding)</option>
                                         <option value="MALL">MALL</option>
                                         <option value="W/M">W/M</option>
+                                        <option value="Otro">Otro (Especificar)</option>
                                     </select>
+                                    {formData.tipo === 'Otro' && (
+                                        <input
+                                            type="text"
+                                            placeholder="Especifica el tipo..."
+                                            className={styles.input}
+                                            style={{ marginTop: '10px' }}
+                                            value={customTipoValue}
+                                            onChange={(e) => setCustomTipoValue(e.target.value)}
+                                            disabled={!canEdit}
+                                        />
+                                    )}
                                 </div>
                                 <div className={styles.inputGroup}>
                                     <label className={styles.label}>
@@ -595,14 +622,14 @@ const PerfilEmpresa: React.FC = () => {
                                     <>
                                         <div className={`${styles.inputGroup} ${styles.fullWidth}`}>
                                             <label className={styles.label}>
-                                                {formData.tipo === 'FS' ? 'Calle Principal / Avenida' : 'Nombre de la Plaza Comercial'}
+                                                {(formData.tipo === 'FS' || formData.tipo === 'Otro') ? 'Calle Principal / Avenida' : 'Nombre de la Plaza Comercial'}
                                             </label>
                                             <input
                                                 type="text"
-                                                name={formData.tipo === 'FS' ? 'calle' : 'nombrePlaza'}
+                                                name={(formData.tipo === 'FS' || formData.tipo === 'Otro') ? 'calle' : 'nombrePlaza'}
                                                 className={styles.input}
-                                                placeholder={formData.tipo === 'FS' ? 'Ej: Prolongación Montejo' : 'Ej: Plaza Altabrisa'}
-                                                value={(formData.tipo === 'FS' ? formData.calle : formData.nombrePlaza) || ''}
+                                                placeholder={(formData.tipo === 'FS' || formData.tipo === 'Otro') ? 'Ej: Prolongación Montejo' : 'Ej: Plaza Altabrisa'}
+                                                value={((formData.tipo === 'FS' || formData.tipo === 'Otro') ? formData.calle : formData.nombrePlaza) || ''}
                                                 onChange={handleChange}
                                                 disabled={!canEdit}
                                             />
@@ -627,7 +654,7 @@ const PerfilEmpresa: React.FC = () => {
                                             <label className={styles.label}>Colonia / Fraccionamiento</label>
                                             <input type="text" name="colonia" className={styles.input} value={formData.colonia || ''} onChange={handleChange} disabled={!canEdit} />
                                         </div>
-                                        {formData.tipo === 'FS' && (
+                                        {(formData.tipo === 'FS' || formData.tipo === 'Otro') && (
                                             <div className={`${styles.inputGroup} ${styles.fullWidth}`}>
                                                 <label className={styles.label}>Referencias adicionales</label>
                                                 <input type="text" name="referencia" className={styles.input} placeholder="Ej: Frente al parque principal" value={formData.referencia || ''} onChange={handleChange} disabled={!canEdit} />
@@ -702,7 +729,7 @@ const PerfilEmpresa: React.FC = () => {
                                 )}
 
                                 <p style={{ color: '#64748b', fontSize: '13px', marginBottom: '20px', lineHeight: '1.6' }}>
-                                    Asigna credenciales de acceso exclusivas para esta sucursal. El encargado podrá iniciar sesión y consultar únicamente la información de esta sucursal. Recibirá un correo personalizado con sus credenciales.
+                                    Asigna credenciales de acceso exclusivas para esta sucursal. El encargado podrá iniciar sesión y consultar únicamente la información de esta sucursal.
                                 </p>
 
                                 <div className={styles.formGrid}>
@@ -766,7 +793,7 @@ const PerfilEmpresa: React.FC = () => {
                                         }}
                                     >
                                         <HiOutlinePaperAirplane size={18} />
-                                        {encargadoLoading ? 'Enviando...' : encargadoExistente ? 'Actualizar Acceso y Reenviar Correo' : 'Asignar Acceso y Enviar Correo'}
+                                        {encargadoLoading ? 'Guardando...' : encargadoExistente ? 'Actualizar Acceso' : 'Asignar Acceso'}
                                     </button>
                                 </div>
                             </div>

@@ -34,8 +34,11 @@ import ListaMantenimiento from "./pages/admin/ListaMantenimiento";
 import MantenimientoDetalle from "./pages/admin/MantenimientoDetalle";
 import InventarioGeneral from "./pages/admin/InventarioGeneral";
 import EncargadoLayout from "./layouts/EncargadoLayout";
+import AutonomoLayout from "./layouts/AutonomoLayout";
 import DashboardCliente from "./pages/cliente/DashboardCliente";
 import DashboardEncargado from "./pages/encargado/DashboardEncargado";
+import DashboardAutonomo from "./pages/autonomo/DashboardAutonomo";
+import DetalleAdminAutonomo from "./pages/admin/DetalleAdminAutonomo";
 
 function App() {
     return (
@@ -76,6 +79,7 @@ function App() {
                             <Route path="reporte-tarea/:id" element={<AdminReporte />} />
                             <Route path="mi-perfil" element={<MiPerfil />} />
                             <Route path="perfil-empresa" element={<PerfilEmpresa />} />
+                            <Route path="admin-autonomo/:id" element={<DetalleAdminAutonomo />} />
                         </Route>
 
                         {/* CLIENTE ROUTES */}
@@ -124,6 +128,28 @@ function App() {
                             <Route path="historial" element={<Historial />} />
                             <Route path="trabajo/:id" element={<TrabajoDetalle />} />
                             <Route path="trabajo-detalle/:id" element={<AdminDetalleTrabajo />} />
+                        </Route>
+
+                        {/* ADMIN AUTÓNOMO ROUTES */}
+                        <Route path="/autonomo" element={
+                            <ProtectedRoute allowedRoles={['autonomo']}>
+                                <AutonomoLayout />
+                            </ProtectedRoute>
+                        }>
+                            <Route index element={<DashboardAutonomo />} />
+                            <Route path="dashboard" element={<DashboardAutonomo />} />
+                            <Route path="negocios" element={<ListaNegocios />} />
+                            <Route path="trabajadores" element={<ListaTrabajadores />} />
+                            <Route path="trabajador/:id" element={<AdminPerfilTrabajador />} />
+                            <Route path="usuarios" element={<ListaUsuarios />} />
+                            <Route path="solicitudes" element={<ListaSolicitudes />} />
+                            <Route path="historial" element={<AdminHistorial />} />
+                            <Route path="trabajo/:id" element={<TrabajoDetalle />} />
+                            <Route path="trabajo-detalle/:id" element={<AdminDetalleTrabajo />} />
+                            <Route path="cotizacion/:id" element={<AdminCotizacion />} />
+                            <Route path="reporte-tarea/:id" element={<AdminReporte />} />
+                            <Route path="mi-perfil" element={<MiPerfil />} />
+                            <Route path="perfil-empresa" element={<PerfilEmpresa />} />
                         </Route>
 
                         {/* FALLBACK */}

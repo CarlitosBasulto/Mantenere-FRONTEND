@@ -187,8 +187,8 @@
     border-radius: 24px 24px 0 0;
 }
 
-.blue {
-    background: linear-gradient(90deg, #93c5fd, #60a5fa);
+.orange {
+    background: linear-gradient(90deg, #fb923c, #f97316); /* Naranja de la marca */
 }
 
 /* Modal styles Improved */

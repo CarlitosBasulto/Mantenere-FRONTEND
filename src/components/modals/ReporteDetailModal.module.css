@@ -57,7 +57,7 @@
 }
 
 .closeHeaderBtn {
-    background: rgba(0, 0, 0, 0.08);
+    background: transparent;
     border: none;
     width: 36px;
     height: 36px;
@@ -66,13 +66,13 @@
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    color: #0f172a;
+    color: #fff;
     transition: all 0.2s ease;
 }
 
 .closeHeaderBtn:hover {
-    background: rgba(239, 68, 68, 0.2);
-    color: #ef4444;
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff;
 }
 
 .premiumModalBody {

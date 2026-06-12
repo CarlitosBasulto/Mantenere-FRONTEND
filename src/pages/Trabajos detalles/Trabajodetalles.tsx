@@ -9,7 +9,7 @@ import { useModal } from "../../context/ModalContext";
 import Historial from "../cliente/Historial";
 import Cotizaciones from "../cliente/Cotizaciones";
 import EquiposNegocio from "../admin/EquiposNegocio";
-import { getNegocios, getNegocio } from "../../services/negociosService";
+import { getNegocios, getNegocio, updateNegocio, uploadImage } from "../../services/negociosService";
 import { getTrabajadores } from "../../services/trabajadoresService";
 import { createNotificacion, createNotificacionByRole } from "../../services/notificacionesService";
 import { getReporteByTrabajoId } from "../../services/reportesService";
@@ -17,6 +17,8 @@ import ReporteDetailModal from "../../components/modals/ReporteDetailModal";
 import { getTrabajo } from "../../services/trabajosService";
 import { deleteTrabajo } from "../../services/trabajosService";
 import { HiOutlinePencil, HiOutlineTrash, HiOutlineArchiveBox, HiOutlineClock } from "react-icons/hi2";
+import { Pencil } from 'lucide-react';
+import ChatTrabajo from "../../components/ChatTrabajo";
 
 interface Trabajo {
     id: number;
@@ -72,6 +74,21 @@ const TrabajoDetalle: React.FC = () => {
     const [businessImage, setBusinessImage] = useState<string | null>(null);
     const [businessAreas, setBusinessAreas] = useState<any[]>([]);
     const [businessDetails, setBusinessDetails] = useState<any>(null);
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+    const handleBannerChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !id) return;
+        try {
+            const url = await uploadImage(file);
+            await updateNegocio(Number(id), { imagen_portada: url });
+            setBusinessImage(url);
+            showAlert("Éxito", "Imagen de portada actualizada", "success");
+        } catch (error) {
+            console.error("Error al actualizar imagen de portada:", error);
+            showAlert("Error", "No se pudo actualizar la imagen", "error");
+        }
+    };
 
     React.useEffect(() => {
         const fetchBusiness = async () => {
@@ -94,7 +111,7 @@ const TrabajoDetalle: React.FC = () => {
                     const plaza = current.nombrePlaza || current.nombre_plaza;
                     const fullName = plaza ? `${current.nombre} - ${plaza}` : current.nombre;
                     setBusinessName(fullName);
-                    setBusinessImage(current.imagenPerfil || null);
+                    setBusinessImage(current.imagen_portada || null);
                     setNewRequestData(prev => ({ ...prev, cliente: fullName }));
                 } else {
                     // Si falla el query batch, try individual
@@ -102,7 +119,7 @@ const TrabajoDetalle: React.FC = () => {
                         const indPlaza = individual.nombrePlaza || individual.nombre_plaza;
                         const fullName = indPlaza ? `${individual.nombre} - ${indPlaza}` : individual.nombre;
                         setBusinessName(fullName);
-                        setBusinessImage(individual.imagenPerfil || null);
+                        setBusinessImage(individual.imagen_portada || null);
                         setNewRequestData(prev => ({ ...prev, cliente: fullName }));
                     } else {
                         setBusinessName("Desconocido");
@@ -263,6 +280,11 @@ const TrabajoDetalle: React.FC = () => {
     const [reporteData, setReporteData] = useState<any>(null);
     const [reporteTrabajo, setReporteTrabajo] = useState<any>(null);
     const [reporteTaskInfo, setReporteTaskInfo] = useState<any>(null);
+
+    // Modal Rechazo Técnico
+    const [showRejectionModal, setShowRejectionModal] = useState(false);
+    const [rejectionReason, setRejectionReason] = useState("");
+    const [quoteToReject, setQuoteToReject] = useState<number | null>(null);
 
     const handleOpenReportDetail = async (trabajoId: number) => {
         try {
@@ -575,12 +597,21 @@ const TrabajoDetalle: React.FC = () => {
                                 if (matched) { equName = matched.nombre; break; }
                             }
                         }
-                        await createNotificacionByRole({
-                            role: 'admin',
-                            titulo: '📋 Reporte de Mantenimiento de Equipo',
-                            mensaje: `Un cliente solicitó mantenimiento programado para ${equName}.`,
-                            enlace: '/menu/mantenimiento'
-                        });
+                        if (businessDetails && businessDetails.admin_autonomo_id) {
+                            await createNotificacion({
+                                user_id: businessDetails.admin_autonomo_id,
+                                titulo: '📋 Reporte de Mantenimiento de Equipo',
+                                mensaje: `Un cliente solicitó mantenimiento programado para ${equName}.`,
+                                enlace: '/autonomo/solicitudes' // Autónomo no tiene ruta separada de mantenimiento aún, va a solicitudes
+                            });
+                        } else {
+                            await createNotificacionByRole({
+                                role: 'admin',
+                                titulo: '📋 Reporte de Mantenimiento de Equipo',
+                                mensaje: `Un cliente solicitó mantenimiento programado para ${equName}.`,
+                                enlace: '/menu/mantenimiento'
+                            });
+                        }
                     } catch (e) { console.error(e); }
 
                     showAlert("Solicitud Exitosa", "Tu reporte se ha creado correctamente y ya es visible en la sección de Reportes de Mantenimiento para la administración.", "success");
@@ -648,14 +679,26 @@ const TrabajoDetalle: React.FC = () => {
 
                 // --- NOTIFICAR ADMIN EN BD ---
                 try {
-                    await createNotificacionByRole({
-                        role: 'admin',
-                        titulo: isEmergency ? '🚨 NUEVA EMERGENCIA' : 'NUEVA SOLICITUD ✨',
-                        mensaje: isEmergency
-                            ? `El cliente ha enviado un SOS: ${newJobView.titulo} en la sucursal ${businessName}.`
-                            : `El cliente ha creado una nueva solicitud: ${newJobView.titulo} en la sucursal ${businessName}.`,
-                        enlace: `/menu/trabajo-detalle/${newJobView.id}`
-                    });
+                    const tituloNoti = isEmergency ? '🚨 NUEVA EMERGENCIA' : 'NUEVA SOLICITUD ✨';
+                    const mensajeNoti = isEmergency
+                        ? `El cliente ha enviado un SOS: ${newJobView.titulo} en la sucursal ${businessName}.`
+                        : `El cliente ha creado una nueva solicitud: ${newJobView.titulo} en la sucursal ${businessName}.`;
+
+                    if (businessDetails && businessDetails.admin_autonomo_id) {
+                        await createNotificacion({
+                            user_id: businessDetails.admin_autonomo_id,
+                            titulo: tituloNoti,
+                            mensaje: mensajeNoti,
+                            enlace: `/autonomo/trabajo-detalle/${newJobView.id}`
+                        });
+                    } else {
+                        await createNotificacionByRole({
+                            role: 'admin',
+                            titulo: tituloNoti,
+                            mensaje: mensajeNoti,
+                            enlace: `/menu/trabajo-detalle/${newJobView.id}`
+                        });
+                    }
                 } catch (notiErr) {
                     console.error("Error al notificar admin de nueva solicitud:", notiErr);
                 }
@@ -754,32 +797,65 @@ const TrabajoDetalle: React.FC = () => {
         setIsRequestModalOpen(true);
     };
 
-    const handleAceptarCotizacion = (jobId: number) => {
-        const updated = trabajosData.map(job => {
-            if (job.id === jobId) {
-                return { ...job, estado: "Cotización Aceptada" as const };
-            }
-            return job;
-        });
-        saveJobs(updated);
-        showAlert("Cotización Aceptada", "Cotización aceptada. El administrador procederá a asignar a un técnico.", "success");
+    const handleAceptarCotizacion = async (jobId: number) => {
+        try {
+            await updateEstadoTrabajo(jobId, { estado: "Cotización Aceptada" });
+            const updated = trabajosData.map(job => {
+                if (job.id === jobId) {
+                    return { ...job, estado: "Cotización Aceptada" as const };
+                }
+                return job;
+            });
+            saveJobs(updated);
+            showAlert("Cotización Aceptada", "Has aceptado la propuesta. El administrador procederá a asignarte el trabajo.", "success");
+        } catch (error) {
+            console.error("Error al aceptar cotización:", error);
+            showAlert("Error", "Hubo un problema al aceptar la cotización.", "error");
+        }
     };
 
     const handleRechazarCotizacion = (jobId: number) => {
-        showConfirm(
-            "Rechazar Cotización",
-            "¿Seguro que deseas rechazar la cotización?",
-            () => {
-                const updated = trabajosData.map(job => {
-                    if (job.id === jobId) {
-                        return { ...job, estado: "Cotización Rechazada" as const };
-                    }
-                    return job;
-                });
-                saveJobs(updated);
-                showAlert("Información", "Cotización rechazada.", "info");
-            }
-        );
+        setQuoteToReject(jobId);
+        setRejectionReason("");
+        setShowRejectionModal(true);
+    };
+
+    const handleSubmitRejection = async () => {
+        if (!quoteToReject || !rejectionReason.trim()) {
+            showAlert('Atención', 'Por favor ingresa un motivo para el rechazo.', 'warning');
+            return;
+        }
+        try {
+            await updateEstadoTrabajo(quoteToReject, { estado: "Cotización Rechazada" });
+            
+            // Enviar motivo como primer mensaje
+            const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+            const token = localStorage.getItem('token');
+            await fetch(`${API_URL}/trabajos/${quoteToReject}/chat`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ message: `MOTIVO DE RECHAZO: ${rejectionReason}` })
+            });
+
+            const updated = trabajosData.map(job => {
+                if (job.id === quoteToReject) {
+                    return { ...job, estado: "Cotización Rechazada" as const };
+                }
+                return job;
+            });
+            saveJobs(updated);
+            
+            setShowRejectionModal(false);
+            setRejectionReason("");
+            setQuoteToReject(null);
+            showAlert("Información", "Propuesta rechazada. Se ha iniciado un chat de negociación.", "info");
+        } catch (error) {
+            console.error("Error al rechazar:", error);
+            showAlert("Error", "No se pudo rechazar la propuesta.", "error");
+        }
     };
 
     const filteredTechnicians = tecnicosData.filter(t =>
@@ -794,6 +870,9 @@ const TrabajoDetalle: React.FC = () => {
         if (status === "finalizado") {
             barClass = styles.green;
             text = "Finalizado";
+        } else if (status === "rechazado por técnico" || status === "rechazado por tecnico") {
+            barClass = styles.red;
+            text = user?.role === 'tecnico' ? "RECHAZASTE ESTA ASIGNACIÓN" : "RECHAZADO POR TÉCNICO";
         } else if (job.tipo === "SOS") {
             barClass = styles.red;
             text = "¡ALERTA SOS!";
@@ -802,9 +881,12 @@ const TrabajoDetalle: React.FC = () => {
             // Si ya hay un técnico asignado (no es "Sin Asignar"), lo mostramos en el banner
             const hasTech = job.tecnico && job.tecnico !== "Sin asignar" && job.tecnico !== "Sin Asignar";
             if (hasTech) {
-                text = (user?.role === 'tecnico' && (job.visitado || job.tipo === 'Trabajo'))
-                    ? "Se te asignó este trabajo 🛠️"
+                text = user?.role === 'tecnico' 
+                    ? (job.tipo === 'Visita' ? "ASIGNACIÓN DE VISITA" : "SE TE ASIGNÓ ESTE TRABAJO 🛠️") 
                     : "TÉCNICO ASIGNADO";
+                if (user?.role === 'tecnico') {
+                    barClass = styles.orange;
+                }
             } else {
                 if (status.includes("aceptada") || status.includes("aprobada")) {
                     text = "COTIZACIÓN ACEPTADA";
@@ -817,9 +899,9 @@ const TrabajoDetalle: React.FC = () => {
                 }
             }
         } else if (status === "asignado" || (job.tecnico && job.tecnico !== "Sin asignar" && job.tecnico !== "Sin Asignar")) {
-            barClass = styles.blue;
-            text = (user?.role === 'tecnico' && (job.visitado || job.tipo === 'Trabajo'))
-                ? "Se te asignó este trabajo 🛠️"
+            barClass = user?.role === 'tecnico' ? styles.orange : styles.blue;
+            text = user?.role === 'tecnico' 
+                ? (job.tipo === 'Visita' ? "ASIGNACIÓN DE VISITA" : "SE TE ASIGNÓ ESTE TRABAJO 🛠️") 
                 : "TÉCNICO ASIGNADO";
         }
 
@@ -897,8 +979,15 @@ const TrabajoDetalle: React.FC = () => {
             <div className={styles.mainContainer}>
                 {/* HEADER / BANNER PREMIUM */}
                 <div className={styles.premiumHeader}>
+                    <input 
+                        type="file" 
+                        ref={fileInputRef} 
+                        style={{ display: 'none' }} 
+                        accept="image/*" 
+                        onChange={handleBannerChange} 
+                    />
                     {businessImage ? (
-                        <div className={styles.bannerWrapper}>
+                        <div className={styles.bannerWrapper} style={{ position: 'relative' }}>
                             <img src={businessImage} alt={businessName} className={styles.bannerImg} />
                             <div className={styles.bannerOverlay}>
                                 <div className={styles.bannerContent}>
@@ -911,14 +1000,32 @@ const TrabajoDetalle: React.FC = () => {
                                     )}
                                 </div>
                             </div>
+                            {(user?.role?.toLowerCase() === 'cliente' || user?.role?.toLowerCase() === 'admin' || user?.role?.toLowerCase() === 'autonomo' || user?.role?.toLowerCase() === 'encargado') && (
+                                <button 
+                                    onClick={() => fileInputRef.current?.click()}
+                                    style={{ position: 'absolute', top: 16, right: 16, background: '#f97316', border: '2px solid white', borderRadius: '50%', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'white', zIndex: 50, boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}
+                                    title="Cambiar imagen de portada"
+                                >
+                                    <Pencil size={24} color="white" style={{ width: 24, height: 24, flexShrink: 0 }} />
+                                </button>
+                            )}
                         </div>
                     ) : (
-                        <div className={styles.simpleHeader}>
+                        <div className={styles.simpleHeader} style={{ position: 'relative' }}>
                             <h1 className={styles.businessTitle}>{businessName}</h1>
                             {businessDetails && (
                                 <p className={styles.businessSubtitle} style={{ margin: '8px 0 0 0', color: '#64748b' }}>
                                     📍 {getBusinessAddress()}
                                 </p>
+                            )}
+                            {(user?.role?.toLowerCase() === 'cliente' || user?.role?.toLowerCase() === 'admin' || user?.role?.toLowerCase() === 'autonomo' || user?.role?.toLowerCase() === 'encargado') && (
+                                <button 
+                                    onClick={() => fileInputRef.current?.click()}
+                                    style={{ position: 'absolute', top: 16, right: 16, background: '#f97316', border: '2px solid white', borderRadius: '50%', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'white', zIndex: 50, boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}
+                                    title="Añadir imagen de portada"
+                                >
+                                    <Pencil size={24} color="white" style={{ width: 24, height: 24, flexShrink: 0 }} />
+                                </button>
                             )}
                         </div>
                     )}
@@ -944,10 +1051,10 @@ const TrabajoDetalle: React.FC = () => {
                 </div>
 
                 {/* FILA 2: BOTONES DE ACCIÓN */}
-                {(user?.role === 'cliente' || user?.role === 'admin' || user?.role === 'encargado' || user?.role === 'tecnico') && (
+                {(user?.role?.toLowerCase() === 'cliente' || user?.role?.toLowerCase() === 'admin' || user?.role?.toLowerCase() === 'encargado' || user?.role?.toLowerCase() === 'tecnico' || user?.role?.toLowerCase() === 'autonomo') && (
                     <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '20px', justifyContent: 'center' }}>
-                        {/* Botón SOS (solo para cliente) */}
-                        {user?.role === 'cliente' && (
+                        {/* Botón SOS (solo para cliente, encargado y autonomo) */}
+                        {(user?.role?.toLowerCase() === 'cliente' || user?.role?.toLowerCase() === 'autonomo' || user?.role?.toLowerCase() === 'encargado') && (
                             <button
                                 className={styles.sosBtn}
                                 onClick={handleSOSRequest}
@@ -957,8 +1064,8 @@ const TrabajoDetalle: React.FC = () => {
                             </button>
                         )}
 
-                        {/* Botón Solicitud (solo para cliente) */}
-                        {user?.role === 'cliente' && (
+                        {/* Botón Solicitud (solo para cliente, encargado y autonomo) */}
+                        {(user?.role?.toLowerCase() === 'cliente' || user?.role?.toLowerCase() === 'autonomo' || user?.role?.toLowerCase() === 'encargado') && (
                             <button
                                 className={styles.newRequestBtn}
                                 onClick={() => {
@@ -970,8 +1077,8 @@ const TrabajoDetalle: React.FC = () => {
                             </button>
                         )}
 
-                        {/* Botón Equipos (visible para admin, cliente y encargado) */}
-                        {(user?.role === 'admin' || user?.role === 'cliente' || user?.role === 'encargado') && (
+                        {/* Botón Equipos (visible para admin, cliente, encargado y autonomo) */}
+                        {(user?.role?.toLowerCase() === 'admin' || user?.role?.toLowerCase() === 'cliente' || user?.role?.toLowerCase() === 'encargado' || user?.role?.toLowerCase() === 'autonomo') && (
                             <button
                                 className={styles.equiposBtn}
                                 onClick={() => setSearchParams({ tab: 'equipos' })}
@@ -982,7 +1089,7 @@ const TrabajoDetalle: React.FC = () => {
                         )}
 
                         {/* Botón Ver Historial (visible para técnico) */}
-                        {user?.role === 'tecnico' && (
+                        {user?.role?.toLowerCase() === 'tecnico' && (
                             <button
                                 className={styles.historialBtn}
                                 onClick={() => setSearchParams({ tab: 'historial' })}
@@ -1005,7 +1112,7 @@ const TrabajoDetalle: React.FC = () => {
                                         className={styles.jobCard}
                                         onClick={(e) => {
                                             if (!(e.target as HTMLElement).closest('button')) {
-                                                const basePath = user?.role === 'tecnico' ? '/tecnico' : (user?.role === 'cliente' ? '/cliente' : '/menu');
+                                                const basePath = user?.role === 'tecnico' ? '/tecnico' : (user?.role === 'cliente' ? '/cliente' : (user?.role === 'autonomo' ? '/autonomo' : (user?.role === 'encargado' ? '/encargado' : '/menu')));
                                                 navigate(`${basePath}/trabajo-detalle/${trabajo.id}`);
                                             }
                                         }}
@@ -1105,6 +1212,19 @@ const TrabajoDetalle: React.FC = () => {
                                                                 <button onClick={(e) => { e.stopPropagation(); handleRechazarCotizacion(trabajo.id); }} style={{ flex: 1, padding: '5px', background: '#ef4444', color: 'white', borderRadius: '5px', border: 'none', fontSize: '12px' }}>Rechazar</button>
                                                             </div>
                                                         )}
+                                                        {user?.role === 'tecnico' && trabajo.estado === 'Cotización Enviada' && (
+                                                            <div style={{ display: 'flex', gap: '5px' }}>
+                                                                <button onClick={(e) => { e.stopPropagation(); handleAceptarCotizacion(trabajo.id); }} style={{ flex: 1, padding: '5px', background: '#22c55e', color: 'white', borderRadius: '5px', border: 'none', fontSize: '12px' }}>Aceptar Propuesta</button>
+                                                                <button onClick={(e) => { e.stopPropagation(); handleRechazarCotizacion(trabajo.id); }} style={{ flex: 1, padding: '5px', background: '#ef4444', color: 'white', borderRadius: '5px', border: 'none', fontSize: '12px' }}>Rechazar / Negociar</button>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+
+                                                {/* CHAT DE NEGOCIACIÓN (Para el Técnico) */}
+                                                {trabajo.estado === 'Cotización Rechazada' && (
+                                                    <div style={{ marginTop: '10px' }} onClick={(e) => e.stopPropagation()}>
+                                                        <ChatTrabajo trabajoId={trabajo.id} />
                                                     </div>
                                                 )}
                                             </div>
@@ -1503,6 +1623,38 @@ const TrabajoDetalle: React.FC = () => {
                     reporte={reporteData}
                     userRole={user?.role ?? undefined}
                 />
+            )}
+
+            {/* MODAL RECHAZO TÉCNICO */}
+            {showRejectionModal && (
+                <div className={styles.modalOverlay}>
+                    <div className={styles.modalContent} style={{ width: '400px' }}>
+                        <h3 style={{ margin: '0 0 15px 0' }}>Motivo del Rechazo</h3>
+                        <p style={{ margin: '0 0 15px 0', fontSize: '14px', color: '#64748b' }}>
+                            Ingresa una contrapropuesta o el motivo por el cual rechazas el precio asignado.
+                        </p>
+                        <textarea
+                            value={rejectionReason}
+                            onChange={(e) => setRejectionReason(e.target.value)}
+                            placeholder="Escribe aquí tu comentario para iniciar la negociación..."
+                            style={{ width: '100%', height: '100px', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', marginBottom: '20px', outline: 'none', resize: 'none' }}
+                        />
+                        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                            <button
+                                onClick={() => setShowRejectionModal(false)}
+                                style={{ padding: '8px 16px', background: '#e2e8f0', color: '#475569', borderRadius: '6px', border: 'none', cursor: 'pointer' }}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={handleSubmitRejection}
+                                style={{ padding: '8px 16px', background: '#ef4444', color: 'white', borderRadius: '6px', border: 'none', cursor: 'pointer' }}
+                            >
+                                Rechazar y Negociar
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );

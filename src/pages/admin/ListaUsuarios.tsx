@@ -1,8 +1,11 @@
 import { useState, useEffect } from "react";
 import styles from "./ListaUsuarios.module.css";
-import { HiOutlineUser, HiOutlineEnvelope, HiOutlineFingerPrint, HiOutlineUsers, HiOutlinePencil, HiOutlineLockClosed, HiOutlineLockOpen, HiOutlineKey, HiCheck, HiXMark } from 'react-icons/hi2';
+import { useNavigate } from "react-router-dom";
+import { HiOutlineUser, HiOutlineEnvelope, HiOutlineFingerPrint, HiOutlineUsers, HiOutlinePencil, HiOutlineLockClosed, HiOutlineLockOpen, HiOutlineKey, HiCheck, HiXMark, HiOutlineEye, HiOutlinePlus } from 'react-icons/hi2';
 import { getUsers, updateUser } from "../../services/usersService";
+import { createAdminAutonomo } from "../../services/adminAutonomoService";
 import { useModal } from "../../context/ModalContext";
+import { useAuth } from "../../context/AuthContext";
 
 interface User {
     id: number;
@@ -10,13 +13,15 @@ interface User {
     email: string;
     role: any;
     created_at: string;
-    status: string; // "active" or "blocked"
+    status: string;
     telefono?: string;
     avatar?: string;
 }
 
 export default function ListaUsuarios() {
     const { showAlert, showConfirm } = useModal();
+    const { user } = useAuth();
+    const navigate = useNavigate();
     const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchText, setSearchText] = useState("");
@@ -30,11 +35,18 @@ export default function ListaUsuarios() {
     const [resetPasswordUserId, setResetPasswordUserId] = useState<number | null>(null);
     const [newPassword, setNewPassword] = useState("");
 
+    // ── Modal crear Admin Autónomo ──────────────────────────────────────────
+    const [showCreateModal, setShowCreateModal] = useState(false);
+    const [newName, setNewName] = useState("");
+    const [newEmail, setNewEmail] = useState("");
+    const [newPass, setNewPass] = useState("");
+    const [creatingAutonomo, setCreatingAutonomo] = useState(false);
+
     const fetchUsers = async () => {
         try {
             setLoading(true);
             const data = await getUsers();
-            
+
             const storedWorkers = localStorage.getItem('trabajadores_list');
             const localList = storedWorkers ? JSON.parse(storedWorkers) : [];
 
@@ -49,15 +61,13 @@ export default function ListaUsuarios() {
                         const profileKey = `profile_${u.name?.replace(/\s+/g, '') || 'default'}`;
                         const profileData = localStorage.getItem(profileKey);
                         if (profileData) {
-                            try {
-                                localAvatar = JSON.parse(profileData).imagenPerfil || null;
-                            } catch (e) {}
+                            try { localAvatar = JSON.parse(profileData).imagenPerfil || null; } catch (e) {}
                         }
                     }
                 }
                 return { ...u, avatar: localAvatar };
             });
-            
+
             setUsers(mapped);
         } catch (error) {
             console.error("Error cargando usuarios:", error);
@@ -67,9 +77,7 @@ export default function ListaUsuarios() {
         }
     };
 
-    useEffect(() => {
-        fetchUsers();
-    }, []);
+    useEffect(() => { fetchUsers(); }, []);
 
     const getRoleName = (role: any) => {
         if (!role) return "Usuario";
@@ -90,13 +98,9 @@ export default function ListaUsuarios() {
             setEditingUserId(null);
             showAlert("Éxito", "Correo actualizado correctamente.", "success");
         } catch (error: any) {
-            console.error("Error al actualizar email:", error);
             let errorMsg = "No se pudo actualizar el correo.";
-            if (error.response?.data?.errors?.email) {
-                errorMsg = error.response.data.errors.email[0];
-            } else if (error.response?.data?.message) {
-                errorMsg = error.response.data.message;
-            }
+            if (error.response?.data?.errors?.email) errorMsg = error.response.data.errors.email[0];
+            else if (error.response?.data?.message) errorMsg = error.response.data.message;
             showAlert("Error", errorMsg, "error");
         }
     };
@@ -108,74 +112,89 @@ export default function ListaUsuarios() {
 
     const handleSavePassword = async () => {
         if (!resetPasswordUserId) return;
-        if (newPassword.length < 6) {
-            showAlert("Atención", "La contraseña debe tener al menos 6 caracteres.", "warning");
-            return;
-        }
-
+        if (newPassword.length < 6) { showAlert("Atención", "La contraseña debe tener al menos 6 caracteres.", "warning"); return; }
         try {
             await updateUser(resetPasswordUserId, { password: newPassword });
             setResetPasswordUserId(null);
             setNewPassword("");
             showAlert("Éxito", "Contraseña cambiada correctamente.", "success");
         } catch (error: any) {
-            console.error("Error al cambiar contraseña:", error);
-            let errorMsg = "No se pudo cambiar la contraseña.";
-            if (error.response?.data?.message) {
-                errorMsg = error.response.data.message;
-            }
-            showAlert("Error", errorMsg, "error");
+            showAlert("Error", error.response?.data?.message || "No se pudo cambiar la contraseña.", "error");
         }
     };
 
     const handleToggleBlock = (user: User) => {
         const isBlocked = user.status === 'blocked';
-        const action = isBlocked ? 'desbloquear' : 'bloquear';
-        
         showConfirm(
-            `¿Confirmar ${action}?`,
-            `¿Estás seguro de que deseas ${action} a ${user.name}?`,
+            `¿Confirmar ${isBlocked ? 'desbloquear' : 'bloquear'}?`,
+            `¿Estás seguro de que deseas ${isBlocked ? 'desbloquear' : 'bloquear'} a ${user.name}?`,
             async () => {
                 try {
                     const newStatus = isBlocked ? 'active' : 'blocked';
                     await updateUser(user.id, { status: newStatus });
                     setUsers(users.map(u => u.id === user.id ? { ...u, status: newStatus } : u));
                     showAlert("Éxito", `Usuario ${isBlocked ? 'desbloqueado' : 'bloqueado'} con éxito.`, "success");
-                } catch (error) {
-                    console.error("Error al cambiar estado:", error);
+                } catch {
                     showAlert("Error", "No se pudo cambiar el estado del usuario.", "error");
                 }
             }
         );
     };
 
+    // ── Crear Admin Autónomo ────────────────────────────────────────────────
+    const handleCreateAutonomo = async () => {
+        if (!newName || !newEmail || !newPass) {
+            showAlert("Campos requeridos", "Completa nombre, correo y contraseña.", "warning");
+            return;
+        }
+        if (newPass.length < 6) {
+            showAlert("Contraseña corta", "La contraseña debe tener al menos 6 caracteres.", "warning");
+            return;
+        }
+        setCreatingAutonomo(true);
+        try {
+            // Obtener el role_id del rol admin-autonomo de la BD
+            // El ID es 7 según la migración, pero lo buscamos dinámicamente del listado de usuarios si ya hay uno
+            // Por seguridad, enviamos el nombre del rol y el backend lo valida por su hierarchy_level
+            await createAdminAutonomo({
+                name: newName,
+                email: newEmail,
+                password: newPass,
+                role_id: 7, // ID del rol admin-autonomo según migración
+            });
+            showAlert("¡Admin Autónomo creado!", `${newName} ya puede iniciar sesión. Su panel estará en /autonomo.`, "success");
+            setShowCreateModal(false);
+            setNewName(""); setNewEmail(""); setNewPass("");
+            fetchUsers();
+        } catch (error: any) {
+            const msg = error.response?.data?.message || "No se pudo crear el Admin Autónomo.";
+            showAlert("Error", msg, "error");
+        } finally {
+            setCreatingAutonomo(false);
+        }
+    };
+
     const filteredUsers = users.filter(u => {
         const roleName = getRoleName(u.role);
-        
-        // 1. Excluir al Root (por nombre o por ID 1 que suele ser el inicial)
-        if (
-            (u.name || "").toLowerCase() === "root" || 
-            (u.email || "").toLowerCase().includes("root@") ||
-            u.id === 1
-        ) {
-            return false;
-        }
 
-        // 2. Filtro por buscador
-        const matchesSearch = 
-            (u.name || "").toLowerCase().includes(searchText.toLowerCase()) || 
+        if ((u.name || "").toLowerCase() === "root" || (u.email || "").toLowerCase().includes("root@") || u.id === 1) return false;
+
+        const matchesSearch =
+            (u.name || "").toLowerCase().includes(searchText.toLowerCase()) ||
             (u.email || "").toLowerCase().includes(searchText.toLowerCase());
 
-        // 3. Filtro por selector de Rol
-        const matchesRole = 
-            filterRole === "Todos" || 
+        const matchesRole =
+            filterRole === "Todos" ||
             roleName.toLowerCase() === filterRole.toLowerCase() ||
             (filterRole === "Trabajador" && (roleName.toLowerCase() === "trabajador" || roleName.toLowerCase() === "tecnico")) ||
             (filterRole === "Cliente" && roleName.toLowerCase() === "cliente") ||
-            (filterRole === "Admin" && roleName.toLowerCase() === "admin");
+            (filterRole === "Admin" && roleName.toLowerCase() === "admin") ||
+            (filterRole === "AdminAutonomo" && roleName.toLowerCase() === "admin-autonomo");
 
         return matchesSearch && matchesRole;
     });
+
+    const isAutonomo = (u: User) => getRoleName(u.role).toLowerCase() === 'admin-autonomo';
 
     return (
         <div className={styles.container}>
@@ -193,17 +212,34 @@ export default function ListaUsuarios() {
                 </div>
 
                 <div className={styles.filterWrapper}>
-                    <select 
-                        className={styles.roleSelect}
-                        value={filterRole}
-                        onChange={(e) => setFilterRole(e.target.value)}
-                    >
+                    <select className={styles.roleSelect} value={filterRole} onChange={(e) => setFilterRole(e.target.value)}>
                         <option value="Todos">Todos los roles</option>
                         <option value="Cliente">Clientes</option>
                         <option value="Trabajador">Trabajadores</option>
-                        <option value="Admin">Administradores</option>
+                        {user?.role === 'admin' && (
+                            <>
+                                <option value="Admin">Administradores</option>
+                                <option value="AdminAutonomo">Admin Autónomo</option>
+                            </>
+                        )}
                     </select>
                 </div>
+
+                {/* BOTÓN CREAR ADMIN AUTÓNOMO */}
+                {user?.role === 'admin' && (
+                    <button
+                        onClick={() => setShowCreateModal(true)}
+                        style={{
+                            display: 'flex', alignItems: 'center', gap: 8,
+                            padding: '10px 18px', borderRadius: 10, border: 'none',
+                            background: 'linear-gradient(135deg, #f26522, #e05510)',
+                            color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer',
+                            whiteSpace: 'nowrap', boxShadow: '0 4px 12px rgba(242,101,34,0.3)'
+                        }}
+                    >
+                        <HiOutlinePlus size={18} /> Admin Autónomo
+                    </button>
+                )}
             </div>
 
             {/* LISTA */}
@@ -212,15 +248,12 @@ export default function ListaUsuarios() {
                     <div className={styles.loading}>Cargando usuarios...</div>
                 ) : filteredUsers.length > 0 ? (
                     filteredUsers.map((u) => (
-                        <div key={u.id} className={`${styles.userCard} ${u.status === 'blocked' ? styles.blocked : ''}`}>
+                        <div key={u.id} className={`${styles.userCard} ${u.status === 'blocked' ? styles.blocked : ''}`}
+                            style={isAutonomo(u) ? { borderTop: '3px solid #f26522', background: '#fffaf7' } : {}}>
                             <div className={styles.cardHeader}>
                                 <div className={styles.avatar}>
                                     {u.avatar ? (
-                                        <img 
-                                            src={u.avatar} 
-                                            alt={u.name} 
-                                            style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} 
-                                        />
+                                        <img src={u.avatar} alt={u.name} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
                                     ) : (
                                         <HiOutlineUser size={24} />
                                     )}
@@ -229,57 +262,52 @@ export default function ListaUsuarios() {
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                         <h3>{u.name}</h3>
                                         <div className={styles.actionButtons}>
-                                            <button 
-                                                className={`${styles.iconBtn} ${styles.editBtn}`} 
-                                                title="Editar Correo"
-                                                onClick={() => handleEditStart(u)}
-                                            >
+                                            <button className={`${styles.iconBtn} ${styles.editBtn}`} title="Editar Correo" onClick={() => handleEditStart(u)}>
                                                 <HiOutlinePencil size={18} />
                                             </button>
-                                            <button 
-                                                className={`${styles.iconBtn}`} 
-                                                title="Cambiar Contraseña"
-                                                onClick={() => handlePasswordResetStart(u)}
-                                                style={{ color: '#eab308' }}
-                                            >
+                                            <button className={`${styles.iconBtn}`} title="Cambiar Contraseña" onClick={() => handlePasswordResetStart(u)} style={{ color: '#eab308' }}>
                                                 <HiOutlineKey size={18} />
                                             </button>
-                                            <button 
-                                                className={`${styles.iconBtn} ${u.status === 'blocked' ? styles.unblockBtn : styles.blockBtn}`}
-                                                title={u.status === 'blocked' ? "Desbloquear" : "Bloquear"}
-                                                onClick={() => handleToggleBlock(u)}
-                                            >
+                                            <button className={`${styles.iconBtn} ${u.status === 'blocked' ? styles.unblockBtn : styles.blockBtn}`} title={u.status === 'blocked' ? "Desbloquear" : "Bloquear"} onClick={() => handleToggleBlock(u)}>
                                                 {u.status === 'blocked' ? <HiOutlineLockOpen size={18} /> : <HiOutlineLockClosed size={18} />}
                                             </button>
+                                            {/* 👁 VER SISTEMA — solo para Admin Autónomo */}
+                                            {isAutonomo(u) && (
+                                                <button
+                                                    className={styles.iconBtn}
+                                                    title="Ver su sistema"
+                                                    onClick={() => navigate(`/menu/admin-autonomo/${u.id}`)}
+                                                    style={{ color: '#f26522' }}
+                                                >
+                                                    <HiOutlineEye size={18} />
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', marginTop: '4px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', marginTop: '4px', gap: 6 }}>
                                         {u.status && (
                                             <span className={`${styles.statusLabel} ${u.status === 'active' ? styles.statusActive : styles.statusBlocked}`}>
                                                 {u.status === 'active' ? 'ACTIVO' : 'BLOQUEADO'}
                                             </span>
                                         )}
-                                        <span className={styles.roleBadge}>{getRoleName(u.role)}</span>
+                                        <span className={styles.roleBadge}
+                                            style={isAutonomo(u) ? { background: '#fff0e8', color: '#f26522', fontWeight: 800 } : {}}>
+                                            {isAutonomo(u) ? '🏢 Admin Autónomo' : getRoleName(u.role)}
+                                        </span>
                                     </div>
                                 </div>
                             </div>
-                            
+
                             <div className={styles.cardBody}>
                                 <div className={styles.infoRow}>
                                     <HiOutlineEnvelope className={styles.icon} />
                                     {editingUserId === u.id ? (
                                         <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
-                                            <input 
-                                                className={styles.editInput}
-                                                value={editEmail}
-                                                onChange={(e) => setEditEmail(e.target.value)}
-                                            />
+                                            <input className={styles.editInput} value={editEmail} onChange={(e) => setEditEmail(e.target.value)} />
                                             <button className={styles.saveBtn} onClick={() => handleSaveEmail(u.id)}><HiCheck /></button>
                                             <button className={styles.cancelBtn} onClick={() => setEditingUserId(null)}><HiXMark /></button>
                                         </div>
-                                    ) : (
-                                        <span>{u.email}</span>
-                                    )}
+                                    ) : <span>{u.email}</span>}
                                 </div>
                                 <div className={styles.infoRow}>
                                     <HiOutlineFingerPrint className={styles.icon} />
@@ -302,19 +330,53 @@ export default function ListaUsuarios() {
                 <div className={styles.modalOverlay}>
                     <div className={styles.modalContent}>
                         <h3>Cambiar Contraseña</h3>
-                        <p style={{ fontSize: '14px', color: '#666', marginBottom: '15px' }}>
-                            Ingresa la nueva contraseña para este usuario.
-                        </p>
-                        <input 
-                            type="password"
-                            placeholder="Nueva contraseña (mínimo 6 caracteres)"
-                            className={styles.modalInput}
-                            value={newPassword}
-                            onChange={(e) => setNewPassword(e.target.value)}
-                        />
+                        <p style={{ fontSize: '14px', color: '#666', marginBottom: '15px' }}>Ingresa la nueva contraseña para este usuario.</p>
+                        <input type="password" placeholder="Nueva contraseña (mínimo 6 caracteres)" className={styles.modalInput} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
                         <div className={styles.modalFooter}>
                             <button className={styles.btnSecondary} onClick={() => setResetPasswordUserId(null)}>Cancelar</button>
                             <button className={styles.btnPrimary} onClick={handleSavePassword}>Guardar</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── MODAL CREAR ADMIN AUTÓNOMO ── */}
+            {showCreateModal && (
+                <div className={styles.modalOverlay}>
+                    <div className={styles.modalContent} style={{ maxWidth: 460 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+                            <h3 style={{ margin: 0, color: '#f26522', fontSize: 18 }}>🏢 Crear Admin Autónomo</h3>
+                            <button onClick={() => setShowCreateModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}>
+                                <HiXMark size={22} />
+                            </button>
+                        </div>
+                        <p style={{ fontSize: 13, color: '#64748b', marginBottom: 18 }}>
+                            El Admin Autónomo tendrá su propio sistema completo — sucursales, técnicos, trabajos y cotizaciones completamente independientes.
+                        </p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                            <div>
+                                <label style={{ fontSize: 12, fontWeight: 700, color: '#475569', display: 'block', marginBottom: 4 }}>Nombre completo</label>
+                                <input className={styles.modalInput} placeholder="Ej: Juan Rodríguez" value={newName} onChange={e => setNewName(e.target.value)} />
+                            </div>
+                            <div>
+                                <label style={{ fontSize: 12, fontWeight: 700, color: '#475569', display: 'block', marginBottom: 4 }}>Correo electrónico</label>
+                                <input type="email" className={styles.modalInput} placeholder="correo@empresa.com" value={newEmail} onChange={e => setNewEmail(e.target.value)} />
+                            </div>
+                            <div>
+                                <label style={{ fontSize: 12, fontWeight: 700, color: '#475569', display: 'block', marginBottom: 4 }}>Contraseña inicial</label>
+                                <input type="password" className={styles.modalInput} placeholder="Mínimo 6 caracteres" value={newPass} onChange={e => setNewPass(e.target.value)} />
+                            </div>
+                        </div>
+                        <div className={styles.modalFooter} style={{ marginTop: 20 }}>
+                            <button className={styles.btnSecondary} onClick={() => setShowCreateModal(false)} disabled={creatingAutonomo}>Cancelar</button>
+                            <button
+                                className={styles.btnPrimary}
+                                onClick={handleCreateAutonomo}
+                                disabled={creatingAutonomo}
+                                style={{ background: 'linear-gradient(135deg, #f26522, #e05510)', border: 'none' }}
+                            >
+                                {creatingAutonomo ? 'Creando...' : 'Crear Admin Autónomo'}
+                            </button>
                         </div>
                     </div>
                 </div>

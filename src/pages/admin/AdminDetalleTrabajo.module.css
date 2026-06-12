@@ -5,12 +5,14 @@
     position: relative;
     overflow: hidden;
     padding: 20px;
+    box-sizing: border-box;
 }
 
 /* Reusing Menu.module.css classes where possible or redefining here if needed */
 
 .mainCard {
     flex: 1;
+    min-height: 0;
     background: rgba(255, 255, 255, 0);
     border-radius: 40px;
     padding: 40px 25px 40px 40px;
@@ -24,6 +26,7 @@
 
 .scrollableContent {
     flex: 1;
+    min-height: 0;
     overflow-y: auto;
     padding-right: 15px;
 }
@@ -182,6 +185,7 @@
     grid-template-columns: repeat(12, 1fr);
     gap: 15px;
     padding: 10px;
+    align-items: flex-start;
 }
 
 .bentoCard {
@@ -334,7 +338,7 @@
 
 .descriptionBox {
     background: #f8fafc;
-    border-left: 4px solid #3b82f6;
+    border-left: 4px solid #f26522;
     padding: 15px;
     border-radius: 15px;
     margin-top: 10px;

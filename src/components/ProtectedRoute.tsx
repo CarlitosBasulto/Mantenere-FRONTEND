@@ -1,4 +1,4 @@
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 
 interface Props {
     children: React.ReactNode;
@@ -8,8 +8,9 @@ interface Props {
 const ProtectedRoute = ({ children, allowedRoles }: Props) => {
     const token = localStorage.getItem("token");
     const userData = localStorage.getItem("user");
+    const location = useLocation();
 
-    console.log("🛡️ [ProtectedRoute] Evaluando ruta protegida");
+    console.log("🛡️ [ProtectedRoute] Evaluando ruta protegida para PATH:", location.pathname);
     console.log("🛡️ Token existe:", !!token);
     console.log("🛡️ UserData en localStorage:", userData);
     console.log("🛡️ Roles permitidos para esta ruta:", allowedRoles);

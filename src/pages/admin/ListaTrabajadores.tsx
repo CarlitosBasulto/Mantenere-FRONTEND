@@ -4,6 +4,7 @@ import menuStyles from "../../components/Menu.module.css";
 import { HiOutlineUser, HiX } from 'react-icons/hi';
 import { useNavigate } from "react-router-dom";
 import { useModal } from "../../context/ModalContext";
+import { useAuth } from "../../context/AuthContext";
 import { getTrabajadores, createTrabajador, toggleEstado } from "../../services/trabajadoresService";
 
 interface Trabajador {
@@ -20,6 +21,7 @@ interface Trabajador {
 
 const ListaTrabajadores: React.FC = () => {
     const navigate = useNavigate();
+    const { user } = useAuth(); // Agregado useAuth para saber el rol
     const { showAlert, showConfirm } = useModal();
     const [trabajadoresData, setTrabajadoresData] = useState<Trabajador[]>([]);
     
@@ -267,10 +269,16 @@ Line: 97
                         <div
                             key={worker.id}
                             className={styles.jobCard}
-                            onClick={() => navigate(`/menu/trabajador/${worker.id}`)}
+                            onClick={() => {
+                                if (user?.role === 'autonomo') {
+                                    navigate(`/autonomo/trabajador/${worker.id}`);
+                                } else {
+                                    navigate(`/menu/trabajador/${worker.id}`);
+                                }
+                            }}
                         >
                             {/* Barra de color superior */}
-                            <div className={`${styles.cardIndicator} ${styles.blue}`}></div>
+                            <div className={`${styles.cardIndicator} ${styles.orange}`}></div>
 
                             <div className={styles.cardContent}>
                                 {/* AVATAR */}

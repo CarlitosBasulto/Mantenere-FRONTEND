@@ -54,6 +54,7 @@ const MenuLayout: React.FC = () => {
         if (role === 'cliente') return "/cliente";
         if (role === 'tecnico') return "/tecnico";
         if (role === 'encargado') return "/encargado";
+        if (role === 'autonomo') return "/autonomo";
         return "/";
     };
 
@@ -117,6 +118,8 @@ const MenuLayout: React.FC = () => {
 
         if (user.role === 'admin') {
             baseOptions = ["Dashboard", "Negocios", "Inventario General", "Trabajadores", "Usuarios", "Solicitudes", "Reportes Mantenimiento", "Trabajos Globales Realizados"];
+        } else if (user.role === 'autonomo') {
+            baseOptions = ["Mi Dashboard", "Mis Sucursales", "Mis Técnicos", "Usuarios", "Solicitudes", "Historial"];
         } else if (user.role === 'cliente') {
             baseOptions = ["Resumen", "Mis Negocios", "Cotizaciones", "Historial"];
         } else if (user.role === 'tecnico') {
@@ -146,6 +149,13 @@ const MenuLayout: React.FC = () => {
                 else if (path.includes("mantenimiento")) setActiveOption("Reportes Mantenimiento");
                 else if (path.includes("trabajos-realizados")) setActiveOption("Trabajos Globales Realizados");
                 else setActiveOption("Negocios");
+            } else if (path.startsWith("/autonomo")) {
+                if (path === "/autonomo" || path === "/autonomo/" || path.includes("dashboard")) setActiveOption("Mi Dashboard");
+                else if (path.includes("negocios") || path.includes("perfil-empresa")) setActiveOption("Mis Sucursales");
+                else if (path.includes("trabajadores")) setActiveOption("Mis Técnicos");
+                else if (path.includes("usuarios")) setActiveOption("Usuarios");
+                else if (path.includes("solicitudes")) setActiveOption("Solicitudes");
+                else if (path.includes("historial")) setActiveOption("Historial");
             } else if (path.startsWith("/cliente")) {
                 if (path === "/cliente" || path === "/cliente/") setActiveOption("Resumen");
                 else if (path.includes("resumen")) setActiveOption("Resumen");
@@ -169,16 +179,28 @@ const MenuLayout: React.FC = () => {
     const handleNavigation = (option: string) => {
         setActiveOption(option);
 
+        // Admin principal
         if (option === "Dashboard") navigate("/menu/dashboard");
-        // Mapeo de navegación según opción
         if (option === "Negocios") navigate("/menu/negocios");
         if (option === "Inventario General") navigate("/menu/inventario-general");
         if (option === "Trabajadores") navigate("/menu/trabajadores");
-        if (option === "Usuarios") navigate("/menu/usuarios");
-        if (option === "Solicitudes") navigate("/menu/solicitudes");
+        if (option === "Usuarios") {
+            if (user?.role === 'autonomo') navigate("/autonomo/usuarios");
+            else navigate("/menu/usuarios");
+        }
+        if (option === "Solicitudes") {
+            if (user?.role === 'autonomo') navigate("/autonomo/solicitudes");
+            else navigate("/menu/solicitudes");
+        }
         if (option === "Reportes Mantenimiento") navigate("/menu/mantenimiento");
         if (option === "Trabajos Globales Realizados") navigate("/menu/trabajos-realizados");
 
+        // Admin Autónomo
+        if (option === "Mi Dashboard") navigate("/autonomo/dashboard");
+        if (option === "Mis Sucursales") navigate("/autonomo/negocios");
+        if (option === "Mis Técnicos") navigate("/autonomo/trabajadores");
+
+        // Cliente y Encargado
         if (option === "Resumen") {
             if (user?.role === 'cliente') navigate("/cliente/resumen");
             else if (user?.role === 'encargado') navigate("/encargado/resumen");
@@ -187,7 +209,7 @@ const MenuLayout: React.FC = () => {
         if (option === "Mi Sucursal") {
             if (user?.role === 'encargado') navigate("/encargado/negocios");
         }
-        
+
         if (option === "Cotizaciones") {
             if (user?.role === 'encargado') navigate("/encargado/cotizaciones");
             else navigate("/cliente/cotizaciones");
@@ -196,6 +218,7 @@ const MenuLayout: React.FC = () => {
         if (option === "Historial") {
             if (user?.role === 'tecnico') navigate("/tecnico/historial");
             else if (user?.role === 'encargado') navigate("/encargado/historial");
+            else if (user?.role === 'autonomo') navigate("/autonomo/historial");
             else navigate("/cliente/historial");
         }
 
@@ -221,18 +244,12 @@ const MenuLayout: React.FC = () => {
             if (params.has("tab")) {
                 navigate(location.pathname);
             } else {
-                // Navegación explícita según el rol para evitar que navigate(-1) vuelva a un tab anterior en el historial
-                if (user?.role === 'admin') {
-                    navigate("/menu/negocios");
-                } else if (user?.role === 'cliente') {
-                    navigate("/cliente/negocios");
-                } else if (user?.role === 'encargado') {
-                    navigate("/encargado/negocios");
-                } else if (user?.role === 'tecnico') {
-                    navigate("/tecnico");
-                } else {
-                    navigate(-1);
-                }
+                if (user?.role === 'admin') navigate("/menu/negocios");
+                else if (user?.role === 'autonomo') navigate("/autonomo/negocios");
+                else if (user?.role === 'cliente') navigate("/cliente/negocios");
+                else if (user?.role === 'encargado') navigate("/encargado/negocios");
+                else if (user?.role === 'tecnico') navigate("/tecnico");
+                else navigate(-1);
             }
         } else {
             navigate(-1);
@@ -242,13 +259,16 @@ const MenuLayout: React.FC = () => {
     const getIconForOption = (option: string) => {
         switch (option) {
             case "Dashboard":
+            case "Mi Dashboard":
                 return <HiOutlineSquares2X2 size={22} />;
             case "Inventario General":
                 return <HiOutlineArchiveBox size={22} />;
             case "Negocios":
             case "Mis Negocios":
+            case "Mis Sucursales":
                 return <HiOutlineBriefcase size={22} />;
             case "Trabajadores":
+            case "Mis Técnicos":
                 return <LuHardHat size={22} />;
             case "Usuarios":
                 return <HiOutlineUsers size={22} />;
@@ -257,6 +277,7 @@ const MenuLayout: React.FC = () => {
                 return <HiOutlineDocumentText size={22} />;
             case "Trabajos Globales Realizados":
             case "Historial":
+            case "Historial de Trabajo":
                 return <HiOutlineClock size={22} />;
             case "Cotizaciones":
             case "Cotización":
@@ -370,7 +391,14 @@ const MenuLayout: React.FC = () => {
                                                     <div key={noti.id} className={`${styles.notificationItem} ${!noti.leido ? styles.notificationUnread : ''}`} onClick={() => {
                                                         if (noti.enlace) {
                                                             marcarUnaComoLeida(noti.id);
-                                                            navigate(noti.enlace);
+                                                            let targetUrl = noti.enlace;
+                                                            if (user?.role && targetUrl.startsWith('/menu/')) {
+                                                                if (user.role === 'autonomo') targetUrl = targetUrl.replace('/menu/', '/autonomo/');
+                                                                else if (user.role === 'tecnico') targetUrl = targetUrl.replace('/menu/', '/tecnico/');
+                                                                else if (user.role === 'encargado') targetUrl = targetUrl.replace('/menu/', '/encargado/');
+                                                                else if (user.role === 'cliente') targetUrl = targetUrl.replace('/menu/', '/cliente/');
+                                                            }
+                                                            navigate(targetUrl);
                                                         }
                                                         setMostrarNotificaciones(false);
                                                     }}>
@@ -430,6 +458,7 @@ const MenuLayout: React.FC = () => {
                                                 if (user?.role === 'cliente') navigate("/cliente/mi-perfil");
                                                 else if (user?.role === 'admin') navigate("/menu/mi-perfil");
                                                 else if (user?.role === 'tecnico') navigate("/tecnico/mi-perfil");
+                                                else if (user?.role === 'autonomo') navigate("/autonomo/mi-perfil");
                                                 // encargado: no tiene perfil propio, se queda en su sucursal
                                             }}
                                         >

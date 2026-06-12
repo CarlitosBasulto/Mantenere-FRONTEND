@@ -112,6 +112,8 @@
     text-transform: uppercase;
     letter-spacing: 1px;
     margin-bottom: 12px;
+    border-top-left-radius: 22px;
+    border-top-right-radius: 22px;
 }
 
 .statusBar.yellow {
@@ -132,6 +134,11 @@
 .statusBar.blue {
     background: #e3f2fd;
     color: #1565c0;
+}
+
+.statusBar.orange {
+    background: #fff0e6;
+    color: #f26522;
 }
 
 .cardContent {

@@ -14,6 +14,7 @@ interface TareaHistorial {
     fecha: string;
     tecnico?: string;
     trabajoId: number;
+    monthYear?: string;
 }
 
 const AdminHistorial: React.FC = () => {
@@ -21,6 +22,7 @@ const AdminHistorial: React.FC = () => {
     const [rawTareas, setRawTareas] = useState<TareaHistorial[]>([]);
     const [selectedHistoryTask, setSelectedHistoryTask] = useState<TareaHistorial | null>(null);
     const [selectedZoomImage, setSelectedZoomImage] = useState<string | null>(null);
+    const [expandedMonths, setExpandedMonths] = useState<Record<string, boolean>>({});
 
     const [searchText, setSearchText] = useState("");
 
@@ -39,16 +41,23 @@ const AdminHistorial: React.FC = () => {
                     );
                 }
 
-                const mappedTareas = terminados.map((job: any) => ({
-                    id: job.id,
-                    titulo: job.titulo,
-                    descripcion: job.descripcion || "Trabajo completado exitosamente.",
-                    estado: job.estado,
-                    ubicacion: job.negocio?.ubicacion || job.negocio?.nombre || "Sucursal",
-                    fecha: job.fecha_programada || new Date(job.created_at).toLocaleDateString('es-MX'),
-                    tecnico: job.trabajador?.nombre || "Sin Asignar",
-                    trabajoId: job.id
-                }));
+                const mappedTareas = terminados.map((job: any) => {
+                    const dateObj = job.fecha_programada ? new Date(`${job.fecha_programada}T00:00:00`) : new Date(job.created_at);
+                    const isInvalid = isNaN(dateObj.getTime());
+                    const finalDate = isInvalid ? new Date() : dateObj;
+                    const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+                    return {
+                        id: job.id,
+                        titulo: job.titulo,
+                        descripcion: job.descripcion || "Trabajo completado exitosamente.",
+                        estado: job.estado,
+                        ubicacion: job.negocio?.ubicacion || job.negocio?.nombre || "Sucursal",
+                        fecha: finalDate.toLocaleDateString('es-MX'),
+                        monthYear: capitalize(finalDate.toLocaleString('es-MX', { month: 'long', year: 'numeric' })),
+                        tecnico: job.trabajador?.nombre || "Sin Asignar",
+                        trabajoId: job.id
+                    };
+                });
 
                 // Ordenar más recientes primero
                 mappedTareas.sort((a: TareaHistorial, b: TareaHistorial) => b.id - a.id);
@@ -89,43 +98,72 @@ const AdminHistorial: React.FC = () => {
             <div className={styles.list}>
                 {filtradas.length > 0 ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                        {filtradas.map((tarea, index) => {
-                            return (
-                                <div
-                                    key={`${tarea.id}-${index}`}
-                                    className={styles.card}
-                                    onClick={() => setSelectedHistoryTask(tarea)}
-                                    title="Haz clic para ver más detalles"
-                                >
-                                    <div className={`${styles.cardIndicator} ${styles.borderSuccess}`}></div>
-                                    <div className={styles.cardContent}>
-                                        <div className={styles.cardIcon}>
-                                            <span className={styles.iconHistory}>📋</span>
-                                        </div>
-                                        <div className={styles.cardInfo}>
-                                            <div className={styles.cardHeader}>
-                                                <div>
-                                                    <span style={{ background: '#e3f2fd', color: '#1565c0', padding: '4px 8px', borderRadius: '8px', fontSize: '12px', fontWeight: 'bold', display: 'inline-block', marginBottom: '5px' }}>
-                                                        🏢 {tarea.ubicacion}
-                                                    </span>
-                                                    <h3 className={styles.concepto} style={{ marginTop: '0' }}>{tarea.titulo}</h3>
-                                                </div>
-                                                <div className={`${styles.statusBadge} ${styles.badgeSuccess}`}>
-                                                    <span className={styles.statusIcon}>✓</span> Completado
-                                                </div>
+                        {(() => {
+                            const grouped = filtradas.reduce((acc, tarea) => {
+                                const key = tarea.monthYear || 'Desconocido';
+                                if (!acc[key]) acc[key] = [];
+                                acc[key].push(tarea);
+                                return acc;
+                            }, {} as Record<string, TareaHistorial[]>);
+
+                            return Object.entries(grouped).map(([monthYear, tareasGroup]) => {
+                                const isExpanded = expandedMonths[monthYear] !== false; // Default true
+                                return (
+                                    <div key={monthYear} style={{ marginBottom: '10px' }}>
+                                        <div onClick={() => setExpandedMonths(prev => ({ ...prev, [monthYear]: !isExpanded }))} style={{ cursor: 'pointer', background: '#f8fafc', padding: '15px 20px', borderRadius: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontWeight: 'bold', fontSize: '18px', color: '#1e293b', boxShadow: '0 2px 5px rgba(0,0,0,0.05)', marginBottom: '15px', border: '1px solid #e2e8f0', transition: 'all 0.2s ease' }} onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'} onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                <span style={{ fontSize: '24px' }}>{isExpanded ? '📂' : '📁'}</span>
+                                                <span style={{ textTransform: 'capitalize' }}>{monthYear}</span>
+                                                <span style={{ background: '#e2e8f0', color: '#475569', fontSize: '13px', padding: '2px 10px', borderRadius: '20px' }}>{tareasGroup.length} reporte{tareasGroup.length !== 1 ? 's' : ''}</span>
                                             </div>
-                                            <p className={styles.descripcion}>{tarea.descripcion}</p>
-                                            <div className={styles.cardFooter}>
-                                                {tarea.tecnico && tarea.tecnico !== "Sin asignar" ? (
-                                                    <span className={styles.tecnicoBadge}>🧑‍🔧 {tarea.tecnico}</span>
-                                                ) : <span></span>}
-                                                <span className={styles.fecha}>{tarea.fecha}</span>
-                                            </div>
+                                            <span style={{ color: '#94a3b8', fontSize: '14px', transition: 'transform 0.3s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>▼</span>
                                         </div>
+                                        {isExpanded && (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', paddingLeft: '15px', borderLeft: '2px solid #e2e8f0', marginLeft: '10px' }}>
+                                                {tareasGroup.map((tarea, index) => {
+                                                    return (
+                                                        <div
+                                                            key={`${tarea.id}-${index}`}
+                                                            className={styles.card}
+                                                            onClick={() => setSelectedHistoryTask(tarea)}
+                                                            title="Haz clic para ver más detalles"
+                                                            style={{ margin: 0, boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}
+                                                        >
+                                                            <div className={`${styles.cardIndicator} ${styles.borderSuccess}`}></div>
+                                                            <div className={styles.cardContent}>
+                                                                <div className={styles.cardIcon}>
+                                                                    <span className={styles.iconHistory}>📋</span>
+                                                                </div>
+                                                                <div className={styles.cardInfo}>
+                                                                    <div className={styles.cardHeader}>
+                                                                        <div>
+                                                                            <span style={{ background: '#e3f2fd', color: '#1565c0', padding: '4px 8px', borderRadius: '8px', fontSize: '12px', fontWeight: 'bold', display: 'inline-block', marginBottom: '5px' }}>
+                                                                                🏢 {tarea.ubicacion}
+                                                                            </span>
+                                                                            <h3 className={styles.concepto} style={{ marginTop: '0' }}>{tarea.titulo}</h3>
+                                                                        </div>
+                                                                        <div className={`${styles.statusBadge} ${styles.badgeSuccess}`}>
+                                                                            <span className={styles.statusIcon}>✓</span> Completado
+                                                                        </div>
+                                                                    </div>
+                                                                    <p className={styles.descripcion}>{tarea.descripcion}</p>
+                                                                    <div className={styles.cardFooter}>
+                                                                        {tarea.tecnico && tarea.tecnico !== "Sin asignar" ? (
+                                                                            <span className={styles.tecnicoBadge}>🧑‍🔧 {tarea.tecnico}</span>
+                                                                        ) : <span></span>}
+                                                                        <span className={styles.fecha}>{tarea.fecha}</span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
                                     </div>
-                                </div>
-                            );
-                        })}
+                                );
+                            });
+                        })()}
                     </div>
                 ) : (
                     <div style={{ textAlign: 'center', padding: '40px', background: '#fff', borderRadius: '30px', border: '1px solid #eee' }}>
