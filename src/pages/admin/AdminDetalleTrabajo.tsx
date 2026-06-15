@@ -1650,7 +1650,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                                     </span>
 
                                     {/* BOTÓN ACCIÓN — lógica diferente para SOS vs Normal */}
-                                    {user?.role === 'admin' && trabajo.estado !== 'Finalizado' && trabajo.estado !== 'Asignado' && trabajo.estado !== 'En Proceso' && (
+                                    {(user?.role === 'admin' || user?.role === 'autonomo') && trabajo.estado !== 'Finalizado' && trabajo.estado !== 'Asignado' && trabajo.estado !== 'En Proceso' && (
                                         isSOS ? (
                                             // FLUJO SOS:
                                             // - Si está en Solicitud: primero debe crear cotización
@@ -1770,7 +1770,7 @@ const AdminDetalleTrabajo: React.FC = () => {
 
                             {/* CONTACTS AND LOCATION CARDS WERE MOVED TO MODAL */}
                             {/* Card 5: Acciones adicionales (12/12) — Cotización */}
-                            {user?.role === 'admin' && (
+                            {(user?.role === 'admin' || user?.role === 'autonomo') && (
                                 <div className={`${styles.colSpan12}`} style={{ marginTop: '5px' }}>
                                     <div style={{ display: 'flex', gap: '10px' }}>
                                         {/* Para solicitudes NORMALES: mostrar "Crear Cotización" tras la visita */}
