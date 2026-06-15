@@ -20,6 +20,9 @@ import ListaTrabajadores from "./pages/admin/ListaTrabajadores";
 import ListaSolicitudes from "./pages/admin/ListaSolicitudes";
 import TrabajoDetalle from "./pages/Trabajos detalles/Trabajodetalles";
 import AdminDetalleTrabajo from "./pages/admin/AdminDetalleTrabajo";
+import AutonomoDetalleTrabajo from "./pages/ecosistema_autonomo/admin_autonomo/AutonomoDetalleTrabajo";
+import AutonomoListaNegocios from "./pages/ecosistema_autonomo/admin_autonomo/AutonomoListaNegocios";
+import AutonomoListaTrabajadores from "./pages/ecosistema_autonomo/admin_autonomo/AutonomoListaTrabajadores";
 import AdminVerificacionEquipo from "./pages/admin/AdminVerificacionEquipo";
 import AdminReporte from "./pages/admin/AdminReporte";
 import AdminCotizacion from "./pages/admin/AdminCotizacion";
@@ -138,14 +141,14 @@ function App() {
                         }>
                             <Route index element={<DashboardAutonomo />} />
                             <Route path="dashboard" element={<DashboardAutonomo />} />
-                            <Route path="negocios" element={<ListaNegocios />} />
-                            <Route path="trabajadores" element={<ListaTrabajadores />} />
+                            <Route path="negocios" element={<AutonomoListaNegocios />} />
+                            <Route path="trabajadores" element={<AutonomoListaTrabajadores />} />
                             <Route path="trabajador/:id" element={<AdminPerfilTrabajador />} />
                             <Route path="usuarios" element={<ListaUsuarios />} />
                             <Route path="solicitudes" element={<ListaSolicitudes />} />
                             <Route path="historial" element={<AdminHistorial />} />
                             <Route path="trabajo/:id" element={<TrabajoDetalle />} />
-                            <Route path="trabajo-detalle/:id" element={<AdminDetalleTrabajo />} />
+                            <Route path="trabajo-detalle/:id" element={<AutonomoDetalleTrabajo />} />
                             <Route path="cotizacion/:id" element={<AdminCotizacion />} />
                             <Route path="reporte-tarea/:id" element={<AdminReporte />} />
                             <Route path="mi-perfil" element={<MiPerfil />} />
