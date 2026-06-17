@@ -18,6 +18,7 @@ interface Negocio {
     status: string; // Internal approval status
     estado_geografico: string; // City or State for display
     imagenPerfil?: string;
+    imagen_portada?: string;
     user_id?: number;
 }
 
@@ -29,6 +30,7 @@ const ListaNegocios: React.FC = () => {
     const [globalJobs, setGlobalJobs] = useState<any[]>([]);
     const [searchText, setSearchText] = useState("");
     const [imageErrors, setImageErrors] = useState<Record<number, boolean>>({});
+    const [coverImageErrors, setCoverImageErrors] = useState<Record<number, boolean>>({});
 
     useEffect(() => {
         const fetchData = async () => {
@@ -61,7 +63,8 @@ const ListaNegocios: React.FC = () => {
                         status: n.estado_aprobacion || "En Espera", // Mantenemos el estatus interno
                         estado_geografico: buildEstadoGeografico() || "Mérida", // Prioridad a lo local
                         user_id: n.user_id,
-                        imagenPerfil: n.imagenPerfil
+                        imagenPerfil: n.imagenPerfil,
+                        imagen_portada: n.imagen_portada
                     };
                 });
                 setNegocios(mapped);
@@ -175,6 +178,13 @@ const ListaNegocios: React.FC = () => {
                             hasDiagnosis = globalJobs.some((j: any) => j.negocio_id === negocio.id && (j.visitado === 1 || j.visitado === true) && (j.estado === 'Solicitud' || j.estado === 'En Espera'));
                         }
 
+                        const hasValidCover = !!(negocio.imagen_portada && !coverImageErrors[negocio.id]);
+                        const cardBg = hasSOS ? '#fffafa' : (hasDiagnosis ? '#f0fdfc' : '#ffffff');
+
+                        const coverUrl = negocio.imagen_portada || '';
+                        const matchPos = coverUrl.match(/[?&]posy=(\d+)/);
+                        const posY = matchPos ? `${matchPos[1]}%` : 'center';
+
                         return (
                             <div style={{ position: 'relative' }} key={negocio.id}>
                                 {hasSOS && (
@@ -190,8 +200,24 @@ const ListaNegocios: React.FC = () => {
                                 <div
                                     className={styles.jobCard}
                                     onClick={() => handleCardClick(negocio.id)}
-                                    style={hasSOS ? { border: '2px solid #f44336', backgroundColor: '#fffafa' } : (hasDiagnosis ? { border: '2px solid #00a699', backgroundColor: '#f0fdfc' } : {})}
+                                    style={{
+                                        border: hasSOS ? '2px solid #f44336' : (hasDiagnosis ? '2px solid #00a699' : undefined),
+                                        backgroundColor: cardBg,
+                                        ['--card-bg' as any]: cardBg
+                                    }}
                                 >
+                                    {hasValidCover && (
+                                        <div className={styles.cardRightImageWrapper}>
+                                            <img
+                                                src={negocio.imagen_portada}
+                                                alt={negocio.nombre}
+                                                className={styles.cardRightImage}
+                                                style={{ objectPosition: `center ${posY}` }}
+                                                onError={() => setCoverImageErrors(prev => ({...prev, [negocio.id]: true}))}
+                                            />
+                                            <div className={styles.cardRightImageOverlay} />
+                                        </div>
+                                    )}
                                     <div className={styles.cardContent}>
                                         <div 
                                             className={styles.cardIcon} 
@@ -223,7 +249,6 @@ const ListaNegocios: React.FC = () => {
                                             )}
                                         </div>
                                         <div className={styles.cardInfo}>
-                                            <span className={styles.cardDate}>{negocio.fecha}</span>
                                             <h3>{negocio.nombre}</h3>
                                             <p>Dueño: {negocio.dueno}</p>
                                             <p>Ubicación: {negocio.ubicacion}</p>
@@ -238,9 +263,6 @@ const ListaNegocios: React.FC = () => {
                                                 </div>
                                             )}
                                         </div>
-
-
-                                        <div className={`${styles.cardIndicator} ${negocio.status === 'Finalizado' ? styles.blue : ''}`}></div>
                                     </div>
                                 </div>
                             </div>

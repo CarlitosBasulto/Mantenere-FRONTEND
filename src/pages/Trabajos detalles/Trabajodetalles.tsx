@@ -17,7 +17,7 @@ import ReporteDetailModal from "../../components/modals/ReporteDetailModal";
 import { getTrabajo } from "../../services/trabajosService";
 import { deleteTrabajo } from "../../services/trabajosService";
 import { HiOutlinePencil, HiOutlineTrash, HiOutlineArchiveBox, HiOutlineClock } from "react-icons/hi2";
-import { Pencil } from 'lucide-react';
+import { Pencil, MoveVertical } from 'lucide-react';
 import ChatTrabajo from "../../components/ChatTrabajo";
 
 interface Trabajo {
@@ -42,6 +42,7 @@ interface Trabajo {
     isEmergency?: boolean;
     asignaciones?: AsignacionTecnico[];
     fechaSolicitud?: string;
+    foto_url?: string;
 }
 
 export interface AsignacionTecnico {
@@ -75,6 +76,33 @@ const TrabajoDetalle: React.FC = () => {
     const [businessAreas, setBusinessAreas] = useState<any[]>([]);
     const [businessDetails, setBusinessDetails] = useState<any>(null);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
+    const [isAdjustingPosition, setIsAdjustingPosition] = useState(false);
+    const [bannerY, setBannerY] = useState(50);
+
+    React.useEffect(() => {
+        if (businessImage) {
+            const match = businessImage.match(/[?&]posy=(\d+)/);
+            if (match) {
+                setBannerY(Number(match[1]));
+            } else {
+                setBannerY(50);
+            }
+        }
+    }, [businessImage]);
+
+    const saveBannerPosition = async () => {
+        if (!id || !businessImage) return;
+        const baseUrl = businessImage.split(/[?#]/)[0];
+        const newUrl = `${baseUrl}?posy=${bannerY}`;
+        try {
+            await updateNegocio(Number(id), { imagen_portada: newUrl });
+            setBusinessImage(newUrl);
+            showAlert("Éxito", "Posición de portada guardada", "success");
+        } catch (error) {
+            console.error("Error al guardar posición de portada:", error);
+            showAlert("Error", "No se pudo guardar la posición", "error");
+        }
+    };
 
     const handleBannerChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -180,7 +208,8 @@ const TrabajoDetalle: React.FC = () => {
                         tipo: displayTipo,
                         descripcion: j.descripcion,
                         isEmergency: isSOS,
-                        fechaSolicitud: j.created_at ? new Date(j.created_at).toLocaleDateString('es-MX') : "No registrada"
+                        fechaSolicitud: j.created_at ? new Date(j.created_at).toLocaleString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }) : "No registrada",
+                        foto_url: j.foto_url
                     };
                 });
                 setTrabajosData(mapped);
@@ -256,9 +285,29 @@ const TrabajoDetalle: React.FC = () => {
     const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
     const [isEditingRequest, setIsEditingRequest] = useState(false);
     const [isSOSRequest, setIsSOSRequest] = useState(false);
-    const [fotoSOS, setFotoSOS] = useState<File | null>(null);
-    const [fotoPreviewUrl, setFotoPreviewUrl] = useState<string | null>(null);
+    const [fotosSOS, setFotosSOS] = useState<File[]>([]);
+    const [fotosPreviewUrls, setFotosPreviewUrls] = useState<string[]>([]);
     const [editingRequestId, setEditingRequestId] = useState<number | null>(null);
+    const [selectedZoomImage, setSelectedZoomImage] = useState<string | null>(null);
+
+    const parseFotoUrls = (fotoUrl: any): string[] => {
+        if (!fotoUrl) return [];
+        if (typeof fotoUrl === 'string') {
+            if (fotoUrl.trim().startsWith('[')) {
+                try {
+                    const parsed = JSON.parse(fotoUrl);
+                    if (Array.isArray(parsed)) return parsed;
+                } catch (e) {
+                    console.error("Error parsing foto_url JSON:", e);
+                }
+            }
+            return [fotoUrl];
+        }
+        if (Array.isArray(fotoUrl)) {
+            return fotoUrl;
+        }
+        return [];
+    };
     const [newRequestData, setNewRequestData] = useState({
         categoria: "Electricidad",
         cliente: "",
@@ -564,18 +613,33 @@ const TrabajoDetalle: React.FC = () => {
 
         if (isEditingRequest && editingRequestId !== null) {
             // Edit existing request
-            const updated = trabajosData.map(job => {
-                if (job.id === editingRequestId) {
-                    return {
-                        ...job,
-                        titulo: `${finalCategoria} - ${newRequestData.cliente || businessName}`,
-                        descripcion: newRequestData.descripcion
-                    };
-                }
-                return job;
-            });
-            saveJobs(updated);
-            showAlert("Éxito", "Solicitud actualizada exitosamente.", "success");
+            try {
+                const updatedPayload = {
+                    titulo: `${finalCategoria} - ${newRequestData.cliente || businessName}`,
+                    descripcion: newRequestData.descripcion,
+                    fecha_programada: newRequestData.fecha || null
+                };
+                await updateTrabajo(editingRequestId, updatedPayload);
+
+                const updated = trabajosData.map(job => {
+                    if (job.id === editingRequestId) {
+                        return {
+                            ...job,
+                            titulo: updatedPayload.titulo,
+                            descripcion: updatedPayload.descripcion,
+                            fecha: updatedPayload.fecha_programada
+                                ? (updatedPayload.fecha_programada.includes('-') ? updatedPayload.fecha_programada.split('-').reverse().join('/') : updatedPayload.fecha_programada)
+                                : job.fecha
+                        };
+                    }
+                    return job;
+                });
+                saveJobs(updated);
+                showAlert("Éxito", "Solicitud actualizada exitosamente.", "success");
+            } catch (error) {
+                console.error("Error al actualizar la solicitud:", error);
+                showAlert("Error", "No se pudo actualizar la solicitud en el servidor.", "error");
+            }
         } else {
             // Create new request (Normal or SOS)
             try {
@@ -622,7 +686,7 @@ const TrabajoDetalle: React.FC = () => {
                 const isEmergency = isSOSRequest;
                 
                 let dbJob;
-                if (fotoSOS) {
+                if (fotosSOS.length > 0) {
                     const formData = new FormData();
                     formData.append('titulo', isEmergency
                         ? `🚨 SOS: ${finalCategoria} - ${businessName}`
@@ -638,7 +702,9 @@ const TrabajoDetalle: React.FC = () => {
                     if (newRequestData.fecha) {
                         formData.append('fecha_programada', newRequestData.fecha);
                     }
-                    formData.append('foto', fotoSOS);
+                    fotosSOS.forEach((file) => {
+                        formData.append('fotos[]', file);
+                    });
                     
                     dbJob = await createTrabajo(formData);
                 } else {
@@ -668,7 +734,11 @@ const TrabajoDetalle: React.FC = () => {
                     estado: "Solicitud",
                     tipo: isEmergency ? "SOS" : "Nueva Solicitud",
                     descripcion: dbJob.descripcion,
-                    isEmergency: isEmergency
+                    isEmergency: isEmergency,
+                    fechaSolicitud: dbJob.created_at 
+                        ? new Date(dbJob.created_at).toLocaleString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }) 
+                        : new Date().toLocaleString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }),
+                    foto_url: dbJob.foto_url
                 };
 
                 if (isEmergency) {
@@ -727,8 +797,8 @@ const TrabajoDetalle: React.FC = () => {
         setIsRequestModalOpen(false);
         setIsEditingRequest(false);
         setIsSOSRequest(false);
-        setFotoSOS(null);
-        setFotoPreviewUrl(null);
+        setFotosSOS([]);
+        setFotosPreviewUrls([]);
         setEditingRequestId(null);
         // Reset form
         setNewRequestData({
@@ -786,12 +856,12 @@ const TrabajoDetalle: React.FC = () => {
         setNewRequestData({
             categoria: cat,
             cliente: businessName,
-            fecha: job.fecha,
+            fecha: job.fecha ? (job.fecha.includes('/') ? job.fecha.split('/').reverse().join('-') : job.fecha) : "",
             descripcion: job.descripcion || "",
             equipoSeleccionado: ""
         });
-        setFotoSOS(null);
-        setFotoPreviewUrl(null);
+        setFotosSOS([]);
+        setFotosPreviewUrls([]);
         setIsEditingRequest(true);
         setEditingRequestId(job.id);
         setIsRequestModalOpen(true);
@@ -988,7 +1058,12 @@ const TrabajoDetalle: React.FC = () => {
                     />
                     {businessImage ? (
                         <div className={styles.bannerWrapper} style={{ position: 'relative' }}>
-                            <img src={businessImage} alt={businessName} className={styles.bannerImg} />
+                            <img 
+                                src={businessImage} 
+                                alt={businessName} 
+                                className={styles.bannerImg} 
+                                style={{ objectPosition: `center ${bannerY}%` }}
+                            />
                             <div className={styles.bannerOverlay}>
                                 <div className={styles.bannerContent}>
                                     <span className={styles.bannerLabel}>TRABAJOS DE LA SUCURSAL</span>
@@ -1000,14 +1075,117 @@ const TrabajoDetalle: React.FC = () => {
                                     )}
                                 </div>
                             </div>
-                            {(user?.role?.toLowerCase() === 'cliente' || user?.role?.toLowerCase() === 'admin' || user?.role?.toLowerCase() === 'autonomo' || user?.role?.toLowerCase() === 'encargado') && (
-                                <button 
-                                    onClick={() => fileInputRef.current?.click()}
-                                    style={{ position: 'absolute', top: 16, right: 16, background: '#f97316', border: '2px solid white', borderRadius: '50%', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'white', zIndex: 50, boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}
-                                    title="Cambiar imagen de portada"
-                                >
-                                    <Pencil size={24} color="white" style={{ width: 24, height: 24, flexShrink: 0 }} />
-                                </button>
+                            
+                            {isAdjustingPosition && (
+                                <div style={{ 
+                                    position: 'absolute', 
+                                    bottom: 16, 
+                                    left: '50%', 
+                                    transform: 'translateX(-50%)', 
+                                    background: 'rgba(15, 23, 42, 0.95)', 
+                                    padding: '12px 20px', 
+                                    borderRadius: '16px', 
+                                    zIndex: 100, 
+                                    display: 'flex', 
+                                    alignItems: 'center', 
+                                    gap: 15, 
+                                    color: 'white', 
+                                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                                    boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.3)'
+                                }}>
+                                    <span style={{ fontSize: '13px', fontWeight: 600 }}>Ajustar Encuadre Y:</span>
+                                    <input 
+                                        type="range" 
+                                        min="0" 
+                                        max="100" 
+                                        value={bannerY} 
+                                        onChange={(e) => setBannerY(Number(e.target.value))} 
+                                        style={{ cursor: 'pointer', accentColor: '#f97316', width: '150px' }}
+                                    />
+                                    <button 
+                                        onClick={async () => {
+                                            await saveBannerPosition();
+                                            setIsAdjustingPosition(false);
+                                        }}
+                                        style={{ 
+                                            background: '#f97316', 
+                                            border: 'none', 
+                                            color: 'white', 
+                                            fontWeight: 'bold', 
+                                            cursor: 'pointer', 
+                                            fontSize: '12px', 
+                                            padding: '6px 12px',
+                                            borderRadius: '8px',
+                                            transition: 'background 0.2s'
+                                        }}
+                                        onMouseEnter={(e) => e.currentTarget.style.background = '#ea580c'}
+                                        onMouseLeave={(e) => e.currentTarget.style.background = '#f97316'}
+                                    >
+                                        Guardar
+                                    </button>
+                                    <button 
+                                        onClick={() => {
+                                            const match = businessImage.match(/[?&]posy=(\d+)/);
+                                            setBannerY(match ? Number(match[1]) : 50);
+                                            setIsAdjustingPosition(false);
+                                        }}
+                                        style={{ 
+                                            background: 'rgba(255, 255, 255, 0.15)', 
+                                            border: 'none', 
+                                            color: 'white', 
+                                            fontWeight: 'bold', 
+                                            cursor: 'pointer', 
+                                            fontSize: '12px', 
+                                            padding: '6px 12px',
+                                            borderRadius: '8px'
+                                        }}
+                                    >
+                                        Cancelar
+                                    </button>
+                                </div>
+                            )}
+
+                            {user?.role?.toLowerCase() === 'cliente' && (
+                                <div style={{ position: 'absolute', top: 16, right: 16, display: 'flex', gap: 10, zIndex: 50 }}>
+                                    <button 
+                                        onClick={() => setIsAdjustingPosition(!isAdjustingPosition)}
+                                        style={{ 
+                                            background: '#f97316', 
+                                            border: '2px solid white', 
+                                            borderRadius: '50%', 
+                                            width: 44, 
+                                            height: 44, 
+                                            display: 'flex', 
+                                            alignItems: 'center', 
+                                            justifyContent: 'center', 
+                                            cursor: 'pointer', 
+                                            color: 'white', 
+                                            boxShadow: '0 4px 6px rgba(0,0,0,0.3)'
+                                        }}
+                                        title="Ajustar encuadre de imagen"
+                                    >
+                                        <MoveVertical size={24} color="white" style={{ width: 24, height: 24, flexShrink: 0 }} />
+                                    </button>
+                                    <button 
+                                        onClick={() => fileInputRef.current?.click()}
+                                        style={{ 
+                                            background: '#f97316', 
+                                            border: '2px solid white', 
+                                            borderRadius: '50%', 
+                                            width: 44, 
+                                            height: 44, 
+                                            display: 'flex', 
+                                            alignItems: 'center', 
+                                            justifyContent: 'center', 
+                                            cursor: 'pointer', 
+                                            color: 'white', 
+                                            boxShadow: '0 4px 6px rgba(0,0,0,0.3)'
+                                        }}
+                                        title="Cambiar imagen de portada"
+                                    >
+                                        <Pencil size={24} color="white" style={{ width: 24, height: 24, flexShrink: 0 }} />
+                                    </button>
+                                </div>
                             )}
                         </div>
                     ) : (
@@ -1018,7 +1196,7 @@ const TrabajoDetalle: React.FC = () => {
                                     📍 {getBusinessAddress()}
                                 </p>
                             )}
-                            {(user?.role?.toLowerCase() === 'cliente' || user?.role?.toLowerCase() === 'admin' || user?.role?.toLowerCase() === 'autonomo' || user?.role?.toLowerCase() === 'encargado') && (
+                            {user?.role?.toLowerCase() === 'cliente' && (
                                 <button 
                                     onClick={() => fileInputRef.current?.click()}
                                     style={{ position: 'absolute', top: 16, right: 16, background: '#f97316', border: '2px solid white', borderRadius: '50%', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'white', zIndex: 50, boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}
@@ -1152,111 +1330,143 @@ const TrabajoDetalle: React.FC = () => {
                                             </div>
                                         )}
 
-                                        <div className={styles.cardContent}>
-                                            {/* FILA SUPERIOR: FECHA Y MENU */}
-                                            <div className={styles.headerRow}>
-                                                <div className={styles.dateGroup}>
-                                                    <p className={styles.strikingDate}>
-                                                        📅 {trabajo.fechaAsignada || trabajo.fecha}
-                                                    </p>
+                                        <div className={styles.cardBodyWrapper}>
+                                            {parseFotoUrls(trabajo.foto_url).length > 0 && (
+                                                <div 
+                                                    className={styles.verticalCarousel}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                >
+                                                    {parseFotoUrls(trabajo.foto_url).map((url, idx) => (
+                                                        <img 
+                                                            key={idx}
+                                                            src={url}
+                                                            alt={`Foto ${idx + 1}`}
+                                                            className={styles.carouselImg}
+                                                            onClick={() => setSelectedZoomImage(url)}
+                                                        />
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            <div className={styles.cardContent}>
+                                                {/* FILA SUPERIOR: FECHA Y MENU */}
+                                                <div className={styles.headerRow}>
+                                                    <div className={styles.dateGroup}>
+                                                        <p className={styles.requestedDate}>
+                                                            📝 Solicitado: {trabajo.fechaSolicitud || "No registrada"}
+                                                        </p>
+                                                        <p className={styles.strikingDate}>
+                                                            📅 Cita solicitada: {trabajo.fechaAsignada || trabajo.fecha}
+                                                        </p>
+                                                    </div>
+
+                                                    {/* ACCIONES - Solo Admin o Cliente en la parte derecha del header */}
+                                                    {user?.role === 'cliente' && (
+                                                        <div className={styles.menuContainer} onClick={(e) => e.stopPropagation()}>
+                                                            <button
+                                                                className={styles.editBtnSmall}
+                                                                onClick={(e) => handleOpenEditRequest(e, trabajo)}
+                                                                title="Editar"
+                                                            >
+                                                                <HiOutlinePencil size={14} />
+                                                            </button>
+                                                        </div>
+                                                    )}
                                                 </div>
 
-                                                {/* ACCIONES - Solo Admin o Cliente en la parte derecha del header */}
-                                                {user?.role === 'cliente' && (
-                                                    <div className={styles.menuContainer} onClick={(e) => e.stopPropagation()}>
-                                                        <button
-                                                            className={styles.editBtnSmall}
-                                                            onClick={(e) => handleOpenEditRequest(e, trabajo)}
-                                                            title="Editar"
-                                                        >
-                                                            <HiOutlinePencil size={14} />
-                                                        </button>
-                                                    </div>
-                                                )}
-                                            </div>
+                                                {/* INFO PRINCIPAL */}
+                                                <div className={styles.cardInfo}>
+                                                    <h3 className={styles.jobTitle}>
+                                                        {trabajo.estado === 'Finalizado' ? trabajo.titulo.replace('🚨 SOS: ', '').replace('SOS: ', '') : trabajo.titulo}
+                                                    </h3>
 
-                                            {/* INFO PRINCIPAL */}
-                                            <div className={styles.cardInfo}>
-                                                <h3 className={styles.jobTitle}>
-                                                    {trabajo.estado === 'Finalizado' ? trabajo.titulo.replace('🚨 SOS: ', '').replace('SOS: ', '') : trabajo.titulo}
-                                                </h3>
+                                                    {/* CAJA DE DESCRIPCIÓN ELEGANTE */}
+                                                    {trabajo.descripcion && (() => {
+                                                        const desc = trabajo.descripcion;
+                                                        const bracketMatch = desc.match(/\[(.*?)\]/);
+                                                        const mainText = desc.replace(/\[.*?\]/, '').trim();
+                                                        const extraInfo = bracketMatch ? bracketMatch[1] : null;
 
-                                                {/* CAJA DE DESCRIPCIÓN ELEGANTE */}
-                                                {trabajo.descripcion && (() => {
-                                                    const desc = trabajo.descripcion;
-                                                    const bracketMatch = desc.match(/\[(.*?)\]/);
-                                                    const mainText = desc.replace(/\[.*?\]/, '').trim();
-                                                    const extraInfo = bracketMatch ? bracketMatch[1] : null;
+                                                        return (
+                                                            <div className={styles.descriptionBox}>
+                                                                <p>{mainText || "Servicio solicitado sin descripción adicional."}</p>
+                                                                {extraInfo && (
+                                                                    <div className={styles.equipmentBadge}>
+                                                                        📦 {extraInfo}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })()}
 
-                                                    return (
-                                                        <div className={styles.descriptionBox}>
-                                                            <p>{mainText || "Servicio solicitado sin descripción adicional."}</p>
-                                                            {extraInfo && (
-                                                                <div className={styles.equipmentBadge}>
-                                                                    📦 {extraInfo}
+                                                    {/* INFO DE COTIZACIÓN (Solo si está enviada y es relevante) */}
+                                                    {(['Cotización Enviada', 'Cotización Aceptada', 'Cotización Rechazada', 'Cotización'].includes(trabajo.estado) || status.includes("cotizaci")) && trabajo.cotizacion && (
+                                                        <div style={{ background: '#fef3c7', padding: '10px', borderRadius: '10px', marginTop: '10px', border: '1px solid #fcd34d' }}>
+                                                            <p style={{ fontWeight: 'bold', color: '#92400e', marginBottom: '5px' }}>
+                                                                {user?.role === 'admin' ? '💰 Cotización Enviada' : '💰 Cotización del Trabajo'}: ${trabajo.cotizacion.costo}
+                                                            </p>
+                                                            {user?.role === 'cliente' && trabajo.estado === 'Cotización Enviada' && (
+                                                                <div style={{ display: 'flex', gap: '5px' }}>
+                                                                    <button onClick={(e) => { e.stopPropagation(); handleAceptarCotizacion(trabajo.id); }} style={{ flex: 1, padding: '5px', background: '#22c55e', color: 'white', borderRadius: '5px', border: 'none', fontSize: '12px' }}>Aceptar</button>
+                                                                    <button onClick={(e) => { e.stopPropagation(); handleRechazarCotizacion(trabajo.id); }} style={{ flex: 1, padding: '5px', background: '#ef4444', color: 'white', borderRadius: '5px', border: 'none', fontSize: '12px' }}>Rechazar</button>
+                                                                </div>
+                                                            )}
+                                                            {user?.role === 'tecnico' && trabajo.estado === 'Cotización Enviada' && (
+                                                                <div style={{ display: 'flex', gap: '5px' }}>
+                                                                    <button onClick={(e) => { e.stopPropagation(); handleAceptarCotizacion(trabajo.id); }} style={{ flex: 1, padding: '5px', background: '#22c55e', color: 'white', borderRadius: '5px', border: 'none', fontSize: '12px' }}>Aceptar Propuesta</button>
+                                                                    <button onClick={(e) => { e.stopPropagation(); handleRechazarCotizacion(trabajo.id); }} style={{ flex: 1, padding: '5px', background: '#ef4444', color: 'white', borderRadius: '5px', border: 'none', fontSize: '12px' }}>Rechazar / Negociar</button>
                                                                 </div>
                                                             )}
                                                         </div>
-                                                    );
-                                                })()}
+                                                    )}
 
-                                                {/* INFO DE COTIZACIÓN (Solo si está enviada y es relevante) */}
-                                                {(['Cotización Enviada', 'Cotización Aceptada', 'Cotización Rechazada', 'Cotización'].includes(trabajo.estado) || status.includes("cotizaci")) && trabajo.cotizacion && (
-                                                    <div style={{ background: '#fef3c7', padding: '10px', borderRadius: '10px', marginTop: '10px', border: '1px solid #fcd34d' }}>
-                                                        <p style={{ fontWeight: 'bold', color: '#92400e', marginBottom: '5px' }}>
-                                                            {user?.role === 'admin' ? '💰 Cotización Enviada' : '💰 Cotización del Trabajo'}: ${trabajo.cotizacion.costo}
-                                                        </p>
-                                                        {user?.role === 'cliente' && trabajo.estado === 'Cotización Enviada' && (
-                                                            <div style={{ display: 'flex', gap: '5px' }}>
-                                                                <button onClick={(e) => { e.stopPropagation(); handleAceptarCotizacion(trabajo.id); }} style={{ flex: 1, padding: '5px', background: '#22c55e', color: 'white', borderRadius: '5px', border: 'none', fontSize: '12px' }}>Aceptar</button>
-                                                                <button onClick={(e) => { e.stopPropagation(); handleRechazarCotizacion(trabajo.id); }} style={{ flex: 1, padding: '5px', background: '#ef4444', color: 'white', borderRadius: '5px', border: 'none', fontSize: '12px' }}>Rechazar</button>
-                                                            </div>
-                                                        )}
-                                                        {user?.role === 'tecnico' && trabajo.estado === 'Cotización Enviada' && (
-                                                            <div style={{ display: 'flex', gap: '5px' }}>
-                                                                <button onClick={(e) => { e.stopPropagation(); handleAceptarCotizacion(trabajo.id); }} style={{ flex: 1, padding: '5px', background: '#22c55e', color: 'white', borderRadius: '5px', border: 'none', fontSize: '12px' }}>Aceptar Propuesta</button>
-                                                                <button onClick={(e) => { e.stopPropagation(); handleRechazarCotizacion(trabajo.id); }} style={{ flex: 1, padding: '5px', background: '#ef4444', color: 'white', borderRadius: '5px', border: 'none', fontSize: '12px' }}>Rechazar / Negociar</button>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                )}
-
-                                                {/* CHAT DE NEGOCIACIÓN (Para el Técnico) */}
-                                                {trabajo.estado === 'Cotización Rechazada' && (
-                                                    <div style={{ marginTop: '10px' }} onClick={(e) => e.stopPropagation()}>
-                                                        <ChatTrabajo trabajoId={trabajo.id} />
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            {/* FOOTER DE LA TARJETA */}
-                                            <div className={styles.footerRow}>
-                                                <div className={styles.technicianInfo}>
-                                                    {trabajo.tecnico !== "Sin asignar" ? `👤 ${trabajo.tecnico}` : `🏢 ${trabajo.ubicacion}`}
+                                                    {/* CHAT DE NEGOCIACIÓN (Para el Técnico) */}
+                                                    {trabajo.estado === 'Cotización Rechazada' && (
+                                                        <div style={{ marginTop: '10px' }} onClick={(e) => e.stopPropagation()}>
+                                                            <ChatTrabajo trabajoId={trabajo.id} />
+                                                        </div>
+                                                    )}
                                                 </div>
 
-                                                <div className={styles.actionsCard}>
-                                                    {/* Botón rápido si es necesario (ej. Cotizar) */}
-                                                    {trabajo.visitado && !trabajo.cotizacion && user?.role === 'admin' && trabajo.estado === 'Solicitud' && (
-                                                        <button
-                                                            className={styles.btnCotizar}
-                                                            onClick={(e) => { e.stopPropagation(); navigate(`/menu/admin-reporte/${trabajo.id}`); }}
-                                                        >
-                                                            💰 Cotizar
-                                                        </button>
-                                                    )}
-                                                    {/* Badge de tipo si hay técnico asignado */}
-                                                    {trabajo.tecnico &&
-                                                        !trabajo.tecnico.toLowerCase().includes("sin asignar") &&
-                                                        !trabajo.tecnico.toLowerCase().includes("pendiente") &&
-                                                        trabajo.tecnico.trim() !== "" && (
-                                                            <span className={styles.jobTypeBadge}>
-                                                                {trabajo.estado === 'Finalizado' && trabajo.tipo === "SOS" ? 'Finalizado' : trabajo.tipo}
-                                                            </span>
+                                                {/* FOOTER DE LA TARJETA */}
+                                                <div className={styles.footerRow}>
+                                                    <div className={styles.technicianInfo}>
+                                                        {trabajo.tecnico !== "Sin asignar" ? `👤 ${trabajo.tecnico}` : `🏢 ${trabajo.ubicacion}`}
+                                                    </div>
+
+                                                    <div className={styles.actionsCard}>
+                                                        {/* Botón rápido si es necesario (ej. Cotizar) */}
+                                                        {trabajo.visitado && !trabajo.cotizacion && user?.role === 'admin' && trabajo.estado === 'Solicitud' && (
+                                                            <button
+                                                                className={styles.btnCotizar}
+                                                                onClick={(e) => { e.stopPropagation(); navigate(`/menu/admin-reporte/${trabajo.id}`); }}
+                                                            >
+                                                                💰 Cotizar
+                                                            </button>
                                                         )}
-                                                    {/* Botón Asignar Técnico visible para Admin */}
-                                                    {user?.role === 'admin' && (
-                                                        <div className={styles.actionBtns} onClick={(e) => e.stopPropagation()}>
+                                                        {/* Badge de tipo si hay técnico asignado */}
+                                                        {trabajo.tecnico &&
+                                                            !trabajo.tecnico.toLowerCase().includes("sin asignar") &&
+                                                            !trabajo.tecnico.toLowerCase().includes("pendiente") &&
+                                                            trabajo.tecnico.trim() !== "" && (
+                                                                <span className={styles.jobTypeBadge}>
+                                                                    {trabajo.estado === 'Finalizado' && trabajo.tipo === "SOS" ? 'Finalizado' : trabajo.tipo}
+                                                                </span>
+                                                            )}
+                                                        {/* Botón Asignar Técnico visible para Admin */}
+                                                        {user?.role === 'admin' && (
+                                                            <div className={styles.actionBtns} onClick={(e) => e.stopPropagation()}>
+                                                                <button
+                                                                    className={styles.trashBtn}
+                                                                    onClick={(e) => handleDeleteRequest(e, trabajo.id)}
+                                                                    title="Eliminar"
+                                                                >
+                                                                    <HiOutlineTrash size={15} />
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                        {/* Botones de cliente */}
+                                                        {user?.role === 'cliente' && (
                                                             <button
                                                                 className={styles.trashBtn}
                                                                 onClick={(e) => handleDeleteRequest(e, trabajo.id)}
@@ -1264,18 +1474,8 @@ const TrabajoDetalle: React.FC = () => {
                                                             >
                                                                 <HiOutlineTrash size={15} />
                                                             </button>
-                                                        </div>
-                                                    )}
-                                                    {/* Botones de cliente */}
-                                                    {user?.role === 'cliente' && (
-                                                        <button
-                                                            className={styles.trashBtn}
-                                                            onClick={(e) => handleDeleteRequest(e, trabajo.id)}
-                                                            title="Eliminar"
-                                                        >
-                                                            <HiOutlineTrash size={15} />
-                                                        </button>
-                                                    )}
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -1479,14 +1679,14 @@ const TrabajoDetalle: React.FC = () => {
                                 </div>
 
                                 <div className={styles.formField}>
-                                    <label className={styles.formLabel}>Fecha Estimada</label>
-                                    <input
-                                        type="date"
-                                        className={`${styles.newServiceInput} ${isSOSRequest ? styles.newServiceInputSos : ''}`}
-                                        value={newRequestData.fecha}
-                                        onChange={(e) => setNewRequestData({ ...newRequestData, fecha: e.target.value })}
-                                    />
-                                </div>
+                                                    <label className={styles.formLabel}>Fecha para la cita solicitada</label>
+                                                    <input
+                                                        type="date"
+                                                        className={`${styles.newServiceInput} ${isSOSRequest ? styles.newServiceInputSos : ''}`}
+                                                        value={newRequestData.fecha}
+                                                        onChange={(e) => setNewRequestData({ ...newRequestData, fecha: e.target.value })}
+                                                    />
+                                                </div>
                             </div>
 
                             {newRequestData.categoria === 'Mantenimiento' && businessAreas.length > 0 && (
@@ -1535,20 +1735,65 @@ const TrabajoDetalle: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* INPUT FOTO */}
+                        {/* INPUT FOTO MULTIPLE */}
                         <div style={{ marginTop: '15px', marginBottom: '15px' }}>
-                            <label className={styles.formLabel}>Adjuntar foto del problema (Opcional)</label>
-                            <div className={`${styles.uploadContainer} ${isSOSRequest ? styles.uploadContainerSos : ''} ${fotoPreviewUrl ? styles.uploadContainerWithPreview : ''}`}>
+                            <label className={styles.formLabel}>Adjuntar fotos del problema (Opcional)</label>
+                            
+                            {fotosPreviewUrls.length > 0 && (
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '12px', marginBottom: '15px' }}>
+                                    {fotosPreviewUrls.map((url, index) => (
+                                        <div key={url} style={{ position: 'relative', width: '100px', height: '100px', borderRadius: '12px', overflow: 'hidden', border: '2px solid #e2e8f0', boxShadow: '0 4px 10px rgba(0,0,0,0.05)' }}>
+                                            <img src={url} alt={`Vista previa ${index + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    e.preventDefault();
+                                                    setFotosSOS(prev => prev.filter((_, i) => i !== index));
+                                                    setFotosPreviewUrls(prev => prev.filter((_, i) => i !== index));
+                                                    URL.revokeObjectURL(url);
+                                                }}
+                                                style={{
+                                                    position: 'absolute',
+                                                    top: '4px',
+                                                    right: '4px',
+                                                    background: 'rgba(15, 23, 42, 0.7)',
+                                                    border: 'none',
+                                                    color: 'white',
+                                                    width: '20px',
+                                                    height: '20px',
+                                                    borderRadius: '50%',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    cursor: 'pointer',
+                                                    fontSize: '10px',
+                                                    fontWeight: 'bold',
+                                                    zIndex: 10,
+                                                    transition: 'background 0.2s'
+                                                }}
+                                                onMouseEnter={(e) => e.currentTarget.style.background = '#ef4444'}
+                                                onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(15, 23, 42, 0.7)'}
+                                                title="Quitar foto"
+                                            >
+                                                ✕
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            <div className={`${styles.uploadContainer} ${isSOSRequest ? styles.uploadContainerSos : ''}`}>
                                 <input
                                     type="file"
                                     accept="image/*"
+                                    multiple
                                     onChange={(e) => {
-                                        const file = e.target.files ? e.target.files[0] : null;
-                                        setFotoSOS(file);
-                                        if (file) {
-                                            setFotoPreviewUrl(URL.createObjectURL(file));
-                                        } else {
-                                            setFotoPreviewUrl(null);
+                                        const files = e.target.files ? Array.from(e.target.files) : [];
+                                        if (files.length > 0) {
+                                            setFotosSOS(prev => [...prev, ...files]);
+                                            const newUrls = files.map(file => URL.createObjectURL(file));
+                                            setFotosPreviewUrls(prev => [...prev, ...newUrls]);
                                         }
                                     }}
                                     style={{
@@ -1558,36 +1803,11 @@ const TrabajoDetalle: React.FC = () => {
                                         zIndex: 2
                                     }}
                                 />
-                                {fotoPreviewUrl ? (
-                                    <div className={styles.previewContent}>
-                                        <img src={fotoPreviewUrl} alt="Vista previa" className={styles.previewImage} />
-                                        <div className={styles.previewInfo}>
-                                            <span className={styles.previewName}>{fotoSOS?.name}</span>
-                                            <span className={styles.previewActionText}>Toca para cambiar de imagen</span>
-                                        </div>
-                                        <button
-                                            type="button"
-                                            className={styles.removePreviewBtn}
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                e.preventDefault();
-                                                setFotoSOS(null);
-                                                setFotoPreviewUrl(null);
-                                            }}
-                                            title="Quitar foto"
-                                        >
-                                            ✕
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <>
-                                        <span className={styles.uploadIcon}>📸</span>
-                                        <span className={`${styles.uploadText} ${isSOSRequest ? styles.uploadTextSos : ''}`}>
-                                            Haz clic para seleccionar una imagen
-                                        </span>
-                                        <span className={`${styles.uploadSubtext} ${isSOSRequest ? styles.uploadSubtextSos : ''}`}>Formatos soportados: JPG, PNG</span>
-                                    </>
-                                )}
+                                <span className={styles.uploadIcon}>📸</span>
+                                <span className={`${styles.uploadText} ${isSOSRequest ? styles.uploadTextSos : ''}`}>
+                                    Haz clic para agregar fotos
+                                </span>
+                                <span className={`${styles.uploadSubtext} ${isSOSRequest ? styles.uploadSubtextSos : ''}`}>Formatos soportados: JPG, PNG</span>
                             </div>
                         </div>
 
@@ -1596,8 +1816,8 @@ const TrabajoDetalle: React.FC = () => {
                                 onClick={() => {
                                     setIsRequestModalOpen(false);
                                     setIsSOSRequest(false);
-                                    setFotoSOS(null);
-                                    setFotoPreviewUrl(null);
+                                    setFotosSOS([]);
+                                    setFotosPreviewUrls([]);
                                 }}
                                 className={styles.cancelBtnLarge}
                             >
@@ -1652,6 +1872,44 @@ const TrabajoDetalle: React.FC = () => {
                             >
                                 Rechazar y Negociar
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            
+            {/* PROBLEM DETAILS / IMAGE ZOOM MODAL */}
+            {selectedZoomImage && (
+                <div
+                    style={{
+                        position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+                        background: 'rgba(0, 0, 0, 0.85)', zIndex: 9999, display: 'flex',
+                        alignItems: 'center', justifyContent: 'center', padding: '20px',
+                        backdropFilter: 'blur(5px)'
+                    }}
+                    onClick={() => setSelectedZoomImage(null)}
+                >
+                    <div 
+                        style={{ 
+                            position: 'relative', maxWidth: '95%', maxHeight: '95%', display: 'flex', flexDirection: 'column', 
+                            alignItems: 'center', background: '#fff', padding: '30px', borderRadius: '24px', overflowY: 'auto'
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <button
+                            onClick={() => setSelectedZoomImage(null)}
+                            style={{ position: 'absolute', top: '15px', right: '15px', background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569', cursor: 'pointer', fontSize: '20px', fontWeight: 'bold', zIndex: 10000 }}
+                        >
+                            ✕
+                        </button>
+                        
+                        <h2 style={{ fontSize: '24px', fontWeight: '800', color: '#1e293b', marginBottom: '20px', width: '100%', textAlign: 'left' }}>Detalles de la Evidencia</h2>
+                        
+                        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                            <img
+                                src={selectedZoomImage}
+                                alt="Zoomed Evidence"
+                                style={{ maxWidth: '100%', maxHeight: '75vh', objectFit: 'contain', borderRadius: '15px', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
+                            />
                         </div>
                     </div>
                 </div>

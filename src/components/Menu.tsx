@@ -117,11 +117,11 @@ const MenuLayout: React.FC = () => {
         let baseOptions: string[] = [];
 
         if (user.role === 'admin') {
-            baseOptions = ["Dashboard", "Negocios", "Inventario General", "Trabajadores", "Usuarios", "Solicitudes", "Reportes Mantenimiento", "Trabajos Globales Realizados"];
+            baseOptions = ["Negocios", "Dashboard", "Inventario General", "Trabajadores", "Usuarios", "Solicitudes", "Reportes Mantenimiento", "Trabajos Globales Realizados"];
         } else if (user.role === 'autonomo') {
             baseOptions = ["Mi Dashboard", "Mis Sucursales", "Mis Técnicos", "Usuarios", "Solicitudes", "Historial"];
         } else if (user.role === 'cliente') {
-            baseOptions = ["Resumen", "Mis Negocios", "Cotizaciones", "Historial"];
+            baseOptions = ["Mis Negocios", "Resumen", "Cotizaciones", "Historial"];
         } else if (user.role === 'tecnico') {
             baseOptions = ["Mis Trabajos", "Nueva Solicitud", "Historial de Trabajo"];
         } else if (user.role === 'encargado') {
@@ -140,7 +140,7 @@ const MenuLayout: React.FC = () => {
             const path = location.pathname;
 
             if (path.startsWith("/menu")) {
-                if (path === "/menu" || path === "/menu/") setActiveOption("Dashboard");
+                if (path === "/menu" || path === "/menu/") setActiveOption("Negocios");
                 else if (path.includes("dashboard")) setActiveOption("Dashboard");
                 else if (path.includes("inventario-general")) setActiveOption("Inventario General");
                 else if (path.includes("trabajadores")) setActiveOption("Trabajadores");
@@ -157,7 +157,7 @@ const MenuLayout: React.FC = () => {
                 else if (path.includes("solicitudes")) setActiveOption("Solicitudes");
                 else if (path.includes("historial")) setActiveOption("Historial");
             } else if (path.startsWith("/cliente")) {
-                if (path === "/cliente" || path === "/cliente/") setActiveOption("Resumen");
+                if (path === "/cliente" || path === "/cliente/") setActiveOption("Mis Negocios");
                 else if (path.includes("resumen")) setActiveOption("Resumen");
                 else if (path.includes("negocios") || path.includes("perfil-empresa")) setActiveOption("Mis Negocios");
                 else if (path.includes("cotizaciones")) setActiveOption("Cotizaciones");

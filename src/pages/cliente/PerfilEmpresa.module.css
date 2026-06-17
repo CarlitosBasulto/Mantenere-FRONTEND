@@ -2,7 +2,7 @@
     padding: 30px;
     padding-bottom: 120px;
     min-height: 100vh;
-    background-color: #f8fafc;
+    background-color: #f8fafc00;
     font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
 }
 
@@ -48,21 +48,11 @@
     align-items: center;
     gap: 40px;
     box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
-    border: 1px solid #f1f5f9;
+    border: 1.5px solid #cbd5e1;
     margin-bottom: 30px;
     position: relative;
 }
 
-.profileHeaderCard::after {
-    content: '';
-    position: absolute;
-    top: -50px;
-    right: -50px;
-    width: 200px;
-    height: 200px;
-    background: linear-gradient(135deg, rgba(249, 171, 15, 0.1) 0%, rgba(249, 171, 15, 0) 100%);
-    border-radius: 50%;
-}
 
 .profileIconWrapper {
     position: relative;
@@ -143,7 +133,7 @@
     background: #ffffff;
     border-radius: 30px;
     padding: 32px;
-    border: 1px solid #f1f5f9;
+    border: 1.5px solid #cbd5e1;
     box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.04);
     margin-bottom: 24px;
     transition: transform 0.2s ease;
@@ -196,7 +186,7 @@
     box-sizing: border-box;
     padding: 14px 18px;
     background: #f8fafc;
-    border: 1.5px solid #f1f5f9;
+    border: 1.5px solid #cbd5e1;
     border-radius: 16px;
     font-size: 15px;
     color: #1e293b;

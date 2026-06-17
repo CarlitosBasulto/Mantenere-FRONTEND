@@ -237,19 +237,20 @@ const MiPerfil: React.FC = () => {
         }
     };
 
+    const handleSucursalClick = (id: number) => {
+        const basePath = user?.role === 'cliente' ? '/cliente' : (user?.role === 'tecnico' ? '/tecnico' : (user?.role === 'encargado' ? '/encargado' : (user?.role === 'autonomo' ? '/autonomo' : '/menu')));
+        navigate(`${basePath}/trabajo/${id}`);
+    };
+
     return (
-        <div style={{ padding: '24px 30px', fontFamily: "'Plus Jakarta Sans', 'Inter', sans-serif" }}>
-            <div style={{ maxWidth: '1100px', margin: '0 auto', display: 'flex', gap: '24px', alignItems: 'flex-start' }}>
+        <div className="perfil-outer-container">
+            <div className="perfil-flex-container">
 
                 {/* ── COLUMNA IZQUIERDA: Avatar + Botón ── */}
-                <div style={{ width: '260px', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div className="perfil-left-column">
 
                     {/* TARJETA DE AVATAR */}
-                    <div style={{
-                        background: '#ffffff', borderRadius: '24px', padding: '28px 24px',
-                        boxShadow: '0 6px 20px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9',
-                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', textAlign: 'center'
-                    }}>
+                    <div className="perfil-avatar-card">
                         {/* Avatar clicable */}
                         <div
                             onClick={() => setShowPhotoModal(true)}
@@ -330,62 +331,17 @@ const MiPerfil: React.FC = () => {
                         Guardar Cambios
                     </button>
 
-                    {/* TARJETAS DE SUCURSALES */}
-                    {misNegocios.length > 0 && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                            <p style={{ fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 }}>
-                                🏢 Mis Sucursales
-                            </p>
-                            {misNegocios.map((neg: any) => {
-                                const ubicacion = neg.tipo === 'W/M'
-                                    ? [neg.calleAv, neg.manzana ? `Mza ${neg.manzana}` : '', neg.lote ? `Lote ${neg.lote}` : ''].filter(Boolean).join(', ')
-                                    : [neg.tipo !== 'FS' && neg.nombrePlaza ? `${neg.nombrePlaza}` : '', neg.calle, neg.numero ? `#${neg.numero}` : '', neg.colonia].filter(Boolean).join(', ');
-                                const estadoCiudad = [neg.ciudad, neg.estado].filter(Boolean).join(', ');
-                                return (
-                                    <div key={neg.id} style={{
-                                        background: '#ffffff', borderRadius: '16px', padding: '14px 16px',
-                                        border: '1px solid #f1f5f9', boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
-                                    }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
-                                            <p style={{ margin: 0, fontSize: '13px', fontWeight: '800', color: '#0f172a', lineHeight: 1.3, flex: 1, marginRight: '8px' }}>
-                                                {neg.nombre}
-                                            </p>
-                                            <span style={{
-                                                fontSize: '10px', fontWeight: '700', padding: '2px 8px',
-                                                borderRadius: '8px', flexShrink: 0,
-                                                background: neg.tipo === 'FC' ? 'rgba(242,101,34,0.1)' : neg.tipo === 'FS' ? 'rgba(59,130,246,0.1)' : neg.tipo === 'W/M' ? 'rgba(16,185,129,0.1)' : 'rgba(139,92,246,0.1)',
-                                                color: neg.tipo === 'FC' ? '#f26522' : neg.tipo === 'FS' ? '#3b82f6' : neg.tipo === 'W/M' ? '#10b981' : '#8b5cf6'
-                                            }}>{neg.tipo}</span>
-                                        </div>
-                                        {ubicacion && (
-                                            <p style={{ margin: '0 0 2px', fontSize: '11px', color: '#64748b', lineHeight: 1.4 }}>
-                                                📍 {ubicacion}
-                                            </p>
-                                        )}
-                                        {estadoCiudad && (
-                                            <p style={{ margin: 0, fontSize: '11px', color: '#94a3b8' }}>
-                                                {estadoCiudad}{neg.cp ? ` · CP ${neg.cp}` : ''}
-                                            </p>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )}
                 </div>
 
                 {/* ── COLUMNA DERECHA: Formularios ── */}
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div className="perfil-right-column">
 
                     {/* DATOS DE CONTACTO */}
-                    <div style={{
-                        background: '#ffffff', borderRadius: '24px', padding: '28px 30px',
-                        boxShadow: '0 6px 20px rgba(0,0,0,0.04)', border: '1px solid #f1f5f9'
-                    }}>
+                    <div className="perfil-card">
                         <p style={{ fontSize: '12px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 20px' }}>
                             📋 Datos de contacto
                         </p>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                        <div className="perfil-grid">
 
                             <div style={{ gridColumn: user?.role === 'tecnico' ? 'span 2' : 'span 1' }}>
                                 <Label>Nombre Completo</Label>
@@ -434,39 +390,81 @@ const MiPerfil: React.FC = () => {
                             </div>
                         </div>
                     </div>
-
-                    {/* DATOS FISCALES (solo clientes) */}
-                    {user?.role !== 'tecnico' && (
-                        <div style={{
-                            background: '#ffffff', borderRadius: '24px', padding: '28px 30px',
-                            boxShadow: '0 6px 20px rgba(0,0,0,0.04)', border: '1px solid #f1f5f9'
-                        }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
-                                <p style={{ fontSize: '12px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
-                                    🧾 Información Fiscal (Facturación)
-                                </p>
-                                <span style={{ fontSize: '11px', background: '#e3f2fd', color: '#1565c0', padding: '3px 10px', borderRadius: '10px', fontWeight: 'bold' }}>
-                                    Solo dueños
-                                </span>
-                            </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                                <div>
-                                    <Label>RFC</Label>
-                                    <Input name="rfc" placeholder="Ej: ABC123456XYZ" value={formData.rfc} onChange={handleChange} />
-                                </div>
-                                <div style={{ gridColumn: 'span 2' }}>
-                                    <Label>Razón Social</Label>
-                                    <Input name="razonSocial" placeholder="Nombre Legal de la Empresa" value={formData.razonSocial} onChange={handleChange} />
-                                </div>
-                                <div style={{ gridColumn: 'span 2' }}>
-                                    <Label>Dirección Fiscal Completa</Label>
-                                    <Input name="direccionFiscal" placeholder="Calle, Número, Colonia, CP, Mérida, Yucatán" value={formData.direccionFiscal} onChange={handleChange} />
-                                </div>
-                            </div>
-                        </div>
-                    )}
                 </div>
             </div>
+
+            {/* DATOS FISCALES (solo clientes) */}
+            {user?.role !== 'tecnico' && (
+                <div className="perfil-fiscal-container">
+                    <div className="perfil-card">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
+                            <p style={{ fontSize: '12px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
+                                🧾 Información Fiscal (Facturación)
+                            </p>
+                            <span style={{ fontSize: '11px', background: '#e3f2fd', color: '#1565c0', padding: '3px 10px', borderRadius: '10px', fontWeight: 'bold' }}>
+                                Solo dueños
+                            </span>
+                        </div>
+                        <div className="perfil-grid">
+                            <div>
+                                <Label>RFC</Label>
+                                <Input name="rfc" placeholder="Ej: ABC123456XYZ" value={formData.rfc} onChange={handleChange} />
+                            </div>
+                            <div style={{ gridColumn: 'span 2' }}>
+                                <Label>Razón Social</Label>
+                                <Input name="razonSocial" placeholder="Nombre Legal de la Empresa" value={formData.razonSocial} onChange={handleChange} />
+                            </div>
+                            <div style={{ gridColumn: 'span 2' }}>
+                                <Label>Dirección Fiscal Completa</Label>
+                                <Input name="direccionFiscal" placeholder="Calle, Número, Colonia, CP, Mérida, Yucatán" value={formData.direccionFiscal} onChange={handleChange} />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* MIS SUCURSALES (en cuadrícula responsiva a lo ancho) */}
+            {misNegocios.length > 0 && (
+                <div className="perfil-sucursales-container">
+                    <p className="perfil-sucursales-title">
+                        🏢 Mis Sucursales
+                    </p>
+                    <div className="perfil-sucursales-grid">
+                        {misNegocios.map((neg: any) => {
+                            const ubicacion = neg.tipo === 'W/M'
+                                ? [neg.calleAv, neg.manzana ? `Mza ${neg.manzana}` : '', neg.lote ? `Lote ${neg.lote}` : ''].filter(Boolean).join(', ')
+                                : [neg.tipo !== 'FS' && neg.nombrePlaza ? `${neg.nombrePlaza}` : '', neg.calle, neg.numero ? `#${neg.numero}` : '', neg.colonia].filter(Boolean).join(', ');
+                            const estadoCiudad = [neg.ciudad, neg.estado].filter(Boolean).join(', ');
+                            return (
+                                <div 
+                                    key={neg.id} 
+                                    className="perfil-sucursal-card-new"
+                                    onClick={() => handleSucursalClick(neg.id)}
+                                >
+                                    <div className="card-header">
+                                        <h3>{neg.nombre}</h3>
+                                        <span className={`type-badge badge-${neg.tipo?.toLowerCase()}`}>
+                                            {neg.tipo}
+                                        </span>
+                                    </div>
+                                    <div className="card-body">
+                                        {ubicacion && (
+                                            <p className="address-line">
+                                                <span className="pin-icon">📍</span> {ubicacion}
+                                            </p>
+                                        )}
+                                        {estadoCiudad && (
+                                            <p className="city-line">
+                                                {estadoCiudad}{neg.cp ? ` · CP ${neg.cp}` : ''}
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
 
             {/* Modal de Selección de Foto */}
             {showPhotoModal && (
@@ -529,6 +527,155 @@ const MiPerfil: React.FC = () => {
 
             <style>
                 {`
+                .perfil-outer-container {
+                    padding: 24px 30px;
+                    font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+                }
+                .perfil-flex-container {
+                    max-width: 1100px;
+                    margin: 0 auto;
+                    display: flex;
+                    gap: 24px;
+                    align-items: flex-start;
+                }
+                .perfil-left-column {
+                    width: 260px;
+                    flex-shrink: 0;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 16px;
+                }
+                .perfil-right-column {
+                    flex: 1;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 16px;
+                    min-width: 0;
+                }
+                .perfil-grid {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 16px;
+                }
+                .perfil-fiscal-container {
+                    max-width: 1100px;
+                    margin: 24px auto 0;
+                    width: 100%;
+                }
+                .perfil-card {
+                    background: #ffffff;
+                    border-radius: 24px;
+                    padding: 28px 30px;
+                    box-shadow: 0 6px 20px rgba(0,0,0,0.04);
+                    border: 1.5px solid #cbd5e1;
+                }
+                .perfil-avatar-card {
+                    background: #ffffff;
+                    border-radius: 24px;
+                    padding: 28px 24px;
+                    box-shadow: 0 6px 20px rgba(0,0,0,0.06);
+                    border: 1.5px solid #cbd5e1;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    gap: 16px;
+                    text-align: center;
+                }
+                .perfil-sucursales-container {
+                    max-width: 1100px;
+                    margin: 32px auto 0;
+                    width: 100%;
+                }
+                .perfil-sucursales-title {
+                    font-size: 12px;
+                    font-weight: 800;
+                    color: #94a3b8;
+                    text-transform: uppercase;
+                    letter-spacing: 0.05em;
+                    margin: 0 0 16px;
+                }
+                .perfil-sucursales-grid {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+                    gap: 20px;
+                }
+                .perfil-sucursal-card-new {
+                    background: #ffffff;
+                    border-radius: 20px;
+                    padding: 20px 24px;
+                    border: 1.5px solid #cbd5e1;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+                    cursor: pointer;
+                    transition: all 0.2s ease-in-out;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 8px;
+                    text-align: left;
+                }
+                .perfil-sucursal-card-new:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 8px 20px rgba(0,0,0,0.06);
+                    border-color: #f26522;
+                }
+                .perfil-sucursal-card-new .card-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: flex-start;
+                    gap: 12px;
+                }
+                .perfil-sucursal-card-new .card-header h3 {
+                    margin: 0;
+                    font-size: 15px;
+                    font-weight: 800;
+                    color: #0f172a;
+                    line-height: 1.3;
+                }
+                .perfil-sucursal-card-new .type-badge {
+                    font-size: 11px;
+                    font-weight: 700;
+                    padding: 3px 10px;
+                    border-radius: 8px;
+                    flex-shrink: 0;
+                    text-transform: uppercase;
+                }
+                .perfil-sucursal-card-new .badge-fs {
+                    background: rgba(59,130,246,0.1);
+                    color: #3b82f6;
+                }
+                .perfil-sucursal-card-new .badge-fc {
+                    background: rgba(242,101,34,0.1);
+                    color: #f26522;
+                }
+                .perfil-sucursal-card-new .badge-wm {
+                    background: rgba(16,185,129,0.1);
+                    color: #10b981;
+                }
+                .perfil-sucursal-card-new .badge-other {
+                    background: rgba(139,92,246,0.1);
+                    color: #8b5cf6;
+                }
+                .perfil-sucursal-card-new .card-body {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 4px;
+                }
+                .perfil-sucursal-card-new .address-line {
+                    margin: 0;
+                    font-size: 12px;
+                    color: #475569;
+                    line-height: 1.4;
+                    font-weight: 500;
+                }
+                .perfil-sucursal-card-new .pin-icon {
+                    margin-right: 4px;
+                    display: inline-block;
+                }
+                .perfil-sucursal-card-new .city-line {
+                    margin: 0;
+                    font-size: 11px;
+                    color: #94a3b8;
+                    font-weight: 600;
+                }
                 @keyframes slideUp {
                     from { transform: translateY(100%); opacity: 0; }
                     to { transform: translateY(0); opacity: 1; }
@@ -536,6 +683,32 @@ const MiPerfil: React.FC = () => {
                 @keyframes fadeIn {
                     from { opacity: 0; }
                     to { opacity: 1; }
+                }
+                @media (max-width: 768px) {
+                    .perfil-outer-container {
+                        padding: 16px 12px;
+                    }
+                    .perfil-flex-container {
+                        flex-direction: column;
+                        align-items: stretch;
+                        gap: 20px;
+                    }
+                    .perfil-left-column {
+                        width: 100% !important;
+                    }
+                    .perfil-right-column {
+                        width: 100% !important;
+                    }
+                    .perfil-grid {
+                        grid-template-columns: 1fr !important;
+                    }
+                    .perfil-grid > div {
+                        grid-column: span 1 !important;
+                    }
+                    .perfil-fiscal-container {
+                        margin: 20px auto 0;
+                        width: 100%;
+                    }
                 }
                 `}
             </style>
@@ -555,13 +728,13 @@ const Input: React.FC<React.InputHTMLAttributes<HTMLInputElement>> = (props) => 
         {...props}
         style={{
             width: '100%', boxSizing: 'border-box', padding: '13px 16px',
-            background: '#f8fafc', border: '1.5px solid #f1f5f9', borderRadius: '14px',
+            background: '#f8fafc', border: '1.5px solid #cbd5e1', borderRadius: '14px',
             fontSize: '14px', color: '#1e293b', fontWeight: '500', outline: 'none',
             transition: 'border-color 0.2s ease',
             ...props.style
         }}
         onFocus={e => { e.currentTarget.style.borderColor = '#3b82f6'; e.currentTarget.style.background = '#fff'; }}
-        onBlur={e => { e.currentTarget.style.borderColor = '#f1f5f9'; e.currentTarget.style.background = '#f8fafc'; if (props.disabled) e.currentTarget.style.background = '#f5f5f5'; }}
+        onBlur={e => { e.currentTarget.style.borderColor = '#cbd5e1'; e.currentTarget.style.background = '#f8fafc'; if (props.disabled) e.currentTarget.style.background = '#f5f5f5'; }}
     />
 );
 

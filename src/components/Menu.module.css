@@ -102,13 +102,13 @@
 =========================== */
 
 .header {
-    height: 60px;
+    height: 80px;
     background: #0d192b;
     color: #ffffff;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 44px 40px;
+    padding: 0 40px;
     border-bottom: 3px solid #f26522;
 }
 
@@ -769,6 +769,8 @@
 
     .header {
         order: 1;
+        height: auto;
+        min-height: 60px;
         padding: 15px 20px;
         background: #0d192b;
         /* Match sidebar background */

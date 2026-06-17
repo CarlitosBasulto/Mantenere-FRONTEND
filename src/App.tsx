@@ -64,7 +64,7 @@ function App() {
                                 <AdminLayout />
                             </ProtectedRoute>
                         }>
-                            <Route index element={<Dashboard />} />
+                            <Route index element={<ListaNegocios />} />
                             <Route path="dashboard" element={<Dashboard />} />
                             <Route path="negocios" element={<ListaNegocios />} />
                             <Route path="inventario-general" element={<InventarioGeneral />} />
@@ -91,7 +91,7 @@ function App() {
                                 <ClienteLayout />
                             </ProtectedRoute>
                         }>
-                            <Route index element={<DashboardCliente />} />
+                            <Route index element={<ListaNegocios />} />
                             <Route path="resumen" element={<DashboardCliente />} />
                             <Route path="negocios" element={<ListaNegocios />} />
                             <Route path="perfil-empresa" element={<PerfilEmpresa />} />

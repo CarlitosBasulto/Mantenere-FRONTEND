@@ -83,7 +83,11 @@ interface Trabajo {
     }[];
     fechaSolicitud?: string;
     clienteUserId?: number;  // user_id del negocio (cliente) para notificaciones
+    clienteNombre?: string;
+    clienteEmail?: string;
+    clienteTelefono?: string;
     foto_url?: string;
+    fecha_programada?: string;
 }
 
 interface SubTarea {
@@ -143,7 +147,7 @@ const AdminDetalleTrabajo: React.FC = () => {
 
     // Permitir abrir la pestaña de cotización directamente vía URL
     const searchParams = new URLSearchParams(location.search);
-    const initialTab = searchParams.get('tab') === 'cotizacion' ? 'Cotización' : (user?.role === 'cliente' ? "Historial" : "Datos");
+    const initialTab = searchParams.get('tab') === 'cotizacion' ? 'Cotización' : (searchParams.get('tab') === 'historial' ? 'Historial' : 'Datos');
     const [activeTab, setActiveTab] = useState<"Datos" | "Trabajo" | "Registro" | "Historial" | "Cotización">(initialTab);
 
     // Sincronizar pestaña activa con parámetro de URL (Deep Linking)
@@ -157,7 +161,27 @@ const AdminDetalleTrabajo: React.FC = () => {
     }, [location.search]);
 
     // Modal Imagen Full-Screen
-    const [showZoomModal, setShowZoomModal] = useState<boolean>(false);
+    const [selectedZoomImage, setSelectedZoomImage] = useState<string | null>(null);
+
+    // Helper to parse multiple photos
+    const parseFotoUrls = (fotoUrl: any): string[] => {
+        if (!fotoUrl) return [];
+        if (typeof fotoUrl === 'string') {
+            if (fotoUrl.trim().startsWith('[')) {
+                try {
+                    const parsed = JSON.parse(fotoUrl);
+                    if (Array.isArray(parsed)) return parsed;
+                } catch (e) {
+                    console.error("Error parsing foto_url JSON:", e);
+                }
+            }
+            return [fotoUrl];
+        }
+        if (Array.isArray(fotoUrl)) {
+            return fotoUrl;
+        }
+        return [];
+    };
     
     // Modal PDF Preview
     const [showPDFPreview, setShowPDFPreview] = useState<boolean>(false);
@@ -276,9 +300,15 @@ const AdminDetalleTrabajo: React.FC = () => {
                     manzana: data.negocio?.manzana || "Por definir",
                     lote: data.negocio?.lote || "Por definir",
                     referencias: data.negocio?.referencias || "Por definir",
-                    fechaSolicitud: data.created_at ? new Date(data.created_at).toLocaleDateString('es-MX') : "No registrada",
+                    fechaSolicitud: data.created_at
+                        ? new Date(data.created_at).toLocaleString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })
+                        : "No registrada",
+                    fecha_programada: data.fecha_programada || null,
                     businessId: data.negocio_id || data.negocio?.id,
                     clienteUserId: data.negocio?.user_id || null,
+                    clienteNombre: data.negocio?.user?.name || "",
+                    clienteEmail: data.negocio?.user?.email || "",
+                    clienteTelefono: data.negocio?.user?.telefono || "",
                     foto_url: data.foto_url || null
                 };
                 
@@ -1508,7 +1538,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                                     if (tabName === 'Cotización' && trabajo.estado === 'Cotización Enviada' && trabajo.cotizacion) {
                                         return true;
                                     }
-                                    return tabName === 'Historial' || tabName === 'Cotización';
+                                    return tabName === 'Datos' || tabName === 'Historial' || tabName === 'Cotización';
                                 }
                                 if (trabajo.estado === "Finalizado") {
                                     return tabName === 'Datos' || tabName === 'Historial';
@@ -1542,7 +1572,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                     tabName === 'Historial' ? <HiOutlineClock size={22} /> :
                                                         tabName === 'Cotización' ? <HiOutlineCurrencyDollar size={22} /> : <HiOutlineInformationCircle size={22} />}
                                     </span>
-                                    <span className={styles.tabText}>{tabName === 'Datos' ? 'Trabajos' : tabName}</span>
+                                    <span className={styles.tabText}>{tabName === 'Datos' ? 'Datos' : tabName}</span>
 
                                     {/* INDICADOR DE NOTIFICACIÓN (ROJO) PARA COTIZACIÓN PENDIENTE */}
                                     {tabName === 'Cotización' && (
@@ -1602,16 +1632,21 @@ const AdminDetalleTrabajo: React.FC = () => {
                                             <span className={styles.bentoValue} style={{ fontSize: '20px' }}>{trabajo.sucursal || "No registrado"}</span>
                                             <span className={styles.badge} style={{ marginTop: '5px' }}>{trabajo.tipo || "Trabajo"}</span>
                                         </div>
-                                        <div style={{ textAlign: 'right' }}>
+                                        <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-end', justifyContent: 'center' }}>
+                                             <span style={{ fontSize: '13px', color: '#64748b', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                 📝 Solicitado: {trabajo.fechaSolicitud || "No registrada"}
+                                             </span>
+                                             <span style={{ fontSize: '13px', color: '#059669', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                 📅 Cita solicitada: {trabajo.fecha_programada ? (trabajo.fecha_programada.includes('-') ? trabajo.fecha_programada.split('-').reverse().join('/') : trabajo.fecha_programada) : trabajo.fecha}
+                                             </span>
                                         </div>
                                     </div>
 
-                                    {(trabajo.descripcion || trabajo.foto_url) && (
+                                    {(trabajo.descripcion || parseFotoUrls(trabajo.foto_url).length > 0) && (
                                         <div 
                                             className={styles.descriptionBox}
-                                            onClick={() => setShowZoomModal(true)}
-                                            style={{ cursor: 'pointer', transition: 'transform 0.2s', ':hover': { transform: 'scale(1.02)' } } as any}
-                                            title="Ver detalles del problema"
+                                            style={{ cursor: 'default' }}
+                                            title="Detalles del problema"
                                         >
                                             {trabajo.descripcion && (
                                                 <>
@@ -1619,14 +1654,22 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                     <p className={styles.descriptionQuote}>"{trabajo.descripcion}"</p>
                                                 </>
                                             )}
-                                            {trabajo.foto_url && (
+                                            {parseFotoUrls(trabajo.foto_url).length > 0 && (
                                                 <div style={{ marginTop: '10px' }}>
-                                                    <span className={styles.bentoLabel} style={{ marginBottom: '4px', color: '#334155', display: 'block' }}>Foto Adjunta:</span>
-                                                    <img 
-                                                        src={trabajo.foto_url} 
-                                                        alt="Evidencia SOS" 
-                                                        style={{ width: '120px', height: '120px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }} 
-                                                    />
+                                                    <span className={styles.bentoLabel} style={{ marginBottom: '6px', color: '#334155', display: 'block' }}>Fotos Adjuntas ({parseFotoUrls(trabajo.foto_url).length}):</span>
+                                                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                                        {parseFotoUrls(trabajo.foto_url).map((url, idx) => (
+                                                            <img 
+                                                                key={idx}
+                                                                src={url} 
+                                                                alt={`Evidencia ${idx + 1}`} 
+                                                                onClick={(e) => { e.stopPropagation(); setSelectedZoomImage(url); }}
+                                                                style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', cursor: 'pointer', transition: 'transform 0.15s ease' }} 
+                                                                onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                                                                onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
+                                                            />
+                                                        ))}
+                                                    </div>
                                                 </div>
                                             )}
                                         </div>
@@ -1769,7 +1812,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                                 </div>
                             </div>
 
-                            {/* CONTACTS AND LOCATION CARDS WERE MOVED TO MODAL */}
+
                             {/* Card 5: Acciones adicionales (12/12) — Cotización */}
                             {(user?.role === 'admin' || user?.role === 'autonomo') && (
                                 <div className={`${styles.colSpan12}`} style={{ marginTop: '5px' }}>
@@ -2796,7 +2839,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                 </div>
             )}
             {/* PROBLEM DETAILS / IMAGE ZOOM MODAL */}
-            {showZoomModal && (
+            {selectedZoomImage && (
                 <div
                     style={{
                         position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
@@ -2804,7 +2847,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                         alignItems: 'center', justifyContent: 'center', padding: '20px',
                         backdropFilter: 'blur(5px)'
                     }}
-                    onClick={() => setShowZoomModal(false)}
+                    onClick={() => setSelectedZoomImage(null)}
                 >
                     <div 
                         style={{ 
@@ -2814,13 +2857,13 @@ const AdminDetalleTrabajo: React.FC = () => {
                         onClick={(e) => e.stopPropagation()}
                     >
                         <button
-                            onClick={() => setShowZoomModal(false)}
+                            onClick={() => setSelectedZoomImage(null)}
                             style={{ position: 'absolute', top: '15px', right: '15px', background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569', cursor: 'pointer', fontSize: '20px', fontWeight: 'bold' }}
                         >
                             ✕
                         </button>
                         
-                        <h2 style={{ fontSize: '24px', fontWeight: '800', color: '#1e293b', marginBottom: '20px', width: '100%', textAlign: 'left' }}>Detalles del Problema</h2>
+                        <h2 style={{ fontSize: '24px', fontWeight: '800', color: '#1e293b', marginBottom: '20px', width: '100%', textAlign: 'left' }}>Detalles de la Evidencia</h2>
                         
                         {trabajo?.descripcion && (
                             <div style={{ width: '100%', marginBottom: '24px' }}>
@@ -2829,16 +2872,14 @@ const AdminDetalleTrabajo: React.FC = () => {
                             </div>
                         )}
                         
-                        {trabajo?.foto_url && (
-                            <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                <span style={{ display: 'block', fontSize: '12px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '12px', alignSelf: 'flex-start' }}>Foto Adjunta</span>
-                                <img
-                                    src={trabajo.foto_url}
-                                    alt="Zoomed Evidence"
-                                    style={{ maxWidth: '100%', maxHeight: '60vh', objectFit: 'contain', borderRadius: '15px', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
-                                />
-                            </div>
-                        )}
+                        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                            <span style={{ display: 'block', fontSize: '12px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '12px', alignSelf: 'flex-start' }}>Foto Adjunta</span>
+                            <img
+                                src={selectedZoomImage}
+                                alt="Zoomed Evidence"
+                                style={{ maxWidth: '100%', maxHeight: '60vh', objectFit: 'contain', borderRadius: '15px', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
+                            />
+                        </div>
                     </div>
                 </div>
             )}
@@ -2944,6 +2985,37 @@ const AdminDetalleTrabajo: React.FC = () => {
                                     <h3 className={styles.cardTitle}>Contactos</h3>
                                 </div>
                                 <div className={styles.contactGrid} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                    {trabajo.clienteNombre && (
+                                        <div className={styles.contactBlock} style={{ background: '#fffbeb', padding: '16px', borderRadius: '14px', border: '1px solid #fde68a' }}>
+                                            <span className={styles.contactName} style={{ display: 'block', fontSize: '15px', fontWeight: '800', color: '#1e293b', marginBottom: '4px' }}>
+                                                {trabajo.clienteNombre}
+                                            </span>
+                                            <span className={styles.bentoLabel} style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#d97706', textTransform: 'uppercase', marginBottom: '4px' }}>
+                                                Cliente Solicitante
+                                            </span>
+                                            {trabajo.clienteEmail && (
+                                                <span style={{ display: 'block', fontSize: '13px', color: '#475569', marginBottom: '12px', fontWeight: '600' }}>
+                                                    ✉️ {trabajo.clienteEmail}
+                                                </span>
+                                            )}
+                                            {trabajo.clienteTelefono && (
+                                                <div className={styles.contactActions} style={{ display: 'flex', gap: '10px' }}>
+                                                    <a href={`tel:${trabajo.clienteTelefono}`} className={styles.actionIconLink} title="Llamar" style={{ background: '#eff6ff', color: '#3b82f6', border: '1px solid #bfdbfe', padding: '10px', borderRadius: '10px', display: 'flex' }}>
+                                                        <HiOutlinePhone size={20} />
+                                                    </a>
+                                                    <a
+                                                        href={`https://wa.me/52${trabajo.clienteTelefono.replace(/\D/g, '')}`}
+                                                        target="_blank" rel="noreferrer" className={styles.actionIconLink}
+                                                        style={{ background: '#ecfdf5', color: '#10b981', border: '1px solid #a7f3d0', padding: '10px', borderRadius: '10px', display: 'flex' }}
+                                                        title="Enviar WhatsApp"
+                                                    >
+                                                        <HiOutlineChatBubbleLeftRight size={20} />
+                                                    </a>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
                                     <div className={styles.contactBlock} style={{ background: '#f8fafc', padding: '16px', borderRadius: '14px', border: '1px solid #f1f5f9' }}>
                                         <span className={styles.contactName} style={{ display: 'block', fontSize: '15px', fontWeight: '800', color: '#1e293b', marginBottom: '4px' }}>{trabajo.encargado === "Calle 37" ? "Jesus Antonio Dzul" : trabajo.encargado}</span>
                                         <span className={styles.bentoLabel} style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '12px' }}>Gerente</span>

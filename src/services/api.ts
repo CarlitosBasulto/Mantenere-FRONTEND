@@ -29,10 +29,10 @@ api.interceptors.response.use(
   (error) => {
     if (error.response && error.response.status === 401) {
       // Si no es la ruta de login, forzamos cierre de sesión
-      if (!window.location.pathname.includes('/login')) {
+      if (!window.location.pathname.includes('/inicio-sesion') && !window.location.pathname.includes('/login')) {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
-        window.location.href = '/login';
+        window.location.href = '/inicio-sesion';
       }
     }
     return Promise.reject(error);

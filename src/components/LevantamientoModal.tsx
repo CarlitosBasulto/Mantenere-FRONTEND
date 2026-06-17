@@ -242,7 +242,7 @@ const LevantamientoModal: React.FC<LevantamientoModalProps> = ({ isOpen, onClose
                         title="Cerrar"
                         type="button"
                     >
-                        <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#1e293b' }}>✕</span>
+                        <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#ffffff' }}>✕</span>
                     </button>
                 </div>
 
@@ -472,8 +472,10 @@ const LevantamientoModal: React.FC<LevantamientoModalProps> = ({ isOpen, onClose
                             </>
                         ) : (
                              <div className={styles.selectPrompt}>
-                                <HiOutlineFolderPlus size={60} color="#cbd5e1" />
-                                <h3>SELECCIONA O CREA UN ÁREA</h3>
+                                <div className={styles.selectPromptIconContainer}>
+                                    <HiOutlineFolderPlus size={40} />
+                                </div>
+                                <h3>Selecciona o crea un área</h3>
                                 <p>Crea apartados para organizar los equipos de la empresa por zonas.</p>
                             </div>
                         )}
