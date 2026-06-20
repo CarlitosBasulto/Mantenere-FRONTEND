@@ -37,6 +37,7 @@ import { getNegocio } from "../../services/negociosService";
 import LevantamientoModal from "../../components/LevantamientoModal";
 import CotizacionPDFPreview from "../../components/modals/CotizacionPDFPreview";
 import ChatTrabajo from "../../components/ChatTrabajo";
+import { generateMaintenanceReportPDF } from "../../utils/pdfGenerator";
 
 
 export interface CotizacionData {
@@ -56,6 +57,7 @@ interface Trabajo {
     fecha: string;
     estado: "En Espera" | "Finalizado" | "En Proceso" | "Asignado" | "Solicitud" | "Cotización Enviada" | "Cotización Aceptada" | "Cotización Rechazada" | "Cotización Aprobada" | "Pendiente de Cotizar";
     tipo?: "Visita" | "Trabajo" | "Nueva Solicitud" | "SOS";
+    originalTipo?: "Visita" | "Trabajo" | "Nueva Solicitud" | "SOS";
     visitado?: boolean;
     descripcion?: string;
     sucursal?: string;
@@ -274,7 +276,20 @@ const AdminDetalleTrabajo: React.FC = () => {
             try {
                 const data = await getTrabajo(Number(id));
                 currentTech = data.trabajador?.nombre || "Sin Asignar";
-                const calculatedTipo = (["Cotización Enviada", "Cotización Aceptada", "Cotización Aprobada", "Cotización Rechazada", "En Proceso", "Finalizado"].includes(data.estado) || data.visitado) ? "Trabajo" : "Visita";
+                const calculatedTipo = (() => {
+                    if (data.tipo === "SOS") return "SOS";
+                    if (data.tipo === "Trabajo") return "Trabajo";
+                    if (data.tipo === "Visita") {
+                        if (["Cotización Aceptada", "Cotización Aprobada", "Finalizado"].includes(data.estado)) {
+                            return "Trabajo";
+                        }
+                        if (data.estado === "En Proceso") {
+                            return data.visitado ? "Trabajo" : "Visita";
+                        }
+                        return "Visita";
+                    }
+                    return (["Cotización Aceptada", "Cotización Aprobada", "Finalizado"].includes(data.estado) || data.visitado || (data.estado === "En Proceso" && data.visitado)) ? "Trabajo" : "Visita";
+                })();
 
                 const mappedJob = {
                     id: data.id,
@@ -284,6 +299,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                     fecha: data.fecha_programada || new Date(data.created_at).toLocaleDateString('es-MX'),
                     estado: (data.estado === "Pendiente" ? "Solicitud" : data.estado) as any,
                     tipo: calculatedTipo,
+                    originalTipo: data.tipo || calculatedTipo,
                     visitado: data.visitado,
                     descripcion: data.descripcion,
                     sucursal: data.negocio?.nombre || "Por definir",
@@ -368,8 +384,9 @@ const AdminDetalleTrabajo: React.FC = () => {
 
                     const quoteMarker = "|||QUOTE_DATA|||";
                     const serviceMarker = "|||SERVICE_DATA|||";
-
                     const techMarker = "|||TECH_NAME|||";
+                    const photosMarker = "|||PHOTOS_DATA|||";
+
                     let authorName = currentTech !== "Sin Asignar" ? currentTech : (user?.name || "Sin Asignar");
                     if (finalDesc.includes(techMarker)) {
                         const tParts = finalDesc.split(techMarker);
@@ -383,13 +400,14 @@ const AdminDetalleTrabajo: React.FC = () => {
                         .split(serviceMarker)[0]
                         .split(quoteMarker)[0]
                         .split(techMarker)[0]
+                        .split(photosMarker)[0]
                         .trim();
 
                     if (finalDesc.includes(serviceMarker)) {
                         const parts = finalDesc.split(serviceMarker);
                         try {
                             // Limpiamos cualquier marcador que venga después del JSON del servicio
-                            const jsonContent = parts[1].split(quoteMarker)[0].split(techMarker)[0].trim();
+                            const jsonContent = parts[1].split(quoteMarker)[0].split(techMarker)[0].split(photosMarker)[0].trim();
                             sData = JSON.parse(jsonContent);
                         } catch (e) { }
                     }
@@ -398,11 +416,20 @@ const AdminDetalleTrabajo: React.FC = () => {
                         const parts = finalDesc.split(quoteMarker);
                         try {
                             // Limpiamos cualquier marcador que venga después del JSON de la cotización
-                            const jsonContent = parts[1].split(serviceMarker)[0].split(techMarker)[0].trim();
+                            const jsonContent = parts[1].split(serviceMarker)[0].split(techMarker)[0].split(photosMarker)[0].trim();
                             const qData = JSON.parse(jsonContent);
                             if (qData.monto) parsedMonto = qData.monto;
                             if (qData.detalles) displayDesc += "\n\nNotas de cotización:\n" + qData.detalles;
                         } catch (e) { }
+                    }
+
+                    let photosList: string[] = [];
+                    if (finalDesc.includes(photosMarker)) {
+                        const parts = finalDesc.split(photosMarker);
+                        try {
+                            const jsonContent = parts[1].split(serviceMarker)[0].split(quoteMarker)[0].split(techMarker)[0].trim();
+                            photosList = JSON.parse(jsonContent);
+                        } catch (e) {}
                     }
 
                     return {
@@ -417,7 +444,8 @@ const AdminDetalleTrabajo: React.FC = () => {
                         cotizacionArchivo: "",
                         cotizacionEstado: "Sugerencia de Técnico",
                         serviceData: sData,
-                        refacciones: act.refacciones
+                        refacciones: act.refacciones,
+                        photos: photosList
                     };
                 });
                 setSubTareas(mappedSubTareas as any);
@@ -486,9 +514,10 @@ const AdminDetalleTrabajo: React.FC = () => {
     const [newTaskDescription, setNewTaskDescription] = useState("");
     const [isQuoteIncluded, setIsQuoteIncluded] = useState(false);
     const [newQuoteAmount, setNewQuoteAmount] = useState("");
-    const [newQuoteMaterials, setNewQuoteMaterials] = useState<{material: string, piezas: string}[]>([]);
+    const [newQuoteMaterials, setNewQuoteMaterials] = useState<{material: string, piezas: string, precio: string}[]>([]);
     const [newQuoteDetails, setNewQuoteDetails] = useState("");
     const [newQuoteFileName, setNewQuoteFileName] = useState("");
+    const [activityPhotos, setActivityPhotos] = useState<string[]>([]);
 
     // SERVICE TYPE FIELDS (NEW)
     const [activeServiceType, setActiveServiceType] = useState<any>("Mantenimiento");
@@ -512,6 +541,22 @@ const AdminDetalleTrabajo: React.FC = () => {
             reader.readAsDataURL(file);
         }
     };
+
+    const handleActivityPhotosChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files) {
+            const files = Array.from(e.target.files);
+            files.forEach((file) => {
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    if (typeof reader.result === 'string') {
+                        setActivityPhotos(prev => [...prev, reader.result as string]);
+                    }
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+    };
+
 
     const filteredTechnicians = tecnicosData.filter(t =>
         t.nombre.toLowerCase().includes(technicianSearch.toLowerCase())
@@ -556,6 +601,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                         tecnico: assignedNames,
                         estado: newEstado,
                         tipo: selectedType,
+                        originalTipo: selectedType,
                         titulo: nuevoTitulo,
                         visitado: selectedType === "Trabajo",
                         fechaAsignada: asignarFecha,
@@ -664,7 +710,7 @@ const AdminDetalleTrabajo: React.FC = () => {
             await updateEstadoTrabajo(trabajo.id, { estado: "En Proceso", visitado: !isVisita });
             await updateTrabajo(trabajo.id, { tipo, titulo: nuevoTitulo });
 
-            setTrabajo((prev: any) => prev ? { ...prev, estado: "En Proceso", tipo, titulo: nuevoTitulo, visitado: !isVisita } : prev);
+            setTrabajo((prev: any) => prev ? { ...prev, estado: "En Proceso", tipo, originalTipo: prev.originalTipo || tipo, titulo: nuevoTitulo, visitado: !isVisita } : prev);
             setActiveTab(isVisita ? 'Registro' : 'Trabajo');
             showAlert("Actividad Iniciada", `Has iniciado como ${tipo}. Ahora puedes agregar registros.`, "success");
         } catch (error) {
@@ -695,7 +741,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                 desc += ` \n|||SERVICE_DATA||| ${JSON.stringify(serviceData)}`;
 
                 if (isQuoteIncluded) {
-                    const materialsText = newQuoteMaterials.filter(m => m.material.trim()).map(m => `- ${m.material} (${m.piezas})`).join('\n');
+                    const materialsText = newQuoteMaterials.filter(m => m.material.trim()).map(m => `- ${m.material} (${m.piezas})${m.precio ? ` - $${m.precio}` : ''}`).join('\n');
                     const combinedDetails = materialsText ? `${materialsText}\n\n${newQuoteDetails}` : newQuoteDetails;
                     const quotePayload = { monto: newQuoteAmount, detalles: combinedDetails };
                     desc += ` \n|||QUOTE_DATA||| ${JSON.stringify(quotePayload)}`;
@@ -703,6 +749,10 @@ const AdminDetalleTrabajo: React.FC = () => {
 
                 const techNamePayload = user?.name || "Sin Asignar";
                 desc += ` \n|||TECH_NAME||| ${techNamePayload}`;
+
+                if (activityPhotos.length > 0) {
+                    desc += ` \n|||PHOTOS_DATA||| ${JSON.stringify(activityPhotos)}`;
+                }
 
                 const payloadRefacciones = refacciones.map(r => ({
                     pieza: r.pieza,
@@ -727,23 +777,39 @@ const AdminDetalleTrabajo: React.FC = () => {
 
                     const quoteMarker = "|||QUOTE_DATA|||";
                     const serviceMarker = "|||SERVICE_DATA|||";
+                    const techMarker = "|||TECH_NAME|||";
+                    const photosMarker = "|||PHOTOS_DATA|||";
 
-                    let displayDesc = finalDesc.split(serviceMarker)[0].split(quoteMarker)[0].trim();
+                    let displayDesc = finalDesc
+                        .split(serviceMarker)[0]
+                        .split(quoteMarker)[0]
+                        .split(techMarker)[0]
+                        .split(photosMarker)[0]
+                        .trim();
 
                     if (finalDesc.includes(serviceMarker)) {
                         const parts = finalDesc.split(serviceMarker);
                         try {
-                            sData = JSON.parse(parts[1].split(quoteMarker)[0].trim());
+                            sData = JSON.parse(parts[1].split(quoteMarker)[0].split(techMarker)[0].split(photosMarker)[0].trim());
                         } catch (e) { }
                     }
 
                     if (finalDesc.includes(quoteMarker)) {
                         const parts = finalDesc.split(quoteMarker);
                         try {
-                            const qData = JSON.parse(parts[1].split(serviceMarker)[0].trim());
+                            const qData = JSON.parse(parts[1].split(serviceMarker)[0].split(techMarker)[0].split(photosMarker)[0].trim());
                             if (qData.monto) parsedMonto = qData.monto;
                             if (qData.detalles) displayDesc += "\n\nNotas de cotización:\n" + qData.detalles;
                         } catch (e) { }
+                    }
+
+                    let photosList: string[] = [];
+                    if (finalDesc.includes(photosMarker)) {
+                        const parts = finalDesc.split(photosMarker);
+                        try {
+                            const jsonContent = parts[1].split(serviceMarker)[0].split(quoteMarker)[0].split(techMarker)[0].trim();
+                            photosList = JSON.parse(jsonContent);
+                        } catch (e) {}
                     }
 
                     return {
@@ -758,7 +824,8 @@ const AdminDetalleTrabajo: React.FC = () => {
                         cotizacionArchivo: "",
                         cotizacionEstado: "Sugerencia de Técnico",
                         serviceData: sData,
-                        refacciones: act.refacciones
+                        refacciones: act.refacciones,
+                        photos: photosList
                     };
                 });
                 setSubTareas(mappedSubTareas as any);
@@ -786,6 +853,7 @@ const AdminDetalleTrabajo: React.FC = () => {
         setNewQuoteMaterials([]);
         setNewQuoteDetails("");
         setNewQuoteFileName("");
+        setActivityPhotos([]);
         // Reset service fields
         setServiceMarca("");
         setServiceModelo("");
@@ -808,21 +876,40 @@ const AdminDetalleTrabajo: React.FC = () => {
                     const acts = await getActividadesByTrabajo(Number(id));
                     const serviceMarker = "|||SERVICE_DATA|||";
                     const quoteMarker = "|||QUOTE_DATA|||";
+                    const techMarker = "|||TECH_NAME|||";
+                    const photosMarker = "|||PHOTOS_DATA|||";
+
                     const mappedSubTareas = acts.map((act: any) => {
                         let finalDesc = act.descripcion || "";
                         let parsedMonto = "Por Evaluar";
                         let sData = null;
-                        let displayDesc = finalDesc.split(serviceMarker)[0].split(quoteMarker)[0].trim();
+
+                        let displayDesc = finalDesc
+                            .split(serviceMarker)[0]
+                            .split(quoteMarker)[0]
+                            .split(techMarker)[0]
+                            .split(photosMarker)[0]
+                            .trim();
+
                         if (finalDesc.includes(serviceMarker)) {
-                            try { sData = JSON.parse(finalDesc.split(serviceMarker)[1].split(quoteMarker)[0].trim()); } catch (e) { }
+                            try { sData = JSON.parse(finalDesc.split(serviceMarker)[1].split(quoteMarker)[0].split(techMarker)[0].split(photosMarker)[0].trim()); } catch (e) { }
                         }
                         if (finalDesc.includes(quoteMarker)) {
                             try {
-                                const qData = JSON.parse(finalDesc.split(quoteMarker)[1].split(serviceMarker)[0].trim());
+                                const qData = JSON.parse(finalDesc.split(quoteMarker)[1].split(serviceMarker)[0].split(techMarker)[0].split(photosMarker)[0].trim());
                                 if (qData.monto) parsedMonto = qData.monto;
                                 if (qData.detalles) displayDesc += "\n\nNotas de cotización:\n" + qData.detalles;
                             } catch (e) { }
                         }
+                        let photosList: string[] = [];
+                        if (finalDesc.includes(photosMarker)) {
+                            const parts = finalDesc.split(photosMarker);
+                            try {
+                                const jsonContent = parts[1].split(serviceMarker)[0].split(quoteMarker)[0].split(techMarker)[0].trim();
+                                photosList = JSON.parse(jsonContent);
+                            } catch (e) {}
+                        }
+
                         return {
                             id: act.id,
                             titulo: act.tipo,
@@ -834,7 +921,8 @@ const AdminDetalleTrabajo: React.FC = () => {
                             cotizacionDetalles: displayDesc,
                             cotizacionArchivo: "",
                             cotizacionEstado: "Sugerencia de Técnico",
-                            serviceData: sData
+                            serviceData: sData,
+                            photos: photosList
                         };
                     });
                     setSubTareas(mappedSubTareas as any);
@@ -1152,6 +1240,9 @@ const AdminDetalleTrabajo: React.FC = () => {
     }
 
     const renderTaskCard = (tarea: SubTarea, isInteractive: boolean = true) => {
+        const taskReportRaw = localStorage.getItem(`report_data_${tarea.id}`) || localStorage.getItem(`report_data_temporal_${tarea.id}`);
+        const taskReport = taskReportRaw ? JSON.parse(taskReportRaw) : null;
+
         const getCategoryIcon = (titulo: string) => {
             const t = titulo?.toLowerCase() || '';
             if (t.includes('mantenimiento')) return <HiOutlineCog6Tooth size={24} style={{ color: '#f26522' }} />;
@@ -1172,6 +1263,33 @@ const AdminDetalleTrabajo: React.FC = () => {
             <div
                 key={tarea.id}
                 onClick={() => {
+                    if (taskReport && (user?.role !== 'tecnico' || tarea.estado === 'Completa')) {
+                        generateMaintenanceReportPDF({
+                            id: taskReport.dbId || taskReport.id || tarea.id || 'SD',
+                            fecha: taskReport.fecha || new Date().toLocaleDateString(),
+                            sucursal: trabajo?.sucursal || 'N/A',
+                            encargado: trabajo?.encargado || 'N/A',
+                            tecnico: tarea.tecnicoNombre || trabajo?.tecnico || 'N/A',
+                            diagnostico: taskReport.reporteTienda || 'N/A',
+                            descripcion: taskReport.descripcion || 'N/A',
+                            materiales: taskReport.materiales || 'N/A',
+                            observaciones: taskReport.observaciones || 'N/A',
+                            imagenes: {
+                                antes: taskReport.imagenes?.antes,
+                                durante: taskReport.imagenes?.durante,
+                                despues: taskReport.imagenes?.despues,
+                                extra: taskReport.imagenObservacion
+                            },
+                            firmaEmpresa: taskReport.firmaEmpresa,
+                            equipo: taskReport.involucraEquipo ? taskReport.equipoInfo : (trabajo?.cotizacion ? {
+                                tipo: 'Servicio',
+                                marca: 'N/A',
+                                modelo: 'N/A'
+                            } : null)
+                        });
+                        return;
+                    }
+
                     if (isInteractive) {
                         if (trabajo?.tipo === "Visita" && user?.role === 'tecnico') {
                             showAlert(
@@ -1183,11 +1301,13 @@ const AdminDetalleTrabajo: React.FC = () => {
                         }
                         setSelectedTaskForReport(tarea);
                         setIsSecurityModalOpen(true);
+                    } else if (activeTab === 'Cotización') {
+                        showAlert('Sin Reporte', 'Esta actividad aún no tiene un reporte registrado por el técnico.', 'warning');
                     }
                 }}
                 className={`${styles.taskCard} ${tarea.estado === 'Nueva' ? styles.newTaskCard : styles.defaultTaskCard}`}
                 style={{
-                    cursor: (isInteractive && !canEdit) || (isInteractive && !isVisita) ? 'pointer' : (isInteractive ? 'not-allowed' : 'default'),
+                    cursor: taskReport ? 'pointer' : ((isInteractive && !canEdit) || (isInteractive && !isVisita) || (!isInteractive && activeTab === 'Cotización') ? 'pointer' : (isInteractive ? 'not-allowed' : 'default')),
                     opacity: isVisita && isTecnico && isInteractive ? 0.7 : 1,
                     display: 'flex',
                     flexDirection: 'column',
@@ -1264,6 +1384,81 @@ const AdminDetalleTrabajo: React.FC = () => {
                             </div>
                         );
                     })()}
+
+                    {taskReport && (taskReport.imagenes?.antes || taskReport.imagenes?.durante || taskReport.imagenes?.despues || taskReport.imagenObservacion) && (
+                        <div style={{ marginTop: '12px', display: 'flex', gap: '8px', flexWrap: 'wrap', paddingBottom: '10px' }}>
+                            {taskReport.imagenes?.antes && (
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                                    <img 
+                                        src={taskReport.imagenes.antes} 
+                                        alt="Antes" 
+                                        onClick={(e) => { e.stopPropagation(); setSelectedZoomImage(taskReport.imagenes.antes); }}
+                                        style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e2e8f0', cursor: 'pointer', transition: 'transform 0.15s ease' }} 
+                                        onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                                        onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
+                                    />
+                                    <span style={{ fontSize: '9px', fontWeight: 'bold', color: '#64748b' }}>Antes</span>
+                                </div>
+                            )}
+                            {taskReport.imagenes?.durante && (
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                                    <img 
+                                        src={taskReport.imagenes.durante} 
+                                        alt="Durante" 
+                                        onClick={(e) => { e.stopPropagation(); setSelectedZoomImage(taskReport.imagenes.durante); }}
+                                        style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e2e8f0', cursor: 'pointer', transition: 'transform 0.15s ease' }} 
+                                        onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                                        onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
+                                    />
+                                    <span style={{ fontSize: '9px', fontWeight: 'bold', color: '#64748b' }}>Durante</span>
+                                </div>
+                            )}
+                            {taskReport.imagenes?.despues && (
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                                    <img 
+                                        src={taskReport.imagenes.despues} 
+                                        alt="Después" 
+                                        onClick={(e) => { e.stopPropagation(); setSelectedZoomImage(taskReport.imagenes.despues); }}
+                                        style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e2e8f0', cursor: 'pointer', transition: 'transform 0.15s ease' }} 
+                                        onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                                        onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
+                                    />
+                                    <span style={{ fontSize: '9px', fontWeight: 'bold', color: '#64748b' }}>Después</span>
+                                </div>
+                            )}
+                            {taskReport.imagenObservacion && (
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                                    <img 
+                                        src={taskReport.imagenObservacion} 
+                                        alt="Extra" 
+                                        onClick={(e) => { e.stopPropagation(); setSelectedZoomImage(taskReport.imagenObservacion); }}
+                                        style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e2e8f0', cursor: 'pointer', transition: 'transform 0.15s ease' }} 
+                                        onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                                        onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
+                                    />
+                                    <span style={{ fontSize: '9px', fontWeight: 'bold', color: '#64748b' }}>Extra</span>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {tarea.photos && tarea.photos.length > 0 && (
+                        <div style={{ marginTop: '12px', display: 'flex', gap: '8px', flexWrap: 'wrap', paddingBottom: '10px' }}>
+                            {tarea.photos.map((url, idx) => (
+                                <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                                    <img 
+                                        src={url} 
+                                        alt={`Foto Actividad ${idx + 1}`} 
+                                        onClick={(e) => { e.stopPropagation(); setSelectedZoomImage(url); }}
+                                        style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e2e8f0', cursor: 'pointer', transition: 'transform 0.15s ease' }} 
+                                        onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                                        onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
+                                    />
+                                    <span style={{ fontSize: '9px', fontWeight: 'bold', color: '#64748b' }}>Evidencia {idx + 1}</span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
 
                     {/* BOTÓN DE ACCIÓN PARA TÉCNICO */}
                     {isInteractive && tarea.estado !== 'Completa' && user?.role === 'tecnico' && (
@@ -1451,29 +1646,45 @@ const AdminDetalleTrabajo: React.FC = () => {
 
                     {/* STEPS LOGIC */}
                     {(() => {
+                        const isVisitaFlow = trabajo.originalTipo ? (trabajo.originalTipo === "Visita") : (trabajo.tipo === "Visita");
                         const getStepIndex = (estado: string) => {
-                            if (estado === "Finalizado") return 5;
-                            if (estado.includes("Cotización")) return 3;
-                            
-                            if (["En Proceso", "En Espera", "Asignado"].includes(estado)) {
-                                if (trabajo.tipo === "Visita") {
-                                    if (trabajo.visitado && estado === "En Espera") return 3; // Finished visit, waiting for quote
+                            if (isVisitaFlow) {
+                                if (estado === "Finalizado") return 5;
+                                if (estado.includes("Cotización")) return 3;
+                                
+                                if (["En Proceso", "En Espera", "Asignado"].includes(estado)) {
+                                    if (trabajo.visitado && estado === "En Espera") return 3; // Visita terminada, esperando cotización
                                     return 2;
                                 }
-                                return 4; // Trabajo or SOS
+                                return 1;
+                            } else {
+                                // Trabajo or SOS Flow (3 pasos)
+                                if (estado === "Finalizado") return 3;
+                                if (["En Proceso", "En Espera", "Asignado"].includes(estado)) {
+                                    return 2;
+                                }
+                                if (estado.includes("Cotización")) return 2;
+                                return 1;
                             }
-                            return 1;
                         };
                         const currentStep = getStepIndex(trabajo.estado);
+                        const steps = isVisitaFlow
+                            ? [
+                                  { id: 1, label: "Solicitud", icon: "📋" },
+                                  { id: 2, label: "Visita", icon: "📍" },
+                                  { id: 3, label: "Cotización", icon: "💲" },
+                                  { id: 4, label: "En Proceso", icon: "🛠️" },
+                                  { id: 5, label: "Finalizado", icon: "✅" }
+                              ]
+                            : [
+                                  { id: 1, label: "Solicitud", icon: "📋" },
+                                  { id: 2, label: "En Proceso", icon: "🛠️" },
+                                  { id: 3, label: "Finalizado", icon: "✅" }
+                              ];
+
                         return (
                             <div style={{ padding: '8px 15px', background: '#fff', borderRadius: '12px', marginBottom: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.02)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid #f0f0f0' }}>
-                                {[
-                                    { id: 1, label: "Solicitud", icon: "📋" },
-                                    { id: 2, label: "Visita", icon: "📍" },
-                                    { id: 3, label: "Cotización", icon: "💲" },
-                                    { id: 4, label: "En Proceso", icon: "🛠️" },
-                                    { id: 5, label: "Finalizado", icon: "✅" }
-                                ].map((step, index, arr) => {
+                                {steps.map((step, index, arr) => {
                                     const isActive = currentStep === step.id;
                                     const isCompleted = currentStep > step.id;
 
@@ -1563,7 +1774,12 @@ const AdminDetalleTrabajo: React.FC = () => {
                                     className={`${styles.tabButton} ${activeTab === tabName ? styles.activeTab : styles.inactiveTab}`}
                                     onClick={() => setActiveTab(tabName as any)}
                                     title={tabName}
-                                    style={{ position: 'relative' }}
+                                    disabled={(tabName === 'Registro' || tabName === 'Trabajo') && trabajo?.estado !== 'En Proceso'}
+                                    style={{ 
+                                        position: 'relative',
+                                        opacity: ((tabName === 'Registro' || tabName === 'Trabajo') && trabajo?.estado !== 'En Proceso') ? 0.5 : 1,
+                                        cursor: ((tabName === 'Registro' || tabName === 'Trabajo') && trabajo?.estado !== 'En Proceso') ? 'not-allowed' : 'pointer'
+                                    }}
                                 >
                                     <span className={styles.tabIcon}>
                                         {tabName === 'Datos' ? <HiOutlineBuildingOffice2 size={22} /> :
@@ -1694,7 +1910,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                                     </span>
 
                                     {/* BOTÓN ACCIÓN — lógica diferente para SOS vs Normal */}
-                                    {(user?.role === 'admin' || user?.role === 'autonomo') && trabajo.estado !== 'Finalizado' && trabajo.estado !== 'Asignado' && trabajo.estado !== 'En Proceso' && (
+                                    {(user?.role === 'admin' || user?.role === 'autonomo') && trabajo.estado !== 'Finalizado' && (
                                         isSOS ? (
                                             // FLUJO SOS:
                                             // - Si está en Solicitud: primero debe crear cotización
@@ -1726,7 +1942,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                 >
                                                     {trabajo.estado === 'Cotización Enviada' ? '📄 Ver Cotización' : '💰 Crear Cotización (SOS)'}
                                                 </button>
-                                            ) : (trabajo.estado === 'Cotización Aceptada' || trabajo.estado === 'Cotización Aprobada') ? (
+                                            ) : (trabajo.estado === 'Cotización Aceptada' || trabajo.estado === 'Cotización Aprobada' || trabajo.estado === 'Asignado' || trabajo.estado === 'En Proceso') ? (
                                                 <button
                                                     onClick={handleOpenAssignModal}
                                                     style={{
@@ -1954,229 +2170,371 @@ const AdminDetalleTrabajo: React.FC = () => {
                                 )}
 
                                 {/* VISTA ADMIN: columna izquierda (gestión de cotizaciones), columna derecha (actividades del técnico) */}
-                                {user?.role !== 'cliente' && (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                                        {/* SECCIÓN SUPERIOR: Reporte del Técnico */}
-                                        {subTareas.length > 0 && (
-                                            <div style={{ background: '#fff', borderRadius: '24px', padding: '24px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)', border: '2px solid #fef3c7' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '18px', paddingBottom: '14px', borderBottom: '2px solid #fef3c7' }}>
-                                                    <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'linear-gradient(135deg, #f59e0b, #d97706)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                        <span style={{ fontSize: '20px' }}>🔧</span>
-                                                    </div>
-                                                    <div>
-                                                        <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#1e293b' }}>Reporte del Técnico</h3>
-                                                        <p style={{ margin: 0, fontSize: '12px', color: '#94a3b8', fontWeight: '600' }}>Información enviada por el técnico para elaborar la cotización</p>
-                                                    </div>
-                                                    <span style={{ marginLeft: 'auto', background: '#fef3c7', color: '#92400e', fontSize: '12px', fontWeight: '800', padding: '4px 12px', borderRadius: '20px', border: '1px solid #fde68a' }}>
-                                                        {subTareas.length} actividad{subTareas.length !== 1 ? 'es' : ''}
-                                                    </span>
-                                                </div>
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                                    {subTareas.map(tarea => renderTaskCard(tarea, false))}
-                                                </div>
-                                            </div>
-                                        )}
-                                        <div className={styles.infoGrid2} style={{ gap: '30px' }}>
-                                        {/* IZQUIERDA: lista de cotizaciones y formulario */}
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                                            {cotizaciones.length > 0 && (
-                                                <div style={{ background: '#fff', borderRadius: '24px', padding: '28px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px', paddingBottom: '16px', borderBottom: '2px solid #f8fafc' }}>
-                                                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }} />
-                                                        <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#1e293b' }}>Cotizaciones Enviadas</h3>
-                                                        <span style={{ marginLeft: 'auto', background: '#ecfdf5', color: '#065f46', fontSize: '12px', fontWeight: '800', padding: '4px 12px', borderRadius: '20px', border: '1px solid #a7f3d0' }}>
-                                                            {cotizaciones.length} cotizacion{cotizaciones.length !== 1 ? 'es' : ''}
-                                                        </span>
-                                                    </div>
+                                {user?.role !== 'cliente' && (() => {
+                                    const actualReporte = reporteFinal || (() => {
+                                        const fallbackReportDataRaw = localStorage.getItem(`report_data_${trabajo?.id}`);
+                                        const temporalReportDataRaw = localStorage.getItem(`report_data_temporal_${trabajo?.id}`);
+                                        try {
+                                            return fallbackReportDataRaw ? JSON.parse(fallbackReportDataRaw) : (temporalReportDataRaw ? JSON.parse(temporalReportDataRaw) : null);
+                                        } catch (e) {
+                                            return null;
+                                        }
+                                    })();
 
-                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                                        {cotizaciones.map((cotiz, idx) => {
-                                                            const isEditing = editingCotizacion?.id === cotiz.id;
-                                                            const estadoBadge: Record<string, string> = { Pendiente: '#fffbeb', Aprobada: '#ecfdf5', Rechazada: '#fef2f2' };
-                                                            const estadoText: Record<string, string> = { Pendiente: '#92400e', Aprobada: '#065f46', Rechazada: '#7f1d1d' };
-                                                            const displayEstado = (trabajo?.estado === 'Cotización Aceptada') ? 'Aprobada' : (cotiz.estado || 'Pendiente');
-                                                            const displayEstadoText = (trabajo?.estado === 'Cotización Aceptada') ? 'Aceptada' : (cotiz.estado || 'Pendiente');
-                                                            return (
-                                                                <div key={cotiz.id} style={{ background: '#fafafa', border: '1.5px solid #f1f5f9', borderRadius: '18px', padding: '18px' }}>
-                                                                    {isEditing ? (
-                                                                        /* FORMULARIO INLINE DE EDICIÓN */
-                                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                                                            <p style={{ margin: '0 0 4px 0', fontSize: '12px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase' }}>Editando Opción {idx + 1}</p>
-                                                                            <div style={{ position: 'relative' }}>
-                                                                                <span style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', fontWeight: '900', color: '#f26522', fontSize: '16px' }}>$</span>
-                                                                                <input type="number" value={editCosto} onChange={e => setEditCosto(e.target.value)}
-                                                                                    style={{ width: '100%', padding: '12px 14px 12px 30px', borderRadius: '12px', border: '2px solid #e2e8f0', fontSize: '16px', fontWeight: '700', boxSizing: 'border-box' }} />
-                                                                            </div>
-                                                                            <textarea value={editNotas} onChange={e => setEditNotas(e.target.value)} placeholder="Notas..."
-                                                                                style={{ width: '100%', padding: '12px 14px', borderRadius: '12px', border: '2px solid #e2e8f0', fontSize: '14px', resize: 'vertical', minHeight: '80px', boxSizing: 'border-box', fontFamily: 'inherit' }} />
-                                                                            <input ref={editFileInputRef} type="file" accept="image/*,.pdf" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) { setEditArchivoFile(f); setEditNombreArchivo(f.name); } }} />
-                                                                            <button onClick={() => editFileInputRef.current?.click()} style={{ padding: '10px', borderRadius: '10px', border: '2px dashed #e2e8f0', background: editArchivoFile ? '#f0fdf4' : '#f8fafc', color: editArchivoFile ? '#059669' : '#64748b', fontWeight: '700', fontSize: '13px', cursor: 'pointer' }}>
-                                                                                {editArchivoFile ? `✓ ${editNombreArchivo}` : '📎 Cambiar documento (opcional)'}
-                                                                            </button>
-                                                                            <div style={{ display: 'flex', gap: '8px' }}>
-                                                                                <button onClick={handleUpdateCotizacion} style={{ flex: 1, padding: '12px', background: 'linear-gradient(135deg, #f26522, #d14d13)', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: '800', cursor: 'pointer', fontSize: '14px' }}>💾 Guardar cambios</button>
-                                                                                <button onClick={() => setEditingCotizacion(null)} style={{ padding: '12px 16px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', fontWeight: '700', cursor: 'pointer', fontSize: '14px', color: '#475569' }}>Cancelar</button>
-                                                                            </div>
-                                                                        </div>
-                                                                    ) : (
-                                                                        /* VISTA DE LA COTIZACIÓN */
-                                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
-                                                                            <div>
-                                                                                <p style={{ margin: '0 0 4px 0', fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.8px' }}>Opción {idx + 1}</p>
-                                                                                <p style={{ margin: '0 0 6px 0', fontSize: '22px', fontWeight: '900', color: '#1e293b' }}>${Number(cotiz.monto).toLocaleString('es-MX')}</p>
-                                                                                {cotiz.descripcion && <p style={{ margin: 0, fontSize: '12px', color: '#64748b', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cotiz.descripcion}</p>}
-                                                                            </div>
-                                                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
-                                                                                <span style={{ padding: '4px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: '800', background: estadoBadge[displayEstado], color: estadoText[displayEstado] }}>
-                                                                                    {displayEstadoText}
-                                                                                </span>
-                                                                                <div style={{ display: 'flex', gap: '6px' }}>
-                                                                                    <button onClick={() => { setCosto(cotiz.monto?.toString() || ''); setNotas(cotiz.descripcion || ''); setShowPDFPreview(true); }} style={{ padding: '7px 12px', borderRadius: '10px', background: '#fef2f2', border: '1px solid #fecaca', cursor: 'pointer', fontSize: '13px', fontWeight: '700', color: '#ef4444', display: 'flex', alignItems: 'center', gap: '4px' }}><HiOutlineDocumentText size={16} /> Preview PDF</button>
-                                                                                    {trabajo?.estado !== 'Cotización Aceptada' && trabajo?.estado !== 'Asignado' && <button onClick={() => handleEditarCotizacion(cotiz)} style={{ padding: '7px 12px', borderRadius: '10px', background: '#f1f5f9', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: '700', color: '#475569' }}>✏️ Editar</button>}
-                                                                                    {trabajo?.estado !== 'Cotización Aceptada' && trabajo?.estado !== 'Asignado' && <button onClick={() => handleEliminarCotizacion(cotiz.id!)} style={{ padding: '7px 12px', borderRadius: '10px', background: '#fef2f2', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: '700', color: '#ef4444' }}>🗑️</button>}
+                                    return (
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: '30px', alignItems: 'start' }}>
+                                            
+                                            {/* COLUMNA IZQUIERDA: lista de cotizaciones y formulario */}
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                                {cotizaciones.length > 0 && (
+                                                    <div style={{ background: '#fff', borderRadius: '24px', padding: '28px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px', paddingBottom: '16px', borderBottom: '2px solid #f8fafc' }}>
+                                                            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }} />
+                                                            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#1e293b' }}>Cotizaciones Enviadas</h3>
+                                                            <span style={{ marginLeft: 'auto', background: '#ecfdf5', color: '#065f46', fontSize: '12px', fontWeight: '800', padding: '4px 12px', borderRadius: '20px', border: '1px solid #a7f3d0' }}>
+                                                                {cotizaciones.length} cotizacion{cotizaciones.length !== 1 ? 'es' : ''}
+                                                            </span>
+                                                        </div>
+
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                            {cotizaciones.map((cotiz, idx) => {
+                                                                const isEditing = editingCotizacion?.id === cotiz.id;
+                                                                const estadoBadge: Record<string, string> = { Pendiente: '#fffbeb', Aprobada: '#ecfdf5', Rechazada: '#fef2f2' };
+                                                                const estadoText: Record<string, string> = { Pendiente: '#92400e', Aprobada: '#065f46', Rechazada: '#7f1d1d' };
+                                                                const displayEstado = (trabajo?.estado === 'Cotización Aceptada') ? 'Aprobada' : (cotiz.estado || 'Pendiente');
+                                                                const displayEstadoText = (trabajo?.estado === 'Cotización Aceptada') ? 'Aceptada' : (cotiz.estado || 'Pendiente');
+                                                                return (
+                                                                    <div key={cotiz.id} style={{ background: '#fafafa', border: '1.5px solid #f1f5f9', borderRadius: '18px', padding: '18px' }}>
+                                                                        {isEditing ? (
+                                                                            /* FORMULARIO INLINE DE EDICIÓN */
+                                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                                                <p style={{ margin: '0 0 4px 0', fontSize: '12px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase' }}>Editando Opción {idx + 1}</p>
+                                                                                <div style={{ position: 'relative' }}>
+                                                                                    <span style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', fontWeight: '900', color: '#f26522', fontSize: '16px' }}>$</span>
+                                                                                    <input type="number" value={editCosto} onChange={e => setEditCosto(e.target.value)}
+                                                                                        style={{ width: '100%', padding: '12px 14px 12px 30px', borderRadius: '12px', border: '2px solid #e2e8f0', fontSize: '16px', fontWeight: '700', boxSizing: 'border-box' }} />
+                                                                                </div>
+                                                                                <textarea value={editNotas} onChange={e => setEditNotas(e.target.value)} placeholder="Notas..."
+                                                                                    style={{ width: '100%', padding: '12px 14px', borderRadius: '12px', border: '2px solid #e2e8f0', fontSize: '14px', resize: 'vertical', minHeight: '80px', boxSizing: 'border-box', fontFamily: 'inherit' }} />
+                                                                                <input ref={editFileInputRef} type="file" accept="image/*,.pdf" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) { setEditArchivoFile(f); setEditNombreArchivo(f.name); } }} />
+                                                                                <button onClick={() => editFileInputRef.current?.click()} style={{ padding: '10px', borderRadius: '10px', border: '2px dashed #e2e8f0', background: editArchivoFile ? '#f0fdf4' : '#f8fafc', color: editArchivoFile ? '#059669' : '#64748b', fontWeight: '700', fontSize: '13px', cursor: 'pointer' }}>
+                                                                                    {editArchivoFile ? `✓ ${editNombreArchivo}` : '📎 Cambiar documento (opcional)'}
+                                                                                </button>
+                                                                                <div style={{ display: 'flex', gap: '8px' }}>
+                                                                                    <button onClick={handleUpdateCotizacion} style={{ flex: 1, padding: '12px', background: 'linear-gradient(135deg, #f26522, #d14d13)', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: '800', cursor: 'pointer', fontSize: '14px' }}>💾 Guardar cambios</button>
+                                                                                    <button onClick={() => setEditingCotizacion(null)} style={{ padding: '12px 16px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', fontWeight: '700', cursor: 'pointer', fontSize: '14px', color: '#475569' }}>Cancelar</button>
                                                                                 </div>
                                                                             </div>
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {/* BOTÓN DE ASIGNACIÓN CUANDO SE ACEPTA LA COTIZACIÓN */}
-                                            {(trabajo?.estado === 'Cotización Aceptada' || trabajo?.estado === 'Cotización Aprobada') && (
-                                                <button onClick={handleOpenAssignModal}
-                                                    style={{ width: '100%', padding: '16px', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', borderRadius: '15px', fontSize: '15px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 8px 20px rgba(16,185,129,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', marginTop: '10px' }}>
-                                                    <span style={{ fontSize: '18px' }}>✅</span> Asignar Trabajo al Técnico
-                                                </button>
-                                            )}
-
-                                            {/* BOTÓN PARA DESPLEGAR NUEVA COTIZACIÓN */}
-                                            {trabajo?.estado !== 'Cotización Enviada' && trabajo?.estado !== 'Cotización Aceptada' && trabajo?.estado !== 'Cotización Rechazada' && trabajo?.estado !== 'Asignado' && (
-                                                !showAddQuoteForm ? (
-                                                    <button
-                                                        onClick={() => setShowAddQuoteForm(true)}
-                                                        className={styles.addTaskButton}
-                                                        style={{ borderStyle: 'solid', background: '#fff', height: '100px', justifyContent: 'center' }}
-                                                    >
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                                                        <div className={styles.addTaskIcon} style={{ width: '36px', height: '36px', fontSize: '20px' }}>+</div>
-                                                        <span style={{ fontSize: '18px', fontWeight: '800', color: '#1e293b' }}>
-                                                            Agregar nueva cotización
-                                                        </span>
-                                                    </div>
-                                                </button>
-                                            ) : (
-                                                /* FORMULARIO NUEVA COTIZACIÓN */
-                                                <div style={{ background: '#fff', borderRadius: '24px', padding: '28px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '22px', paddingBottom: '16px', borderBottom: '2px solid #f8fafc' }}>
-                                                        <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'linear-gradient(135deg, #f26522, #d14d13)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                            <HiOutlineCurrencyDollar size={20} color="white" />
-                                                        </div>
-                                                        <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#1e293b' }}>
-                                                            {cotizaciones.length === 0 ? 'Nueva Cotización' : `Configurando Opción ${cotizaciones.length + 1}`}
-                                                        </h3>
-                                                    </div>
-
-                                                    <div style={{ marginBottom: '16px' }}>
-                                                        <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>Monto ($)</label>
-                                                        <div style={{ position: 'relative' }}>
-                                                            <span style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', fontSize: '18px', fontWeight: '900', color: '#f26522' }}>$</span>
-                                                            <input type="number" placeholder="1500" value={costo} onChange={e => setCosto(e.target.value)}
-                                                                style={{ width: '100%', padding: '13px 16px 13px 36px', borderRadius: '14px', border: '2px solid #e2e8f0', fontSize: '17px', fontWeight: '700', color: '#1e293b', boxSizing: 'border-box' }} />
+                                                                        ) : (
+                                                                            /* VISTA DE LA COTIZACIÓN */
+                                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+                                                                                <div>
+                                                                                    <p style={{ margin: '0 0 4px 0', fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.8px' }}>Opción {idx + 1}</p>
+                                                                                    <p style={{ margin: '0 0 6px 0', fontSize: '22px', fontWeight: '900', color: '#1e293b' }}>${Number(cotiz.monto).toLocaleString('es-MX')}</p>
+                                                                                    {cotiz.descripcion && <p style={{ margin: 0, fontSize: '12px', color: '#64748b', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cotiz.descripcion}</p>}
+                                                                                </div>
+                                                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
+                                                                                    <span style={{ padding: '4px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: '800', background: estadoBadge[displayEstado], color: estadoText[displayEstado] }}>
+                                                                                        {displayEstadoText}
+                                                                                    </span>
+                                                                                    <div style={{ display: 'flex', gap: '6px' }}>
+                                                                                        <button onClick={() => { setCosto(cotiz.monto?.toString() || ''); setNotas(cotiz.descripcion || ''); setShowPDFPreview(true); }} style={{ padding: '7px 12px', borderRadius: '10px', background: '#fef2f2', border: '1px solid #fecaca', cursor: 'pointer', fontSize: '13px', fontWeight: '700', color: '#ef4444', display: 'flex', alignItems: 'center', gap: '4px' }}><HiOutlineDocumentText size={16} /> Preview PDF</button>
+                                                                                        {trabajo?.estado !== 'Cotización Aceptada' && trabajo?.estado !== 'Asignado' && <button onClick={() => handleEditarCotizacion(cotiz)} style={{ padding: '7px 12px', borderRadius: '10px', background: '#f1f5f9', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: '700', color: '#475569' }}>✏️ Editar</button>}
+                                                                                        {trabajo?.estado !== 'Cotización Aceptada' && trabajo?.estado !== 'Asignado' && <button onClick={() => handleEliminarCotizacion(cotiz.id!)} style={{ padding: '7px 12px', borderRadius: '10px', background: '#fef2f2', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: '700', color: '#ef4444' }}>🗑️</button>}
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                );
+                                                            })}
                                                         </div>
                                                     </div>
+                                                )}
 
-                                                    <div style={{ marginBottom: '16px' }}>
-                                                        <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>Notas para el técnico</label>
-                                                        <textarea placeholder="Ej: Incluye mano de obra y materiales..." value={notas} onChange={e => setNotas(e.target.value)}
-                                                            style={{ width: '100%', padding: '13px 16px', borderRadius: '14px', border: '2px solid #e2e8f0', fontSize: '14px', color: '#475569', minHeight: '90px', resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit', lineHeight: '1.6', marginBottom: '16px' }} />
-                                                        
-                                                        <button 
-                                                            onClick={() => setShowPDFPreview(true)}
-                                                            style={{ width: '100%', padding: '12px', background: '#f8fafc', border: '2px solid #e2e8f0', color: '#1e293b', borderRadius: '12px', fontSize: '13px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'all 0.2s' }}
+                                                {/* BOTÓN DE ASIGNACIÓN CUANDO SE ACEPTA LA COTIZACIÓN */}
+                                                {(trabajo?.estado === 'Cotización Aceptada' || trabajo?.estado === 'Cotización Aprobada') && (
+                                                    <button onClick={handleOpenAssignModal}
+                                                        style={{ width: '100%', padding: '16px', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', borderRadius: '15px', fontSize: '15px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 8px 20px rgba(16,185,129,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', marginTop: '10px' }}>
+                                                        <span style={{ fontSize: '18px' }}>✅</span> Asignar Trabajo al Técnico
+                                                    </button>
+                                                )}
+
+                                                {/* BOTÓN PARA DESPLEGAR NUEVA COTIZACIÓN / FORMULARIO */}
+                                                {trabajo?.estado !== 'Cotización Enviada' && trabajo?.estado !== 'Cotización Aceptada' && trabajo?.estado !== 'Cotización Rechazada' && trabajo?.estado !== 'Asignado' && (
+                                                    !showAddQuoteForm ? (
+                                                        <button
+                                                            onClick={() => setShowAddQuoteForm(true)}
+                                                            className={styles.addTaskButton}
+                                                            style={{ borderStyle: 'solid', background: '#fff', height: '100px', justifyContent: 'center' }}
                                                         >
-                                                            <HiOutlineDocumentText size={18} color="#ef4444" /> Generar Preview PDF
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                                                                <div className={styles.addTaskIcon} style={{ width: '36px', height: '36px', fontSize: '20px' }}>+</div>
+                                                                <span style={{ fontSize: '18px', fontWeight: '800', color: '#1e293b' }}>
+                                                                    Agregar nueva cotización
+                                                                </span>
+                                                            </div>
                                                         </button>
-                                                    </div>
+                                                    ) : (
+                                                        /* FORMULARIO NUEVA COTIZACIÓN */
+                                                        <div style={{ background: '#fff', borderRadius: '24px', padding: '28px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '22px', paddingBottom: '16px', borderBottom: '2px solid #f8fafc' }}>
+                                                                <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'linear-gradient(135deg, #f26522, #d14d13)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                    <HiOutlineCurrencyDollar size={20} color="white" />
+                                                                </div>
+                                                                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#1e293b' }}>
+                                                                    {cotizaciones.length === 0 ? 'Nueva Cotización' : `Configurando Opción ${cotizaciones.length + 1}`}
+                                                                </h3>
+                                                            </div>
 
-                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                                        {trabajo?.estado !== 'Cotización Aceptada' && (
-                                                            <div style={{ display: 'flex', gap: '12px' }}>
-                                                                <button onClick={() => handleEnviarCotizacion('send')}
-                                                                    style={{ flex: 2, padding: '15.5px', background: 'linear-gradient(135deg, #f26522, #d14d13)', color: '#fff', border: 'none', borderRadius: '15px', fontSize: '14px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 8px 20px rgba(242,101,34,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                                                                    <span>Enviar Propuesta al Técnico</span>
+                                                            <div style={{ marginBottom: '16px' }}>
+                                                                <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>Monto ($)</label>
+                                                                <div style={{ position: 'relative' }}>
+                                                                    <span style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', fontSize: '18px', fontWeight: '900', color: '#f26522' }}>$</span>
+                                                                    <input type="number" placeholder="1500" value={costo} onChange={e => setCosto(e.target.value)}
+                                                                        style={{ width: '100%', padding: '13px 16px 13px 36px', borderRadius: '14px', border: '2px solid #e2e8f0', fontSize: '17px', fontWeight: '700', color: '#1e293b', boxSizing: 'border-box' }} />
+                                                                </div>
+                                                            </div>
+
+                                                            <div style={{ marginBottom: '16px' }}>
+                                                                <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>Notas para el cliente</label>
+                                                                <textarea placeholder="Ej: Incluye mano de obra y materiales..." value={notas} onChange={e => setNotas(e.target.value)}
+                                                                    style={{ width: '100%', padding: '13px 16px', borderRadius: '14px', border: '2px solid #e2e8f0', fontSize: '14px', color: '#475569', minHeight: '90px', resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit', lineHeight: '1.6', marginBottom: '16px' }} />
+                                                                
+                                                                <button 
+                                                                    onClick={() => setShowPDFPreview(true)}
+                                                                    style={{ width: '100%', padding: '12px', background: '#f8fafc', border: '2px solid #e2e8f0', color: '#1e293b', borderRadius: '12px', fontSize: '13px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'all 0.2s' }}
+                                                                >
+                                                                    <HiOutlineDocumentText size={18} color="#ef4444" /> Generar Preview PDF
                                                                 </button>
                                                             </div>
-                                                        )}
-                                                        
-                                                        {(trabajo?.estado === 'Cotización Aceptada' || trabajo?.estado === 'Cotización Aprobada') && (
-                                                            <div style={{ display: 'flex', gap: '12px' }}>
-                                                                <button onClick={() => handleEnviarCotizacion('accept_and_assign')}
-                                                                    style={{ flex: 2, padding: '15.5px', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', borderRadius: '15px', fontSize: '14px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 8px 20px rgba(16,185,129,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                                                                    <span>Aceptar Cotización y Asignar Trabajo</span>
+
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                                {trabajo?.estado !== 'Cotización Aceptada' && (
+                                                                    <div style={{ display: 'flex', gap: '12px' }}>
+                                                                        <button onClick={() => handleEnviarCotizacion('send')}
+                                                                            style={{ flex: 2, padding: '15.5px', background: 'linear-gradient(135deg, #f26522, #d14d13)', color: '#fff', border: 'none', borderRadius: '15px', fontSize: '14px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 8px 20px rgba(242,101,34,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                                                            <span>Enviar Cotización al Cliente</span>
+                                                                        </button>
+                                                                    </div>
+                                                                )}
+                                                                
+                                                                {(trabajo?.estado === 'Cotización Aceptada' || trabajo?.estado === 'Cotización Aprobada') && (
+                                                                    <div style={{ display: 'flex', gap: '12px' }}>
+                                                                        <button onClick={() => handleEnviarCotizacion('accept_and_assign')}
+                                                                            style={{ flex: 2, padding: '15.5px', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', borderRadius: '15px', fontSize: '14px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 8px 20px rgba(16,185,129,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                                                            <span>Aceptar Cotización y Asignar Trabajo</span>
+                                                                        </button>
+                                                                    </div>
+                                                                )}
+                                                                
+                                                                <button onClick={() => setShowAddQuoteForm(false)}
+                                                                    style={{ width: '100%', padding: '15px', background: '#f8fafc', border: '2px solid #e2e8f0', color: '#64748b', borderRadius: '15px', fontSize: '14px', fontWeight: '700', cursor: 'pointer' }}>
+                                                                    Cancelar
                                                                 </button>
                                                             </div>
-                                                        )}
-                                                        
-                                                        <button onClick={() => setShowAddQuoteForm(false)}
-                                                            style={{ width: '100%', padding: '15px', background: '#f8fafc', border: '2px solid #e2e8f0', color: '#64748b', borderRadius: '15px', fontSize: '14px', fontWeight: '700', cursor: 'pointer' }}>
-                                                            Cancelar
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
+                                                        </div>
+                                                    )
+                                                )}
+                                            </div>
 
-                                        {/* DERECHA: actividades del técnico */}
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                                            {subTareas.some(t => t.esCotizacion) && (
-                                                <div style={{ background: '#fff', borderRadius: '24px', padding: '28px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px', paddingBottom: '16px', borderBottom: '2px solid #f8fafc' }}>
-                                                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#f26522' }} />
-                                                        <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#1e293b' }}>Sugerencias del Técnico</h3>
-                                                        <span style={{ marginLeft: 'auto', background: '#fff7ed', color: '#d97706', fontSize: '12px', fontWeight: '800', padding: '4px 12px', borderRadius: '20px', border: '1px solid #fed7aa' }}>
-                                                            {subTareas.filter(t => t.esCotizacion).length} registros
-                                                        </span>
-                                                    </div>
-                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                                        {subTareas.filter(t => t.esCotizacion).map(tarea => (
-                                                            <div key={tarea.id} style={{ background: '#fafafa', border: '1.5px solid #f1f5f9', borderRadius: '16px', padding: '16px' }}>
-                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                                        <div style={{ width: '36px', height: '36px', borderRadius: '10px', overflow: 'hidden', background: '#f8fafc', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                                            {getAvatarForTech(tarea.tecnicoNombre || '') ? (
-                                                                                <img src={getAvatarForTech(tarea.tecnicoNombre || '') || undefined} alt="Tech" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                                                            ) : (
-                                                                                <HiOutlineUser size={16} color="#64748b" />
-                                                                            )}
-                                                                        </div>
-                                                                        <div>
-                                                                            <p style={{ margin: 0, fontSize: '13px', fontWeight: '800', color: '#1e293b' }}>{tarea.tecnicoNombre || 'Técnico'}</p>
-                                                                            <span style={{ display: 'inline-block', fontSize: '10px', background: '#e0f2fe', color: '#0369a1', padding: '2px 8px', borderRadius: '20px', fontWeight: '700', marginTop: '2px' }}>{tarea.titulo}</span>
+                                            {/* COLUMNA DERECHA: Reporte, sugerencias y PDF del técnico */}
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                                {/* Card 1: Reporte del Técnico (Actividades y datos registrados) */}
+                                                {(subTareas.length > 0 || actualReporte) && (
+                                                    <div style={{ background: '#fff', borderRadius: '24px', padding: '24px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)', border: '2px solid #fef3c7' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '18px', paddingBottom: '14px', borderBottom: '2px solid #fef3c7' }}>
+                                                            <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'linear-gradient(135deg, #f59e0b, #d97706)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                <span style={{ fontSize: '20px' }}>🔧</span>
+                                                            </div>
+                                                            <div>
+                                                                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#1e293b' }}>Reporte del Técnico</h3>
+                                                                <p style={{ margin: 0, fontSize: '12px', color: '#94a3b8', fontWeight: '600' }}>Información y actividades registradas por el técnico</p>
+                                                            </div>
+                                                            {subTareas.length > 0 && (
+                                                                <span style={{ marginLeft: 'auto', background: '#fef3c7', color: '#92400e', fontSize: '12px', fontWeight: '800', padding: '4px 12px', borderRadius: '20px', border: '1px solid #fde68a' }}>
+                                                                    {subTareas.length} actividad{subTareas.length !== 1 ? 'es' : ''}
+                                                                </span>
+                                                            )}
+                                                        </div>
+
+                                                        {/* Lista de actividades/tareas */}
+                                                        {subTareas.length > 0 && (
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' }}>
+                                                                {subTareas.map(tarea => renderTaskCard(tarea, false))}
+                                                            </div>
+                                                        )}
+
+                                                        {/* Campos de texto del reporte final/temporal */}
+                                                        {actualReporte && (
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', borderTop: subTareas.length > 0 ? '1px solid #f1f5f9' : 'none', paddingTop: subTareas.length > 0 ? '16px' : '0' }}>
+                                                                {actualReporte.reporteTienda && (
+                                                                    <div>
+                                                                        <span style={{ fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '4px', letterSpacing: '0.5px' }}>Diagnóstico / Hallazgo</span>
+                                                                        <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '13.5px', color: '#334155', lineHeight: '1.5' }}>
+                                                                            {actualReporte.reporteTienda}
                                                                         </div>
                                                                     </div>
-                                                                    <p style={{ margin: 0, fontSize: '18px', fontWeight: '900', color: tarea.cotizacionMonto === 'Por Evaluar' ? '#94a3b8' : '#f26522' }}>
-                                                                        {tarea.cotizacionMonto === 'Por Evaluar' ? 'Sin monto' : `$${tarea.cotizacionMonto}`}
-                                                                    </p>
+                                                                )}
+
+                                                                {actualReporte.descripcion && (
+                                                                    <div>
+                                                                        <span style={{ fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '4px', letterSpacing: '0.5px' }}>Trabajo Realizado</span>
+                                                                        <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '13.5px', color: '#334155', lineHeight: '1.5' }}>
+                                                                            {actualReporte.descripcion}
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+
+                                                                {Array.isArray(actualReporte.refaccionesList) && actualReporte.refaccionesList.length > 0 && (
+                                                                    <div>
+                                                                        <span style={{ fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '4px', letterSpacing: '0.5px' }}>Refacciones Utilizadas</span>
+                                                                        <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '13.5px', color: '#334155' }}>
+                                                                            <ul style={{ margin: 0, paddingLeft: '18px', lineHeight: '1.6' }}>
+                                                                                {actualReporte.refaccionesList.map((ref: any, idx: number) => (
+                                                                                    <li key={idx}>
+                                                                                        {ref.cantidad}x {ref.pieza} {ref.costo_estimado ? `(Est: $${ref.costo_estimado})` : ''}
+                                                                                    </li>
+                                                                                ))}
+                                                                            </ul>
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+
+                                                                {actualReporte.materiales && (
+                                                                    <div>
+                                                                        <span style={{ fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '4px', letterSpacing: '0.5px' }}>Otros Materiales</span>
+                                                                        <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '13.5px', color: '#334155', lineHeight: '1.5' }}>
+                                                                            {actualReporte.materiales}
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+
+                                                                {actualReporte.observaciones && (
+                                                                    <div>
+                                                                        <span style={{ fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '4px', letterSpacing: '0.5px' }}>Observaciones</span>
+                                                                        <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '13.5px', color: '#334155', lineHeight: '1.5' }}>
+                                                                            {actualReporte.observaciones}
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+
+                                                {/* Card 2: Evidencia Fotográfica */}
+                                                {actualReporte && (actualReporte.imagenes?.antes || actualReporte.imagenes?.durante || actualReporte.imagenes?.despues || actualReporte.imagenObservacion) && (
+                                                    <div style={{ background: '#fff', borderRadius: '24px', padding: '24px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)', border: '1px solid #e2e8f0' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                                                            <span style={{ fontSize: '18px' }}>📷</span>
+                                                            <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#1e293b' }}>Evidencia Fotográfica</h3>
+                                                        </div>
+                                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '12px' }}>
+                                                            {actualReporte.imagenes?.antes && (
+                                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                                                                    <img src={actualReporte.imagenes.antes} alt="Antes" onClick={() => setSelectedZoomImage(actualReporte.imagenes.antes)} style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: '12px', border: '1px solid #f1f5f9', cursor: 'pointer', transition: 'transform 0.2s' }} onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'} onMouseLeave={e => e.currentTarget.style.transform = 'none'} />
+                                                                    <span style={{ fontSize: '11px', fontWeight: '800', color: '#64748b' }}>Antes</span>
                                                                 </div>
-                                                                <div style={{ background: '#fff', border: '1px solid #f1f5f9', borderRadius: '10px', padding: '12px' }}>
-                                                                    <p style={{ margin: '0 0 3px 0', fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.8px' }}>Descripción</p>
-                                                                    <p style={{ margin: 0, fontSize: '12px', color: '#475569', lineHeight: '1.6' }}>{tarea.cotizacionDetalles || 'Sin detalles.'}</p>
+                                                            )}
+                                                            {actualReporte.imagenes?.durante && (
+                                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                                                                    <img src={actualReporte.imagenes.durante} alt="Durante" onClick={() => setSelectedZoomImage(actualReporte.imagenes.durante)} style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: '12px', border: '1px solid #f1f5f9', cursor: 'pointer', transition: 'transform 0.2s' }} onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'} onMouseLeave={e => e.currentTarget.style.transform = 'none'} />
+                                                                    <span style={{ fontSize: '11px', fontWeight: '800', color: '#64748b' }}>Durante</span>
+                                                                </div>
+                                                            )}
+                                                            {actualReporte.imagenes?.despues && (
+                                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                                                                    <img src={actualReporte.imagenes.despues} alt="Después" onClick={() => setSelectedZoomImage(actualReporte.imagenes.despues)} style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: '12px', border: '1px solid #f1f5f9', cursor: 'pointer', transition: 'transform 0.2s' }} onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'} onMouseLeave={e => e.currentTarget.style.transform = 'none'} />
+                                                                    <span style={{ fontSize: '11px', fontWeight: '800', color: '#64748b' }}>Después</span>
+                                                                </div>
+                                                            )}
+                                                            {actualReporte.imagenObservacion && (
+                                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                                                                    <img src={actualReporte.imagenObservacion} alt="Extra" onClick={() => setSelectedZoomImage(actualReporte.imagenObservacion)} style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: '12px', border: '1px solid #f1f5f9', cursor: 'pointer', transition: 'transform 0.2s' }} onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'} onMouseLeave={e => e.currentTarget.style.transform = 'none'} />
+                                                                    <span style={{ fontSize: '11px', fontWeight: '800', color: '#64748b' }}>Extra</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* Card 3: Sugerencias de Monto y Descargar PDF */}
+                                                {(subTareas.some(t => t.esCotizacion) || actualReporte) && (
+                                                    <div style={{ background: '#fff', borderRadius: '24px', padding: '24px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)', border: '1px solid #fde68a' }}>
+                                                        {subTareas.some(t => t.esCotizacion) && (
+                                                            <div style={{ marginBottom: actualReporte ? '20px' : '0' }}>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                                                                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#f26522' }} />
+                                                                    <span style={{ fontSize: '13px', fontWeight: '800', color: '#1e293b' }}>Sugerencias de monto del técnico</span>
+                                                                </div>
+                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                                                    {subTareas.filter(t => t.esCotizacion).map(tarea => (
+                                                                        <div key={tarea.id} style={{ background: '#fafafa', border: '1.5px solid #f1f5f9', borderRadius: '14px', padding: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+                                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                                                <div style={{ width: '34px', height: '34px', borderRadius: '10px', overflow: 'hidden', background: '#f8fafc', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                                                    {getAvatarForTech(tarea.tecnicoNombre || '') ? (
+                                                                                        <img src={getAvatarForTech(tarea.tecnicoNombre || '') || undefined} alt="Tech" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                                                    ) : (
+                                                                                        <HiOutlineUser size={15} color="#64748b" />
+                                                                                    )}
+                                                                                </div>
+                                                                                <div>
+                                                                                    <p style={{ margin: 0, fontSize: '13px', fontWeight: '800', color: '#1e293b' }}>{tarea.tecnicoNombre || 'Técnico'}</p>
+                                                                                    <span style={{ display: 'inline-block', fontSize: '10px', background: '#e0f2fe', color: '#0369a1', padding: '2px 8px', borderRadius: '20px', fontWeight: '700', marginTop: '2px' }}>{tarea.titulo}</span>
+                                                                                </div>
+                                                                            </div>
+                                                                            <p style={{ margin: 0, fontSize: '18px', fontWeight: '900', color: tarea.cotizacionMonto === 'Por Evaluar' ? '#94a3b8' : '#f26522', flexShrink: 0 }}>
+                                                                                {tarea.cotizacionMonto === 'Por Evaluar' ? 'Sin monto' : `$${tarea.cotizacionMonto}`}
+                                                                            </p>
+                                                                        </div>
+                                                                    ))}
                                                                 </div>
                                                             </div>
-                                                        ))}
+                                                        )}
+
+                                                        {actualReporte && (
+                                                            <button
+                                                                onClick={async () => {
+                                                                    try {
+                                                                        await generateMaintenanceReportPDF({
+                                                                            id: actualReporte.dbId || actualReporte.id || trabajo?.id || 'SD',
+                                                                            fecha: actualReporte.fecha || new Date().toLocaleDateString(),
+                                                                            sucursal: trabajo?.sucursal || 'N/A',
+                                                                            encargado: trabajo?.encargado || 'N/A',
+                                                                            tecnico: trabajo?.tecnico || subTareas[0]?.tecnicoNombre || 'N/A',
+                                                                            diagnostico: actualReporte.reporteTienda || 'N/A',
+                                                                            descripcion: actualReporte.descripcion || 'N/A',
+                                                                            materiales: actualReporte.materiales || 'N/A',
+                                                                            observaciones: actualReporte.observaciones || 'N/A',
+                                                                            imagenes: {
+                                                                                antes: actualReporte.imagenes?.antes,
+                                                                                durante: actualReporte.imagenes?.durante,
+                                                                                despues: actualReporte.imagenes?.despues,
+                                                                                extra: actualReporte.imagenObservacion
+                                                                            },
+                                                                            firmaEmpresa: actualReporte.firmaEmpresa,
+                                                                            equipo: actualReporte.involucraEquipo ? actualReporte.equipoInfo : (trabajo?.cotizacion ? {
+                                                                                tipo: 'Servicio',
+                                                                                marca: 'N/A',
+                                                                                modelo: 'N/A'
+                                                                            } : null)
+                                                                        });
+                                                                    } catch (err) {
+                                                                        console.error("Error al descargar PDF del técnico:", err);
+                                                                    }
+                                                                }}
+                                                                style={{ width: '100%', padding: '14px', background: 'linear-gradient(135deg, #ef4444, #dc2626)', color: 'white', border: 'none', borderRadius: '16px', fontSize: '14px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', boxShadow: '0 4px 12px rgba(239, 68, 68, 0.2)' }}
+                                                            >
+                                                                <HiOutlineDocumentText size={18} /> Descargar PDF del Técnico
+                                                            </button>
+                                                        )}
                                                     </div>
-                                                </div>
-                                            )}
-
-
+                                                )}
+                                            </div>
                                         </div>
-                                    </div>
-                                    </div>
-                                )}
+                                    );
+                                })()}
                             </div>
                         )
                     }
@@ -2400,12 +2758,15 @@ const AdminDetalleTrabajo: React.FC = () => {
                 isModalOpen && (
                     <div className={styles.modalOverlay}>
                         <div className={styles.modalContent} style={{ width: '500px' }}>
-                            <h3 style={{ textAlign: 'center', marginBottom: trabajo?.fechaSolicitud ? '5px' : '20px' }}>Asignar Tecnico</h3>
+                            <h3 style={{ textAlign: 'center', marginBottom: '8px' }}>Asignar Tecnico</h3>
                             {trabajo?.fechaSolicitud && (
-                                <p style={{ textAlign: 'center', color: '#64748b', fontSize: '12px', fontWeight: 'bold', marginBottom: '25px', marginTop: 0 }}>
-                                    📅 Solicitado el: {trabajo.fechaSolicitud}
+                                <p style={{ textAlign: 'center', color: '#64748b', fontSize: '12px', fontWeight: 'bold', marginBottom: '6px', marginTop: 0 }}>
+                                    📝 Solicitado: {trabajo.fechaSolicitud}
                                 </p>
                             )}
+                            <p style={{ textAlign: 'center', color: '#059669', fontSize: '12px', fontWeight: 'bold', marginBottom: '25px', marginTop: 0 }}>
+                                📅 Cita solicitada: {trabajo?.fecha_programada ? (trabajo.fecha_programada.includes('-') ? trabajo.fecha_programada.split('-').reverse().join('/') : trabajo.fecha_programada) : trabajo?.fecha}
+                            </p>
 
                             {/* BANNER SOS o selector de tipo según corresponda */}
                             {isSOS ? (
@@ -2499,11 +2860,54 @@ const AdminDetalleTrabajo: React.FC = () => {
             {
                 isAddModalOpen && (
                     <div className={styles.modalOverlay}>
-                        <div className={styles.modalContent} style={{ width: '600px', padding: '40px', borderRadius: '30px' }}>
+                        <div className={styles.modalContent} style={{ width: '600px', padding: '40px', borderRadius: '30px', maxHeight: '90vh', overflowY: 'auto' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
                                 <h2 style={{ fontSize: '24px', fontWeight: 'bold', margin: 0 }}>Registro de Actividad</h2>
                                 <span style={{ color: '#888', fontWeight: 'bold', fontSize: '20px' }}>Visita</span>
                             </div>
+
+                            {/* INFORMACION DE LA SOLICITUD DEL CLIENTE */}
+                            {trabajo && (
+                                <div style={{ background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: '18px', padding: '20px', marginBottom: '25px', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+                                    <h3 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: '800', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <span>📋</span> Información de la Solicitud
+                                    </h3>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                        <div>
+                                            <span style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '2px' }}>Servicio solicitado</span>
+                                            <span style={{ fontSize: '13px', fontWeight: '700', color: '#334155' }}>{trabajo.titulo || trabajo.tipo || 'Servicio de Mantenimiento'}</span>
+                                        </div>
+                                        {trabajo.descripcion && (
+                                            <div>
+                                                <span style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '2px' }}>Detalles / Notas del Cliente</span>
+                                                <p style={{ fontSize: '12px', color: '#475569', margin: 0, whiteSpace: 'pre-wrap', fontStyle: 'italic', background: '#fff', padding: '8px 12px', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
+                                                    "{trabajo.descripcion}"
+                                                </p>
+                                            </div>
+                                        )}
+                                        {parseFotoUrls(trabajo.foto_url).length > 0 && (
+                                            <div style={{ marginTop: '5px' }}>
+                                                <span style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '6px' }}>
+                                                    Fotos de Evidencia ({parseFotoUrls(trabajo.foto_url).length})
+                                                </span>
+                                                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                                    {parseFotoUrls(trabajo.foto_url).map((url, idx) => (
+                                                        <img 
+                                                            key={idx}
+                                                            src={url} 
+                                                            alt={`Evidencia Solicitud ${idx + 1}`} 
+                                                            onClick={() => setSelectedZoomImage(url)}
+                                                            style={{ width: '55px', height: '55px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e2e8f0', cursor: 'pointer', transition: 'transform 0.15s ease' }} 
+                                                            onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                                                            onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
+                                                        />
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
 
                             <div style={{ border: '2px solid #e0e0e0', borderRadius: '20px', padding: '30px' }}>
                                 <div style={{ marginBottom: '20px' }}>
@@ -2656,6 +3060,85 @@ const AdminDetalleTrabajo: React.FC = () => {
                                     />
                                 </div>
 
+                                <div style={{ marginBottom: '25px' }}>
+                                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', color: '#666', marginBottom: '8px' }}>Fotos de la Actividad</label>
+                                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+                                        {activityPhotos.map((photo, index) => (
+                                            <div key={index} style={{ position: 'relative', width: '80px', height: '80px' }}>
+                                                <img 
+                                                    src={photo} 
+                                                    alt={`Previsualización ${index + 1}`} 
+                                                    style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '10px', border: '1px solid #ddd' }}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setActivityPhotos(activityPhotos.filter((_, idx) => idx !== index))}
+                                                    style={{
+                                                        position: 'absolute',
+                                                        top: '-5px',
+                                                        right: '-5px',
+                                                        background: '#ef4444',
+                                                        color: 'white',
+                                                        border: 'none',
+                                                        borderRadius: '50%',
+                                                        width: '20px',
+                                                        height: '20px',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        fontSize: '11px',
+                                                        cursor: 'pointer',
+                                                        boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                                                        fontWeight: 'bold'
+                                                    }}
+                                                    title="Eliminar foto"
+                                                >
+                                                    ✕
+                                                </button>
+                                            </div>
+                                        ))}
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            multiple
+                                            id="activity-photos-uploader"
+                                            style={{ display: 'none' }}
+                                            onChange={handleActivityPhotosChange}
+                                        />
+                                        <label
+                                            htmlFor="activity-photos-uploader"
+                                            style={{
+                                                width: '80px',
+                                                height: '80px',
+                                                borderRadius: '10px',
+                                                border: '2px dashed #f26522',
+                                                background: '#fff8f5',
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                cursor: 'pointer',
+                                                color: '#f26522',
+                                                fontSize: '24px',
+                                                fontWeight: 'bold',
+                                                transition: 'all 0.2s',
+                                                boxSizing: 'border-box'
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                e.currentTarget.style.background = '#f26522';
+                                                e.currentTarget.style.color = '#fff';
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                e.currentTarget.style.background = '#fff8f5';
+                                                e.currentTarget.style.color = '#f26522';
+                                            }}
+                                            title="Agregar fotos"
+                                        >
+                                            +
+                                        </label>
+                                    </div>
+                                </div>
+
                                 { (
                                     <div style={{ marginTop: '20px', background: '#f9f9f9', padding: '15px', borderRadius: '15px', border: '1px solid #eee' }}>
                                         <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontWeight: 'bold', cursor: 'pointer' }}>
@@ -2705,6 +3188,17 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                                 }}
                                                                 style={{ width: '150px', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '14px' }}
                                                             />
+                                                            <input
+                                                                type="number"
+                                                                placeholder="Precio ($)"
+                                                                value={mat.precio || ""}
+                                                                onChange={(e) => {
+                                                                    const newM = [...newQuoteMaterials];
+                                                                    newM[i].precio = e.target.value;
+                                                                    setNewQuoteMaterials(newM);
+                                                                }}
+                                                                style={{ width: '110px', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '14px' }}
+                                                            />
                                                             <button
                                                                 onClick={() => setNewQuoteMaterials(newQuoteMaterials.filter((_, idx) => idx !== i))}
                                                                 style={{ background: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca', padding: '0 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
@@ -2714,7 +3208,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                         </div>
                                                     ))}
                                                     <button
-                                                        onClick={() => setNewQuoteMaterials([...newQuoteMaterials, { material: '', piezas: '' }])}
+                                                        onClick={() => setNewQuoteMaterials([...newQuoteMaterials, { material: '', piezas: '', precio: '' }])}
                                                         style={{ background: 'transparent', color: '#f26522', border: '1px dashed #f26522', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold', width: '100%', marginBottom: '15px' }}
                                                     >
                                                         + Añadir material o refacción
@@ -2763,6 +3257,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                                         setNewQuoteMaterials([]);
                                         setNewQuoteDetails(""); 
                                         setNewQuoteFileName(""); 
+                                        setActivityPhotos([]);
                                         setServiceMarca("");
                                         setServiceModelo("");
                                         setServicePieza("");

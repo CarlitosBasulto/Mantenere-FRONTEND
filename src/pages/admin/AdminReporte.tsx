@@ -14,6 +14,7 @@ import {
     HiOutlineArrowUpTray
 } from 'react-icons/hi2';
 import { generateMaintenanceReportPDF } from '../../utils/pdfGenerator';
+import ReportePDFPreview from '../../components/modals/ReportePDFPreview';
 
 const compressImage = (file: File, callback: (compressedBase64: string) => void) => {
     const reader = new FileReader();
@@ -84,6 +85,28 @@ const AdminReporte: React.FC = () => {
         piezas: '',
         garantia: ''
     });
+
+    const [selectedZoomImage, setSelectedZoomImage] = useState<string | null>(null);
+    const [showReportePreview, setShowReportePreview] = useState(false);
+
+    const parseFotoUrls = (fotoUrl: any): string[] => {
+        if (!fotoUrl) return [];
+        if (typeof fotoUrl === 'string') {
+            if (fotoUrl.trim().startsWith('[')) {
+                try {
+                    const parsed = JSON.parse(fotoUrl);
+                    if (Array.isArray(parsed)) return parsed;
+                } catch (e) {
+                    console.error("Error parsing foto_url JSON:", e);
+                }
+            }
+            return [fotoUrl];
+        }
+        if (Array.isArray(fotoUrl)) {
+            return fotoUrl;
+        }
+        return [];
+    };
 
     React.useEffect(() => {
         const loadReportData = async () => {
@@ -306,7 +329,7 @@ const AdminReporte: React.FC = () => {
         setFirmaEmpresa(null);
     };
 
-    const handleGuardarInformacion = async () => {
+    const handleGuardarInformacion = async (showSuccessAlert = true) => {
         const safeId = trabajoId || id;
         if (!safeId) {
             showAlert("Error", "No se encontró el ID del trabajo asociado.", "error");
@@ -335,11 +358,18 @@ const AdminReporte: React.FC = () => {
                 solucion: JSON.stringify(reportData) 
             };
             await createReporte(dataToSave);
-            showAlert("Éxito", "Información guardada en Base de Datos exitosamente.", "success");
+            if (showSuccessAlert) {
+                showAlert("Éxito", "Información guardada en Base de Datos exitosamente.", "success");
+            }
         } catch (error) {
             console.error(error);
             showAlert("Error", "Hubo un error al guardar en la Base de Datos.", "error");
         }
+    };
+
+    const handleGuardarYPrevisualizar = async () => {
+        await handleGuardarInformacion(false);
+        setShowReportePreview(true);
     };
 
     const handleGenerarPDF = async () => {
@@ -473,6 +503,47 @@ const AdminReporte: React.FC = () => {
                             </div>
                         </div>
 
+                        {/* DETALLES DE LA SOLICITUD DEL CLIENTE */}
+                        {trabajoBase && (
+                            <div style={{ background: '#fff', border: '1.5px solid #e2e8f0', borderRadius: '18px', padding: '20px', marginBottom: '25px', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}>
+                                <h3 style={{ margin: '0 0 12px 0', fontSize: '16px', fontWeight: '800', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span style={{ fontSize: '20px' }}>📋</span> Información de la Solicitud del Cliente
+                                </h3>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                                    <div>
+                                        <span style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '4px' }}>Servicio que Solicitó</span>
+                                        <span style={{ fontSize: '14px', fontWeight: '700', color: '#334155' }}>{trabajoBase.titulo || trabajoBase.tipo || 'Servicio de Mantenimiento'}</span>
+                                    </div>
+                                    <div>
+                                        <span style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '4px' }}>Detalles / Notas del Registro</span>
+                                        <p style={{ fontSize: '13px', color: '#475569', margin: 0, whiteSpace: 'pre-wrap', fontStyle: 'italic' }}>
+                                            "{trabajoBase.descripcion || 'Sin descripción adicional.'}"
+                                        </p>
+                                    </div>
+                                </div>
+                                {parseFotoUrls(trabajoBase.foto_url).length > 0 && (
+                                    <div style={{ marginTop: '15px', borderTop: '1px solid #f1f5f9', paddingTop: '15px' }}>
+                                        <span style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '8px' }}>
+                                            Fotos Adjuntas por el Cliente ({parseFotoUrls(trabajoBase.foto_url).length})
+                                        </span>
+                                        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                                            {parseFotoUrls(trabajoBase.foto_url).map((url, idx) => (
+                                                <img 
+                                                    key={idx}
+                                                    src={url} 
+                                                    alt={`Evidencia Cliente ${idx + 1}`} 
+                                                    onClick={() => setSelectedZoomImage(url)}
+                                                    style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', cursor: 'pointer', transition: 'transform 0.15s ease' }} 
+                                                    onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                                                    onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
+                                                />
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
                         <div className={styles.mainGrid}>
                             <div className={styles.infoSectionCard}>
                                 <h3 className={styles.sectionTitle}>Datos del Reporte</h3>
@@ -521,6 +592,17 @@ const AdminReporte: React.FC = () => {
                                                     setRefaccionesList(newR);
                                                 }}
                                                 style={{ width: '80px', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px' }}
+                                            />
+                                            <input
+                                                type="number"
+                                                placeholder="Precio ($)"
+                                                value={ref.costo_estimado || ""}
+                                                onChange={(e) => {
+                                                    const newR = [...refaccionesList];
+                                                    newR[i].costo_estimado = e.target.value;
+                                                    setRefaccionesList(newR);
+                                                }}
+                                                style={{ width: '120px', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px' }}
                                             />
 
                                             <button
@@ -783,16 +865,16 @@ const AdminReporte: React.FC = () => {
 
                         <div className={styles.footer}>
                             <button
-                                onClick={handleGuardarInformacion}
+                                onClick={() => handleGuardarInformacion(true)}
                                 className={`${styles.saveButton} ${styles.secondaryBtn}`}
                             >
                                 Guardar Información
                             </button>
                             <button
-                                onClick={handleGenerarPDF}
+                                onClick={handleGuardarYPrevisualizar}
                                 className={`${styles.saveButton} ${styles.pdfBtn}`}
                             >
-                                Generar PDF
+                                Guardar y Previsualizar PDF
                             </button>
                             <button
                                 onClick={handleOpenConfirm}
@@ -804,6 +886,67 @@ const AdminReporte: React.FC = () => {
                     </div>
                 </div>
             </div>
+
+            {/* PREVISUALIZACION DEL PDF GENERADO */}
+            {showReportePreview && (
+                <ReportePDFPreview
+                    trabajo={trabajoBase}
+                    reporteData={{
+                        id: id || 0,
+                        reporteTienda,
+                        descripcion,
+                        materiales,
+                        refaccionesList,
+                        observaciones,
+                        imagenes,
+                        imagenObservacion,
+                        firmaEmpresa,
+                        involucraEquipo,
+                        equipoInfo: involucraEquipo ? equipoInfo : null,
+                        fecha: new Date().toLocaleDateString('es-MX')
+                    }}
+                    onClose={() => setShowReportePreview(false)}
+                />
+            )}
+
+            {/* ZOOM MODAL DE IMÁGENES */}
+            {selectedZoomImage && (
+                <div
+                    style={{
+                        position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+                        background: 'rgba(0, 0, 0, 0.85)', zIndex: 10001, display: 'flex',
+                        alignItems: 'center', justifyContent: 'center', padding: '20px',
+                        backdropFilter: 'blur(5px)'
+                    }}
+                    onClick={() => setSelectedZoomImage(null)}
+                >
+                    <div 
+                        style={{ 
+                            position: 'relative', maxWidth: '95%', maxHeight: '95%', display: 'flex', flexDirection: 'column', 
+                            alignItems: 'center', background: '#fff', padding: '30px', borderRadius: '24px', overflowY: 'auto'
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <button
+                            onClick={() => setSelectedZoomImage(null)}
+                            style={{ position: 'absolute', top: '15px', right: '15px', background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569', cursor: 'pointer', fontSize: '20px', fontWeight: 'bold' }}
+                        >
+                            ✕
+                        </button>
+                        
+                        <h2 style={{ fontSize: '24px', fontWeight: '800', color: '#1e293b', marginBottom: '20px', width: '100%', textAlign: 'left' }}>Detalles de la Evidencia</h2>
+                        
+                        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                            <span style={{ display: 'block', fontSize: '12px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '12px', alignSelf: 'flex-start' }}>Foto Adjunta</span>
+                            <img
+                                src={selectedZoomImage}
+                                alt="Zoomed Evidence"
+                                style={{ maxWidth: '100%', maxHeight: '60vh', objectFit: 'contain', borderRadius: '15px', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

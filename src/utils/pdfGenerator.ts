@@ -25,6 +25,7 @@ interface PDFReportData {
         piezas?: string;
         garantia?: string;
     } | null;
+    logoBase64?: string | null;
 }
 
 // Función auxiliar para cargar imagen y retornar base64 (opcional, jsPDF puede manejar URLs si el server lo permite)
@@ -45,7 +46,7 @@ export const generateMaintenanceReportPDF = async (data: PDFReportData) => {
             doc.setFillColor(navyColor[0], navyColor[1], navyColor[2]);
             doc.rect(0, 0, 210, 26, 'F');
             try {
-                doc.addImage(getLogoBase64(), 'PNG', 10, 3, 42, 20);
+                doc.addImage(data.logoBase64 || getLogoBase64(), 'PNG', 10, 3, 42, 20);
             } catch (e) {
                 console.error("No se pudo cargar el logo en el PDF", e);
             }
