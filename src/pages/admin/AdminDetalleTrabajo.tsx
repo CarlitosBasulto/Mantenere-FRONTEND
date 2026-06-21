@@ -27,7 +27,7 @@ import {
 } from "react-icons/hi2";
 import ReporteDetailModal from "../../components/modals/ReporteDetailModal";
 import { getTrabajo, updateEstadoTrabajo, assignTrabajador, updateTrabajo } from "../../services/trabajosService";
-import { createActividad, getActividadesByTrabajo, deleteActividad } from "../../services/actividadesService";
+import { createActividad, getActividadesByTrabajo, deleteActividad, updateActividad } from "../../services/actividadesService";
 import { getTrabajadores } from "../../services/trabajadoresService";
 import { saveCotizacion, updateCotizacion, deleteCotizacion, updateCotizacionStatus, getCotizacionesByTrabajoId, type Cotizacion } from "../../services/cotizacionesService";
 import { createNotificacionByRole, createNotificacion } from "../../services/notificacionesService";
@@ -36,6 +36,7 @@ import { useModal } from "../../context/ModalContext";
 import { getNegocio } from "../../services/negociosService";
 import LevantamientoModal from "../../components/LevantamientoModal";
 import CotizacionPDFPreview from "../../components/modals/CotizacionPDFPreview";
+import ReportePDFPreview from "../../components/modals/ReportePDFPreview";
 import ChatTrabajo from "../../components/ChatTrabajo";
 import { generateMaintenanceReportPDF } from "../../utils/pdfGenerator";
 
@@ -138,6 +139,60 @@ const getAvatarForTech = (nombre: string) => {
         } catch(e) {}
     }
     return `https://ui-avatars.com/api/?name=${encodeURIComponent(nombre)}&background=0e7490&color=fff&bold=true`;
+};
+
+const parseMaterials = (text: string) => {
+    if (!text) return [];
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    const items: { material: string; cantidad: string; precio: string }[] = [];
+
+    lines.forEach(line => {
+        let cleanLine = line.replace(/^[\-\*\u2022\s]+/, '').trim();
+        if (!cleanLine) return;
+
+        let materialPart = cleanLine;
+        let pricePart = '';
+
+        const parts = cleanLine.split(/\s+-\s+/);
+        if (parts.length >= 2) {
+            const lastPart = parts[parts.length - 1].trim();
+            if (lastPart.startsWith('$') || lastPart.includes('$') || !isNaN(Number(lastPart.replace(/[^0-9\.]/g, '')))) {
+                pricePart = lastPart;
+                materialPart = parts.slice(0, -1).join(' - ').trim();
+            }
+        }
+
+        let materialName = materialPart;
+        let quantity = '';
+
+        const qtyMatch = materialPart.match(/\(([^)]+)\)$/);
+        if (qtyMatch) {
+            quantity = qtyMatch[1].trim();
+            materialName = materialPart.substring(0, qtyMatch.index).trim();
+        } else {
+            const qtyPrefixMatch = materialPart.match(/^(\d+)\s*x\s+/i);
+            if (qtyPrefixMatch) {
+                quantity = qtyPrefixMatch[1];
+                materialName = materialPart.substring(qtyPrefixMatch[0].length).trim();
+            }
+        }
+
+        items.push({
+            material: materialName || 'Material sin nombre',
+            cantidad: quantity || '1',
+            precio: pricePart || ''
+        });
+    });
+
+    if (items.length === 0 && text.trim()) {
+        return [{
+            material: text.trim(),
+            cantidad: '1',
+            precio: ''
+        }];
+    }
+
+    return items;
 };
 
 const AdminDetalleTrabajo: React.FC = () => {
@@ -381,6 +436,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                     let parsedMonto = "Por Evaluar";
                     let esCot = true;
                     let sData = null;
+                    let qData = null;
 
                     const quoteMarker = "|||QUOTE_DATA|||";
                     const serviceMarker = "|||SERVICE_DATA|||";
@@ -396,12 +452,14 @@ const AdminDetalleTrabajo: React.FC = () => {
                     }
 
                     // Limpiamos la descripción mostrada de todos los marcadores técnicos
-                    let displayDesc = finalDesc
+                    const cleanDesc = finalDesc
                         .split(serviceMarker)[0]
                         .split(quoteMarker)[0]
                         .split(techMarker)[0]
                         .split(photosMarker)[0]
                         .trim();
+
+                    let displayDesc = cleanDesc;
 
                     if (finalDesc.includes(serviceMarker)) {
                         const parts = finalDesc.split(serviceMarker);
@@ -409,7 +467,8 @@ const AdminDetalleTrabajo: React.FC = () => {
                             // Limpiamos cualquier marcador que venga después del JSON del servicio
                             const jsonContent = parts[1].split(quoteMarker)[0].split(techMarker)[0].split(photosMarker)[0].trim();
                             sData = JSON.parse(jsonContent);
-                        } catch (e) { }
+                        } catch (e) {
+                        }
                     }
 
                     if (finalDesc.includes(quoteMarker)) {
@@ -417,9 +476,27 @@ const AdminDetalleTrabajo: React.FC = () => {
                         try {
                             // Limpiamos cualquier marcador que venga después del JSON de la cotización
                             const jsonContent = parts[1].split(serviceMarker)[0].split(techMarker)[0].split(photosMarker)[0].trim();
-                            const qData = JSON.parse(jsonContent);
-                            if (qData.monto) parsedMonto = qData.monto;
-                            if (qData.detalles) displayDesc += "\n\nNotas de cotización:\n" + qData.detalles;
+                            if (jsonContent.startsWith('{')) {
+                                qData = JSON.parse(jsonContent);
+                                if (qData.monto) parsedMonto = qData.monto;
+                                if (qData.detalles) displayDesc += "\n\nNotas de cotización:\n" + qData.detalles;
+                            } else {
+                                // Plain text fallback
+                                const firstHyphen = jsonContent.indexOf(" - ");
+                                if (firstHyphen !== -1) {
+                                    const possibleMonto = jsonContent.substring(0, firstHyphen).trim();
+                                    if (!isNaN(Number(possibleMonto.replace('$', '')))) {
+                                        parsedMonto = possibleMonto;
+                                        const detailsText = jsonContent.substring(firstHyphen + 3).trim();
+                                        qData = { monto: possibleMonto, detalles: detailsText };
+                                    } else {
+                                        qData = { monto: "", detalles: jsonContent };
+                                    }
+                                } else {
+                                    qData = { monto: "", detalles: jsonContent };
+                                }
+                                if (qData.detalles) displayDesc += "\n\nNotas de cotización:\n" + qData.detalles;
+                            }
                         } catch (e) { }
                     }
 
@@ -436,6 +513,8 @@ const AdminDetalleTrabajo: React.FC = () => {
                         id: act.id,
                         titulo: act.tipo,
                         descripcion: displayDesc,
+                        cleanDescripcion: cleanDesc,
+                        rawDescripcion: finalDesc,
                         estado: "Nueva",
                         tecnicoNombre: authorName,
                         esCotizacion: esCot,
@@ -444,6 +523,8 @@ const AdminDetalleTrabajo: React.FC = () => {
                         cotizacionArchivo: "",
                         cotizacionEstado: "Sugerencia de Técnico",
                         serviceData: sData,
+                        hasQuote: finalDesc.includes(quoteMarker),
+                        quoteData: qData,
                         refacciones: act.refacciones,
                         photos: photosList
                     };
@@ -510,6 +591,8 @@ const AdminDetalleTrabajo: React.FC = () => {
 
     // ADD NEW TASK MODAL STATE
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [showActivityPDFPreview, setShowActivityPDFPreview] = useState(false);
+    const [activityPDFData, setActivityPDFData] = useState<any>(null);
     const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
     const [newTaskDescription, setNewTaskDescription] = useState("");
     const [isQuoteIncluded, setIsQuoteIncluded] = useState(false);
@@ -542,17 +625,49 @@ const AdminDetalleTrabajo: React.FC = () => {
         }
     };
 
+    const compressImage = (file: File, callback: (compressedBase64: string) => void) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const MAX_WIDTH = 800;
+                const MAX_HEIGHT = 800;
+                let width = img.width;
+                let height = img.height;
+
+                if (width > height) {
+                    if (width > MAX_WIDTH) {
+                        height *= MAX_WIDTH / width;
+                        width = MAX_WIDTH;
+                    }
+                } else {
+                    if (height > MAX_HEIGHT) {
+                        width *= MAX_HEIGHT / height;
+                        height = MAX_HEIGHT;
+                    }
+                }
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx?.drawImage(img, 0, 0, width, height);
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+                callback(dataUrl);
+            };
+            if (e.target?.result) {
+                img.src = e.target.result as string;
+            }
+        };
+        reader.readAsDataURL(file);
+    };
+
     const handleActivityPhotosChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files) {
             const files = Array.from(e.target.files);
             files.forEach((file) => {
-                const reader = new FileReader();
-                reader.onloadend = () => {
-                    if (typeof reader.result === 'string') {
-                        setActivityPhotos(prev => [...prev, reader.result as string]);
-                    }
-                };
-                reader.readAsDataURL(file);
+                compressImage(file, (base64) => {
+                    setActivityPhotos(prev => [...prev, base64]);
+                });
             });
         }
     };
@@ -719,73 +834,79 @@ const AdminDetalleTrabajo: React.FC = () => {
         }
     };
 
-    const handleAddTask = async () => {
+    const handleAddTask = async (generatePDF = false) => {
         try {
+            let desc = newTaskDescription;
+
+            // Serializar datos técnicos (Marca, Modelo, etc.)
+            const serviceData = {
+                tipoServicio: activeServiceType,
+                marca: serviceMarca,
+                modelo: serviceModelo,
+                pieza: activeServiceType === 'Instalacion' ? servicePieza : '',
+                garantia: activeServiceType === 'Instalacion' ? serviceGarantia : ''
+            };
+            desc += ` \n|||SERVICE_DATA||| ${JSON.stringify(serviceData)}`;
+
+            if (isQuoteIncluded) {
+                const materialsText = newQuoteMaterials.filter(m => m.material.trim()).map(m => `- ${m.material} (${m.piezas})${m.precio ? ` - $${m.precio}` : ''}`).join('\n');
+                const combinedDetails = materialsText ? `${materialsText}\n\n${newQuoteDetails}` : newQuoteDetails;
+                const quotePayload = { 
+                    monto: newQuoteAmount, 
+                    detalles: combinedDetails,
+                    materials: newQuoteMaterials.filter(m => m.material.trim())
+                };
+                desc += ` \n|||QUOTE_DATA||| ${JSON.stringify(quotePayload)}`;
+            }
+
+            const techNamePayload = user?.name || "Sin Asignar";
+            desc += ` \n|||TECH_NAME||| ${techNamePayload}`;
+
+            if (activityPhotos.length > 0) {
+                desc += ` \n|||PHOTOS_DATA||| ${JSON.stringify(activityPhotos)}`;
+            }
+
+            const payloadRefacciones = refacciones.map(r => ({
+                pieza: r.pieza,
+                cantidad: Number(r.cantidad),
+                costo_estimado: r.costo_estimado ? Number(r.costo_estimado) : undefined,
+                levantamiento_equipo_id: serviceEquipoId || undefined
+            }));
+
+            const body = {
+                trabajo_id: Number(id),
+                tipo: activeServiceType === 'Otro' ? (customServiceType || 'Otro') : activeServiceType,
+                descripcion: desc,
+                refacciones: payloadRefacciones
+            };
+
             if (editingTaskId) {
-                showAlert(
-                    'Edición Deshabilitada',
-                    'La edición de actividades ya completadas está deshabilitada en el sistema en vivo.',
-                    'info'
-                );
+                await updateActividad(editingTaskId, body);
             } else {
-                let desc = newTaskDescription;
-
-                // Serializar datos técnicos (Marca, Modelo, etc.)
-                const serviceData = {
-                    tipoServicio: activeServiceType,
-                    marca: serviceMarca,
-                    modelo: serviceModelo,
-                    pieza: activeServiceType === 'Instalacion' ? servicePieza : '',
-                    garantia: activeServiceType === 'Instalacion' ? serviceGarantia : ''
-                };
-                desc += ` \n|||SERVICE_DATA||| ${JSON.stringify(serviceData)}`;
-
-                if (isQuoteIncluded) {
-                    const materialsText = newQuoteMaterials.filter(m => m.material.trim()).map(m => `- ${m.material} (${m.piezas})${m.precio ? ` - $${m.precio}` : ''}`).join('\n');
-                    const combinedDetails = materialsText ? `${materialsText}\n\n${newQuoteDetails}` : newQuoteDetails;
-                    const quotePayload = { monto: newQuoteAmount, detalles: combinedDetails };
-                    desc += ` \n|||QUOTE_DATA||| ${JSON.stringify(quotePayload)}`;
-                }
-
-                const techNamePayload = user?.name || "Sin Asignar";
-                desc += ` \n|||TECH_NAME||| ${techNamePayload}`;
-
-                if (activityPhotos.length > 0) {
-                    desc += ` \n|||PHOTOS_DATA||| ${JSON.stringify(activityPhotos)}`;
-                }
-
-                const payloadRefacciones = refacciones.map(r => ({
-                    pieza: r.pieza,
-                    cantidad: Number(r.cantidad),
-                    costo_estimado: r.costo_estimado ? Number(r.costo_estimado) : undefined,
-                    levantamiento_equipo_id: serviceEquipoId || undefined
-                }));
-
-                const body = {
-                    trabajo_id: Number(id),
-                    tipo: activeServiceType === 'Otro' ? (customServiceType || 'Otro') : activeServiceType,
-                    descripcion: desc,
-                    refacciones: payloadRefacciones
-                };
                 await createActividad(body);
+            }
                 const acts = await getActividadesByTrabajo(Number(id));
                 const mappedSubTareas = acts.map((act: any) => {
                     let finalDesc = act.descripcion || "";
                     let parsedMonto = "Por Evaluar";
                     let esCot = true;
                     let sData = null;
+                    let qData = null;
 
                     const quoteMarker = "|||QUOTE_DATA|||";
                     const serviceMarker = "|||SERVICE_DATA|||";
                     const techMarker = "|||TECH_NAME|||";
                     const photosMarker = "|||PHOTOS_DATA|||";
 
-                    let displayDesc = finalDesc
+                    // Limpiamos la descripción mostrada de todos los marcadores técnicos
+                    const cleanDesc = finalDesc
                         .split(serviceMarker)[0]
                         .split(quoteMarker)[0]
                         .split(techMarker)[0]
                         .split(photosMarker)[0]
                         .trim();
+
+                    let displayDesc = cleanDesc;
 
                     if (finalDesc.includes(serviceMarker)) {
                         const parts = finalDesc.split(serviceMarker);
@@ -797,9 +918,28 @@ const AdminDetalleTrabajo: React.FC = () => {
                     if (finalDesc.includes(quoteMarker)) {
                         const parts = finalDesc.split(quoteMarker);
                         try {
-                            const qData = JSON.parse(parts[1].split(serviceMarker)[0].split(techMarker)[0].split(photosMarker)[0].trim());
-                            if (qData.monto) parsedMonto = qData.monto;
-                            if (qData.detalles) displayDesc += "\n\nNotas de cotización:\n" + qData.detalles;
+                            const jsonContent = parts[1].split(serviceMarker)[0].split(techMarker)[0].split(photosMarker)[0].trim();
+                            if (jsonContent.startsWith('{')) {
+                                qData = JSON.parse(jsonContent);
+                                if (qData.monto) parsedMonto = qData.monto;
+                                if (qData.detalles) displayDesc += "\n\nNotas de cotización:\n" + qData.detalles;
+                            } else {
+                                // Plain text fallback
+                                const firstHyphen = jsonContent.indexOf(" - ");
+                                if (firstHyphen !== -1) {
+                                    const possibleMonto = jsonContent.substring(0, firstHyphen).trim();
+                                    if (!isNaN(Number(possibleMonto.replace('$', '')))) {
+                                        parsedMonto = possibleMonto;
+                                        const detailsText = jsonContent.substring(firstHyphen + 3).trim();
+                                        qData = { monto: possibleMonto, detalles: detailsText };
+                                    } else {
+                                        qData = { monto: "", detalles: jsonContent };
+                                    }
+                                } else {
+                                    qData = { monto: "", detalles: jsonContent };
+                                }
+                                if (qData.detalles) displayDesc += "\n\nNotas de cotización:\n" + qData.detalles;
+                            }
                         } catch (e) { }
                     }
 
@@ -816,6 +956,8 @@ const AdminDetalleTrabajo: React.FC = () => {
                         id: act.id,
                         titulo: act.tipo,
                         descripcion: displayDesc,
+                        cleanDescripcion: cleanDesc,
+                        rawDescripcion: finalDesc,
                         estado: "Nueva",
                         tecnicoNombre: user?.name,
                         esCotizacion: esCot,
@@ -824,17 +966,62 @@ const AdminDetalleTrabajo: React.FC = () => {
                         cotizacionArchivo: "",
                         cotizacionEstado: "Sugerencia de Técnico",
                         serviceData: sData,
+                        hasQuote: finalDesc.includes(quoteMarker),
+                        quoteData: qData,
                         refacciones: act.refacciones,
                         photos: photosList
                     };
                 });
                 setSubTareas(mappedSubTareas as any);
+                if (generatePDF) {
+                    const refaccionesList = refacciones.map(r => ({
+                        pieza: r.pieza,
+                        cantidad: Number(r.cantidad) || 1,
+                        costo_estimado: r.costo_estimado ? String(r.costo_estimado) : ''
+                    })).concat(
+                        isQuoteIncluded ? newQuoteMaterials.map(m => ({
+                            pieza: m.material,
+                            cantidad: m.piezas ? Number(m.piezas) || 1 : 1,
+                            costo_estimado: m.precio ? String(m.precio) : ''
+                        })) : []
+                    );
+
+                    const combinedMateriales = isQuoteIncluded ? newQuoteDetails : '';
+
+                    const preparedData = {
+                        id: trabajo?.id || 'SD',
+                        reporteTienda: activeServiceType === 'Otro' ? (customServiceType || 'Otro') : activeServiceType,
+                        descripcion: newTaskDescription,
+                        materiales: combinedMateriales,
+                        refaccionesList: refaccionesList,
+                        observaciones: '',
+                        imagenes: {
+                            antes: activityPhotos[0] || null,
+                            durante: activityPhotos[1] || null,
+                            despues: activityPhotos[2] || null
+                        },
+                        imagenObservacion: activityPhotos[3] || null,
+                        imagenesObservacion: activityPhotos[3] ? [activityPhotos[3]] : [],
+                        firmaEmpresa: null,
+                        involucraEquipo: !!serviceMarca || !!serviceModelo,
+                        equipoInfo: (serviceMarca || serviceModelo) ? {
+                            tipo: activeServiceType,
+                            marca: serviceMarca || 'N/A',
+                            modelo: serviceModelo || 'N/A',
+                            piezas: servicePieza || 'N/A',
+                            garantia: serviceGarantia || 'N/A'
+                        } : null,
+                        fecha: new Date().toLocaleDateString('es-MX')
+                    };
+
+                    setActivityPDFData(preparedData);
+                    setShowActivityPDFPreview(true);
+                }
                 showAlert(
                     'Actividad Registrada',
                     'La actividad ha sido guardada y sincronizada correctamente.',
                     'success'
                 );
-            }
         } catch (error: any) {
             console.error("Error added task:", error);
             showAlert(
@@ -882,25 +1069,60 @@ const AdminDetalleTrabajo: React.FC = () => {
                     const mappedSubTareas = acts.map((act: any) => {
                         let finalDesc = act.descripcion || "";
                         let parsedMonto = "Por Evaluar";
+                        let esCot = true;
                         let sData = null;
+                        let qData = null;
 
-                        let displayDesc = finalDesc
+                        const quoteMarker = "|||QUOTE_DATA|||";
+                        const serviceMarker = "|||SERVICE_DATA|||";
+                        const techMarker = "|||TECH_NAME|||";
+                        const photosMarker = "|||PHOTOS_DATA|||";
+
+                        // Limpiamos la descripción mostrada de todos los marcadores técnicos
+                        const cleanDesc = finalDesc
                             .split(serviceMarker)[0]
                             .split(quoteMarker)[0]
                             .split(techMarker)[0]
                             .split(photosMarker)[0]
                             .trim();
 
+                        let displayDesc = cleanDesc;
+
                         if (finalDesc.includes(serviceMarker)) {
-                            try { sData = JSON.parse(finalDesc.split(serviceMarker)[1].split(quoteMarker)[0].split(techMarker)[0].split(photosMarker)[0].trim()); } catch (e) { }
-                        }
-                        if (finalDesc.includes(quoteMarker)) {
+                            const parts = finalDesc.split(serviceMarker);
                             try {
-                                const qData = JSON.parse(finalDesc.split(quoteMarker)[1].split(serviceMarker)[0].split(techMarker)[0].split(photosMarker)[0].trim());
-                                if (qData.monto) parsedMonto = qData.monto;
-                                if (qData.detalles) displayDesc += "\n\nNotas de cotización:\n" + qData.detalles;
+                                sData = JSON.parse(parts[1].split(quoteMarker)[0].split(techMarker)[0].split(photosMarker)[0].trim());
                             } catch (e) { }
                         }
+
+                        if (finalDesc.includes(quoteMarker)) {
+                            const parts = finalDesc.split(quoteMarker);
+                            try {
+                                const jsonContent = parts[1].split(serviceMarker)[0].split(techMarker)[0].split(photosMarker)[0].trim();
+                                if (jsonContent.startsWith('{')) {
+                                    qData = JSON.parse(jsonContent);
+                                    if (qData.monto) parsedMonto = qData.monto;
+                                    if (qData.detalles) displayDesc += "\n\nNotas de cotización:\n" + qData.detalles;
+                                } else {
+                                    // Plain text fallback
+                                    const firstHyphen = jsonContent.indexOf(" - ");
+                                    if (firstHyphen !== -1) {
+                                        const possibleMonto = jsonContent.substring(0, firstHyphen).trim();
+                                        if (!isNaN(Number(possibleMonto.replace('$', '')))) {
+                                            parsedMonto = possibleMonto;
+                                            const detailsText = jsonContent.substring(firstHyphen + 3).trim();
+                                            qData = { monto: possibleMonto, detalles: detailsText };
+                                        } else {
+                                            qData = { monto: "", detalles: jsonContent };
+                                        }
+                                    } else {
+                                        qData = { monto: "", detalles: jsonContent };
+                                    }
+                                    if (qData.detalles) displayDesc += "\n\nNotas de cotización:\n" + qData.detalles;
+                                }
+                            } catch (e) { }
+                        }
+
                         let photosList: string[] = [];
                         if (finalDesc.includes(photosMarker)) {
                             const parts = finalDesc.split(photosMarker);
@@ -914,14 +1136,19 @@ const AdminDetalleTrabajo: React.FC = () => {
                             id: act.id,
                             titulo: act.tipo,
                             descripcion: displayDesc,
+                            cleanDescripcion: cleanDesc,
+                            rawDescripcion: finalDesc,
                             estado: "Nueva",
                             tecnicoNombre: user?.name,
-                            esCotizacion: true,
+                            esCotizacion: esCot,
                             cotizacionMonto: parsedMonto,
                             cotizacionDetalles: displayDesc,
                             cotizacionArchivo: "",
                             cotizacionEstado: "Sugerencia de Técnico",
                             serviceData: sData,
+                            hasQuote: finalDesc.includes(quoteMarker),
+                            quoteData: qData,
+                            refacciones: act.refacciones,
                             photos: photosList
                         };
                     });
@@ -937,7 +1164,127 @@ const AdminDetalleTrabajo: React.FC = () => {
     const openEditModal = (e: React.MouseEvent, tarea: SubTarea) => {
         e.stopPropagation();
         setEditingTaskId(tarea.id);
-        setNewTaskDescription(tarea.descripcion);
+        
+        // 1. Descripción limpia
+        setNewTaskDescription(tarea.cleanDescripcion || tarea.descripcion);
+        
+        // 2. Tipo de Actividad
+        if (tarea.serviceData?.tipoServicio) {
+            setActiveServiceType(tarea.serviceData.tipoServicio);
+        } else {
+            const standardCategories = ['Mantenimiento', 'Instalacion', 'Plomeria', 'Electricidad', 'Albañileria', 'Carpinteria', 'Pintura'];
+            if (standardCategories.includes(tarea.titulo)) {
+                setActiveServiceType(tarea.titulo);
+            } else {
+                setActiveServiceType('Otro');
+                setCustomServiceType(tarea.titulo);
+            }
+        }
+        
+        // 3. Marca / Modelo / Pieza / Garantía
+        setServiceMarca(tarea.serviceData?.marca || "");
+        setServiceModelo(tarea.serviceData?.modelo || "");
+        setServicePieza(tarea.serviceData?.pieza || "");
+        setServiceGarantia(tarea.serviceData?.garantia || "");
+        
+        // 4. Refacciones
+        setRefacciones(tarea.refacciones || []);
+        
+        // 5. Cotización
+        if (tarea.hasQuote) {
+            setIsQuoteIncluded(true);
+            setNewQuoteAmount(tarea.cotizacionMonto && tarea.cotizacionMonto !== "Por Evaluar" ? String(tarea.cotizacionMonto) : "");
+            
+            let currentQuoteData = tarea.quoteData;
+            if (!currentQuoteData && (tarea as any).rawDescripcion) {
+                const rawDesc = (tarea as any).rawDescripcion || "";
+                const quoteMarker = "|||QUOTE_DATA|||";
+                if (rawDesc.includes(quoteMarker)) {
+                    const parts = rawDesc.split(quoteMarker);
+                    const serviceMarker = "|||SERVICE_DATA|||";
+                    const techMarker = "|||TECH_NAME|||";
+                    const photosMarker = "|||PHOTOS_DATA|||";
+                    const jsonContent = parts[1].split(serviceMarker)[0].split(techMarker)[0].split(photosMarker)[0].trim();
+                    try {
+                        if (jsonContent.startsWith('{')) {
+                            currentQuoteData = JSON.parse(jsonContent);
+                        } else {
+                            // Plain text format fallback
+                            const firstHyphen = jsonContent.indexOf(" - ");
+                            if (firstHyphen !== -1) {
+                                const possibleMonto = jsonContent.substring(0, firstHyphen).trim();
+                                if (!isNaN(Number(possibleMonto.replace('$', '')))) {
+                                    currentQuoteData = { monto: possibleMonto, detalles: jsonContent.substring(firstHyphen + 3).trim() };
+                                } else {
+                                    currentQuoteData = { monto: "", detalles: jsonContent };
+                                }
+                            } else {
+                                currentQuoteData = { monto: "", detalles: jsonContent };
+                            }
+                        }
+                    } catch (e) {
+                        currentQuoteData = { detalles: jsonContent };
+                    }
+                }
+            }
+
+            if (currentQuoteData) {
+                if (currentQuoteData.materials) {
+                    setNewQuoteMaterials(currentQuoteData.materials);
+                    // Filter out any lines starting with "- " from details to avoid duplicating materials in the text box
+                    const rawDetails = currentQuoteData.detalles || "";
+                    const cleanDetailsLines = rawDetails.split('\n').filter(line => !line.trim().startsWith('- '));
+                    setNewQuoteDetails(cleanDetailsLines.join('\n').trim());
+                } else {
+                    const parsedMaterials: any[] = [];
+                    const detailLines: string[] = [];
+                    const lines = (currentQuoteData.detalles || "").split('\n');
+                    for (const line of lines) {
+                        const trimmed = line.trim();
+                        if (trimmed.startsWith('- ')) {
+                            const raw = trimmed.substring(2);
+                            const priceMatch = raw.match(/(.+)\s*\(([^)]+)\)\s*-\s*\$(.+)/);
+                            const normalMatch = raw.match(/(.+)\s*\(([^)]+)\)/);
+                            if (priceMatch) {
+                                parsedMaterials.push({
+                                    material: priceMatch[1].trim(),
+                                    piezas: priceMatch[2].trim(),
+                                    precio: priceMatch[3].trim()
+                                });
+                            } else if (normalMatch) {
+                                parsedMaterials.push({
+                                    material: normalMatch[1].trim(),
+                                    piezas: normalMatch[2].trim(),
+                                    precio: ""
+                                });
+                            } else {
+                                parsedMaterials.push({
+                                    material: raw,
+                                    piezas: "1",
+                                    precio: ""
+                                });
+                            }
+                        } else {
+                            if (trimmed) detailLines.push(line);
+                        }
+                    }
+                    setNewQuoteMaterials(parsedMaterials);
+                    setNewQuoteDetails(detailLines.join('\n').trim());
+                }
+            } else {
+                setNewQuoteMaterials([]);
+                setNewQuoteDetails("");
+            }
+        } else {
+            setIsQuoteIncluded(false);
+            setNewQuoteAmount("");
+            setNewQuoteMaterials([]);
+            setNewQuoteDetails("");
+        }
+        
+        // 6. Fotos de la actividad
+        setActivityPhotos(tarea.photos || []);
+        
         setIsAddModalOpen(true);
     };
 
@@ -1263,47 +1610,48 @@ const AdminDetalleTrabajo: React.FC = () => {
             <div
                 key={tarea.id}
                 onClick={() => {
-                    if (taskReport && (user?.role !== 'tecnico' || tarea.estado === 'Completa')) {
-                        generateMaintenanceReportPDF({
-                            id: taskReport.dbId || taskReport.id || tarea.id || 'SD',
-                            fecha: taskReport.fecha || new Date().toLocaleDateString(),
-                            sucursal: trabajo?.sucursal || 'N/A',
-                            encargado: trabajo?.encargado || 'N/A',
-                            tecnico: tarea.tecnicoNombre || trabajo?.tecnico || 'N/A',
-                            diagnostico: taskReport.reporteTienda || 'N/A',
-                            descripcion: taskReport.descripcion || 'N/A',
-                            materiales: taskReport.materiales || 'N/A',
-                            observaciones: taskReport.observaciones || 'N/A',
-                            imagenes: {
-                                antes: taskReport.imagenes?.antes,
-                                durante: taskReport.imagenes?.durante,
-                                despues: taskReport.imagenes?.despues,
-                                extra: taskReport.imagenObservacion
-                            },
-                            firmaEmpresa: taskReport.firmaEmpresa,
-                            equipo: taskReport.involucraEquipo ? taskReport.equipoInfo : (trabajo?.cotizacion ? {
-                                tipo: 'Servicio',
-                                marca: 'N/A',
-                                modelo: 'N/A'
-                            } : null)
-                        });
-                        return;
-                    }
+                    const refaccionesList = (tarea.refacciones || []).map(r => ({
+                        pieza: r.pieza,
+                        cantidad: Number(r.cantidad) || 1,
+                        costo_estimado: r.costo_estimado ? String(r.costo_estimado) : ''
+                    })).concat(
+                        tarea.hasQuote && tarea.quoteData?.materials ? tarea.quoteData.materials.map((m: any) => ({
+                            pieza: m.material,
+                            cantidad: m.piezas ? Number(m.piezas) || 1 : 1,
+                            costo_estimado: m.precio ? String(m.precio) : ''
+                        })) : []
+                    );
 
-                    if (isInteractive) {
-                        if (trabajo?.tipo === "Visita" && user?.role === 'tecnico') {
-                            showAlert(
-                                'Modo Visita',
-                                'Estás en modo Visita. No puedes realizar los trabajos, solo registrar hallazgos.',
-                                'info'
-                            );
-                            return;
-                        }
-                        setSelectedTaskForReport(tarea);
-                        setIsSecurityModalOpen(true);
-                    } else if (activeTab === 'Cotización') {
-                        showAlert('Sin Reporte', 'Esta actividad aún no tiene un reporte registrado por el técnico.', 'warning');
-                    }
+                    const combinedMateriales = tarea.hasQuote ? (tarea.quoteData?.detalles || '') : '';
+
+                    const preparedData = {
+                        id: taskReport?.dbId || taskReport?.id || tarea.id || 'SD',
+                        reporteTienda: taskReport?.reporteTienda || tarea.titulo,
+                        descripcion: taskReport?.descripcion || tarea.cleanDescripcion || tarea.descripcion,
+                        materiales: taskReport?.materiales || combinedMateriales,
+                        refaccionesList: taskReport?.refaccionesList || refaccionesList,
+                        observaciones: taskReport?.observaciones || '',
+                        imagenes: taskReport?.imagenes || {
+                            antes: tarea.photos?.[0] || null,
+                            durante: tarea.photos?.[1] || null,
+                            despues: tarea.photos?.[2] || null
+                        },
+                        imagenObservacion: taskReport?.imagenObservacion || tarea.photos?.[3] || null,
+                        imagenesObservacion: taskReport?.imagenesObservacion || (taskReport?.imagenObservacion ? [taskReport.imagenObservacion] : (tarea.photos?.[3] ? [tarea.photos[3]] : [])),
+                        firmaEmpresa: taskReport?.firmaEmpresa || null,
+                        involucraEquipo: taskReport ? !!taskReport.involucraEquipo : (!!tarea.serviceData?.marca || !!tarea.serviceData?.modelo),
+                        equipoInfo: taskReport ? taskReport.equipoInfo : ((tarea.serviceData?.marca || tarea.serviceData?.modelo) ? {
+                            tipo: tarea.serviceData.tipoServicio || tarea.titulo,
+                            marca: tarea.serviceData.marca || 'N/A',
+                            modelo: tarea.serviceData.modelo || 'N/A',
+                            piezas: tarea.serviceData.pieza || 'N/A',
+                            garantia: tarea.serviceData.garantia || 'N/A'
+                        } : null),
+                        fecha: taskReport?.fecha || new Date().toLocaleDateString('es-MX')
+                    };
+
+                    setActivityPDFData(preparedData);
+                    setShowActivityPDFPreview(true);
                 }}
                 className={`${styles.taskCard} ${tarea.estado === 'Nueva' ? styles.newTaskCard : styles.defaultTaskCard}`}
                 style={{
@@ -1367,25 +1715,130 @@ const AdminDetalleTrabajo: React.FC = () => {
                                         {mainDesc}
                                     </p>
                                 )}
-                                {materialsText && (
-                                    <div style={{ background: '#f8fafc', padding: '15px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                                        <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '10px', letterSpacing: '0.5px' }}>
-                                            <HiOutlineClipboardDocumentList size={14} /> Materiales Solicitados
-                                        </span>
-                                        <ul style={{ margin: 0, paddingLeft: '20px', color: '#334155', fontSize: '13px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                            {materialsText.split('-').map((item, index) => {
-                                                const cleanItem = item.trim();
-                                                if (!cleanItem) return null;
-                                                return <li key={index} style={{ lineHeight: '1.4' }}>{cleanItem}</li>;
-                                            })}
-                                        </ul>
-                                    </div>
-                                )}
+                                {materialsText && (() => {
+                                    const parsedItems = parseMaterials(materialsText);
+                                    return (
+                                        <div style={{
+                                            background: '#ffffff',
+                                            borderRadius: '16px',
+                                            border: '1.5px solid #f1f5f9',
+                                            boxShadow: '0 4px 20px -2px rgba(148, 163, 184, 0.08)',
+                                            overflow: 'hidden',
+                                            marginTop: '8px'
+                                        }}>
+                                            <div style={{
+                                                background: 'linear-gradient(90deg, #f8fafc 0%, #f1f5f9 100%)',
+                                                padding: '14px 20px',
+                                                borderBottom: '1.5px solid #e2e8f0',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'space-between',
+                                                gap: '8px'
+                                            }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <div style={{
+                                                        background: '#e0f2fe',
+                                                        color: '#0284c7',
+                                                        padding: '6px',
+                                                        borderRadius: '8px',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center'
+                                                    }}>
+                                                        <HiOutlineClipboardDocumentList size={16} />
+                                                    </div>
+                                                    <span style={{
+                                                        fontSize: '13px',
+                                                        fontWeight: '700',
+                                                        color: '#1e293b',
+                                                        letterSpacing: '0.3px',
+                                                        textTransform: 'uppercase'
+                                                    }}>
+                                                        Materiales Solicitados
+                                                    </span>
+                                                </div>
+                                                <span style={{
+                                                    background: '#f1f5f9',
+                                                    color: '#475569',
+                                                    padding: '2px 8px',
+                                                    borderRadius: '20px',
+                                                    fontSize: '11px',
+                                                    fontWeight: '700',
+                                                    border: '1px solid #e2e8f0'
+                                                }}>
+                                                    {parsedItems.length} {parsedItems.length === 1 ? 'ítem' : 'ítems'}
+                                                </span>
+                                            </div>
+
+                                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                {parsedItems.map((item, index) => (
+                                                    <div
+                                                        key={index}
+                                                        style={{
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'space-between',
+                                                            padding: '14px 20px',
+                                                            borderBottom: index < parsedItems.length - 1 ? '1px solid #f1f5f9' : 'none',
+                                                            background: index % 2 === 0 ? '#ffffff' : '#fcfdfe',
+                                                            gap: '12px'
+                                                        }}
+                                                    >
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+                                                            <div style={{
+                                                                background: 'linear-gradient(135deg, #0ea5e9, #0284c7)',
+                                                                color: '#ffffff',
+                                                                minWidth: '26px',
+                                                                height: '26px',
+                                                                borderRadius: '8px',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                fontSize: '11px',
+                                                                fontWeight: '800',
+                                                                boxShadow: '0 2px 8px rgba(14, 165, 233, 0.15)',
+                                                                padding: '0 4px'
+                                                            }}>
+                                                                {item.cantidad}
+                                                            </div>
+                                                            <span style={{
+                                                                fontSize: '14px',
+                                                                fontWeight: '600',
+                                                                color: '#334155',
+                                                                lineHeight: '1.4'
+                                                            }}>
+                                                                {item.material}
+                                                            </span>
+                                                        </div>
+
+                                                        {item.precio && (
+                                                            <div style={{
+                                                                background: '#ecfdf5',
+                                                                color: '#065f46',
+                                                                padding: '6px 12px',
+                                                                borderRadius: '10px',
+                                                                fontSize: '13px',
+                                                                fontWeight: '700',
+                                                                border: '1.5px solid #d1fae5',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                gap: '4px'
+                                                            }}>
+                                                                <span style={{ fontSize: '11px', opacity: 0.8, fontWeight: '600' }}>Costo:</span>
+                                                                <span>{item.precio}</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
                             </div>
                         );
                     })()}
 
-                    {taskReport && (taskReport.imagenes?.antes || taskReport.imagenes?.durante || taskReport.imagenes?.despues || taskReport.imagenObservacion) && (
+                    {taskReport && (taskReport.imagenes?.antes || taskReport.imagenes?.durante || taskReport.imagenes?.despues || taskReport.imagenObservacion || (taskReport.imagenesObservacion && taskReport.imagenesObservacion.length > 0)) && (
                         <div style={{ marginTop: '12px', display: 'flex', gap: '8px', flexWrap: 'wrap', paddingBottom: '10px' }}>
                             {taskReport.imagenes?.antes && (
                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
@@ -1426,18 +1879,34 @@ const AdminDetalleTrabajo: React.FC = () => {
                                     <span style={{ fontSize: '9px', fontWeight: 'bold', color: '#64748b' }}>Después</span>
                                 </div>
                             )}
-                            {taskReport.imagenObservacion && (
-                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                                    <img 
-                                        src={taskReport.imagenObservacion} 
-                                        alt="Extra" 
-                                        onClick={(e) => { e.stopPropagation(); setSelectedZoomImage(taskReport.imagenObservacion); }}
-                                        style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e2e8f0', cursor: 'pointer', transition: 'transform 0.15s ease' }} 
-                                        onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                                        onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
-                                    />
-                                    <span style={{ fontSize: '9px', fontWeight: 'bold', color: '#64748b' }}>Extra</span>
-                                </div>
+                            {taskReport.imagenesObservacion && taskReport.imagenesObservacion.length > 0 ? (
+                                taskReport.imagenesObservacion.map((img: string, idx: number) => (
+                                    <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                                        <img 
+                                            src={img} 
+                                            alt={`Extra ${idx + 1}`} 
+                                            onClick={(e) => { e.stopPropagation(); setSelectedZoomImage(img); }}
+                                            style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e2e8f0', cursor: 'pointer', transition: 'transform 0.15s ease' }} 
+                                            onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                                            onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
+                                        />
+                                        <span style={{ fontSize: '9px', fontWeight: 'bold', color: '#64748b' }}>Extra {idx + 1}</span>
+                                    </div>
+                                ))
+                            ) : (
+                                taskReport.imagenObservacion && (
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                                        <img 
+                                            src={taskReport.imagenObservacion} 
+                                            alt="Extra" 
+                                            onClick={(e) => { e.stopPropagation(); setSelectedZoomImage(taskReport.imagenObservacion); }}
+                                            style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e2e8f0', cursor: 'pointer', transition: 'transform 0.15s ease' }} 
+                                            onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                                            onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
+                                        />
+                                        <span style={{ fontSize: '9px', fontWeight: 'bold', color: '#64748b' }}>Extra</span>
+                                    </div>
+                                )
                             )}
                         </div>
                     )}
@@ -1464,6 +1933,19 @@ const AdminDetalleTrabajo: React.FC = () => {
                     {isInteractive && tarea.estado !== 'Completa' && user?.role === 'tecnico' && (
                         <div style={{ marginTop: '10px' }}>
                             <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (trabajo?.tipo === "Visita" && user?.role === 'tecnico') {
+                                        showAlert(
+                                            'Modo Visita',
+                                            'Estás en modo Visita. No puedes realizar los trabajos, solo registrar hallazgos.',
+                                            'info'
+                                        );
+                                        return;
+                                    }
+                                    setSelectedTaskForReport(tarea);
+                                    setIsSecurityModalOpen(true);
+                                }}
                                 style={{
                                     width: '100%',
                                     padding: '12px',
@@ -2424,7 +2906,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                 )}
 
                                                 {/* Card 2: Evidencia Fotográfica */}
-                                                {actualReporte && (actualReporte.imagenes?.antes || actualReporte.imagenes?.durante || actualReporte.imagenes?.despues || actualReporte.imagenObservacion) && (
+                                                {actualReporte && (actualReporte.imagenes?.antes || actualReporte.imagenes?.durante || actualReporte.imagenes?.despues || actualReporte.imagenObservacion || (actualReporte.imagenesObservacion && actualReporte.imagenesObservacion.length > 0)) && (
                                                     <div style={{ background: '#fff', borderRadius: '24px', padding: '24px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)', border: '1px solid #e2e8f0' }}>
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
                                                             <span style={{ fontSize: '18px' }}>📷</span>
@@ -2449,11 +2931,20 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                                     <span style={{ fontSize: '11px', fontWeight: '800', color: '#64748b' }}>Después</span>
                                                                 </div>
                                                             )}
-                                                            {actualReporte.imagenObservacion && (
-                                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
-                                                                    <img src={actualReporte.imagenObservacion} alt="Extra" onClick={() => setSelectedZoomImage(actualReporte.imagenObservacion)} style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: '12px', border: '1px solid #f1f5f9', cursor: 'pointer', transition: 'transform 0.2s' }} onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'} onMouseLeave={e => e.currentTarget.style.transform = 'none'} />
-                                                                    <span style={{ fontSize: '11px', fontWeight: '800', color: '#64748b' }}>Extra</span>
-                                                                </div>
+                                                            {actualReporte.imagenesObservacion && actualReporte.imagenesObservacion.length > 0 ? (
+                                                                actualReporte.imagenesObservacion.map((img: string, idx: number) => (
+                                                                    <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                                                                        <img src={img} alt={`Extra ${idx + 1}`} onClick={() => setSelectedZoomImage(img)} style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: '12px', border: '1px solid #f1f5f9', cursor: 'pointer', transition: 'transform 0.2s' }} onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'} onMouseLeave={e => e.currentTarget.style.transform = 'none'} />
+                                                                        <span style={{ fontSize: '11px', fontWeight: '800', color: '#64748b' }}>Extra {idx + 1}</span>
+                                                                    </div>
+                                                                ))
+                                                            ) : (
+                                                                actualReporte.imagenObservacion && (
+                                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                                                                        <img src={actualReporte.imagenObservacion} alt="Extra" onClick={() => setSelectedZoomImage(actualReporte.imagenObservacion)} style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: '12px', border: '1px solid #f1f5f9', cursor: 'pointer', transition: 'transform 0.2s' }} onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'} onMouseLeave={e => e.currentTarget.style.transform = 'none'} />
+                                                                        <span style={{ fontSize: '11px', fontWeight: '800', color: '#64748b' }}>Extra</span>
+                                                                    </div>
+                                                                )
                                                             )}
                                                         </div>
                                                     </div>
@@ -2511,7 +3002,9 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                                                 antes: actualReporte.imagenes?.antes,
                                                                                 durante: actualReporte.imagenes?.durante,
                                                                                 despues: actualReporte.imagenes?.despues,
-                                                                                extra: actualReporte.imagenObservacion
+                                                                                extra: (actualReporte.imagenesObservacion && actualReporte.imagenesObservacion.length > 0)
+                                                                                    ? actualReporte.imagenesObservacion
+                                                                                    : actualReporte.imagenObservacion
                                                                             },
                                                                             firmaEmpresa: actualReporte.firmaEmpresa,
                                                                             equipo: actualReporte.involucraEquipo ? actualReporte.equipoInfo : (trabajo?.cotizacion ? {
@@ -3269,12 +3762,22 @@ const AdminDetalleTrabajo: React.FC = () => {
                                     Cancelar
                                 </button>
 
-                                <button
-                                    onClick={handleAddTask}
-                                    style={{ background: '#f26522', color: 'white', border: 'none', padding: '15px 40px', borderRadius: '30px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer' }}
-                                >
-                                    {editingTaskId ? "Actualizar" : "Guardar y enviar"}
-                                </button>
+                                <div style={{ display: 'flex', gap: '15px' }}>
+                                    {!editingTaskId && (
+                                        <button
+                                            onClick={() => handleAddTask(true)}
+                                            style={{ background: '#3b82f6', color: 'white', border: 'none', padding: '15px 30px', borderRadius: '30px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer' }}
+                                        >
+                                            Guardar y generar PDF
+                                        </button>
+                                    )}
+                                    <button
+                                        onClick={() => handleAddTask(false)}
+                                        style={{ background: '#f26522', color: 'white', border: 'none', padding: '15px 40px', borderRadius: '30px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer' }}
+                                    >
+                                        {editingTaskId ? "Actualizar" : "Guardar y enviar"}
+                                    </button>
+                                </div>
                             </div>
 
                         </div>
@@ -3606,6 +4109,18 @@ const AdminDetalleTrabajo: React.FC = () => {
                     costo={costo} 
                     notas={notas} 
                     onClose={() => setShowPDFPreview(false)} 
+                />
+            )}
+
+            {/* ACTIVITY PDF PREVIEW MODAL */}
+            {showActivityPDFPreview && activityPDFData && (
+                <ReportePDFPreview
+                    trabajo={trabajo}
+                    reporteData={activityPDFData}
+                    onClose={() => {
+                        setShowActivityPDFPreview(false);
+                        setActivityPDFData(null);
+                    }}
                 />
             )}
         </div>

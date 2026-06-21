@@ -43,3 +43,9 @@ export const getActividadesByTrabajo = async (trabajoId: number): Promise<Activi
 export const deleteActividad = async (actividadId: number): Promise<void> => {
     await api.delete(`/actividades/${actividadId}`);
 };
+
+export const updateActividad = async (id: number, actividad: Actividad): Promise<Actividad> => {
+    const response = await api.put(`/actividades/${id}`, actividad);
+    return response.data.actividad;
+};
+

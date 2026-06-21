@@ -177,10 +177,10 @@ export default function CotizacionPDFPreview({ trabajo, subTareas, costo, notas,
                             <div style={{ marginTop: '15px', paddingTop: '15px', borderTop: '1px solid #e2e8f0' }}>
                                 <strong style={{ color: '#1e293b' }}>Materiales Sugeridos en Reporte Técnico:</strong>
                                 <ul style={{ margin: '5px 0 0 0', paddingLeft: '20px' }}>
-                                    {techMaterialsText.split('-').map((item: string, index: number) => {
-                                        const cleanItem = item.trim();
+                                    {techMaterialsText.split('\n').map((item: string, index: number) => {
+                                        const cleanItem = item.replace(/^[\-\*\u2022\s]+/, '').trim();
                                         if (!cleanItem) return null;
-                                        return <li key={index}>{cleanItem}</li>;
+                                        return <li key={index} style={{ marginBottom: '4px' }}>{cleanItem}</li>;
                                     })}
                                 </ul>
                             </div>

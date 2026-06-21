@@ -17,6 +17,7 @@ interface ReportePDFPreviewProps {
             despues: string | null;
         };
         imagenObservacion: string | null;
+        imagenesObservacion?: string[];
         firmaEmpresa: string | null;
         involucraEquipo: boolean;
         equipoInfo: {
@@ -73,7 +74,9 @@ export default function ReportePDFPreview({ trabajo, reporteData, onClose }: Rep
                     antes: reporteData.imagenes.antes,
                     durante: reporteData.imagenes.durante,
                     despues: reporteData.imagenes.despues,
-                    extra: reporteData.imagenObservacion
+                    extra: (reporteData.imagenesObservacion && reporteData.imagenesObservacion.length > 0)
+                        ? reporteData.imagenesObservacion
+                        : reporteData.imagenObservacion
                 },
                 firmaEmpresa: reporteData.firmaEmpresa,
                 equipo: reporteData.involucraEquipo ? reporteData.equipoInfo : null,
@@ -123,13 +126,13 @@ export default function ReportePDFPreview({ trabajo, reporteData, onClose }: Rep
             {/* Header Actions */}
             <div className="no-print" style={{ display: 'flex', justifyContent: 'center', gap: '15px', width: '100%', maxWidth: '800px', marginBottom: '20px' }}>
                 <button onClick={onClose} style={{ padding: '10px 20px', background: '#64748b', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <HiOutlineXMark size={20} /> REGRESAR
+                    <HiOutlineXMark size={20} /> CERRAR
                 </button>
                 <button onClick={() => fileInputRef.current?.click()} style={{ padding: '10px 20px', background: '#f59e0b', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <HiOutlinePhoto size={20} /> AGREGAR LOGO
+                    <HiOutlinePhoto size={20} /> CAMBIAR LOGO
                 </button>
                 <button onClick={handleDownload} style={{ padding: '10px 20px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <HiOutlineArrowDownTray size={20} /> DESCARGAR PDF
+                    <HiOutlineArrowDownTray size={20} /> DESCARGAR
                 </button>
                 <button onClick={() => window.print()} style={{ padding: '10px 20px', background: '#22c55e', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <HiOutlinePrinter size={20} /> IMPRIMIR
@@ -287,11 +290,20 @@ export default function ReportePDFPreview({ trabajo, reporteData, onClose }: Rep
                                 <span style={{ fontSize: '10px', fontWeight: 'bold', color: '#64748b', display: 'block', marginTop: '5px' }}>DESPUÉS</span>
                             </div>
                         )}
-                        {reporteData.imagenObservacion && (
-                            <div style={{ textAlign: 'center' }}>
-                                <img src={reporteData.imagenObservacion} alt="Extra" style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: '6px', border: '1px solid #e2e8f0' }} />
-                                <span style={{ fontSize: '10px', fontWeight: 'bold', color: '#64748b', display: 'block', marginTop: '5px' }}>EXTRA</span>
-                            </div>
+                        {reporteData.imagenesObservacion && reporteData.imagenesObservacion.length > 0 ? (
+                            reporteData.imagenesObservacion.map((img, idx) => (
+                                <div key={idx} style={{ textAlign: 'center' }}>
+                                    <img src={img} alt={`Extra ${idx + 1}`} style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: '6px', border: '1px solid #e2e8f0' }} />
+                                    <span style={{ fontSize: '10px', fontWeight: 'bold', color: '#64748b', display: 'block', marginTop: '5px' }}>EXTRA {idx + 1}</span>
+                                </div>
+                            ))
+                        ) : (
+                            reporteData.imagenObservacion && (
+                                <div style={{ textAlign: 'center' }}>
+                                    <img src={reporteData.imagenObservacion} alt="Extra" style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: '6px', border: '1px solid #e2e8f0' }} />
+                                    <span style={{ fontSize: '10px', fontWeight: 'bold', color: '#64748b', display: 'block', marginTop: '5px' }}>EXTRA</span>
+                                </div>
+                            )
                         )}
                     </div>
                 </div>

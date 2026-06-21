@@ -83,7 +83,9 @@ const ReporteDetailModal: React.FC<ReporteDetailModalProps> = ({
                     antes: reporte.imagenes?.antes,
                     durante: reporte.imagenes?.durante,
                     despues: reporte.imagenes?.despues,
-                    extra: reporte.imagenObservacion
+                    extra: (reporte.imagenesObservacion && reporte.imagenesObservacion.length > 0)
+                        ? reporte.imagenesObservacion
+                        : reporte.imagenObservacion
                 },
                 firmaEmpresa: reporte.firmaEmpresa,
                 equipo: reporte.involucraEquipo ? reporte.equipoInfo : (trabajo.cotizacion ? {
@@ -278,16 +280,30 @@ const ReporteDetailModal: React.FC<ReporteDetailModalProps> = ({
                                         <span className={styles.evidenceLabel}>Después</span>
                                     </div>
                                 )}
-                                {reporte.imagenObservacion && (
-                                    <div className={styles.evidenceItem}>
-                                        <img
-                                            src={reporte.imagenObservacion}
-                                            alt="Obs"
-                                            className={styles.evidenceThumb}
-                                            onClick={() => setSelectedZoomImage(reporte.imagenObservacion)}
-                                        />
-                                        <span className={styles.evidenceLabel}>Extra</span>
-                                    </div>
+                                {reporte.imagenesObservacion && reporte.imagenesObservacion.length > 0 ? (
+                                    reporte.imagenesObservacion.map((img: string, idx: number) => (
+                                        <div key={idx} className={styles.evidenceItem}>
+                                            <img
+                                                src={img}
+                                                alt={`Obs ${idx + 1}`}
+                                                className={styles.evidenceThumb}
+                                                onClick={() => setSelectedZoomImage(img)}
+                                            />
+                                            <span className={styles.evidenceLabel}>Extra {idx + 1}</span>
+                                        </div>
+                                    ))
+                                ) : (
+                                    reporte.imagenObservacion && (
+                                        <div className={styles.evidenceItem}>
+                                            <img
+                                                src={reporte.imagenObservacion}
+                                                alt="Obs"
+                                                className={styles.evidenceThumb}
+                                                onClick={() => setSelectedZoomImage(reporte.imagenObservacion)}
+                                            />
+                                            <span className={styles.evidenceLabel}>Extra</span>
+                                        </div>
+                                    )
                                 )}
                             </div>
                         </div>

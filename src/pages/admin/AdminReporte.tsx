@@ -11,7 +11,8 @@ import {
     HiOutlineCamera, 
     HiOutlinePhoto, 
     HiXMark,
-    HiOutlineArrowUpTray
+    HiOutlineArrowUpTray,
+    HiOutlinePlus
 } from 'react-icons/hi2';
 import { generateMaintenanceReportPDF } from '../../utils/pdfGenerator';
 import ReportePDFPreview from '../../components/modals/ReportePDFPreview';
@@ -72,7 +73,10 @@ const AdminReporte: React.FC = () => {
         durante: null as string | null,
         despues: null as string | null
     });
-    const [imagenObservacion, setImagenObservacion] = useState<string | null>(null);
+    const [imagenesObservacion, setImagenesObservacion] = useState<string[]>([]);
+    const [observacionesList, setObservacionesList] = useState<{ id: string; texto: string; imagenes: string[] }[]>([]);
+    const [activeUploadBlockId, setActiveUploadBlockId] = useState<string | null>(null);
+    const [showObservacionesInput, setShowObservacionesInput] = useState(false);
     const [firmaEmpresa, setFirmaEmpresa] = useState<string | null>(null);
     const [reporteId, setReporteId] = useState<number | null>(null);
 
@@ -117,7 +121,9 @@ const AdminReporte: React.FC = () => {
             setRefaccionesList([]);
             setObservaciones('');
             setImagenes({ antes: null, durante: null, despues: null });
-            setImagenObservacion(null);
+            setImagenesObservacion([]);
+            setObservacionesList([]);
+            setShowObservacionesInput(false);
             setFirmaEmpresa(null);
             setReporteId(null);
             setInvolucraEquipo(false);
@@ -140,7 +146,29 @@ const AdminReporte: React.FC = () => {
                         if (parsed.materiales) setMateriales(parsed.materiales);
                         if (parsed.observaciones) setObservaciones(parsed.observaciones);
                         if (parsed.imagenes) setImagenes(parsed.imagenes);
-                        if (parsed.imagenObservacion) setImagenObservacion(parsed.imagenObservacion);
+                        if (parsed.imagenesObservacion) {
+                            setImagenesObservacion(parsed.imagenesObservacion);
+                        } else if (parsed.imagenObservacion) {
+                            setImagenesObservacion([parsed.imagenObservacion]);
+                        } else {
+                            setImagenesObservacion([]);
+                        }
+
+                        let loadedObsList: { id: string; texto: string; imagenes: string[] }[] = [];
+                        if (parsed.observacionesList) {
+                            loadedObsList = parsed.observacionesList;
+                        } else if (parsed.observaciones || parsed.imagenObservacion || (parsed.imagenesObservacion && parsed.imagenesObservacion.length > 0)) {
+                            loadedObsList = [{
+                                id: Date.now().toString(),
+                                texto: parsed.observaciones || '',
+                                imagenes: parsed.imagenesObservacion || (parsed.imagenObservacion ? [parsed.imagenObservacion] : [])
+                            }];
+                        }
+                        setObservacionesList(loadedObsList);
+
+                        if (loadedObsList.length > 0 || parsed.observaciones || parsed.imagenObservacion || (parsed.imagenesObservacion && parsed.imagenesObservacion.length > 0)) {
+                            setShowObservacionesInput(true);
+                        }
                         if (parsed.firmaEmpresa) setFirmaEmpresa(parsed.firmaEmpresa);
                         if (parsed.involucraEquipo !== undefined) setInvolucraEquipo(parsed.involucraEquipo);
                         if (parsed.equipoInfo) setEquipoInfo(parsed.equipoInfo);
@@ -161,7 +189,27 @@ const AdminReporte: React.FC = () => {
                         durante: prev.durante || parsed.imagenes?.durante || null,
                         despues: prev.despues || parsed.imagenes?.despues || null
                     }));
-                    setImagenObservacion(prev => prev || parsed.imagenObservacion || null);
+                    if (parsed.imagenesObservacion) {
+                        setImagenesObservacion(parsed.imagenesObservacion);
+                    } else if (parsed.imagenObservacion) {
+                        setImagenesObservacion([parsed.imagenObservacion]);
+                    }
+
+                    let loadedObsList: { id: string; texto: string; imagenes: string[] }[] = [];
+                    if (parsed.observacionesList) {
+                        loadedObsList = parsed.observacionesList;
+                    } else if (parsed.observaciones || parsed.imagenObservacion || (parsed.imagenesObservacion && parsed.imagenesObservacion.length > 0)) {
+                        loadedObsList = [{
+                            id: Date.now().toString(),
+                            texto: parsed.observaciones || '',
+                            imagenes: parsed.imagenesObservacion || (parsed.imagenObservacion ? [parsed.imagenObservacion] : [])
+                        }];
+                    }
+                    setObservacionesList(loadedObsList);
+
+                    if (loadedObsList.length > 0 || parsed.observaciones || parsed.imagenObservacion || (parsed.imagenesObservacion && parsed.imagenesObservacion.length > 0)) {
+                        setShowObservacionesInput(true);
+                    }
                     setFirmaEmpresa(prev => prev || parsed.firmaEmpresa || null);
                     setInvolucraEquipo(prev => prev || (parsed.involucraEquipo !== undefined ? parsed.involucraEquipo : false));
                     if (parsed.equipoInfo) {
@@ -291,13 +339,37 @@ const AdminReporte: React.FC = () => {
         }
     };
 
+    const addObservacionBlock = () => {
+        setObservacionesList(prev => [...prev, { id: Date.now().toString() + '-' + Math.random().toString(), texto: '', imagenes: [] }]);
+    };
+
+    const removeObservacionBlock = (id: string) => {
+        setObservacionesList(prev => prev.filter(o => o.id !== id));
+    };
+
+    const handleObservacionTextChange = (id: string, text: string) => {
+        setObservacionesList(prev => prev.map(o => o.id === id ? { ...o, texto: text } : o));
+    };
+
+    const triggerObservacionImageUpload = (id: string) => {
+        setActiveUploadBlockId(id);
+        observacionInputRef.current?.click();
+    };
+
     const handleImagenObservacionChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            compressImage(file, (base64) => {
-                setImagenObservacion(base64);
+        const files = e.target.files;
+        if (files && activeUploadBlockId) {
+            Array.from(files).forEach((file) => {
+                compressImage(file, (base64) => {
+                    setObservacionesList(prev => prev.map(o => o.id === activeUploadBlockId ? { ...o, imagenes: [...o.imagenes, base64] } : o));
+                });
             });
         }
+        e.target.value = '';
+    };
+
+    const removeObservacionBlockImage = (blockId: string, imageIndex: number) => {
+        setObservacionesList(prev => prev.map(o => o.id === blockId ? { ...o, imagenes: o.imagenes.filter((_, idx) => idx !== imageIndex) } : o));
     };
 
     const handleFirmaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -321,10 +393,6 @@ const AdminReporte: React.FC = () => {
         setImagenes(prev => ({ ...prev, [type]: null }));
     };
 
-    const removeImagenObservacion = () => {
-        setImagenObservacion(null);
-    };
-
     const removeFirma = () => {
         setFirmaEmpresa(null);
     };
@@ -336,15 +404,20 @@ const AdminReporte: React.FC = () => {
             return;
         }
 
+        const compiledObservaciones = observacionesList.map(o => o.texto).filter(Boolean).join('\n\n');
+        const compiledImagenesObservacion = observacionesList.reduce((acc, o) => [...acc, ...o.imagenes], [] as string[]);
+
         const reportData = {
             id,
             reporteTienda,
             descripcion,
             materiales,
             refaccionesList,
-            observaciones,
+            observaciones: compiledObservaciones,
             imagenes,
-            imagenObservacion,
+            imagenObservacion: compiledImagenesObservacion[0] || null,
+            imagenesObservacion: compiledImagenesObservacion,
+            observacionesList,
             firmaEmpresa,
             involucraEquipo,
             equipoInfo: involucraEquipo ? equipoInfo : null,
@@ -382,6 +455,9 @@ const AdminReporte: React.FC = () => {
                 : '';
             const combinedMateriales = [widgetMateriales, materiales].filter(Boolean).join('\n\n');
 
+            const compiledObservaciones = observacionesList.map(o => o.texto).filter(Boolean).join('\n\n');
+            const compiledImagenesObservacion = observacionesList.reduce((acc, o) => [...acc, ...o.imagenes], [] as string[]);
+
             await generateMaintenanceReportPDF({
                 id: reporteId || id || trabajoId || 0,
                 folio: dynamicFolio,
@@ -392,12 +468,12 @@ const AdminReporte: React.FC = () => {
                 diagnostico: reporteTienda,
                 descripcion,
                 materiales: combinedMateriales,
-                observaciones,
+                observaciones: compiledObservaciones,
                 imagenes: {
                     antes: imagenes.antes,
                     durante: imagenes.durante,
                     despues: imagenes.despues,
-                    extra: imagenObservacion
+                    extra: compiledImagenesObservacion
                 },
                 firmaEmpresa,
                 equipo: involucraEquipo ? equipoInfo : null
@@ -484,7 +560,7 @@ const AdminReporte: React.FC = () => {
             <input type="file" ref={antesInputRef} style={{ display: 'none' }} onChange={(e) => handleImageChange(e, 'antes')} accept="image/*" capture="environment" />
             <input type="file" ref={duranteInputRef} style={{ display: 'none' }} onChange={(e) => handleImageChange(e, 'durante')} accept="image/*" capture="environment" />
             <input type="file" ref={despuesInputRef} style={{ display: 'none' }} onChange={(e) => handleImageChange(e, 'despues')} accept="image/*" capture="environment" />
-            <input type="file" ref={observacionInputRef} style={{ display: 'none' }} onChange={handleImagenObservacionChange} accept="image/*" capture="environment" />
+            <input type="file" ref={observacionInputRef} style={{ display: 'none' }} onChange={handleImagenObservacionChange} accept="image/*" multiple />
             <input type="file" ref={firmaInputRef} style={{ display: 'none' }} onChange={handleFirmaChange} accept="image/*,application/pdf" />
 
             <div className={styles.mainCard}>
@@ -521,26 +597,68 @@ const AdminReporte: React.FC = () => {
                                         </p>
                                     </div>
                                 </div>
-                                {parseFotoUrls(trabajoBase.foto_url).length > 0 && (
-                                    <div style={{ marginTop: '15px', borderTop: '1px solid #f1f5f9', paddingTop: '15px' }}>
-                                        <span style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '8px' }}>
-                                            Fotos Adjuntas por el Cliente ({parseFotoUrls(trabajoBase.foto_url).length})
+
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px', borderTop: '1px solid #f1f5f9', marginTop: '15px', paddingTop: '15px' }}>
+                                    <div>
+                                        <span style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '4px' }}>Ubicación / Dirección</span>
+                                        <span style={{ fontSize: '13px', fontWeight: '700', color: '#334155', display: 'block' }}>
+                                            {trabajoBase.negocio?.nombrePlaza || trabajoBase.negocio?.nombre_plaza ? `Plaza: ${trabajoBase.negocio.nombrePlaza || trabajoBase.negocio.nombre_plaza}` : ''}
                                         </span>
-                                        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                                            {parseFotoUrls(trabajoBase.foto_url).map((url, idx) => (
-                                                <img 
-                                                    key={idx}
-                                                    src={url} 
-                                                    alt={`Evidencia Cliente ${idx + 1}`} 
-                                                    onClick={() => setSelectedZoomImage(url)}
-                                                    style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', cursor: 'pointer', transition: 'transform 0.15s ease' }} 
-                                                    onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                                                    onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
-                                                />
-                                            ))}
+                                        <span style={{ fontSize: '13px', color: '#475569', display: 'block', marginTop: '2px' }}>
+                                            {[
+                                                trabajoBase.negocio?.calle && `Calle ${trabajoBase.negocio.calle}`,
+                                                trabajoBase.negocio?.numero && `#${trabajoBase.negocio.numero}`,
+                                                trabajoBase.negocio?.colonia && `Col. ${trabajoBase.negocio.colonia}`,
+                                                trabajoBase.negocio?.ciudad && trabajoBase.negocio.ciudad,
+                                                trabajoBase.negocio?.cp && `C.P. ${trabajoBase.negocio.cp}`
+                                            ].filter(Boolean).join(', ') || 'No registrada'}
+                                        </span>
+                                        {trabajoBase.negocio?.referencias && (
+                                            <span style={{ display: 'inline-block', fontSize: '11px', color: '#059669', background: '#ecfdf5', padding: '4px 8px', borderRadius: '6px', marginTop: '6px', border: '1px solid #d1fae5' }}>
+                                                <strong>Ref:</strong> {trabajoBase.negocio.referencias}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div>
+                                        <span style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '4px' }}>Contactos de la Empresa</span>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '13px' }}>
+                                            <div>
+                                                <strong>Gerente:</strong> {trabajoBase.negocio?.encargado || 'No registrado'}
+                                                {trabajoBase.negocio?.telefono && (
+                                                    <span style={{ color: '#0284c7', display: 'block', fontWeight: '600' }}>📞 {trabajoBase.negocio.telefono}</span>
+                                                )}
+                                            </div>
+                                            {trabajoBase.negocio?.subgerente && (
+                                                <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '4px' }}>
+                                                    <strong>Subgerente:</strong> {trabajoBase.negocio.subgerente}
+                                                    {trabajoBase.negocio.telefonoSubgerente && (
+                                                        <span style={{ color: '#0284c7', display: 'block', fontWeight: '600' }}>📞 {trabajoBase.negocio.telefonoSubgerente}</span>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
-                                )}
+                                    <div>
+                                        <span style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '4px' }}>Fotos Adjuntas por el Cliente</span>
+                                        {parseFotoUrls(trabajoBase.foto_url).length > 0 ? (
+                                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                                {parseFotoUrls(trabajoBase.foto_url).map((url, idx) => (
+                                                    <img 
+                                                        key={idx}
+                                                        src={url} 
+                                                        alt={`Evidencia Cliente ${idx + 1}`} 
+                                                        onClick={() => setSelectedZoomImage(url)}
+                                                        style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', cursor: 'pointer', transition: 'transform 0.15s ease' }} 
+                                                        onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                                                        onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
+                                                    />
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <span style={{ fontSize: '13px', color: '#94a3b8', fontStyle: 'italic' }}>Sin fotos adjuntas.</span>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
                         )}
 
@@ -792,36 +910,178 @@ const AdminReporte: React.FC = () => {
                                     </div>
                                 </div>
 
-                                <div className={styles.inputGroup} style={{ marginBottom: 0 }}>
-                                    <label className={styles.label}>Observaciones Adicionales:</label>
-                                    <div style={{ display: 'flex', gap: '20px' }}>
-                                        <textarea
-                                            className={styles.textarea}
-                                            style={{ flex: 1, height: '90px' }}
-                                            value={observaciones}
-                                            onChange={(e) => setObservaciones(e.target.value)}
-                                            placeholder="Notas internas u observaciones para el cliente..."
-                                        ></textarea>
-                                        
-                                        <div className={styles.evidenceItem}>
-                                            <span className={styles.evidenceLabel}>Foto Extra</span>
-                                            <div className={styles.squareBox} onClick={() => observacionInputRef.current?.click()} style={{ width: '90px', height: '90px' }}>
-                                                {imagenObservacion ? (
-                                                    <>
-                                                        <img src={imagenObservacion} alt="Obs" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '10px' }} />
-                                                        <button 
-                                                            className={styles.deletePhotoBtn} 
-                                                            onClick={(e) => { e.stopPropagation(); removeImagenObservacion(); }}
-                                                            title="Eliminar foto"
-                                                        >
-                                                            <HiXMark />
-                                                        </button>
-                                                    </>
-                                                ) : <HiOutlineCamera />}
+                                {!showObservacionesInput || observacionesList.length === 0 ? (
+                                    <div style={{ display: 'flex', justifyContent: 'center', marginTop: '20px', width: '100%' }}>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setShowObservacionesInput(true);
+                                                addObservacionBlock();
+                                            }}
+                                            style={{
+                                                background: '#f8fafc',
+                                                color: '#0ea5e9',
+                                                border: '2px dashed #bae6fd',
+                                                padding: '12px 24px',
+                                                borderRadius: '12px',
+                                                cursor: 'pointer',
+                                                fontSize: '14px',
+                                                fontWeight: 'bold',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '8px',
+                                                transition: 'all 0.2s ease-in-out',
+                                                width: '100%',
+                                                justifyContent: 'center'
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                e.currentTarget.style.background = '#e0f2fe';
+                                                e.currentTarget.style.borderColor = '#7dd3fc';
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                e.currentTarget.style.background = '#f8fafc';
+                                                e.currentTarget.style.borderColor = '#bae6fd';
+                                            }}
+                                        >
+                                            <HiOutlinePlus size={18} /> Agregar Observaciones Adicionales / Fotos Extra
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', width: '100%', borderTop: '1px solid #f1f5f9', paddingTop: '20px', marginTop: '20px' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <label className={styles.label} style={{ margin: 0, fontSize: '16px', fontWeight: 'bold' }}>Observaciones Adicionales ({observacionesList.length})</label>
+                                            <button 
+                                                type="button"
+                                                onClick={() => {
+                                                    const hasContent = observacionesList.some(o => o.texto.trim() || o.imagenes.length > 0);
+                                                    if (!hasContent) {
+                                                        setShowObservacionesInput(false);
+                                                        setObservacionesList([]);
+                                                    } else {
+                                                        showConfirm(
+                                                            "Quitar Todas las Observaciones",
+                                                            "Hay observaciones registradas. Si ocultas esta sección se borrará toda esa información. ¿Deseas continuar?",
+                                                            () => {
+                                                                setObservacionesList([]);
+                                                                setShowObservacionesInput(false);
+                                                            },
+                                                            () => {}
+                                                        );
+                                                    }
+                                                }}
+                                                style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold' }}
+                                            >
+                                                ✕ Quitar Sección
+                                            </button>
+                                        </div>
+
+                                        {observacionesList.map((block, idx) => (
+                                            <div 
+                                                key={block.id} 
+                                                style={{ 
+                                                    background: '#f8fafc', 
+                                                    border: '1px solid #e2e8f0', 
+                                                    borderRadius: '16px', 
+                                                    padding: '20px', 
+                                                    display: 'flex', 
+                                                    flexDirection: 'column', 
+                                                    gap: '15px' 
+                                                }}
+                                            >
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#475569' }}>📝 Observación #{idx + 1}</span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            if (block.texto.trim() || block.imagenes.length > 0) {
+                                                                showConfirm(
+                                                                    "Quitar Observación",
+                                                                    "¿Estás seguro de que deseas eliminar esta observación? Se perderán el texto y fotos correspondientes.",
+                                                                    () => removeObservacionBlock(block.id),
+                                                                    () => {}
+                                                                );
+                                                            } else {
+                                                                removeObservacionBlock(block.id);
+                                                            }
+                                                        }}
+                                                        style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '12px', cursor: 'pointer' }}
+                                                    >
+                                                        ✕ Eliminar
+                                                    </button>
+                                                </div>
+
+                                                <textarea
+                                                    className={styles.textarea}
+                                                    style={{ height: '80px', width: '100%', resize: 'vertical' }}
+                                                    value={block.texto}
+                                                    onChange={(e) => handleObservacionTextChange(block.id, e.target.value)}
+                                                    placeholder="Notas u observaciones específicas de este hallazgo..."
+                                                ></textarea>
+
+                                                <div>
+                                                    <label className={styles.label} style={{ display: 'block', marginBottom: '8px', fontSize: '12px' }}>Fotos de esta Observación:</label>
+                                                    <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', alignItems: 'center' }}>
+                                                        {block.imagenes.map((img, imgIdx) => (
+                                                            <div key={imgIdx} className={styles.evidenceItem} style={{ margin: 0 }}>
+                                                                <span className={styles.evidenceLabel}>Foto {imgIdx + 1}</span>
+                                                                <div className={styles.squareBox} style={{ width: '80px', height: '80px', position: 'relative' }}>
+                                                                    <img src={img} alt={`Extra ${imgIdx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '8px' }} />
+                                                                    <button 
+                                                                        type="button"
+                                                                        className={styles.deletePhotoBtn} 
+                                                                        onClick={(e) => { e.stopPropagation(); removeObservacionBlockImage(block.id, imgIdx); }}
+                                                                        title="Eliminar foto"
+                                                                    >
+                                                                        ✕
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                        <div className={styles.evidenceItem} style={{ margin: 0 }}>
+                                                            <span className={styles.evidenceLabel}>Agregar</span>
+                                                            <div 
+                                                                className={styles.squareBox} 
+                                                                onClick={() => triggerObservacionImageUpload(block.id)} 
+                                                                style={{ width: '80px', height: '80px', border: '2px dashed #cbd5e1', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                                            >
+                                                                <HiOutlineCamera size={22} style={{ color: '#94a3b8' }} />
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             </div>
+                                        ))}
+
+                                        <div style={{ display: 'flex', justifyContent: 'center', marginTop: '10px' }}>
+                                            <button
+                                                type="button"
+                                                onClick={addObservacionBlock}
+                                                style={{
+                                                    background: '#e0f2fe',
+                                                    color: '#0369a1',
+                                                    border: '1.5px dashed #7dd3fc',
+                                                    padding: '10px 20px',
+                                                    borderRadius: '12px',
+                                                    cursor: 'pointer',
+                                                    fontSize: '13px',
+                                                    fontWeight: 'bold',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '6px',
+                                                    transition: 'all 0.2s'
+                                                }}
+                                                onMouseEnter={(e) => {
+                                                    e.currentTarget.style.background = '#bae6fd';
+                                                }}
+                                                onMouseLeave={(e) => {
+                                                    e.currentTarget.style.background = '#e0f2fe';
+                                                }}
+                                            >
+                                                <HiOutlinePlus size={16} /> Agregar Otra Observación
+                                            </button>
                                         </div>
                                     </div>
-                                </div>
+                                )}
                             </div>
                         </div>
 
@@ -888,26 +1148,31 @@ const AdminReporte: React.FC = () => {
             </div>
 
             {/* PREVISUALIZACION DEL PDF GENERADO */}
-            {showReportePreview && (
-                <ReportePDFPreview
-                    trabajo={trabajoBase}
-                    reporteData={{
-                        id: id || 0,
-                        reporteTienda,
-                        descripcion,
-                        materiales,
-                        refaccionesList,
-                        observaciones,
-                        imagenes,
-                        imagenObservacion,
-                        firmaEmpresa,
-                        involucraEquipo,
-                        equipoInfo: involucraEquipo ? equipoInfo : null,
-                        fecha: new Date().toLocaleDateString('es-MX')
-                    }}
-                    onClose={() => setShowReportePreview(false)}
-                />
-            )}
+            {showReportePreview && (() => {
+                const compiledObservaciones = observacionesList.map(o => o.texto).filter(Boolean).join('\n\n');
+                const compiledImagenesObservacion = observacionesList.reduce((acc, o) => [...acc, ...o.imagenes], [] as string[]);
+                return (
+                    <ReportePDFPreview
+                        trabajo={trabajoBase}
+                        reporteData={{
+                            id: id || 0,
+                            reporteTienda,
+                            descripcion,
+                            materiales,
+                            refaccionesList,
+                            observaciones: compiledObservaciones,
+                            imagenes,
+                            imagenObservacion: compiledImagenesObservacion[0] || null,
+                            imagenesObservacion: compiledImagenesObservacion,
+                            firmaEmpresa,
+                            involucraEquipo,
+                            equipoInfo: involucraEquipo ? equipoInfo : null,
+                            fecha: new Date().toLocaleDateString('es-MX')
+                        }}
+                        onClose={() => setShowReportePreview(false)}
+                    />
+                );
+            })()}
 
             {/* ZOOM MODAL DE IMÁGENES */}
             {selectedZoomImage && (

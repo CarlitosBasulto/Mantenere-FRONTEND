@@ -366,7 +366,7 @@ const Historial: React.FC<HistorialProps> = ({ businessId }) => {
                                         </div>
                                     </div>
 
-                                    {(reportData.imagenes && (reportData.imagenes.antes || reportData.imagenes.durante || reportData.imagenes.despues || reportData.imagenObservacion)) && (
+                                    {(reportData.imagenes && (reportData.imagenes.antes || reportData.imagenes.durante || reportData.imagenes.despues || reportData.imagenObservacion || (reportData.imagenesObservacion && reportData.imagenesObservacion.length > 0))) && (
                                         <div className={styles.reportDetailCard}>
                                             <div className={styles.detailSectionTitle}>
                                                 <HiOutlineWrench size={18} />
@@ -384,16 +384,30 @@ const Historial: React.FC<HistorialProps> = ({ businessId }) => {
                                                         <span className={styles.evidenceLabel}>{key === 'despues' ? 'después' : key}</span>
                                                     </div>
                                                 ))}
-                                                {reportData.imagenObservacion && (
-                                                    <div className={styles.evidenceItem}>
-                                                        <img
-                                                            src={reportData.imagenObservacion}
-                                                            alt="Observación"
-                                                            className={styles.evidenceThumb}
-                                                            onClick={() => setSelectedZoomImage(reportData.imagenObservacion)}
-                                                        />
-                                                        <span className={styles.evidenceLabel}>Extra</span>
-                                                    </div>
+                                                {reportData.imagenesObservacion && reportData.imagenesObservacion.length > 0 ? (
+                                                    reportData.imagenesObservacion.map((img: string, idx: number) => (
+                                                        <div key={idx} className={styles.evidenceItem}>
+                                                            <img
+                                                                src={img}
+                                                                alt={`Extra ${idx + 1}`}
+                                                                className={styles.evidenceThumb}
+                                                                onClick={() => setSelectedZoomImage(img)}
+                                                            />
+                                                            <span className={styles.evidenceLabel}>Extra {idx + 1}</span>
+                                                        </div>
+                                                    ))
+                                                ) : (
+                                                    reportData.imagenObservacion && (
+                                                        <div className={styles.evidenceItem}>
+                                                            <img
+                                                                src={reportData.imagenObservacion}
+                                                                alt="Observación"
+                                                                className={styles.evidenceThumb}
+                                                                onClick={() => setSelectedZoomImage(reportData.imagenObservacion)}
+                                                            />
+                                                            <span className={styles.evidenceLabel}>Extra</span>
+                                                        </div>
+                                                    )
                                                 )}
                                             </div>
                                         </div>

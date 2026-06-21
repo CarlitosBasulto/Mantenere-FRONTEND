@@ -252,7 +252,7 @@ const AdminHistorial: React.FC = () => {
                                                 </div>
 
                                                 {/* EVIDENCIA FOTOGRÁFICA */}
-                                                {reportData.imagenes && (reportData.imagenes.antes || reportData.imagenes.durante || reportData.imagenes.despues || reportData.imagenObservacion) && (
+                                                {reportData.imagenes && (reportData.imagenes.antes || reportData.imagenes.durante || reportData.imagenes.despues || reportData.imagenObservacion || (reportData.imagenesObservacion && reportData.imagenesObservacion.length > 0)) && (
                                                     <div>
                                                         <span style={{ color: '#777', fontSize: '13px', display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Evidencia Fotográfica:</span>
                                                         <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
@@ -295,18 +295,34 @@ const AdminHistorial: React.FC = () => {
                                                                     />
                                                                 </div>
                                                             )}
-                                                            {reportData.imagenObservacion && (
-                                                                <div style={{ textAlign: 'center' }}>
-                                                                    <span style={{ fontSize: '12px', color: '#666', marginBottom: '4px', display: 'block' }}>Observación</span>
-                                                                    <img
-                                                                        src={reportData.imagenObservacion}
-                                                                        alt="Observación"
-                                                                        onClick={() => setSelectedZoomImage(reportData.imagenObservacion)}
-                                                                        style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #ddd', cursor: 'pointer', transition: 'transform 0.2s' }}
-                                                                        onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                                                                        onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                                                                    />
-                                                                </div>
+                                                            {reportData.imagenesObservacion && reportData.imagenesObservacion.length > 0 ? (
+                                                                reportData.imagenesObservacion.map((img: string, idx: number) => (
+                                                                    <div key={idx} style={{ textAlign: 'center' }}>
+                                                                        <span style={{ fontSize: '12px', color: '#666', marginBottom: '4px', display: 'block' }}>Extra {idx + 1}</span>
+                                                                        <img
+                                                                            src={img}
+                                                                            alt={`Extra ${idx + 1}`}
+                                                                            onClick={() => setSelectedZoomImage(img)}
+                                                                            style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #ddd', cursor: 'pointer', transition: 'transform 0.2s' }}
+                                                                            onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                                                                            onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                                                                        />
+                                                                    </div>
+                                                                ))
+                                                            ) : (
+                                                                reportData.imagenObservacion && (
+                                                                    <div style={{ textAlign: 'center' }}>
+                                                                        <span style={{ fontSize: '12px', color: '#666', marginBottom: '4px', display: 'block' }}>Extra</span>
+                                                                        <img
+                                                                            src={reportData.imagenObservacion}
+                                                                            alt="Observación"
+                                                                            onClick={() => setSelectedZoomImage(reportData.imagenObservacion)}
+                                                                            style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #ddd', cursor: 'pointer', transition: 'transform 0.2s' }}
+                                                                            onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                                                                            onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                                                                        />
+                                                                    </div>
+                                                                )
                                                             )}
                                                         </div>
                                                     </div>

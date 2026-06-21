@@ -15,7 +15,7 @@ interface PDFReportData {
         antes?: string | null;
         durante?: string | null;
         despues?: string | null;
-        extra?: string | null;
+        extra?: string | string[] | null;
     };
     firmaEmpresa?: string | null;
     equipo?: {
@@ -254,7 +254,6 @@ export const generateMaintenanceReportPDF = async (data: PDFReportData) => {
             nextY += 6;
         }
 
-
         // --- 6. VALIDACIÓN Y CONFORMIDAD (Fija al fondo de la hoja) ---
         let sigY = 240;
         if (nextY > 232) {
@@ -298,37 +297,55 @@ export const generateMaintenanceReportPDF = async (data: PDFReportData) => {
 
         nextY = drawSectionTitle("Testigos Fotográficos", nextY);
 
-        const imgSize = 42; // Tamaño más parejo y de menor altura
-        let currentX = 18;
-        const mainImages = [
-            { src: data.imagenes.antes, label: 'ANTES' },
-            { src: data.imagenes.durante, label: 'DURANTE' },
-            { src: data.imagenes.despues, label: 'DESPUÉS' },
-            { src: data.imagenes.extra, label: 'EXTRA / OTRAS' }
-        ].filter(img => !!img.src);
+        const mainImages: { src: string; label: string }[] = [];
+        if (data.imagenes.antes) mainImages.push({ src: data.imagenes.antes, label: 'ANTES' });
+        if (data.imagenes.durante) mainImages.push({ src: data.imagenes.durante, label: 'DURANTE' });
+        if (data.imagenes.despues) mainImages.push({ src: data.imagenes.despues, label: 'DESPUÉS' });
+        if (data.imagenes.extra) {
+            if (Array.isArray(data.imagenes.extra)) {
+                data.imagenes.extra.forEach((src, idx) => {
+                    if (src) mainImages.push({ src, label: `EXTRA ${idx + 1}` });
+                });
+            } else {
+                mainImages.push({ src: data.imagenes.extra, label: 'EXTRA / OTRAS' });
+            }
+        }
 
-        // Centrado dinámico si hay menos de 4 fotos (4 * 42 = 168 px, nos sobran ~42 de margen usable. 210 total)
-        // Para calcular centro exacto de la tira
-        const totalRowWidth = (mainImages.length * imgSize) + ((mainImages.length - 1) * 6);
-        currentX = (210 - totalRowWidth) / 2;
+        const imgSize = 55;
+        const gap = 8;
+        const startX = 15;
+        let currentX = startX;
+        let currentY = nextY;
 
         if (mainImages.length > 0) {
-            mainImages.forEach((img) => {
+            mainImages.forEach((img, idx) => {
+                if (idx > 0 && idx % 3 === 0) {
+                    currentX = startX;
+                    currentY += imgSize + 15;
+                    
+                    // If we are close to the bottom of the page, add a new page
+                    if (currentY + imgSize + 15 > 280) {
+                        doc.addPage();
+                        drawHeader("TESTIGOS FOTOGRÁFICOS");
+                        currentY = 35;
+                        currentY = drawSectionTitle("Testigos Fotográficos", currentY);
+                    }
+                }
+
                 if (img.src) {
                     const format = img.src.includes('png') ? 'PNG' : 'JPEG';
                     try {
-                        doc.addImage(img.src, format, currentX, nextY, imgSize, imgSize);
-                    } catch (e) { }
+                        doc.addImage(img.src, format, currentX, currentY, imgSize, imgSize);
+                    } catch (e) {
+                        console.error("Error adding image to PDF:", e);
+                    }
                     doc.setFontSize(9);
                     doc.setFont("helvetica", "bold");
-                    doc.text(img.label, currentX + (imgSize / 2), nextY + imgSize + 5, { align: 'center' });
-                    currentX += imgSize + 6;
+                    doc.text(img.label, currentX + (imgSize / 2), currentY + imgSize + 5, { align: 'center' });
                 }
+                currentX += imgSize + gap;
             });
-            nextY += imgSize + 15;
         }
-
-
 
         // Pie de página
         const pages = doc.internal.pages.length;
@@ -345,4 +362,5 @@ export const generateMaintenanceReportPDF = async (data: PDFReportData) => {
         throw error;
     }
 };
+
 
