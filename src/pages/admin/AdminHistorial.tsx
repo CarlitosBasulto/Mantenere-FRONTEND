@@ -3,6 +3,14 @@ import styles from "../cliente/Historial.module.css";
 import menuStyles from "../../components/Menu.module.css";
 import { useAuth } from "../../context/AuthContext";
 import { getTrabajos } from "../../services/trabajosService";
+import {
+    HiOutlineClipboardDocumentList,
+    HiOutlineIdentification,
+    HiOutlineClock,
+    HiOutlineBuildingOffice2,
+    HiOutlineUser,
+    HiOutlineWrench
+} from "react-icons/hi2";
 
 // Interfaz para el Trabajo
 interface TareaHistorial {
@@ -104,22 +112,23 @@ const AdminHistorial: React.FC = () => {
                                 if (!acc[key]) acc[key] = [];
                                 acc[key].push(tarea);
                                 return acc;
-                            }, {} as Record<string, TareaHistorial[]>);
-
-                            return Object.entries(grouped).map(([monthYear, tareasGroup]) => {
+                            }, {} as Record<string, TareaHistorial[]>);                            return Object.entries(grouped).map(([monthYear, tareasGroup]) => {
                                 const isExpanded = expandedMonths[monthYear] !== false; // Default true
                                 return (
                                     <div key={monthYear} style={{ marginBottom: '10px' }}>
-                                        <div onClick={() => setExpandedMonths(prev => ({ ...prev, [monthYear]: !isExpanded }))} style={{ cursor: 'pointer', background: '#f8fafc', padding: '15px 20px', borderRadius: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontWeight: 'bold', fontSize: '18px', color: '#1e293b', boxShadow: '0 2px 5px rgba(0,0,0,0.05)', marginBottom: '15px', border: '1px solid #e2e8f0', transition: 'all 0.2s ease' }} onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'} onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                <span style={{ fontSize: '24px' }}>{isExpanded ? '📂' : '📁'}</span>
+                                        <div 
+                                            onClick={() => setExpandedMonths(prev => ({ ...prev, [monthYear]: !isExpanded }))} 
+                                            className={styles.accordionHeader}
+                                        >
+                                            <div className={styles.accordionLeft}>
+                                                <span style={{ fontSize: '22px' }}>{isExpanded ? '📂' : '📁'}</span>
                                                 <span style={{ textTransform: 'capitalize' }}>{monthYear}</span>
-                                                <span style={{ background: '#e2e8f0', color: '#475569', fontSize: '13px', padding: '2px 10px', borderRadius: '20px' }}>{tareasGroup.length} reporte{tareasGroup.length !== 1 ? 's' : ''}</span>
+                                                <span className={styles.accordionCount}>{tareasGroup.length} reporte{tareasGroup.length !== 1 ? 's' : ''}</span>
                                             </div>
-                                            <span style={{ color: '#94a3b8', fontSize: '14px', transition: 'transform 0.3s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>▼</span>
+                                            <span className={`${styles.accordionArrow} ${isExpanded ? styles.accordionArrowExpanded : ''}`}>▼</span>
                                         </div>
                                         {isExpanded && (
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', paddingLeft: '15px', borderLeft: '2px solid #e2e8f0', marginLeft: '10px' }}>
+                                            <div className={styles.groupContentList}>
                                                 {tareasGroup.map((tarea, index) => {
                                                     return (
                                                         <div
@@ -127,7 +136,6 @@ const AdminHistorial: React.FC = () => {
                                                             className={styles.card}
                                                             onClick={() => setSelectedHistoryTask(tarea)}
                                                             title="Haz clic para ver más detalles"
-                                                            style={{ margin: 0, boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}
                                                         >
                                                             <div className={`${styles.cardIndicator} ${styles.borderSuccess}`}></div>
                                                             <div className={styles.cardContent}>
@@ -137,7 +145,7 @@ const AdminHistorial: React.FC = () => {
                                                                 <div className={styles.cardInfo}>
                                                                     <div className={styles.cardHeader}>
                                                                         <div>
-                                                                            <span style={{ background: '#e3f2fd', color: '#1565c0', padding: '4px 8px', borderRadius: '8px', fontSize: '12px', fontWeight: 'bold', display: 'inline-block', marginBottom: '5px' }}>
+                                                                            <span style={{ background: '#e3f2fd', color: '#1565c0', padding: '4px 8px', borderRadius: '8px', fontSize: '11px', fontWeight: 'bold', display: 'inline-block', marginBottom: '8px' }}>
                                                                                 🏢 {tarea.ubicacion}
                                                                             </span>
                                                                             <h3 className={styles.concepto} style={{ marginTop: '0' }}>{tarea.titulo}</h3>
@@ -148,7 +156,7 @@ const AdminHistorial: React.FC = () => {
                                                                     </div>
                                                                     <p className={styles.descripcion}>{tarea.descripcion}</p>
                                                                     <div className={styles.cardFooter}>
-                                                                        {tarea.tecnico && tarea.tecnico !== "Sin asignar" ? (
+                                                                        {tarea.tecnico && tarea.tecnico !== "Sin Asignar" ? (
                                                                             <span className={styles.tecnicoBadge}>🧑‍🔧 {tarea.tecnico}</span>
                                                                         ) : <span></span>}
                                                                         <span className={styles.fecha}>{tarea.fecha}</span>
@@ -180,172 +188,185 @@ const AdminHistorial: React.FC = () => {
                     const reportData = reportDataRaw ? JSON.parse(reportDataRaw) : (temporalReportDataRaw ? JSON.parse(temporalReportDataRaw) : null);
 
                     return (
-                        <div className={menuStyles.modalOverlay} onClick={(e) => {
+                        <div className={styles.premiumModalOverlay} onClick={(e) => {
                             if (e.target === e.currentTarget) setSelectedHistoryTask(null);
                         }}>
-                            <div className={menuStyles.modalContent} style={{ maxWidth: '600px', width: '90%', padding: '30px', maxHeight: '90vh', overflowY: 'auto' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '2px solid #eee', paddingBottom: '15px' }}>
-                                    <h2 style={{ margin: 0, color: '#333' }}>Detalles del Reporte {selectedHistoryTask.estado === 'Pre-Reporte' && <span style={{ color: '#ff9800', fontSize: '14px', marginLeft: '10px' }}>(Pre-Reporte Sin Firma)</span>}</h2>
-                                    <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
-                                        <button
-                                            onClick={() => setSelectedHistoryTask(null)}
-                                            style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#999' }}
-                                        >
-                                            ×
-                                        </button>
-                                    </div>
+                            <div className={styles.premiumModalContent}>
+                                <div className={styles.premiumModalHeader}>
+                                    <h2>
+                                        <HiOutlineClipboardDocumentList size={26} color="#3b82f6" />
+                                        Detalles del Reporte
+                                        {selectedHistoryTask.estado === 'Pre-Reporte' && <span style={{ color: '#f26522', fontSize: '13px', background: '#fffbeb', padding: '4px 10px', borderRadius: '10px', border: '1px solid #fef3c7', marginLeft: '10px' }}>Pre-Reporte</span>}
+                                    </h2>
+                                    <button
+                                        className={styles.closeButtonCircle}
+                                        onClick={() => setSelectedHistoryTask(null)}
+                                        title="Cerrar"
+                                    >
+                                        <span style={{ fontSize: '20px', fontWeight: 'bold', color: 'inherit' }}>✕</span>
+                                    </button>
                                 </div>
 
-                                <div style={{ display: 'grid', gap: '20px' }}>
+                                <div className={styles.premiumModalBody}>
+                                    <div className={styles.infoGrid}>
+                                        <div className={styles.reportDetailCard} style={{ margin: 0 }}>
+                                            <div className={styles.detailSectionTitle}>
+                                                <HiOutlineIdentification size={18} />
+                                                Identificación
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <div>
+                                                    <span className={styles.dataLabel}>Folio de Reporte</span>
+                                                    <span className={styles.folioBadge}>#{reportData?.id || selectedHistoryTask.id}</span>
+                                                </div>
+                                                <div style={{ textAlign: 'right' }}>
+                                                    <span className={styles.dataLabel}>Estatus</span>
+                                                    <span style={{
+                                                        fontSize: '11px',
+                                                        fontWeight: '800',
+                                                        color: selectedHistoryTask.estado === 'Finalizado' ? '#059669' : '#b45309',
+                                                        background: selectedHistoryTask.estado === 'Finalizado' ? '#ecfdf5' : '#fffbeb',
+                                                        padding: '4px 10px',
+                                                        borderRadius: '8px',
+                                                        border: `1px solid ${selectedHistoryTask.estado === 'Finalizado' ? '#d1fae5' : '#fef3c7'}`
+                                                    }}>
+                                                        {selectedHistoryTask.estado.toUpperCase()}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
 
-                                    <div style={{ background: '#f8f9fa', padding: '20px', borderRadius: '15px', borderLeft: '4px solid #4caf50' }}>
-                                        <h3 style={{ margin: '0 0 10px 0', color: '#2e7d32', fontSize: '18px' }}>{selectedHistoryTask.titulo}</h3>
-                                        <p style={{ margin: 0, color: '#555', fontSize: '15px', lineHeight: '1.5' }}>{selectedHistoryTask.descripcion}</p>
-                                        <div style={{ marginTop: '15px', display: 'flex', gap: '10px' }}>
-                                            <span style={{ background: '#e8f5e9', color: '#2e7d32', padding: '5px 10px', borderRadius: '15px', fontSize: '12px', fontWeight: 'bold' }}>
-                                                Estado: {selectedHistoryTask.estado}
-                                            </span>
-                                            {reportData && reportData.fecha && (
-                                                <span style={{ background: '#e3f2fd', color: '#1565c0', padding: '5px 10px', borderRadius: '15px', fontSize: '12px', fontWeight: 'bold' }}>
-                                                    Fecha: {reportData.fecha}
-                                                </span>
-                                            )}
-                                            {reportData && (
-                                                <span style={{ background: '#f3e5f5', color: '#7b1fa2', padding: '5px 10px', borderRadius: '15px', fontSize: '12px', fontWeight: 'bold' }}>
-                                                    Folio: {reportData.id}
-                                                </span>
-                                            )}
+                                        <div className={styles.reportDetailCard} style={{ margin: 0 }}>
+                                            <div className={styles.detailSectionTitle}>
+                                                <HiOutlineClock size={18} />
+                                                Cronología
+                                            </div>
+                                            <span className={styles.dataLabel}>Fecha de Registro</span>
+                                            <span className={styles.dataText}>{selectedHistoryTask.fecha}</span>
                                         </div>
                                     </div>
 
-                                    {reportData && (
-                                        <div style={{ background: '#fff', padding: '20px', borderRadius: '15px', border: '1px solid #eee' }}>
-                                            <h4 style={{ margin: '0 0 15px 0', color: '#333', fontSize: '16px' }}>📋 Datos del Reporte</h4>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-
-                                                <div>
-                                                    <span style={{ color: '#777', fontSize: '13px', display: 'block', marginBottom: '4px' }}>Reporte de tienda:</span>
-                                                    <div style={{ background: '#fafafa', padding: '10px', borderRadius: '8px', fontSize: '14px', color: '#333' }}>
-                                                        {reportData.reporteTienda || 'N/A'}
-                                                    </div>
-                                                </div>
-
-                                                <div>
-                                                    <span style={{ color: '#777', fontSize: '13px', display: 'block', marginBottom: '4px' }}>Descripción:</span>
-                                                    <div style={{ background: '#fafafa', padding: '10px', borderRadius: '8px', fontSize: '14px', color: '#333' }}>
-                                                        {reportData.descripcion || 'N/A'}
-                                                    </div>
-                                                </div>
-
-                                                <div>
-                                                    <span style={{ color: '#777', fontSize: '13px', display: 'block', marginBottom: '4px' }}>Materiales Utilizados:</span>
-                                                    <div style={{ background: '#fafafa', padding: '10px', borderRadius: '8px', fontSize: '14px', color: '#333' }}>
-                                                        {reportData.materiales || 'N/A'}
-                                                    </div>
-                                                </div>
-
-                                                <div>
-                                                    <span style={{ color: '#777', fontSize: '13px', display: 'block', marginBottom: '4px' }}>Observaciones Adicionales:</span>
-                                                    <div style={{ background: '#fafafa', padding: '10px', borderRadius: '8px', fontSize: '14px', color: '#333' }}>
-                                                        {reportData.observaciones || 'N/A'}
-                                                    </div>
-                                                </div>
-
-                                                {/* EVIDENCIA FOTOGRÁFICA */}
-                                                {reportData.imagenes && (reportData.imagenes.antes || reportData.imagenes.durante || reportData.imagenes.despues || reportData.imagenObservacion || (reportData.imagenesObservacion && reportData.imagenesObservacion.length > 0)) && (
-                                                    <div>
-                                                        <span style={{ color: '#777', fontSize: '13px', display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Evidencia Fotográfica:</span>
-                                                        <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
-                                                            {reportData.imagenes.antes && (
-                                                                <div style={{ textAlign: 'center' }}>
-                                                                    <span style={{ fontSize: '12px', color: '#666', marginBottom: '4px', display: 'block' }}>Antes</span>
-                                                                    <img
-                                                                        src={reportData.imagenes.antes}
-                                                                        alt="Antes"
-                                                                        onClick={() => setSelectedZoomImage(reportData.imagenes.antes)}
-                                                                        style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #ddd', cursor: 'pointer', transition: 'transform 0.2s' }}
-                                                                        onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                                                                        onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                                                                    />
-                                                                </div>
-                                                            )}
-                                                            {reportData.imagenes.durante && (
-                                                                <div style={{ textAlign: 'center' }}>
-                                                                    <span style={{ fontSize: '12px', color: '#666', marginBottom: '4px', display: 'block' }}>Durante</span>
-                                                                    <img
-                                                                        src={reportData.imagenes.durante}
-                                                                        alt="Durante"
-                                                                        onClick={() => setSelectedZoomImage(reportData.imagenes.durante)}
-                                                                        style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #ddd', cursor: 'pointer', transition: 'transform 0.2s' }}
-                                                                        onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                                                                        onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                                                                    />
-                                                                </div>
-                                                            )}
-                                                            {reportData.imagenes.despues && (
-                                                                <div style={{ textAlign: 'center' }}>
-                                                                    <span style={{ fontSize: '12px', color: '#666', marginBottom: '4px', display: 'block' }}>Después</span>
-                                                                    <img
-                                                                        src={reportData.imagenes.despues}
-                                                                        alt="Después"
-                                                                        onClick={() => setSelectedZoomImage(reportData.imagenes.despues)}
-                                                                        style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #ddd', cursor: 'pointer', transition: 'transform 0.2s' }}
-                                                                        onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                                                                        onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                                                                    />
-                                                                </div>
-                                                            )}
-                                                            {reportData.imagenesObservacion && reportData.imagenesObservacion.length > 0 ? (
-                                                                reportData.imagenesObservacion.map((img: string, idx: number) => (
-                                                                    <div key={idx} style={{ textAlign: 'center' }}>
-                                                                        <span style={{ fontSize: '12px', color: '#666', marginBottom: '4px', display: 'block' }}>Extra {idx + 1}</span>
-                                                                        <img
-                                                                            src={img}
-                                                                            alt={`Extra ${idx + 1}`}
-                                                                            onClick={() => setSelectedZoomImage(img)}
-                                                                            style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #ddd', cursor: 'pointer', transition: 'transform 0.2s' }}
-                                                                            onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                                                                            onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                                                                        />
-                                                                    </div>
-                                                                ))
-                                                            ) : (
-                                                                reportData.imagenObservacion && (
-                                                                    <div style={{ textAlign: 'center' }}>
-                                                                        <span style={{ fontSize: '12px', color: '#666', marginBottom: '4px', display: 'block' }}>Extra</span>
-                                                                        <img
-                                                                            src={reportData.imagenObservacion}
-                                                                            alt="Observación"
-                                                                            onClick={() => setSelectedZoomImage(reportData.imagenObservacion)}
-                                                                            style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #ddd', cursor: 'pointer', transition: 'transform 0.2s' }}
-                                                                            onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                                                                            onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                                                                        />
-                                                                    </div>
-                                                                )
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                )}
-
-                                                {/* FIRMA DE LA EMPRESA */}
-                                                {reportData.firmaEmpresa && (
-                                                    <div style={{ marginTop: '10px' }}>
-                                                        <span style={{ color: '#777', fontSize: '13px', display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Firma de Validación:</span>
-                                                        <div style={{ background: '#f5f5f5', padding: '10px', borderRadius: '8px', display: 'inline-block' }}>
-                                                            <img
-                                                                src={reportData.firmaEmpresa}
-                                                                alt="Firma"
-                                                                onClick={() => setSelectedZoomImage(reportData.firmaEmpresa)}
-                                                                style={{ height: '60px', objectFit: 'contain', cursor: 'pointer', transition: 'transform 0.2s' }}
-                                                                onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                                                                onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                )}
-
+                                    <div className={styles.reportDetailCard}>
+                                        <div className={styles.detailSectionTitle}>
+                                            <HiOutlineBuildingOffice2 size={18} />
+                                            Información de Servicio
+                                        </div>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                                            <div className={styles.dataBlock}>
+                                                <span className={styles.dataLabel}>Sucursal</span>
+                                                <span className={styles.dataText}>{selectedHistoryTask.ubicacion}</span>
                                             </div>
+                                            <div className={styles.dataBlock}>
+                                                <span className={styles.dataLabel}>Tipo de Trabajo</span>
+                                                <span className={styles.dataText}>{selectedHistoryTask.titulo}</span>
+                                            </div>
+                                            <div className={styles.dataBlock} style={{ gridColumn: 'span 2' }}>
+                                                <span className={styles.dataLabel}>Técnico Encargado</span>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                                                    <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>
+                                                        <HiOutlineUser size={16} />
+                                                    </div>
+                                                    <span className={styles.dataText}>{selectedHistoryTask.tecnico || "No asignado"}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {reportData ? (
+                                        <>
+                                            <div className={styles.reportDetailCard}>
+                                                <div className={styles.detailSectionTitle}>
+                                                    <HiOutlineClipboardDocumentList size={18} />
+                                                    Datos del Reporte
+                                                </div>
+
+                                                <div className={styles.dataBlock}>
+                                                    <span className={styles.dataLabel}>Reporte de Tienda / Hallazgo</span>
+                                                    <div className={styles.dataBox}>{reportData.reporteTienda || 'N/A'}</div>
+                                                </div>
+
+                                                <div className={styles.dataBlock}>
+                                                    <span className={styles.dataLabel}>Descripción del Trabajo Realizado</span>
+                                                    <div className={styles.dataBox}>{reportData.descripcion || 'N/A'}</div>
+                                                </div>
+
+                                                <div className={styles.dataBlock}>
+                                                    <span className={styles.dataLabel}>Materiales y Refacciones</span>
+                                                    <div className={styles.dataBox}>{reportData.materiales || 'No se utilizaron materiales.'}</div>
+                                                </div>
+
+                                                <div className={styles.dataBlock}>
+                                                    <span className={styles.dataLabel}>Observaciones Adicionales</span>
+                                                    <div className={styles.dataBox}>{reportData.observaciones || 'Sin observaciones adicionales.'}</div>
+                                                </div>
+                                            </div>
+
+                                            {(reportData.imagenes && (reportData.imagenes.antes || reportData.imagenes.durante || reportData.imagenes.despues || reportData.imagenObservacion || (reportData.imagenesObservacion && reportData.imagenesObservacion.length > 0))) && (
+                                                <div className={styles.reportDetailCard}>
+                                                    <div className={styles.detailSectionTitle}>
+                                                        <HiOutlineWrench size={18} />
+                                                        Evidencia Fotográfica
+                                                    </div>
+                                                    <div className={styles.evidenceGrid}>
+                                                        {['antes', 'durante', 'despues'].map(key => reportData.imagenes[key] && (
+                                                            <div key={key} className={styles.evidenceItem}>
+                                                                <img
+                                                                    src={reportData.imagenes[key]}
+                                                                    alt={key}
+                                                                    className={styles.evidenceThumb}
+                                                                    onClick={() => setSelectedZoomImage(reportData.imagenes[key])}
+                                                                />
+                                                                <span className={styles.evidenceLabel}>{key === 'despues' ? 'después' : key}</span>
+                                                            </div>
+                                                        ))}
+                                                        {reportData.imagenesObservacion && reportData.imagenesObservacion.length > 0 ? (
+                                                            reportData.imagenesObservacion.map((img: string, idx: number) => (
+                                                                <div key={idx} className={styles.evidenceItem}>
+                                                                    <img
+                                                                        src={img}
+                                                                        alt={`Extra ${idx + 1}`}
+                                                                        className={styles.evidenceThumb}
+                                                                        onClick={() => setSelectedZoomImage(img)}
+                                                                    />
+                                                                    <span className={styles.evidenceLabel}>Extra {idx + 1}</span>
+                                                                </div>
+                                                            ))
+                                                        ) : (
+                                                            reportData.imagenObservacion && (
+                                                                <div className={styles.evidenceItem}>
+                                                                    <img
+                                                                        src={reportData.imagenObservacion}
+                                                                        alt="Observación"
+                                                                        className={styles.evidenceThumb}
+                                                                        onClick={() => setSelectedZoomImage(reportData.imagenObservacion)}
+                                                                    />
+                                                                    <span className={styles.evidenceLabel}>Extra</span>
+                                                                </div>
+                                                            )
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {reportData.firmaEmpresa && (
+                                                <div className={styles.reportDetailCard} style={{ textAlign: 'center' }}>
+                                                    <span className={styles.dataLabel}>Firma de Validación (Cliente)</span>
+                                                    <div style={{ background: '#f8fafc', padding: '15px', borderRadius: '15px', display: 'inline-block', marginTop: '10px', border: '1px solid #f1f5f9' }}>
+                                                        <img
+                                                            src={reportData.firmaEmpresa}
+                                                            alt="Firma"
+                                                            style={{ height: '70px', objectFit: 'contain', cursor: 'zoom-in' }}
+                                                            onClick={() => setSelectedZoomImage(reportData.firmaEmpresa)}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <div style={{ background: '#fffbeb', padding: '24px', borderRadius: '25px', border: '1.5px solid #fef3c7', textAlign: 'center' }}>
+                                            <p style={{ margin: 0, color: '#b45309', fontSize: '14px', fontWeight: '600', fontStyle: 'italic' }}>
+                                                ⚠️ Aún no hay un reporte detallado registrado para esta actividad.
+                                            </p>
                                         </div>
                                     )}
                                 </div>

@@ -419,3 +419,65 @@
         padding: 20px;
     }
 }
+
+/* ===========================
+   ACCORDION STYLES FOR HISTORY GROUPING
+   =========================== */
+.accordionHeader {
+    cursor: pointer;
+    background: #f8fafc;
+    padding: 16px 24px;
+    border-radius: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 700;
+    font-size: 16px;
+    color: #0f172a;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.02);
+    margin-bottom: 16px;
+    border: 1px solid #e2e8f0;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.accordionHeader:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
+    border-color: #cbd5e1;
+    background: #ffffff;
+}
+
+.accordionLeft {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.accordionCount {
+    background: #e2e8f0;
+    color: #475569;
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-weight: 700;
+}
+
+.accordionArrow {
+    color: #94a3b8;
+    font-size: 12px;
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.accordionArrowExpanded {
+    transform: rotate(180deg);
+}
+
+.groupContentList {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding-left: 16px;
+    border-left: 2px solid #cbd5e1;
+    margin-left: 10px;
+    margin-bottom: 24px;
+}

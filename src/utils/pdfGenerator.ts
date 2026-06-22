@@ -7,10 +7,13 @@ interface PDFReportData {
     sucursal: string;
     encargado: string;
     tecnico: string;
+    tecnicoAvatar?: string | null;
+    fechaInicio?: string | null;
     diagnostico: string;
     descripcion: string;
     materiales: string;
     observaciones: string;
+    observacionesList?: { id: string; texto: string; imagenes: string[] }[];
     imagenes: {
         antes?: string | null;
         durante?: string | null;
@@ -26,6 +29,8 @@ interface PDFReportData {
         garantia?: string;
     } | null;
     logoBase64?: string | null;
+    refaccionesList?: { pieza: string; cantidad: number; costo_estimado: string }[];
+    isVisita?: boolean;
 }
 
 // Función auxiliar para cargar imagen y retornar base64 (opcional, jsPDF puede manejar URLs si el server lo permite)
@@ -35,7 +40,7 @@ const getLogoBase64 = (): string => {
     return "/src/assets/imagenes/logo-agente-business.png";
 };
 
-export const generateMaintenanceReportPDF = async (data: PDFReportData) => {
+export const generateMaintenanceReportPDF = async (data: PDFReportData, returnBlob = false) => {
     try {
         const doc = new jsPDF();
         const dynamicFolio = data.folio || `REP-${data.id.toString().padStart(5, '0')}`;
@@ -53,10 +58,12 @@ export const generateMaintenanceReportPDF = async (data: PDFReportData) => {
             doc.setTextColor(255, 255, 255);
             doc.setFontSize(16);
             doc.setFont("helvetica", "bold");
-            doc.text(titleText, 65, 12);
+            const finalTitle = data.isVisita ? "COTIZACIÓN DE SERVICIO" : titleText;
+            doc.text(finalTitle, 65, 12);
             doc.setFontSize(9);
             doc.setFont("helvetica", "normal");
-            doc.text(`FOLIO: ${dynamicFolio}`, 65, 19);
+            const finalFolio = data.isVisita ? dynamicFolio.replace('REP-', 'COT-').replace('TRB-', 'COT-') : dynamicFolio;
+            doc.text(`FOLIO: ${finalFolio}`, 65, 19);
             doc.text(`FECHA: ${data.fecha}`, 130, 19);
             doc.setFillColor(goldColor[0], goldColor[1], goldColor[2]);
             doc.rect(0, 26, 210, 2, 'F');
@@ -111,18 +118,64 @@ export const generateMaintenanceReportPDF = async (data: PDFReportData) => {
         drawFieldHalf("Encargado:", data.encargado, leftX, leftY);
         leftY += 5;
         drawFieldHalf("Técnico:", data.tecnico, leftX, leftY);
+        leftY += 5;
+        drawFieldHalf("Inició:", data.fechaInicio || data.fecha, leftX, leftY);
         leftY += 8;
 
+        // Draw technician avatar if present
+        if (data.tecnicoAvatar) {
+            try {
+                const format = data.tecnicoAvatar.includes('png') ? 'PNG' : 'JPEG';
+                doc.setDrawColor(220, 220, 220);
+                doc.setFillColor(255, 255, 255);
+                doc.rect(84, 42, 16, 16, 'FD');
+                doc.addImage(data.tecnicoAvatar, format, 84.5, 42.5, 15, 15);
+            } catch (e) {
+                console.error("Error drawing technician avatar in PDF:", e);
+            }
+        }
+
         // --- 3. REFACCIONES Y MATERIALES ---
-        leftY = drawSectionTitleHalf("Refacciones y Materiales", leftX, leftY, colWidthHalf);
+        leftY = drawSectionTitleHalf(data.isVisita ? "Materiales y Refacciones Cotizados" : "Refacciones y Materiales", leftX, leftY, colWidthHalf);
         doc.setFont("helvetica", "normal");
-        if (!data.materiales) {
-            doc.text("No se utilizaron refacciones.", leftX + 2, leftY + 3);
-            leftY += 8;
+        
+        let totalAmount = 0;
+        if (data.isVisita && data.refaccionesList && data.refaccionesList.length > 0) {
+            doc.setFontSize(8);
+            data.refaccionesList.forEach((ref) => {
+                const qty = ref.amount || ref.cantidad || 1;
+                const price = parseFloat(ref.costo_estimado) || 0;
+                const total = qty * price;
+                totalAmount += total;
+                
+                const lineText = `- ${qty}x ${ref.pieza.toUpperCase()}: $${total.toFixed(2)}`;
+                const splitLine = doc.splitTextToSize(lineText, colWidthHalf - 4);
+                doc.text(splitLine, leftX + 2, leftY + 3);
+                leftY += (splitLine.length * 3.5) + 1;
+            });
+            
+            if (totalAmount > 0) {
+                const subtotal = totalAmount / 1.16;
+                const iva = totalAmount - subtotal;
+                
+                leftY += 2;
+                doc.setFont("helvetica", "bold");
+                doc.text(`Subtotal: $${subtotal.toFixed(2)}`, leftX + 2, leftY);
+                leftY += 4;
+                doc.text(`IVA (16%): $${iva.toFixed(2)}`, leftX + 2, leftY);
+                leftY += 4;
+                doc.text(`Total: $${totalAmount.toFixed(2)}`, leftX + 2, leftY);
+                leftY += 6;
+            }
         } else {
-            const matLines = doc.splitTextToSize(data.materiales, colWidthHalf - 4);
-            doc.text(matLines, leftX + 2, leftY + 3);
-            leftY += (matLines.length * 3.5) + 5;
+            if (!data.materiales) {
+                doc.text("No se utilizaron refacciones.", leftX + 2, leftY + 3);
+                leftY += 8;
+            } else {
+                const matLines = doc.splitTextToSize(data.materiales, colWidthHalf - 4);
+                doc.text(matLines, leftX + 2, leftY + 3);
+                leftY += (matLines.length * 3.5) + 5;
+            }
         }
 
         // --- 4. DETALLES DEL TRABAJO ---
@@ -137,8 +190,8 @@ export const generateMaintenanceReportPDF = async (data: PDFReportData) => {
             return y + (lines.length * 3.5) + 6;
         };
 
-        rightY = drawTextAreaHalf("Diagnóstico / Reporte:", data.diagnostico, rightX, rightY, 90);
-        rightY = drawTextAreaHalf("Trabajo Realizado:", data.descripcion, rightX, rightY, 90);
+        rightY = drawTextAreaHalf(data.isVisita ? "Diagnóstico / Visita:" : "Diagnóstico / Reporte:", data.diagnostico, rightX, rightY, 90);
+        rightY = drawTextAreaHalf(data.isVisita ? "Trabajo a Realizar:" : "Trabajo Realizado:", data.descripcion, rightX, rightY, 90);
 
         nextY = Math.max(leftY, rightY) + 5;
 
@@ -167,91 +220,99 @@ export const generateMaintenanceReportPDF = async (data: PDFReportData) => {
         // --- 5. OBSERVACIONES FINALES (Ahora en la Hoja 1) ---
         if (nextY > 200) { doc.addPage(); nextY = 20; }
         nextY = drawSectionTitle("Observaciones Finales", nextY);
-        const obsLines = doc.splitTextToSize(data.observaciones || 'Sin observaciones adicionales.', 170);
+        
+        const hasObservations = (data.observacionesList && data.observacionesList.length > 0) || (data.observaciones && data.observaciones.trim().length > 0);
+        const obsText = hasObservations 
+            ? 'Se anexan reportes fotográficos y observaciones en la hoja de Testigos Fotográficos.'
+            : 'Sin observaciones adicionales.';
+            
+        const obsLines = doc.splitTextToSize(obsText, 170);
         doc.setFont("helvetica", "normal");
         doc.setFontSize(9);
         doc.text(obsLines, 20, nextY + 3);
         nextY += (obsLines.length * 4) + 10;
 
         // --- SECCIÓN EVALUACIÓN (EXCLUSIVO TIENDA) ---
-        // Asegurarnos de que cabe en la primera hoja antes de la firma (si supera 165 se pasa a hoja 2)
-        if (nextY > 165) { doc.addPage(); nextY = 20; }
+        if (!data.isVisita) {
+            // Asegurarnos de que cabe en la primera hoja antes de la firma (si supera 165 se pasa a hoja 2)
+            if (nextY > 165) { doc.addPage(); nextY = 20; }
 
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(7);
-        doc.setTextColor(navyColor[0], navyColor[1], navyColor[2]);
-        doc.text("Nota: Para el caso de cambio de refacciones, es necesario agregar una memoria fotográfica donde se logre percibir el cambio.", 15, nextY);
-        nextY += 6;
-
-        nextY = drawSectionTitle("Exclusivo Tienda", nextY);
-
-        doc.setFontSize(7);
-        doc.setFont("helvetica", "bold");
-        doc.text("CALIFICACIÓN AL TÉCNICO Y A SU TRABAJO EN ESCALA DEL 1 AL 10", 15, nextY + 2);
-
-        doc.text("CALIFICACIÓN A LA EMPRESA", 115, nextY + 2);
-        nextY += 6;
-
-        doc.setFont("helvetica", "normal");
-
-        // Left Column (Tecnico)
-        const leftColX = 15;
-        const lineStartX = 55;
-        const lineEndX = 95;
-
-        leftY = nextY;
-        const drawRatingField = (label: string, y: number) => {
-            doc.text(label, leftColX, y);
-            doc.line(lineStartX, y, lineEndX, y);
-            return y + 5;
-        };
-
-        leftY = drawRatingField("Presentacion", leftY);
-        leftY = drawRatingField("Trato del tecnico", leftY);
-        leftY = drawRatingField("Disponibilidad", leftY);
-        leftY = drawRatingField("Trabajo Realizado", leftY);
-        leftY = drawRatingField("Limpieza del trabajo", leftY);
-
-        // Right Column (Empresa)
-        const rightColX = 115;
-        rightY = nextY;
-
-        doc.text("Tiempo de respuesta", rightColX, rightY);
-        doc.text("CALIFICACION", rightColX + 45, rightY);
-        doc.line(rightColX + 68, rightY, rightColX + 75, rightY);
-        rightY += 6;
-
-        doc.text("Has visto mejoras con respecto al mantenimiento", rightColX, rightY);
-        rightY += 5;
-        doc.rect(rightColX + 5, rightY - 4, 8, 4);
-        doc.text("SI", rightColX + 7, rightY - 0.5);
-        doc.rect(rightColX + 25, rightY - 4, 8, 4);
-        doc.text("NO", rightColX + 26, rightY - 0.5);
-        doc.text("CALIFICACION", rightColX + 45, rightY);
-        doc.line(rightColX + 68, rightY, rightColX + 75, rightY);
-        rightY += 6;
-
-        doc.text("Estas satisfecho con tu proveedor", rightColX, rightY);
-        rightY += 5;
-        doc.rect(rightColX + 5, rightY - 4, 8, 4);
-        doc.text("SI", rightColX + 7, rightY - 0.5);
-        doc.rect(rightColX + 25, rightY - 4, 8, 4);
-        doc.text("NO", rightColX + 26, rightY - 0.5);
-        doc.text("CALIFICACION", rightColX + 45, rightY);
-        doc.line(rightColX + 68, rightY, rightColX + 75, rightY);
-
-        nextY = Math.max(leftY, rightY) + 3;
-
-        // Consejo
-        doc.setFont("helvetica", "bold");
-        doc.text("CONSEJO HACIA EL PROVEEDOR PARA SER MAS EFICIENTE:", 15, nextY);
-        nextY += 5;
-        doc.setDrawColor(0);
-
-        // Dibujar exactamente 4 líneas para el consejo
-        for (let i = 0; i < 4; i++) {
-            doc.line(15, nextY, 195, nextY);
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(7);
+            doc.setTextColor(navyColor[0], navyColor[1], navyColor[2]);
+            doc.text("Nota: Para el caso de cambio de refacciones, es necesario agregar una memoria fotográfica donde se logre percibir el cambio.", 15, nextY);
             nextY += 6;
+
+            nextY = drawSectionTitle("Exclusivo Tienda", nextY);
+
+            doc.setFontSize(7);
+            doc.setFont("helvetica", "bold");
+            doc.text("CALIFICACIÓN AL TÉCNICO Y A SU TRABAJO EN ESCALA DEL 1 AL 10", 15, nextY + 2);
+
+            doc.text("CALIFICACIÓN A LA EMPRESA", 115, nextY + 2);
+            nextY += 6;
+
+            doc.setFont("helvetica", "normal");
+
+            // Left Column (Tecnico)
+            const leftColX = 15;
+            const lineStartX = 55;
+            const lineEndX = 95;
+
+            leftY = nextY;
+            const drawRatingField = (label: string, y: number) => {
+                doc.text(label, leftColX, y);
+                doc.line(lineStartX, y, lineEndX, y);
+                return y + 5;
+            };
+
+            leftY = drawRatingField("Presentacion", leftY);
+            leftY = drawRatingField("Trato del tecnico", leftY);
+            leftY = drawRatingField("Disponibilidad", leftY);
+            leftY = drawRatingField("Trabajo Realizado", leftY);
+            leftY = drawRatingField("Limpieza del trabajo", leftY);
+
+            // Right Column (Empresa)
+            const rightColX = 115;
+            rightY = nextY;
+
+            doc.text("Tiempo de respuesta", rightColX, rightY);
+            doc.text("CALIFICACION", rightColX + 45, rightY);
+            doc.line(rightColX + 68, rightY, rightColX + 75, rightY);
+            rightY += 6;
+
+            doc.text("Has visto mejoras con respecto al mantenimiento", rightColX, rightY);
+            rightY += 5;
+            doc.rect(rightColX + 5, rightY - 4, 8, 4);
+            doc.text("SI", rightColX + 7, rightY - 0.5);
+            doc.rect(rightColX + 25, rightY - 4, 8, 4);
+            doc.text("NO", rightColX + 26, rightY - 0.5);
+            doc.text("CALIFICACION", rightColX + 45, rightY);
+            doc.line(rightColX + 68, rightY, rightColX + 75, rightY);
+            rightY += 6;
+
+            doc.text("Estas satisfecho con tu proveedor", rightColX, rightY);
+            rightY += 5;
+            doc.rect(rightColX + 5, rightY - 4, 8, 4);
+            doc.text("SI", rightColX + 7, rightY - 0.5);
+            doc.rect(rightColX + 25, rightY - 4, 8, 4);
+            doc.text("NO", rightColX + 26, rightY - 0.5);
+            doc.text("CALIFICACION", rightColX + 45, rightY);
+            doc.line(rightColX + 68, rightY, rightColX + 75, rightY);
+
+            nextY = Math.max(leftY, rightY) + 3;
+
+            // Consejo
+            doc.setFont("helvetica", "bold");
+            doc.text("CONSEJO HACIA EL PROVEEDOR PARA SER MAS EFICIENTE:", 15, nextY);
+            nextY += 5;
+            doc.setDrawColor(0);
+
+            // Dibujar exactamente 4 líneas para el consejo
+            for (let i = 0; i < 4; i++) {
+                doc.line(15, nextY, 195, nextY);
+                nextY += 6;
+            }
         }
 
         // --- 6. VALIDACIÓN Y CONFORMIDAD (Fija al fondo de la hoja) ---
@@ -301,15 +362,6 @@ export const generateMaintenanceReportPDF = async (data: PDFReportData) => {
         if (data.imagenes.antes) mainImages.push({ src: data.imagenes.antes, label: 'ANTES' });
         if (data.imagenes.durante) mainImages.push({ src: data.imagenes.durante, label: 'DURANTE' });
         if (data.imagenes.despues) mainImages.push({ src: data.imagenes.despues, label: 'DESPUÉS' });
-        if (data.imagenes.extra) {
-            if (Array.isArray(data.imagenes.extra)) {
-                data.imagenes.extra.forEach((src, idx) => {
-                    if (src) mainImages.push({ src, label: `EXTRA ${idx + 1}` });
-                });
-            } else {
-                mainImages.push({ src: data.imagenes.extra, label: 'EXTRA / OTRAS' });
-            }
-        }
 
         const imgSize = 55;
         const gap = 8;
@@ -318,20 +370,7 @@ export const generateMaintenanceReportPDF = async (data: PDFReportData) => {
         let currentY = nextY;
 
         if (mainImages.length > 0) {
-            mainImages.forEach((img, idx) => {
-                if (idx > 0 && idx % 3 === 0) {
-                    currentX = startX;
-                    currentY += imgSize + 15;
-                    
-                    // If we are close to the bottom of the page, add a new page
-                    if (currentY + imgSize + 15 > 280) {
-                        doc.addPage();
-                        drawHeader("TESTIGOS FOTOGRÁFICOS");
-                        currentY = 35;
-                        currentY = drawSectionTitle("Testigos Fotográficos", currentY);
-                    }
-                }
-
+            mainImages.forEach((img) => {
                 if (img.src) {
                     const format = img.src.includes('png') ? 'PNG' : 'JPEG';
                     try {
@@ -345,6 +384,98 @@ export const generateMaintenanceReportPDF = async (data: PDFReportData) => {
                 }
                 currentX += imgSize + gap;
             });
+            currentY += imgSize + 15;
+        }
+
+        // Draw structured observations list
+        let obsListToRender = data.observacionesList;
+        if (!obsListToRender || obsListToRender.length === 0) {
+            const extraImgs = Array.isArray(data.imagenes.extra)
+                ? data.imagenes.extra
+                : (data.imagenes.extra ? [data.imagenes.extra] : []);
+            if ((data.observaciones && data.observaciones.trim()) || extraImgs.length > 0) {
+                obsListToRender = [{
+                    id: 'fallback-obs',
+                    texto: data.observaciones || '',
+                    imagenes: extraImgs.filter(Boolean) as string[]
+                }];
+            } else {
+                obsListToRender = [];
+            }
+        }
+
+        if (obsListToRender && obsListToRender.length > 0) {
+            // Draw section title for observations
+            if (currentY > 240) {
+                doc.addPage();
+                drawHeader("TESTIGOS FOTOGRÁFICOS");
+                currentY = 35;
+            }
+            currentY = drawSectionTitle("Observaciones y Evidencias", currentY);
+
+            obsListToRender.forEach((obs, idx) => {
+                // Check page spacing before drawing this observation block
+                if (currentY > 240) {
+                    doc.addPage();
+                    drawHeader("TESTIGOS FOTOGRÁFICOS");
+                    currentY = 35;
+                }
+
+                // Title
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(9);
+                doc.setTextColor(navyColor[0], navyColor[1], navyColor[2]);
+                doc.text(`Observación #${idx + 1}:`, 15, currentY);
+                currentY += 4;
+
+                // Text content
+                const obsLines = doc.splitTextToSize(obs.texto || 'Sin observaciones registradas.', 180);
+                doc.setFont("helvetica", "normal");
+                doc.setFontSize(9);
+                doc.setTextColor(80, 80, 80);
+                doc.text(obsLines, 15, currentY);
+                currentY += (obsLines.length * 4) + 4;
+
+                // Images
+                if (obs.imagenes && obs.imagenes.length > 0) {
+                    const obsImgSize = 45;
+                    const obsGap = 5;
+                    let obsX = 15;
+
+                    // If images are too close to page boundary, page break
+                    if (currentY + obsImgSize + 10 > 280) {
+                        doc.addPage();
+                        drawHeader("TESTIGOS FOTOGRÁFICOS");
+                        currentY = 35;
+                    }
+
+                    obs.imagenes.forEach((img, imgIdx) => {
+                        if (imgIdx > 0 && imgIdx % 4 === 0) {
+                            obsX = 15;
+                            currentY += obsImgSize + 5;
+                            // Check boundary again
+                            if (currentY + obsImgSize + 10 > 280) {
+                                doc.addPage();
+                                drawHeader("TESTIGOS FOTOGRÁFICOS");
+                                currentY = 35;
+                            }
+                        }
+
+                        if (img) {
+                            const format = img.includes('png') ? 'PNG' : 'JPEG';
+                            try {
+                                doc.addImage(img, format, obsX, currentY, obsImgSize, obsImgSize);
+                            } catch (e) {
+                                console.error("Error adding observation image:", e);
+                            }
+                        }
+                        obsX += obsImgSize + obsGap;
+                    });
+                    currentY += obsImgSize + 10;
+                } else {
+                    currentY += 4;
+                }
+            });
         }
 
         // Pie de página
@@ -356,6 +487,11 @@ export const generateMaintenanceReportPDF = async (data: PDFReportData) => {
             doc.text(`Mantenere - Reporte de Servicio Digital | Página ${j} de ${pages - 1}`, 105, 290, { align: 'center' });
         }
 
+        if (returnBlob) {
+            const blob = doc.output('blob');
+            const finalFolio = data.isVisita ? dynamicFolio.replace('REP-', 'COT-').replace('TRB-', 'COT-') : dynamicFolio;
+            return new File([blob], `${finalFolio}_Reporte.pdf`, { type: "application/pdf" });
+        }
         doc.save(`${dynamicFolio}_Reporte.pdf`);
     } catch (error) {
         console.error("Error generating PDF:", error);

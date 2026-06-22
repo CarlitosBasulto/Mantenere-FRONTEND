@@ -1411,6 +1411,69 @@ const AdminDetalleTrabajo: React.FC = () => {
             formData.append('descripcion', notas);
             formData.append('estado', action === 'accept_and_assign' ? "Aprobada" : "Pendiente");
 
+            // Autogenerar y subir PDF de la cotización/visita si el admin no cargó un archivo manual
+            let pdfFile: File | null = archivoFile;
+            if (!pdfFile) {
+                try {
+                    const dynamicFolio = `COT-${trabajo.id.toString().padStart(5, '0')}`;
+                    if (reporteFinal) {
+                        const widgetMateriales = reporteFinal.refaccionesList?.length > 0 
+                            ? reporteFinal.refaccionesList.map((r: any) => `- ${r.cantidad || 1}x ${r.pieza} ${r.costo_estimado ? `($${r.costo_estimado})` : ''}`).join('\n')
+                            : '';
+                        const combinedMateriales = [widgetMateriales, reporteFinal.materiales].filter(Boolean).join('\n\n');
+                        const techName = reporteFinal.tecnicoNombre || trabajo.tecnico || trabajo.trabajador?.nombre || 'Técnico';
+                        
+                        pdfFile = await generateMaintenanceReportPDF({
+                            id: trabajo.id,
+                            folio: dynamicFolio,
+                            fecha: new Date().toLocaleDateString('es-MX'),
+                            sucursal: trabajo.sucursal || '---',
+                            encargado: trabajo.encargado || '---',
+                            tecnico: techName,
+                            tecnicoAvatar: reporteFinal.tecnicoAvatar || null,
+                            fechaInicio: reporteFinal.fechaInicio || null,
+                            diagnostico: reporteFinal.reporteTienda || '',
+                            descripcion: reporteFinal.descripcion || '',
+                            materiales: combinedMateriales,
+                            observaciones: reporteFinal.observaciones || '',
+                            observacionesList: reporteFinal.observacionesList || [],
+                            imagenes: {
+                                antes: reporteFinal.imagenes?.antes || null,
+                                durante: reporteFinal.imagenes?.durante || null,
+                                despues: reporteFinal.imagenes?.despues || null,
+                                extra: reporteFinal.imagenesObservacion || null
+                            },
+                            firmaEmpresa: reporteFinal.firmaEmpresa || null,
+                            equipo: reporteFinal.involucraEquipo ? reporteFinal.equipoInfo : null,
+                            refaccionesList: reporteFinal.refaccionesList || [],
+                            isVisita: trabajo.tipo === 'Visita' || trabajo.originalTipo === 'Visita'
+                        }, true) as any;
+                    } else {
+                        pdfFile = await generateMaintenanceReportPDF({
+                            id: trabajo.id,
+                            folio: dynamicFolio,
+                            fecha: new Date().toLocaleDateString('es-MX'),
+                            sucursal: trabajo.sucursal || '---',
+                            encargado: trabajo.encargado || '---',
+                            tecnico: trabajo.tecnico || 'Técnico',
+                            diagnostico: trabajo.descripcion || 'Servicio solicitado.',
+                            descripcion: notas || 'Mantenimiento preventivo/correctivo.',
+                            materiales: '',
+                            observaciones: '',
+                            imagenes: {},
+                            isVisita: true,
+                            refaccionesList: []
+                        }, true) as any;
+                    }
+                } catch (e) {
+                    console.error("Error autogenerando PDF para cotizacion:", e);
+                }
+            }
+
+            if (pdfFile) {
+                formData.append('archivo', pdfFile);
+            }
+
             const savedCotiz = await saveCotizacion(formData as any);
             setCotizaciones(prev => [...prev, savedCotiz]);
 
@@ -2597,7 +2660,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                             </div>
                                                         )}
 
-                                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '10px' }}>
                                                             {cotiz.archivo && (
                                                                 <a href={cotiz.archivo.startsWith('http') ? cotiz.archivo : `${(import.meta.env.VITE_API_URL || 'http://127.0.0.1:8085/api').replace(/\/api\/?$/, '')}/storage/${cotiz.archivo}`} 
                                                                    target="_blank" 
@@ -2609,6 +2672,22 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                                     </div>
                                                                     <span>Descargar Presupuesto Detallado.pdf</span>
                                                                 </a>
+                                                            )}
+                                                            
+                                                            {reporteFinal && (
+                                                                <button 
+                                                                    onClick={() => {
+                                                                        setActivityPDFData(reporteFinal);
+                                                                        setShowActivityPDFPreview(true);
+                                                                    }}
+                                                                    className={styles.attachmentLink}
+                                                                    style={{ border: 'none', background: '#f8fafc', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '12px', width: 'auto' }}
+                                                                >
+                                                                    <div className={styles.pdfIconBox} style={{ background: '#f26522' }}>
+                                                                        <HiOutlineDocumentText size={20} color="white" />
+                                                                    </div>
+                                                                    <span style={{ color: '#1e293b', fontWeight: 'bold' }}>Ver Reporte de Visita / Cotización y Fotos</span>
+                                                                </button>
                                                             )}
                                                         </div>
 
@@ -2673,9 +2752,15 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px', paddingBottom: '16px', borderBottom: '2px solid #f8fafc' }}>
                                                             <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }} />
                                                             <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#1e293b' }}>Cotizaciones Enviadas</h3>
-                                                            <span style={{ marginLeft: 'auto', background: '#ecfdf5', color: '#065f46', fontSize: '12px', fontWeight: '800', padding: '4px 12px', borderRadius: '20px', border: '1px solid #a7f3d0' }}>
+                                                            <span style={{ background: '#ecfdf5', color: '#065f46', fontSize: '12px', fontWeight: '800', padding: '4px 12px', borderRadius: '20px', border: '1px solid #a7f3d0' }}>
                                                                 {cotizaciones.length} cotizacion{cotizaciones.length !== 1 ? 'es' : ''}
                                                             </span>
+                                                            <button
+                                                                onClick={() => { setShowAddQuoteForm(true); setCosto(''); setNotas(''); }}
+                                                                style={{ marginLeft: 'auto', padding: '7px 14px', background: 'linear-gradient(135deg, #f26522, #d14d13)', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '12px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', boxShadow: '0 4px 12px rgba(242,101,34,0.3)', whiteSpace: 'nowrap' }}
+                                                            >
+                                                                <HiOutlineCurrencyDollar size={14} /> + Agregar otra
+                                                            </button>
                                                         </div>
 
                                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -2721,8 +2806,8 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                                                     </span>
                                                                                     <div style={{ display: 'flex', gap: '6px' }}>
                                                                                         <button onClick={() => { setCosto(cotiz.monto?.toString() || ''); setNotas(cotiz.descripcion || ''); setShowPDFPreview(true); }} style={{ padding: '7px 12px', borderRadius: '10px', background: '#fef2f2', border: '1px solid #fecaca', cursor: 'pointer', fontSize: '13px', fontWeight: '700', color: '#ef4444', display: 'flex', alignItems: 'center', gap: '4px' }}><HiOutlineDocumentText size={16} /> Preview PDF</button>
-                                                                                        {trabajo?.estado !== 'Cotización Aceptada' && trabajo?.estado !== 'Asignado' && <button onClick={() => handleEditarCotizacion(cotiz)} style={{ padding: '7px 12px', borderRadius: '10px', background: '#f1f5f9', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: '700', color: '#475569' }}>✏️ Editar</button>}
-                                                                                        {trabajo?.estado !== 'Cotización Aceptada' && trabajo?.estado !== 'Asignado' && <button onClick={() => handleEliminarCotizacion(cotiz.id!)} style={{ padding: '7px 12px', borderRadius: '10px', background: '#fef2f2', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: '700', color: '#ef4444' }}>🗑️</button>}
+                                                                                        <button onClick={() => handleEditarCotizacion(cotiz)} style={{ padding: '7px 12px', borderRadius: '10px', background: '#f1f5f9', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: '700', color: '#475569' }}>✏️ Editar</button>
+                                                                                        <button onClick={() => handleEliminarCotizacion(cotiz.id!)} style={{ padding: '7px 12px', borderRadius: '10px', background: '#fef2f2', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: '700', color: '#ef4444' }}>🗑️</button>
                                                                                     </div>
                                                                                 </div>
                                                                             </div>
@@ -2742,83 +2827,72 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                     </button>
                                                 )}
 
-                                                {/* BOTÓN PARA DESPLEGAR NUEVA COTIZACIÓN / FORMULARIO */}
-                                                {trabajo?.estado !== 'Cotización Enviada' && trabajo?.estado !== 'Cotización Aceptada' && trabajo?.estado !== 'Cotización Rechazada' && trabajo?.estado !== 'Asignado' && (
-                                                    !showAddQuoteForm ? (
-                                                        <button
-                                                            onClick={() => setShowAddQuoteForm(true)}
-                                                            className={styles.addTaskButton}
-                                                            style={{ borderStyle: 'solid', background: '#fff', height: '100px', justifyContent: 'center' }}
-                                                        >
-                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                                                                <div className={styles.addTaskIcon} style={{ width: '36px', height: '36px', fontSize: '20px' }}>+</div>
-                                                                <span style={{ fontSize: '18px', fontWeight: '800', color: '#1e293b' }}>
-                                                                    Agregar nueva cotización
-                                                                </span>
+                                                {/* BOTÓN PARA NUEVA COTIZACIÓN */}
+                                                {!showAddQuoteForm ? (
+                                                    <button
+                                                        onClick={() => setShowAddQuoteForm(true)}
+                                                        style={{ width: '100%', padding: '16px', background: 'linear-gradient(135deg, #f26522, #d14d13)', color: '#fff', border: 'none', borderRadius: '15px', fontSize: '15px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 8px 20px rgba(242,101,34,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}
+                                                    >
+                                                        <HiOutlineCurrencyDollar size={20} />
+                                                        {cotizaciones.length === 0 ? '+ Nueva Cotización' : `+ Agregar Opción ${cotizaciones.length + 1}`}
+                                                    </button>
+                                                ) : (
+                                                    /* FORMULARIO NUEVA COTIZACIÓN */
+                                                    <div style={{ background: '#fff', borderRadius: '24px', padding: '28px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '22px', paddingBottom: '16px', borderBottom: '2px solid #f8fafc' }}>
+                                                            <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'linear-gradient(135deg, #f26522, #d14d13)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                <HiOutlineCurrencyDollar size={20} color="white" />
                                                             </div>
-                                                        </button>
-                                                    ) : (
-                                                        /* FORMULARIO NUEVA COTIZACIÓN */
-                                                        <div style={{ background: '#fff', borderRadius: '24px', padding: '28px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}>
-                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '22px', paddingBottom: '16px', borderBottom: '2px solid #f8fafc' }}>
-                                                                <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'linear-gradient(135deg, #f26522, #d14d13)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                                    <HiOutlineCurrencyDollar size={20} color="white" />
-                                                                </div>
-                                                                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#1e293b' }}>
-                                                                    {cotizaciones.length === 0 ? 'Nueva Cotización' : `Configurando Opción ${cotizaciones.length + 1}`}
-                                                                </h3>
-                                                            </div>
+                                                            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#1e293b' }}>
+                                                                {cotizaciones.length === 0 ? 'Nueva Cotización' : `Configurando Opción ${cotizaciones.length + 1}`}
+                                                            </h3>
+                                                        </div>
 
-                                                            <div style={{ marginBottom: '16px' }}>
-                                                                <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>Monto ($)</label>
-                                                                <div style={{ position: 'relative' }}>
-                                                                    <span style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', fontSize: '18px', fontWeight: '900', color: '#f26522' }}>$</span>
-                                                                    <input type="number" placeholder="1500" value={costo} onChange={e => setCosto(e.target.value)}
-                                                                        style={{ width: '100%', padding: '13px 16px 13px 36px', borderRadius: '14px', border: '2px solid #e2e8f0', fontSize: '17px', fontWeight: '700', color: '#1e293b', boxSizing: 'border-box' }} />
-                                                                </div>
-                                                            </div>
-
-                                                            <div style={{ marginBottom: '16px' }}>
-                                                                <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>Notas para el cliente</label>
-                                                                <textarea placeholder="Ej: Incluye mano de obra y materiales..." value={notas} onChange={e => setNotas(e.target.value)}
-                                                                    style={{ width: '100%', padding: '13px 16px', borderRadius: '14px', border: '2px solid #e2e8f0', fontSize: '14px', color: '#475569', minHeight: '90px', resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit', lineHeight: '1.6', marginBottom: '16px' }} />
-                                                                
-                                                                <button 
-                                                                    onClick={() => setShowPDFPreview(true)}
-                                                                    style={{ width: '100%', padding: '12px', background: '#f8fafc', border: '2px solid #e2e8f0', color: '#1e293b', borderRadius: '12px', fontSize: '13px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'all 0.2s' }}
-                                                                >
-                                                                    <HiOutlineDocumentText size={18} color="#ef4444" /> Generar Preview PDF
-                                                                </button>
-                                                            </div>
-
-                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                                                {trabajo?.estado !== 'Cotización Aceptada' && (
-                                                                    <div style={{ display: 'flex', gap: '12px' }}>
-                                                                        <button onClick={() => handleEnviarCotizacion('send')}
-                                                                            style={{ flex: 2, padding: '15.5px', background: 'linear-gradient(135deg, #f26522, #d14d13)', color: '#fff', border: 'none', borderRadius: '15px', fontSize: '14px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 8px 20px rgba(242,101,34,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                                                                            <span>Enviar Cotización al Cliente</span>
-                                                                        </button>
-                                                                    </div>
-                                                                )}
-                                                                
-                                                                {(trabajo?.estado === 'Cotización Aceptada' || trabajo?.estado === 'Cotización Aprobada') && (
-                                                                    <div style={{ display: 'flex', gap: '12px' }}>
-                                                                        <button onClick={() => handleEnviarCotizacion('accept_and_assign')}
-                                                                            style={{ flex: 2, padding: '15.5px', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', borderRadius: '15px', fontSize: '14px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 8px 20px rgba(16,185,129,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                                                                            <span>Aceptar Cotización y Asignar Trabajo</span>
-                                                                        </button>
-                                                                    </div>
-                                                                )}
-                                                                
-                                                                <button onClick={() => setShowAddQuoteForm(false)}
-                                                                    style={{ width: '100%', padding: '15px', background: '#f8fafc', border: '2px solid #e2e8f0', color: '#64748b', borderRadius: '15px', fontSize: '14px', fontWeight: '700', cursor: 'pointer' }}>
-                                                                    Cancelar
-                                                                </button>
+                                                        <div style={{ marginBottom: '16px' }}>
+                                                            <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>Monto ($)</label>
+                                                            <div style={{ position: 'relative' }}>
+                                                                <span style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', fontSize: '18px', fontWeight: '900', color: '#f26522' }}>$</span>
+                                                                <input type="number" placeholder="1500" value={costo} onChange={e => setCosto(e.target.value)}
+                                                                    style={{ width: '100%', padding: '13px 16px 13px 36px', borderRadius: '14px', border: '2px solid #e2e8f0', fontSize: '17px', fontWeight: '700', color: '#1e293b', boxSizing: 'border-box' }} />
                                                             </div>
                                                         </div>
-                                                    )
+
+                                                        <div style={{ marginBottom: '16px' }}>
+                                                            <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>Notas para el cliente</label>
+                                                            <textarea placeholder="Ej: Incluye mano de obra y materiales..." value={notas} onChange={e => setNotas(e.target.value)}
+                                                                style={{ width: '100%', padding: '13px 16px', borderRadius: '14px', border: '2px solid #e2e8f0', fontSize: '14px', color: '#475569', minHeight: '90px', resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit', lineHeight: '1.6', marginBottom: '16px' }} />
+
+                                                            <button
+                                                                onClick={() => setShowPDFPreview(true)}
+                                                                style={{ width: '100%', padding: '12px', background: '#f8fafc', border: '2px solid #e2e8f0', color: '#1e293b', borderRadius: '12px', fontSize: '13px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'all 0.2s' }}
+                                                            >
+                                                                <HiOutlineDocumentText size={18} color="#ef4444" /> Generar Preview PDF
+                                                            </button>
+                                                        </div>
+
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                            <button onClick={() => handleEnviarCotizacion('send')}
+                                                                style={{ width: '100%', padding: '15.5px', background: 'linear-gradient(135deg, #f26522, #d14d13)', color: '#fff', border: 'none', borderRadius: '15px', fontSize: '14px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 8px 20px rgba(242,101,34,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                                                <span>Enviar Cotización al Cliente</span>
+                                                            </button>
+
+                                                            {(trabajo?.estado === 'Cotización Aceptada' || trabajo?.estado === 'Cotización Aprobada') && (
+                                                                <button onClick={() => handleEnviarCotizacion('accept_and_assign')}
+                                                                    style={{ width: '100%', padding: '15.5px', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', borderRadius: '15px', fontSize: '14px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 8px 20px rgba(16,185,129,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                                                    <span>Aceptar Cotización y Asignar Trabajo</span>
+                                                                </button>
+                                                            )}
+
+                                                            <button onClick={() => setShowAddQuoteForm(false)}
+                                                                style={{ width: '100%', padding: '15px', background: '#f8fafc', border: '2px solid #e2e8f0', color: '#64748b', borderRadius: '15px', fontSize: '14px', fontWeight: '700', cursor: 'pointer' }}>
+                                                                Cancelar
+                                                            </button>
+                                                        </div>
+                                                    </div>
                                                 )}
+
                                             </div>
+
 
                                             {/* COLUMNA DERECHA: Reporte, sugerencias y PDF del técnico */}
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -2993,11 +3067,14 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                                             fecha: actualReporte.fecha || new Date().toLocaleDateString(),
                                                                             sucursal: trabajo?.sucursal || 'N/A',
                                                                             encargado: trabajo?.encargado || 'N/A',
-                                                                            tecnico: trabajo?.tecnico || subTareas[0]?.tecnicoNombre || 'N/A',
+                                                                            tecnico: actualReporte.tecnicoNombre || trabajo?.tecnico || subTareas[0]?.tecnicoNombre || 'N/A',
+                                                                            tecnicoAvatar: actualReporte.tecnicoAvatar || getAvatarForTech(actualReporte.tecnicoNombre || trabajo?.tecnico || subTareas[0]?.tecnicoNombre || ''),
+                                                                            fechaInicio: actualReporte.fechaInicio || null,
                                                                             diagnostico: actualReporte.reporteTienda || 'N/A',
                                                                             descripcion: actualReporte.descripcion || 'N/A',
                                                                             materiales: actualReporte.materiales || 'N/A',
                                                                             observaciones: actualReporte.observaciones || 'N/A',
+                                                                            observacionesList: actualReporte.observacionesList,
                                                                             imagenes: {
                                                                                 antes: actualReporte.imagenes?.antes,
                                                                                 durante: actualReporte.imagenes?.durante,

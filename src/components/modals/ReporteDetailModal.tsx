@@ -14,6 +14,27 @@ import { createPortal } from "react-dom";
 import styles from "./ReporteDetailModal.module.css";
 import { generateMaintenanceReportPDF } from "../../utils/pdfGenerator";
 
+const getAvatarForTech = (nombre: string) => {
+    if (!nombre || nombre.toLowerCase() === "sin asignar") return null;
+    const profileKey = `profile_${nombre.replace(/\s+/g, '')}`;
+    const profileData = localStorage.getItem(profileKey);
+    if (profileData) {
+        try {
+            const data = JSON.parse(profileData);
+            if (data.imagenPerfil) return data.imagenPerfil;
+        } catch(e) {}
+    }
+    const stored = localStorage.getItem('trabajadores_list');
+    if (stored) {
+        try {
+            const list = JSON.parse(stored);
+            const worker = list.find((w: any) => w.nombre === nombre);
+            if (worker && worker.avatar) return worker.avatar;
+        } catch(e) {}
+    }
+    return `https://ui-avatars.com/api/?name=${encodeURIComponent(nombre)}&background=0e7490&color=fff&bold=true`;
+};
+
 interface ReporteDetailModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -74,11 +95,14 @@ const ReporteDetailModal: React.FC<ReporteDetailModalProps> = ({
                 fecha: reporte.fecha || new Date().toLocaleDateString(),
                 sucursal: trabajo?.sucursal || 'N/A',
                 encargado: trabajo?.encargado || 'N/A',
-                tecnico: trabajo?.tecnico || 'N/A',
+                tecnico: reporte.tecnicoNombre || trabajo?.tecnico || 'N/A',
+                tecnicoAvatar: reporte.tecnicoAvatar || getAvatarForTech(reporte.tecnicoNombre || trabajo?.tecnico || ''),
+                fechaInicio: reporte.fechaInicio || null,
                 diagnostico: reporte.reporteTienda || 'N/A',
                 descripcion: reporte.descripcion || 'N/A',
                 materiales: reporte.materiales || 'N/A',
                 observaciones: reporte.observaciones || 'N/A',
+                observacionesList: reporte.observacionesList,
                 imagenes: {
                     antes: reporte.imagenes?.antes,
                     durante: reporte.imagenes?.durante,

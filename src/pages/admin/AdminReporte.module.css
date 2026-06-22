@@ -209,16 +209,9 @@
 }
 
 .evidenceSubGrid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 30px;
-}
-
-@media (min-width: 768px) {
-    .evidenceSubGrid {
-        grid-template-columns: auto 1fr;
-        align-items: flex-start;
-    }
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
 }
 
 .evidenceGrid {
@@ -238,33 +231,84 @@
 
 .evidenceLabel {
     display: block;
-    font-weight: 600;
+    font-weight: 700;
     margin-bottom: 8px;
     font-size: 13px;
-    color: #555;
+    color: #475569;
 }
 
 .squareBox {
-    width: 90px;
-    height: 90px;
+    width: 100px;
+    height: 100px;
     background: #f8fafc;
-    border: 1px dashed #cbd5e1;
-    border-radius: 12px;
+    border: 2px dashed #e2e8f0;
+    border-radius: 16px;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    font-size: 24px;
-    color: #94a3b8;
-    transition: all 0.2s ease;
+    gap: 6px;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     position: relative;
     cursor: pointer;
 }
 
+.uploadPlaceholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.uploadPlaceholder svg {
+    font-size: 26px;
+    color: #94a3b8;
+    transition: color 0.2s ease;
+}
+
+.uploadText {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #94a3b8;
+    transition: color 0.2s ease;
+}
+
 .evidenceItem:hover .squareBox {
-    border-color: #1e293b;
-    background: #ffffff;
-    color: #1e293b;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    border-color: #f26522;
+    background: #fff8f5;
+    box-shadow: 0 4px 12px rgba(242, 101, 34, 0.08);
+}
+
+.evidenceItem:hover .uploadPlaceholder svg,
+.evidenceItem:hover .uploadText {
+    color: #f26522;
+}
+
+.addObservacionBtn {
+    background: #f8fafc;
+    color: #f26522;
+    border: 2px dashed #ffd2bc;
+    padding: 14px 24px;
+    border-radius: 12px;
+    cursor: pointer;
+    font-size: 14.5px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s ease-in-out;
+    width: 100%;
+    justify-content: center;
+}
+
+.addObservacionBtn:hover {
+    background: #fff8f5;
+    border-color: #ffbba2;
+    color: #d14d13;
+    box-shadow: 0 4px 12px rgba(242, 101, 34, 0.08);
 }
 
 .deletePhotoBtn {
@@ -463,4 +507,29 @@
         width: 100% !important;
         max-width: 300px;
     }
+}
+
+.addRefaccionBtn {
+    background: #f8fafc;
+    color: #f26522;
+    border: 2px dashed #ffd2bc;
+    padding: 12px;
+    border-radius: 12px;
+    cursor: pointer;
+    font-size: 14.5px;
+    font-weight: 700;
+    width: 100%;
+    margin-top: 8px;
+    margin-bottom: 20px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+}
+
+.addRefaccionBtn:hover {
+    background: #fff8f5;
+    border-color: #ffbba2;
+    color: #d14d13;
 }
