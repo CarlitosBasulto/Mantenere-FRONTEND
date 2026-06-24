@@ -3,7 +3,7 @@ import { HiOutlineXMark, HiOutlinePrinter, HiOutlineArrowDownTray } from 'react-
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 
-export default function CotizacionPDFPreview({ trabajo, subTareas, costo, notas, onClose }: any) {
+export default function CotizacionPDFPreview({ trabajo, subTareas, costo, notas, materials = [], manoObra = 0, onClose }: any) {
     const pdfRef = useRef<HTMLDivElement>(null);
     const [isGenerating, setIsGenerating] = useState(false);
 
@@ -11,10 +11,9 @@ export default function CotizacionPDFPreview({ trabajo, subTareas, costo, notas,
         if (!pdfRef.current) return;
         setIsGenerating(true);
         try {
-            const canvas = await html2canvas(pdfRef.current, { scale: 1 });
+            const canvas = await html2canvas(pdfRef.current, { scale: 2 }); // Higher quality scale
             const imgData = canvas.toDataURL('image/png');
             
-            // Calculate PDF dimensions (A4 format)
             const pdf = new jsPDF('p', 'mm', 'a4');
             const pdfWidth = pdf.internal.pageSize.getWidth();
             const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
@@ -33,15 +32,6 @@ export default function CotizacionPDFPreview({ trabajo, subTareas, costo, notas,
     const subtotal = totalAmount / 1.16;
     const iva = totalAmount - subtotal;
 
-    // Get tech info
-    const mainTask = subTareas?.[0] || {};
-    const techName = mainTask.tecnicoNombre || 'Asignado por admin';
-
-    // Parse materials from tech report
-    const descText = mainTask.descripcion || '';
-    const parts = descText.split(/Notas de cotizaci[óo]n:\s*-?/i);
-    const techMaterialsText = parts.length > 1 ? parts.slice(1).join('Notas de cotización:').trim() : '';
-
     return (
         <div style={{
             position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
@@ -54,7 +44,7 @@ export default function CotizacionPDFPreview({ trabajo, subTareas, costo, notas,
                     <HiOutlineXMark size={20} /> REGRESAR
                 </button>
                 <button onClick={handleDownload} disabled={isGenerating} style={{ padding: '10px 20px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <HiOutlineArrowDownTray size={20} /> {isGenerating ? 'GENERANDO...' : 'GUARDAR (DESCARGAR PC)'}
+                    <HiOutlineArrowDownTray size={20} /> {isGenerating ? 'GENERANDO...' : 'GUARDAR (DESCARGAR)'}
                 </button>
                 <button onClick={() => window.print()} style={{ padding: '10px 20px', background: '#22c55e', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <HiOutlinePrinter size={20} /> IMPRIMIR
@@ -66,132 +56,140 @@ export default function CotizacionPDFPreview({ trabajo, subTareas, costo, notas,
                 <div 
                     ref={pdfRef}
                     style={{
-                        background: '#fff', width: '100%', minHeight: '1131px', // A4 ratio approx
-                        padding: '60px', boxSizing: 'border-box', position: 'relative'
+                        background: '#fff', width: '100%', minHeight: '1131px',
+                        padding: '50px', boxSizing: 'border-box', position: 'relative',
+                        fontFamily: 'Arial, sans-serif'
                     }}
                 >
-                {/* PDF Header */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '40px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        {/* Fake Logo */}
-                        <div style={{ display: 'flex', alignItems: 'center' }}>
-                            <div style={{ color: '#f26522', fontWeight: '900', fontSize: '28px', borderRight: '2px solid #ccc', paddingRight: '10px', marginRight: '10px' }}>
-                                AGENTE<br/>BUSINESS.
+                    {/* Header Banner */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#1e293b', padding: '15px 30px', margin: '-50px -50px 30px -50px', color: 'white' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center' }}>
+                                <div style={{ color: '#f59e0b', fontWeight: '900', fontSize: '22px', borderRight: '1px solid #475569', paddingRight: '10px', marginRight: '10px', lineHeight: 1.1 }}>
+                                    AGENTE<br/>BUSINESS.
+                                </div>
+                                <div style={{ fontSize: '9px', color: '#94a3b8', fontWeight: '600', maxWidth: '80px', lineHeight: 1.2 }}>
+                                    MANTENIMIENTO INFRAESTRUCTURA
+                                </div>
                             </div>
-                            <div style={{ fontSize: '10px', color: '#666', fontWeight: '600', maxWidth: '100px' }}>
-                                MANTENIMIENTO DE INFRAESTRUCTURA
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                            <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: 'white' }}>
+                                COTIZACIÓN DE SERVICIO
+                            </h2>
+                            <span style={{ fontSize: '11px', color: '#94a3b8', display: 'block', marginTop: '2px' }}>FECHA: {new Date().toLocaleDateString('es-MX')}</span>
+                        </div>
+                    </div>
+
+                    <div style={{ borderBottom: '3px solid #c99b21', margin: '-30px -50px 25px -50px' }} />
+
+                    {/* Grid info section */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '25px' }}>
+                        <div style={{ background: '#f8fafc', padding: '15px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                            <h4 style={{ margin: '0 0 10px 0', fontSize: '12px', fontWeight: '800', color: '#1e293b', textTransform: 'uppercase', borderBottom: '1px solid #cbd5e1', paddingBottom: '4px' }}>Información General</h4>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '12px', color: '#475569' }}>
+                                <div><strong>Sucursal:</strong> {trabajo?.sucursal || trabajo?.negocio?.nombre || 'N/A'}</div>
+                                <div><strong>Encargado:</strong> {trabajo?.encargado || trabajo?.cliente || trabajo?.negocio?.encargado || 'Cliente General'}</div>
+                            </div>
+                        </div>
+                        <div style={{ background: '#f8fafc', padding: '15px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                            <h4 style={{ margin: '0 0 10px 0', fontSize: '12px', fontWeight: '800', color: '#1e293b', textTransform: 'uppercase', borderBottom: '1px solid #cbd5e1', paddingBottom: '4px' }}>Detalles del Servicio</h4>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '12px', color: '#475569' }}>
+                                <div><strong>Diagnóstico / Visita:</strong> {trabajo?.titulo || 'Servicio de Mantenimiento'}</div>
+                                <div><strong>Trabajo a Realizar:</strong> {trabajo?.descripcion || 'Sin descripción registrada.'}</div>
                             </div>
                         </div>
                     </div>
 
-                    <div style={{ display: 'flex', gap: '15px' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '11px', fontWeight: '600', color: '#dc2626' }}>
-                            <div style={{ display: 'flex', gap: '5px' }}>
-                                <span>ATENCION A:</span>
-                                <span style={{ color: '#333', fontWeight: '800' }}>{trabajo?.encargado || trabajo?.cliente || 'Cliente General'}</span>
-                            </div>
-                            <div style={{ display: 'flex', gap: '5px' }}>
-                                <span>SUCURSAL:</span>
-                                <span style={{ color: '#333', fontWeight: '800' }}>{trabajo?.sucursal || 'N/A'}</span>
-                            </div>
-                            <div style={{ display: 'flex', gap: '5px' }}>
-                                <span>LOCACION:</span>
-                                <span style={{ color: '#333', fontWeight: '800' }}>{trabajo?.ciudad ? `${trabajo.ciudad}, ${trabajo.estado || ''}` : 'N/A'}</span>
-                            </div>
-                        </div>
+                    {/* Table Heading */}
+                    <h4 style={{ margin: '0 0 10px 0', fontSize: '12px', fontWeight: '800', color: '#1e293b', textTransform: 'uppercase' }}>
+                        MATERIALES Y REFACCIONES COTIZADOS
+                    </h4>
 
-                        <div style={{ background: '#1e293b', color: '#ef4444', padding: '10px 15px', borderRadius: '4px', textAlign: 'center', minWidth: '90px' }}>
-                            <div style={{ fontSize: '10px', fontWeight: '700', marginBottom: '5px' }}>FECHA DE<br/>COTIZACIÓN</div>
-                            <div style={{ color: '#fff', fontSize: '12px', fontWeight: '600' }}>{new Date().toISOString().split('T')[0]}</div>
-                        </div>
-                        
-                        <div style={{ background: '#1e293b', color: '#fff', padding: '10px 15px', borderRadius: '4px', textAlign: 'center', minWidth: '90px' }}>
-                            <div style={{ fontSize: '10px', fontWeight: '700', marginBottom: '5px' }}>TÉCNICO<br/>ASIGNADO</div>
-                            <div style={{ fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>{techName}</div>
-                        </div>
-                    </div>
-                </div>
-
-                <div style={{ borderTop: '4px solid #ef4444', borderBottom: '1px solid #ccc', marginBottom: '30px', marginTop: '-10px' }} />
-
-                {/* Table Header */}
-                <div style={{ display: 'flex', background: '#111827', color: '#fff', padding: '10px', fontSize: '11px', fontWeight: 'bold' }}>
-                    <div style={{ width: '5%', textAlign: 'center' }}>NO</div>
-                    <div style={{ width: '45%' }}>CONCEPTO</div>
-                    <div style={{ width: '10%', textAlign: 'center' }}>CANT</div>
-                    <div style={{ width: '10%', textAlign: 'center' }}>U/S</div>
-                    <div style={{ width: '15%', textAlign: 'right' }}>PRECIO/U</div>
-                    <div style={{ width: '15%', textAlign: 'right' }}>PRECIO</div>
-                </div>
-
-                {/* Table Row (Only 1 consolidated row since admin inputs just the total) */}
-                <div style={{ display: 'flex', padding: '12px 10px', borderBottom: '1px solid #e5e7eb', fontSize: '12px', color: '#374151' }}>
-                    <div style={{ width: '5%', textAlign: 'center' }}>1</div>
-                    <div style={{ width: '45%', fontWeight: '600', textTransform: 'uppercase' }}>{trabajo?.titulo || 'SERVICIO DE MANTENIMIENTO INTEGRAL'}</div>
-                    <div style={{ width: '10%', textAlign: 'center' }}>1</div>
-                    <div style={{ width: '10%', textAlign: 'center' }}>SRV</div>
-                    <div style={{ width: '15%', textAlign: 'right' }}>${subtotal.toFixed(2)}</div>
-                    <div style={{ width: '15%', textAlign: 'right' }}>${subtotal.toFixed(2)}</div>
-                </div>
-
-                {/* Blank space filler for table visual */}
-                <div style={{ display: 'flex', padding: '12px 10px', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', minHeight: '100px' }}></div>
-
-                {/* Totals Section */}
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0' }}>
-                    <div style={{ width: '30%' }}>
-                        <div style={{ display: 'flex', borderBottom: '1px solid #e5e7eb', background: '#f3f4f6' }}>
-                            <div style={{ width: '50%', padding: '8px 10px', fontWeight: 'bold', fontSize: '11px', textAlign: 'right' }}>SUBTOTAL</div>
-                            <div style={{ width: '50%', padding: '8px 10px', textAlign: 'right', fontSize: '12px', background: '#ef4444', color: '#fff', fontWeight: 'bold' }}>${subtotal.toFixed(2)}</div>
-                        </div>
-                        <div style={{ display: 'flex', borderBottom: '1px solid #e5e7eb', background: '#f9fafb' }}>
-                            <div style={{ width: '50%', padding: '8px 10px', fontWeight: 'bold', fontSize: '11px', textAlign: 'right' }}>IVA</div>
-                            <div style={{ width: '50%', padding: '8px 10px', textAlign: 'right', fontSize: '12px' }}>${iva.toFixed(2)}</div>
-                        </div>
-                        <div style={{ display: 'flex', background: '#111827', color: '#fff' }}>
-                            <div style={{ width: '50%', padding: '8px 10px', fontWeight: 'bold', fontSize: '11px', textAlign: 'right' }}>TOTAL</div>
-                            <div style={{ width: '50%', padding: '8px 10px', textAlign: 'right', fontSize: '12px', fontWeight: 'bold' }}>${totalAmount.toFixed(2)}</div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Especificaciones */}
-                <div style={{ marginTop: '40px' }}>
-                    <h4 style={{ color: '#ef4444', fontSize: '14px', fontWeight: '800', marginBottom: '15px' }}>ESPECIFICACIONES</h4>
-                    
-                    <div style={{ background: '#f8fafc', padding: '20px', borderRadius: '8px', fontSize: '12px', color: '#475569', lineHeight: '1.6' }}>
-                        <p style={{ margin: '0 0 10px 0' }}>
-                            Cotización realizada por el Técnico: <strong>{techName}</strong><br/>
-                            En la sucursal: <strong>{trabajo?.sucursal || 'N/A'}</strong><br/>
-                            A nombre del Cliente: <strong>{trabajo?.encargado || 'Cliente General'}</strong>
-                        </p>
-
-                        {notas && (
-                            <div style={{ marginTop: '15px', paddingTop: '15px', borderTop: '1px solid #e2e8f0' }}>
-                                <strong style={{ color: '#1e293b' }}>Notas Adicionales:</strong>
-                                <p style={{ margin: '5px 0 0 0', whiteSpace: 'pre-wrap' }}>{notas}</p>
-                            </div>
-                        )}
-
-                        {techMaterialsText && (
-                            <div style={{ marginTop: '15px', paddingTop: '15px', borderTop: '1px solid #e2e8f0' }}>
-                                <strong style={{ color: '#1e293b' }}>Materiales Sugeridos en Reporte Técnico:</strong>
-                                <ul style={{ margin: '5px 0 0 0', paddingLeft: '20px' }}>
-                                    {techMaterialsText.split('\n').map((item: string, index: number) => {
-                                        const cleanItem = item.replace(/^[\-\*\u2022\s]+/, '').trim();
-                                        if (!cleanItem) return null;
-                                        return <li key={index} style={{ marginBottom: '4px' }}>{cleanItem}</li>;
+                    {/* Table */}
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left', marginBottom: '15px' }}>
+                        <thead>
+                            <tr style={{ background: '#1e293b', color: 'white' }}>
+                                <th style={{ padding: '8px 12px', width: '50px' }}>NO</th>
+                                <th style={{ padding: '8px 12px' }}>CONCEPTO</th>
+                                <th style={{ padding: '8px 12px', width: '70px', textAlign: 'center' }}>CANT</th>
+                                <th style={{ padding: '8px 12px', width: '100px', textAlign: 'right' }}>PRECIO/U</th>
+                                <th style={{ padding: '8px 12px', width: '100px', textAlign: 'right' }}>PRECIO</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {materials.length > 0 ? (
+                                <>
+                                    {materials.map((m: any, idx: number) => {
+                                        const qty = parseFloat(m.piezas) || 1;
+                                        const price = parseFloat(m.precio) || 0;
+                                        const total = qty * price;
+                                        return (
+                                            <tr key={idx} style={{ borderBottom: '1px solid #e2e8f0', background: idx % 2 === 0 ? '#f8fafc' : '#fff' }}>
+                                                <td style={{ padding: '8px 12px', fontWeight: 'bold' }}>{idx + 1}</td>
+                                                <td style={{ padding: '8px 12px', textTransform: 'uppercase' }}>{m.material}</td>
+                                                <td style={{ padding: '8px 12px', textAlign: 'center' }}>{qty}</td>
+                                                <td style={{ padding: '8px 12px', textAlign: 'right' }}>${price.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                                <td style={{ padding: '8px 12px', textAlign: 'right' }}>${total.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                            </tr>
+                                        );
                                     })}
-                                </ul>
-                            </div>
-                        )}
-                    </div>
-                </div>
+                                    {parseFloat(manoObra) > 0 && (
+                                        <tr style={{ borderBottom: '1px solid #e2e8f0', background: materials.length % 2 === 0 ? '#f8fafc' : '#fff' }}>
+                                            <td style={{ padding: '8px 12px', fontWeight: 'bold' }}>{materials.length + 1}</td>
+                                            <td style={{ padding: '8px 12px', textTransform: 'uppercase' }}>MANO DE OBRA / SERVICIO TÉCNICO</td>
+                                            <td style={{ padding: '8px 12px', textAlign: 'center' }}>1</td>
+                                            <td style={{ padding: '8px 12px', textAlign: 'right' }}>${parseFloat(manoObra).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                            <td style={{ padding: '8px 12px', textAlign: 'right' }}>${parseFloat(manoObra).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                        </tr>
+                                    )}
+                                </>
+                            ) : (
+                                <tr style={{ borderBottom: '1px solid #e2e8f0', background: '#fff' }}>
+                                    <td style={{ padding: '8px 12px', fontWeight: 'bold' }}>1</td>
+                                    <td style={{ padding: '8px 12px', textTransform: 'uppercase' }}>{trabajo?.titulo || 'SERVICIO DE MANTENIMIENTO INTEGRAL'}</td>
+                                    <td style={{ padding: '8px 12px', textAlign: 'center' }}>1</td>
+                                    <td style={{ padding: '8px 12px', textAlign: 'right' }}>${subtotal.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                    <td style={{ padding: '8px 12px', textAlign: 'right' }}>${subtotal.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
 
-                {/* Footer decorations */}
-                <div style={{ position: 'absolute', bottom: '60px', left: '60px', right: '60px', borderTop: '1px solid #e2e8f0', paddingTop: '20px', fontSize: '10px', color: '#94a3b8', textAlign: 'center' }}>
-                    Este documento es una cotización preliminar y está sujeta a cambios y aprobación final.
-                </div>
+                    {/* Totals Section */}
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '15px' }}>
+                        <div style={{ width: '220px', border: '1px solid #cbd5e1', borderRadius: '8px', overflow: 'hidden' }}>
+                            <div style={{ display: 'flex', borderBottom: '1px solid #cbd5e1', background: '#f8fafc', fontSize: '11px' }}>
+                                <div style={{ width: '55%', padding: '6px 8px', fontWeight: 'bold', textAlign: 'right', color: '#475569' }}>SUBTOTAL</div>
+                                <div style={{ width: '45%', padding: '6px 8px', textAlign: 'right', fontWeight: 'bold', color: '#1e293b' }}>${subtotal.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                            </div>
+                            <div style={{ display: 'flex', borderBottom: '1px solid #cbd5e1', background: '#fff', fontSize: '11px' }}>
+                                <div style={{ width: '55%', padding: '6px 8px', fontWeight: 'bold', textAlign: 'right', color: '#475569' }}>IVA (16%)</div>
+                                <div style={{ width: '45%', padding: '6px 8px', textAlign: 'right', color: '#475569' }}>${iva.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                            </div>
+                            <div style={{ display: 'flex', background: '#1e293b', color: '#fff', fontSize: '12px' }}>
+                                <div style={{ width: '55%', padding: '6px 8px', fontWeight: 'bold', textAlign: 'right' }}>TOTAL</div>
+                                <div style={{ width: '45%', padding: '6px 8px', textAlign: 'right', fontWeight: 'bold' }}>${totalAmount.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Detalles o notas adicionales */}
+                    {notas && (
+                        <div style={{ marginTop: '30px' }}>
+                            <h4 style={{ margin: '0 0 10px 0', fontSize: '12px', fontWeight: '800', color: '#1e293b', textTransform: 'uppercase' }}>
+                                DETALLES O NOTAS ADICIONALES
+                            </h4>
+                            <div style={{ background: '#f8fafc', padding: '15px', borderRadius: '10px', border: '1px solid #e2e8f0', fontSize: '12px', color: '#475569', minHeight: '60px', whiteSpace: 'pre-wrap' }}>
+                                {notas}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Footer decoration */}
+                    <div style={{ position: 'absolute', bottom: '40px', left: '50px', right: '50px', borderTop: '1px solid #e2e8f0', paddingTop: '15px', fontSize: '10px', color: '#94a3b8', textAlign: 'center' }}>
+                        Este documento es una cotización preliminar y está sujeta a cambios y aprobación final.
+                    </div>
                 </div>
             </div>
         </div>

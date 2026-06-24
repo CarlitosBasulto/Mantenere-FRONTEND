@@ -53,11 +53,21 @@ interface ReportePDFPreviewProps {
         tecnicoNombre?: string;
         tecnicoAvatar?: string | null;
         fechaInicio?: string;
+        isVisita?: boolean;
     };
+    isVisita?: boolean;
     onClose: () => void;
 }
 
-export default function ReportePDFPreview({ trabajo, reporteData, onClose }: ReportePDFPreviewProps) {
+const getCleanNotes = (text: string) => {
+    if (!text) return '';
+    const lines = text.split('\n');
+    const cleanLines = lines.filter(line => !line.trim().startsWith('-'));
+    return cleanLines.join('\n').trim();
+};
+
+export default function ReportePDFPreview({ trabajo, reporteData, isVisita: isVisitaProp, onClose }: ReportePDFPreviewProps) {
+    const isVisita = isVisitaProp ?? reporteData?.isVisita ?? (trabajo?.tipo === 'Visita' || trabajo?.originalTipo === 'Visita');
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [customLogo, setCustomLogo] = useState<string | null>(null);
 
@@ -111,7 +121,8 @@ export default function ReportePDFPreview({ trabajo, reporteData, onClose }: Rep
                 },
                 firmaEmpresa: reporteData.firmaEmpresa,
                 equipo: reporteData.involucraEquipo ? reporteData.equipoInfo : null,
-                logoBase64: customLogo
+                logoBase64: customLogo,
+                isVisita: isVisita
             });
         } catch (error) {
             console.error('Error generating PDF:', error);
@@ -342,7 +353,7 @@ export default function ReportePDFPreview({ trabajo, reporteData, onClose }: Rep
                     })()}
 
                     {/* Otros materiales */}
-                    {reporteData.materiales && (
+                    {reporteData.materiales && !isVisita && (
                         <div style={{ marginBottom: '25px', background: '#f8fafc', padding: '15px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
                             <h4 style={{ margin: '0 0 8px 0', fontSize: '11px', fontWeight: '800', color: '#1e293b', textTransform: 'uppercase' }}>Otros Materiales o Consumibles</h4>
                             <p style={{ margin: 0, fontSize: '12px', color: '#475569', whiteSpace: 'pre-wrap' }}>{reporteData.materiales}</p>
@@ -363,21 +374,22 @@ export default function ReportePDFPreview({ trabajo, reporteData, onClose }: Rep
 
                     {/* Observaciones */}
                     <div style={{ marginBottom: '25px', background: '#f8fafc', padding: '15px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                        <h4 style={{ margin: '0 0 8px 0', fontSize: '11px', fontWeight: '800', color: '#1e293b', textTransform: 'uppercase' }}>Observaciones Finales</h4>
+                        <h4 style={{ margin: '0 0 8px 0', fontSize: '11px', fontWeight: '800', color: '#1e293b', textTransform: 'uppercase' }}>
+                            {isVisita ? 'Detalles o Notas Adicionales' : 'Observaciones Finales'}
+                        </h4>
                         <p style={{ margin: 0, fontSize: '12px', color: '#475569', whiteSpace: 'pre-wrap' }}>
-                            {hasObs 
-                                ? 'Se anexan reportes fotográficos y observaciones en la hoja de Testigos Fotográficos.'
-                                : 'Sin observaciones adicionales.'
+                            {isVisita 
+                                ? (getCleanNotes(reporteData.materiales) || 'Sin detalles o notas adicionales.')
+                                : (hasObs 
+                                    ? 'Se anexan reportes fotográficos y observaciones en la hoja de Testigos Fotográficos.'
+                                    : 'Sin observaciones adicionales.')
                             }
                         </p>
                     </div>
 
                     {/* Exclusivo Tienda */}
-                    {(() => {
-                        const isVisita = trabajo?.tipo === 'Visita' || trabajo?.originalTipo === 'Visita';
-                        if (isVisita) return null;
-                        return (
-                            <div style={{ marginTop: '20px', borderTop: '1px solid #cbd5e1', paddingTop: '15px' }}>
+                    {!isVisita && (
+                        <div style={{ marginTop: '20px', borderTop: '1px solid #cbd5e1', paddingTop: '15px' }}>
                                 <h4 style={{ margin: '0 0 10px 0', fontSize: '12px', fontWeight: '800', color: '#1e293b', textTransform: 'uppercase', background: '#f8fafc', padding: '6px 12px', border: '1px solid #cbd5e1' }}>Exclusivo Tienda</h4>
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', fontSize: '11px', color: '#475569' }}>
                                     <div>
@@ -436,26 +448,27 @@ export default function ReportePDFPreview({ trabajo, reporteData, onClose }: Rep
                                     <div style={{ borderBottom: '1px solid #cbd5e1', height: '18px' }}></div>
                                 </div>
                             </div>
-                        );
-                    })()}
+                        )}
 
                     {/* Firmas / Validación */}
-                    <div style={{ marginTop: '30px', borderTop: '1px solid #cbd5e1', paddingTop: '15px' }}>
-                        <h4 style={{ margin: '0 0 15px 0', fontSize: '11px', fontWeight: '800', color: '#1e293b', textTransform: 'uppercase', textAlign: 'center' }}>Validación y Conformidad</h4>
-                        <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center', marginTop: '15px' }}>
-                            <div style={{ textAlign: 'center', width: '200px' }}>
-                                <div style={{ borderBottom: '1px solid #475569', height: '60px', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', paddingBottom: '5px' }}>
-                                    {reporteData.firmaEmpresa && !reporteData.firmaEmpresa.startsWith('data:application/pdf') && (
-                                        <img src={reporteData.firmaEmpresa} alt="Firma" style={{ maxHeight: '55px', maxWidth: '180px', objectFit: 'contain' }} />
-                                    )}
+                    {!isVisita && (
+                        <div style={{ marginTop: '30px', borderTop: '1px solid #cbd5e1', paddingTop: '15px' }}>
+                            <h4 style={{ margin: '0 0 15px 0', fontSize: '11px', fontWeight: '800', color: '#1e293b', textTransform: 'uppercase', textAlign: 'center' }}>Validación y Conformidad</h4>
+                            <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center', marginTop: '15px' }}>
+                                <div style={{ textAlign: 'center', width: '200px' }}>
+                                    <div style={{ borderBottom: '1px solid #475569', height: '60px', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', paddingBottom: '5px' }}>
+                                        {reporteData.firmaEmpresa && !reporteData.firmaEmpresa.startsWith('data:application/pdf') && (
+                                            <img src={reporteData.firmaEmpresa} alt="Firma" style={{ maxHeight: '55px', maxWidth: '180px', objectFit: 'contain' }} />
+                                        )}
+                                    </div>
+                                    <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 'bold', display: 'block', marginTop: '6px' }}>FIRMA ENCARGADO / SUCURSAL</span>
                                 </div>
-                                <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 'bold', display: 'block', marginTop: '6px' }}>FIRMA ENCARGADO / SUCURSAL</span>
-                            </div>
-                            <div style={{ border: '1px solid #cbd5e1', width: '150px', height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: '10px' }}>
-                                SELLO SUCURSAL
+                                <div style={{ border: '1px solid #cbd5e1', width: '150px', height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: '10px' }}>
+                                    SELLO SUCURSAL
+                                </div>
                             </div>
                         </div>
-                    </div>
+                    )}
 
                     {/* Page Footer */}
                     <div style={{ position: 'absolute', bottom: '20px', left: 0, right: 0, textAlign: 'center', fontSize: '10px', color: '#94a3b8' }}>

@@ -433,7 +433,8 @@ const AdminReporte: React.FC = () => {
             fecha: new Date().toLocaleDateString(),
             tecnicoNombre: trabajoBase?.trabajador?.nombre || user?.name || trabajoBase?.tecnico || 'Técnico',
             tecnicoAvatar: user?.avatar || null,
-            fechaInicio: fechaInicio || new Date().toLocaleString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })
+            fechaInicio: fechaInicio || new Date().toLocaleString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }),
+            isVisita: trabajoBase?.tipo === 'Visita' || trabajoBase?.originalTipo === 'Visita'
         };
         
         try {
@@ -622,11 +623,11 @@ const AdminReporte: React.FC = () => {
                                 </div>
 
                                 <div className={styles.inputGroup}>
-                                    <label className={styles.label}>Piezas y Refacciones Registradas:</label>
+                                    <label className={styles.label}>Materiales Extras o Imprevistos:</label>
                                     {refaccionesList.map((ref, i) => (
                                         <div key={i} className={styles.refaccionRow}>
                                             <input
-                                                placeholder="Nombre de la pieza"
+                                                placeholder="Material / Refacción"
                                                 value={ref.pieza}
                                                 onChange={(e) => {
                                                     const newR = [...refaccionesList];
@@ -657,7 +658,7 @@ const AdminReporte: React.FC = () => {
                                                 }}
                                                 style={{ width: '120px', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px' }}
                                             />
-
+ 
                                             <button
                                                 onClick={() => setRefaccionesList(refaccionesList.filter((_, idx) => idx !== i))}
                                                 style={{ background: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca', padding: '10px 15px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
@@ -670,7 +671,7 @@ const AdminReporte: React.FC = () => {
                                         onClick={() => setRefaccionesList([...refaccionesList, { pieza: '', cantidad: 1, costo_estimado: '' }])}
                                         className={styles.addRefaccionBtn}
                                     >
-                                        + Agregar Nueva Pieza/Refacción
+                                        + Agregar Material Extra/Imprevisto
                                     </button>
 
                                     <label className={styles.label}>Otros Materiales o Consumibles Libres:</label>
@@ -1171,6 +1172,7 @@ const AdminReporte: React.FC = () => {
                 return (
                     <ReportePDFPreview
                         trabajo={trabajoBase}
+                        isVisita={trabajoBase?.tipo === 'Visita' || trabajoBase?.originalTipo === 'Visita'}
                         reporteData={{
                             id: id || 0,
                             reporteTienda,

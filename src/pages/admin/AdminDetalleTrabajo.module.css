@@ -681,6 +681,12 @@
     .formGrid {
         grid-template-columns: 1fr !important;
     }
+
+    /* Reduce modal padding on mobile */
+    .modalContent {
+        padding: 20px !important;
+        border-radius: 20px !important;
+    }
 }
 
 .cancelBtn {
@@ -845,6 +851,25 @@
 
 .categoryItemSelected .categoryLabel {
     color: #f26522;
+}
+
+/* Responsive: category grid compacto en móvil */
+@media (max-width: 600px) {
+    .categoryGrid {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px;
+    }
+
+    .categoryItem {
+        padding: 10px 4px;
+        gap: 5px;
+        border-radius: 12px;
+    }
+
+    .categoryLabel {
+        font-size: 10px;
+        font-weight: 700;
+    }
 }
 
 /* ===========================
@@ -1359,4 +1384,91 @@
     font-size: 13px;
     border: 1px solid rgba(239, 68, 68, 0.2);
 }
+
+.modalActionsContainer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    margin-top: 40px;
+}
+
+.btnCancel {
+    background: #eee;
+    color: #555;
+    border: none;
+    padding: 13px 28px;
+    border-radius: 30px;
+    font-size: 15px;
+    font-weight: bold;
+    cursor: pointer;
+    order: 1;
+    margin-right: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btnSavePdf {
+    background: #3b82f6;
+    color: white;
+    border: none;
+    padding: 13px 22px;
+    border-radius: 30px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    white-space: nowrap;
+    order: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btnSaveSend {
+    background: #f26522;
+    color: white;
+    border: none;
+    padding: 13px 22px;
+    border-radius: 30px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    white-space: nowrap;
+    order: 3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+@media (max-width: 600px) {
+    .modalActionsContainer {
+        flex-direction: column;
+        align-items: stretch !important;
+        gap: 12px;
+    }
+    
+    .btnSavePdf {
+        order: 1 !important;
+        width: 100% !important;
+        text-align: center;
+        padding: 15px 22px !important;
+    }
+    
+    .btnSaveSend {
+        order: 2 !important;
+        width: 100% !important;
+        text-align: center;
+        padding: 15px 22px !important;
+    }
+    
+    .btnCancel {
+        order: 3 !important;
+        width: 100% !important;
+        text-align: center;
+        margin-right: 0 !important;
+        padding: 15px 28px !important;
+    }
+}
+
 

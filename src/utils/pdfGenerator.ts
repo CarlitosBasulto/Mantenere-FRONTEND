@@ -40,6 +40,13 @@ const getLogoBase64 = (): string => {
     return "/src/assets/imagenes/logo-agente-business.png";
 };
 
+const getCleanNotes = (text: string) => {
+    if (!text) return '';
+    const lines = text.split('\n');
+    const cleanLines = lines.filter(line => !line.trim().startsWith('-'));
+    return cleanLines.join('\n').trim();
+};
+
 export const generateMaintenanceReportPDF = async (data: PDFReportData, returnBlob = false) => {
     try {
         const doc = new jsPDF();
@@ -219,12 +226,17 @@ export const generateMaintenanceReportPDF = async (data: PDFReportData, returnBl
 
         // --- 5. OBSERVACIONES FINALES (Ahora en la Hoja 1) ---
         if (nextY > 200) { doc.addPage(); nextY = 20; }
-        nextY = drawSectionTitle("Observaciones Finales", nextY);
+        nextY = drawSectionTitle(data.isVisita ? "Detalles o Notas Adicionales" : "Observaciones Finales", nextY);
         
-        const hasObservations = (data.observacionesList && data.observacionesList.length > 0) || (data.observaciones && data.observaciones.trim().length > 0);
-        const obsText = hasObservations 
-            ? 'Se anexan reportes fotográficos y observaciones en la hoja de Testigos Fotográficos.'
-            : 'Sin observaciones adicionales.';
+        let obsText = "";
+        if (data.isVisita) {
+            obsText = getCleanNotes(data.materiales) || 'Sin detalles o notas adicionales.';
+        } else {
+            const hasObservations = (data.observacionesList && data.observacionesList.length > 0) || (data.observaciones && data.observaciones.trim().length > 0);
+            obsText = hasObservations 
+                ? 'Se anexan reportes fotográficos y observaciones en la hoja de Testigos Fotográficos.'
+                : 'Sin observaciones adicionales.';
+        }
             
         const obsLines = doc.splitTextToSize(obsText, 170);
         doc.setFont("helvetica", "normal");
@@ -316,38 +328,40 @@ export const generateMaintenanceReportPDF = async (data: PDFReportData, returnBl
         }
 
         // --- 6. VALIDACIÓN Y CONFORMIDAD (Fija al fondo de la hoja) ---
-        let sigY = 240;
-        if (nextY > 232) {
-            doc.addPage();
-            sigY = 240; // Asegurar que siempre esté en la misma posición en la nueva hoja
-        }
+        if (!data.isVisita) {
+            let sigY = 240;
+            if (nextY > 232) {
+                doc.addPage();
+                sigY = 240; // Asegurar que siempre esté en la misma posición en la nueva hoja
+            }
 
-        doc.setFillColor(240, 240, 240);
-        doc.rect(15, sigY - 8, 180, 7, 'F');
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(10);
-        doc.setTextColor(navyColor[0], navyColor[1], navyColor[2]);
-        doc.text("VALIDACIÓN Y CONFORMIDAD", 20, sigY - 3);
+            doc.setFillColor(240, 240, 240);
+            doc.rect(15, sigY - 8, 180, 7, 'F');
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(10);
+            doc.setTextColor(navyColor[0], navyColor[1], navyColor[2]);
+            doc.text("VALIDACIÓN Y CONFORMIDAD", 20, sigY - 3);
 
-        doc.setDrawColor(180);
-        doc.setTextColor(80, 80, 80);
+            doc.setDrawColor(180);
+            doc.setTextColor(80, 80, 80);
 
-        // Firma encargado
-        doc.line(20, sigY + 22, 90, sigY + 22);
-        doc.setFontSize(9);
-        doc.setFont("helvetica", "bold");
-        doc.text("NOMBRE Y FIRMA DEL ENCARGADO", 55, sigY + 28, { align: 'center' });
+            // Firma encargado
+            doc.line(20, sigY + 22, 90, sigY + 22);
+            doc.setFontSize(9);
+            doc.setFont("helvetica", "bold");
+            doc.text("NOMBRE Y FIRMA DEL ENCARGADO", 55, sigY + 28, { align: 'center' });
 
-        // Sello sucursal
-        doc.rect(115, sigY, 75, 30);
-        doc.text("SELLO DE LA SUCURSAL", 152, sigY + 37, { align: 'center' });
+            // Sello sucursal
+            doc.rect(115, sigY, 75, 30);
+            doc.text("SELLO DE LA SUCURSAL", 152, sigY + 37, { align: 'center' });
 
-        // Imagen de firma si existe
-        if (data.firmaEmpresa && !data.firmaEmpresa.startsWith('data:application/pdf')) {
-            try {
-                doc.addImage(data.firmaEmpresa, 'JPEG', 115, sigY, 75, 30);
-            } catch (e) {
-                try { doc.addImage(data.firmaEmpresa, 'PNG', 115, sigY, 75, 30); } catch (e2) { }
+            // Imagen de firma si existe
+            if (data.firmaEmpresa && !data.firmaEmpresa.startsWith('data:application/pdf')) {
+                try {
+                    doc.addImage(data.firmaEmpresa, 'JPEG', 115, sigY, 75, 30);
+                } catch (e) {
+                    try { doc.addImage(data.firmaEmpresa, 'PNG', 115, sigY, 75, 30); } catch (e2) { }
+                }
             }
         }
 

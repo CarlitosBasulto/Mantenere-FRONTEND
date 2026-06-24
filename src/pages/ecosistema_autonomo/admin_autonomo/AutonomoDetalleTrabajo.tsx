@@ -257,6 +257,53 @@ const AutonomoDetalleTrabajo: React.FC = () => {
     // ESTADOS COTIZACIÓN (nueva cotización)
     const [costo, setCosto] = useState("");
     const [notas, setNotas] = useState("");
+    const [adminQuoteMaterials, setAdminQuoteMaterials] = useState<{ material: string; piezas: string; precio: string }[]>([]);
+    const [adminManoObra, setAdminManoObra] = useState("0");
+    const [previewQuote, setPreviewQuote] = useState<any | null>(null);
+
+    const parseQuoteMaterials = (description: string) => {
+        if (!description) return { materials: [], manoObra: 0, notes: "" };
+        const lines = description.split('\n');
+        const parsedMaterials: any[] = [];
+        const notesLines: string[] = [];
+        let parsedManoObra = 0;
+        for (const line of lines) {
+            const trimmed = line.trim();
+            if (trimmed.startsWith('- ')) {
+                if (trimmed.toUpperCase().includes("MANO DE OBRA")) {
+                    const match = trimmed.match(/-\s+.*?-\s*\$(.+)$/i);
+                    if (match) {
+                        parsedManoObra = parseFloat(match[1].replace(/,/g, '')) || 0;
+                    }
+                    continue;
+                }
+                const match = trimmed.match(/^-\s+(.+?)\s*\((.*?)\)(?:\s*-\s*\$(.+?))?$/);
+                if (match) {
+                    parsedMaterials.push({
+                        material: match[1].trim(),
+                        piezas: match[2].trim(),
+                        precio: match[3] ? match[3].trim().replace(/,/g, '') : ""
+                    });
+                } else {
+                    parsedMaterials.push({
+                        material: trimmed.substring(2).trim(),
+                        piezas: "",
+                        precio: ""
+                    });
+                }
+            } else {
+                notesLines.push(line);
+            }
+        }
+        let notesText = notesLines.join('\n').trim();
+        return { materials: parsedMaterials, manoObra: parsedManoObra, notes: notesText };
+    };
+
+    useEffect(() => {
+        const matsTotal = adminQuoteMaterials.reduce((acc, m) => acc + ((parseFloat(m.precio) || 0) * (parseFloat(m.piezas) || 1)), 0);
+        const manoObraVal = parseFloat(adminManoObra) || 0;
+        setCosto(String(manoObraVal + matsTotal));
+    }, [adminManoObra, adminQuoteMaterials]);
     const [archivoFile, setArchivoFile] = useState<File | null>(null);
     const [nombreArchivo, setNombreArchivo] = useState<string>("");
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -765,12 +812,14 @@ const AutonomoDetalleTrabajo: React.FC = () => {
             const techNamePayload = user?.name || "Sin Asignar";
             desc += ` \n|||TECH_NAME||| ${techNamePayload}`;
 
-            const payloadRefacciones = refacciones.map(r => ({
-                pieza: r.pieza,
-                cantidad: Number(r.cantidad),
-                costo_estimado: r.costo_estimado ? Number(r.costo_estimado) : undefined,
-                levantamiento_equipo_id: serviceEquipoId || undefined
-            }));
+            const payloadRefacciones = refacciones
+                .filter(r => r.pieza && r.pieza.trim() !== '')
+                .map(r => ({
+                    pieza: r.pieza.trim(),
+                    cantidad: Number(r.cantidad),
+                    costo_estimado: r.costo_estimado ? Number(r.costo_estimado) : undefined,
+                    levantamiento_equipo_id: serviceEquipoId || undefined
+                }));
 
             const body = {
                 trabajo_id: Number(id),
@@ -883,6 +932,14 @@ const AutonomoDetalleTrabajo: React.FC = () => {
                             costo_estimado: m.precio ? String(m.precio) : ''
                         })) : []
                     );
+
+                    if (isQuoteIncluded && newQuoteAmount && parseFloat(newQuoteAmount) > 0) {
+                        refaccionesList.push({
+                            pieza: "MANO DE OBRA / SERVICIO TÉCNICO",
+                            cantidad: 1,
+                            costo_estimado: String(newQuoteAmount)
+                        });
+                    }
 
                     const combinedMateriales = isQuoteIncluded ? newQuoteDetails : '';
 
@@ -1499,6 +1556,7 @@ const AutonomoDetalleTrabajo: React.FC = () => {
                 onClick={() => {
                     const refaccionesList = (tarea.refacciones || []).map(r => ({
                         pieza: r.pieza,
+                        bold: true,
                         cantidad: Number(r.cantidad) || 1,
                         costo_estimado: r.costo_estimado ? String(r.costo_estimado) : ''
                     })).concat(
@@ -1508,6 +1566,14 @@ const AutonomoDetalleTrabajo: React.FC = () => {
                             costo_estimado: m.precio ? String(m.precio) : ''
                         })) : []
                     );
+
+                    if (tarea.hasQuote && tarea.quoteData?.monto && parseFloat(tarea.quoteData.monto) > 0) {
+                        refaccionesList.push({
+                            pieza: "MANO DE OBRA / SERVICIO TÉCNICO",
+                            cantidad: 1,
+                            costo_estimado: String(tarea.quoteData.monto)
+                        });
+                    }
 
                     const combinedMateriales = tarea.hasQuote ? (tarea.quoteData?.detalles || '') : '';
 
@@ -1533,7 +1599,8 @@ const AutonomoDetalleTrabajo: React.FC = () => {
                             piezas: tarea.serviceData.pieza || 'N/A',
                             garantia: tarea.serviceData.garantia || 'N/A'
                         } : null,
-                        fecha: new Date().toLocaleDateString('es-MX')
+                        fecha: new Date().toLocaleDateString('es-MX'),
+                        isVisita: trabajo?.tipo === 'Visita' || trabajo?.originalTipo === 'Visita' || !!tarea.hasQuote || (trabajo?.estado !== 'Finalizado' && trabajo?.estado !== 'En Proceso')
                     };
 
                     setActivityPDFData(preparedData);
@@ -2017,7 +2084,7 @@ const AutonomoDetalleTrabajo: React.FC = () => {
                                 }
                                 if (tabName === 'Cotización') {
                                     if (user?.role === 'tecnico') {
-                                        return trabajo.estado === 'Cotización Enviada' || trabajo.estado === 'Cotización Rechazada';
+                                        return false;
                                     }
                                     return user?.role === 'admin' || user?.role === 'autonomo';
                                 }
@@ -2257,7 +2324,7 @@ const AutonomoDetalleTrabajo: React.FC = () => {
                                                     </button>
                                                 </>
                                             )}
-                                            {trabajo.estado === 'En Espera' && (
+                                            {(trabajo.estado === 'En Espera' || trabajo.estado === 'Cotización Enviada' || trabajo.estado === 'Cotización Aceptada' || trabajo.estado === 'Cotización Aprobada') && (
                                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '10px' }}>
                                                     {trabajo.tipo === 'Visita' ? (
                                                         <button onClick={() => handleEmpezarTrabajoTipo('Visita')} style={{ padding: '12px 10px', background: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)', color: '#fff', border: 'none', borderRadius: '12px', fontSize: '13px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 4px 12px rgba(30,41,59,0.2)', transition: 'all 0.2s ease' }} onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')} onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}>📍 Iniciar Visita</button>
@@ -2360,16 +2427,16 @@ const AutonomoDetalleTrabajo: React.FC = () => {
 
                                                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
                                                             {cotiz.archivo && (
-                                                                <a href={cotiz.archivo.startsWith('http') ? cotiz.archivo : `${(import.meta.env.VITE_API_URL || 'http://127.0.0.1:8085/api').replace(/\/api\/?$/, '')}/storage/${cotiz.archivo}`} 
-                                                                   target="_blank" 
-                                                                   rel="noreferrer"
-                                                                   className={styles.attachmentLink}
-                                                                >
-                                                                    <div className={styles.pdfIconBox}>
-                                                                        <HiOutlineDocumentText size={20} color="white" />
-                                                                    </div>
-                                                                    <span>Descargar Presupuesto Detallado.pdf</span>
-                                                                </a>
+                                                                 <button 
+                                                                    onClick={() => setPreviewQuote(cotiz)}
+                                                                    className={styles.attachmentLink}
+                                                                    style={{ border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left', padding: 0 }}
+                                                                 >
+                                                                     <div className={styles.pdfIconBox}>
+                                                                         <HiOutlineDocumentText size={20} color="white" />
+                                                                     </div>
+                                                                     <span>Descargar Presupuesto Detallado.pdf</span>
+                                                                 </button>
                                                             )}
                                                         </div>
 
@@ -2540,11 +2607,72 @@ const AutonomoDetalleTrabajo: React.FC = () => {
                                                     </div>
 
                                                     <div style={{ marginBottom: '16px' }}>
-                                                        <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>Monto ($)</label>
+                                                        <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>Mano de Obra ($)</label>
+                                                        <div style={{ position: 'relative', marginBottom: '16px' }}>
+                                                            <span style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', fontSize: '18px', fontWeight: '900', color: '#f26522' }}>$</span>
+                                                            <input type="number" placeholder="Mano de obra..." value={adminManoObra} onChange={e => setAdminManoObra(e.target.value)}
+                                                                style={{ width: '100%', padding: '13px 16px 13px 36px', borderRadius: '14px', border: '2px solid #e2e8f0', fontSize: '17px', fontWeight: '700', color: '#1e293b', boxSizing: 'border-box' }} />
+                                                        </div>
+
+                                                        <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>Materiales y Piezas</label>
+                                                        <div style={{ background: '#f8fafc', padding: '15px', borderRadius: '14px', border: '1px solid #cbd5e1', marginBottom: '16px' }}>
+                                                            {adminQuoteMaterials.map((mat, i) => (
+                                                                <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '15px', paddingBottom: '15px', borderBottom: i < adminQuoteMaterials.length - 1 ? '1px solid #e2e8f0' : 'none' }}>
+                                                                    <input
+                                                                        placeholder="Material / Refacción"
+                                                                        value={mat.material}
+                                                                        onChange={(e) => {
+                                                                            const newM = [...adminQuoteMaterials];
+                                                                            newM[i].material = e.target.value;
+                                                                            setAdminQuoteMaterials(newM);
+                                                                        }}
+                                                                        style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px', boxSizing: 'border-box' }}
+                                                                    />
+                                                                    <div style={{ display: 'flex', gap: '10px' }}>
+                                                                        <input
+                                                                            type="number"
+                                                                            placeholder="Piezas"
+                                                                            value={mat.piezas}
+                                                                            onChange={(e) => {
+                                                                                const newM = [...adminQuoteMaterials];
+                                                                                newM[i].piezas = e.target.value;
+                                                                                setAdminQuoteMaterials(newM);
+                                                                            }}
+                                                                            style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px', boxSizing: 'border-box' }}
+                                                                        />
+                                                                        <input
+                                                                            type="number"
+                                                                            placeholder="Precio ($)"
+                                                                            value={mat.precio}
+                                                                            onChange={(e) => {
+                                                                                const newM = [...adminQuoteMaterials];
+                                                                                newM[i].precio = e.target.value;
+                                                                                setAdminQuoteMaterials(newM);
+                                                                            }}
+                                                                            style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px', boxSizing: 'border-box' }}
+                                                                        />
+                                                                        <button
+                                                                            onClick={() => setAdminQuoteMaterials(adminQuoteMaterials.filter((_, idx) => idx !== i))}
+                                                                            style={{ background: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca', padding: '0 15px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
+                                                                        >
+                                                                            ✕
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                            <button
+                                                                onClick={() => setAdminQuoteMaterials([...adminQuoteMaterials, { material: '', piezas: '', precio: '' }])}
+                                                                style={{ background: 'transparent', color: '#f26522', border: '1px dashed #f26522', padding: '8px 15px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold', width: '100%' }}
+                                                            >
+                                                                + Añadir material o refacción
+                                                            </button>
+                                                        </div>
+
+                                                        <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>Monto Total ($)</label>
                                                         <div style={{ position: 'relative' }}>
                                                             <span style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', fontSize: '18px', fontWeight: '900', color: '#f26522' }}>$</span>
-                                                            <input type="number" placeholder="1500" value={costo} onChange={e => setCosto(e.target.value)}
-                                                                style={{ width: '100%', padding: '13px 16px 13px 36px', borderRadius: '14px', border: '2px solid #e2e8f0', fontSize: '17px', fontWeight: '700', color: '#1e293b', boxSizing: 'border-box' }} />
+                                                            <input type="number" value={costo} readOnly
+                                                                style={{ width: '100%', padding: '13px 16px 13px 36px', borderRadius: '14px', border: '2px solid #cbd5e1', background: '#f1f5f9', fontSize: '17px', fontWeight: '700', color: '#1e293b', boxSizing: 'border-box', cursor: 'not-allowed' }} />
                                                         </div>
                                                     </div>
 
@@ -3221,7 +3349,21 @@ const AutonomoDetalleTrabajo: React.FC = () => {
                                 )}
                             </div>
 
-                            <div style={{ marginTop: '40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div className={styles.modalActionsContainer}>
+                                {!editingTaskId && (
+                                    <button
+                                        onClick={() => handleAddTask(true)}
+                                        className={styles.btnSavePdf}
+                                    >
+                                        Guardar y generar PDF
+                                    </button>
+                                )}
+                                <button
+                                    onClick={() => handleAddTask(false)}
+                                    className={styles.btnSaveSend}
+                                >
+                                    {editingTaskId ? "Actualizar" : "Guardar y enviar"}
+                                </button>
                                 <button
                                     onClick={() => { 
                                         setIsAddModalOpen(false); 
@@ -3239,27 +3381,10 @@ const AutonomoDetalleTrabajo: React.FC = () => {
                                         setServiceGarantia("");
                                         setRefacciones([]);
                                     }}
-                                    style={{ background: '#eee', color: '#555', border: 'none', padding: '15px 40px', borderRadius: '30px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer' }}
+                                    className={styles.btnCancel}
                                 >
                                     Cancelar
                                 </button>
-
-                                <div style={{ display: 'flex', gap: '15px' }}>
-                                    {!editingTaskId && (
-                                        <button
-                                            onClick={() => handleAddTask(true)}
-                                            style={{ background: '#3b82f6', color: 'white', border: 'none', padding: '15px 30px', borderRadius: '30px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer' }}
-                                        >
-                                            Guardar y generar PDF
-                                        </button>
-                                    )}
-                                    <button
-                                        onClick={() => handleAddTask(false)}
-                                        style={{ background: '#f26522', color: 'white', border: 'none', padding: '15px 40px', borderRadius: '30px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer' }}
-                                    >
-                                        {editingTaskId ? "Actualizar" : "Guardar y enviar"}
-                                    </button>
-                                </div>
                             </div>
 
                         </div>
@@ -3279,7 +3404,7 @@ const AutonomoDetalleTrabajo: React.FC = () => {
                     })()}
                     userRole={user?.role ?? undefined}
                     onEdit={() => {
-                        const baseRoute = user?.role === 'tecnico' ? '/tecnico' : '/menu';
+                        const baseRoute = user?.role === 'tecnico' ? '/tecnico' : (user?.role === 'autonomo' ? '/autonomo' : '/menu');
                         navigate(`${baseRoute}/reporte-tarea/${trabajo?.id}`, { state: { trabajoId: trabajo?.id, actividadId: (selectedHistoryTask as any).id } });
                     }}
                 />
@@ -3306,7 +3431,7 @@ const AutonomoDetalleTrabajo: React.FC = () => {
                                 onClick={() => {
                                     if (selectedTaskForReport && trabajo) {
                                         setIsSecurityModalOpen(false);
-                                        const baseRoute = user?.role === 'tecnico' ? '/tecnico' : '/menu';
+                                        const baseRoute = user?.role === 'tecnico' ? '/tecnico' : (user?.role === 'autonomo' ? '/autonomo' : '/menu');
                                         navigate(`${baseRoute}/reporte-tarea/${trabajo.id}`, { state: { trabajoId: trabajo.id, actividadId: selectedTaskForReport.id } });
                                     }
                                 }}
@@ -3561,14 +3686,32 @@ const AutonomoDetalleTrabajo: React.FC = () => {
                     subTareas={subTareas} 
                     costo={costo} 
                     notas={notas} 
+                    materials={adminQuoteMaterials}
+                    manoObra={adminManoObra}
                     onClose={() => setShowPDFPreview(false)} 
                 />
             )}
+
+            {previewQuote && trabajo && (() => {
+                const { materials, manoObra, notes } = parseQuoteMaterials(previewQuote.descripcion || "");
+                return (
+                    <CotizacionPDFPreview 
+                        trabajo={trabajo} 
+                        subTareas={subTareas} 
+                        costo={previewQuote.monto} 
+                        notas={notes} 
+                        materials={materials}
+                        manoObra={manoObra}
+                        onClose={() => setPreviewQuote(null)} 
+                    />
+                );
+            })()}
 
             {/* ACTIVITY PDF PREVIEW MODAL */}
             {showActivityPDFPreview && activityPDFData && (
                 <ReportePDFPreview
                     trabajo={trabajo}
+                    isVisita={trabajo?.tipo === 'Visita' || trabajo?.originalTipo === 'Visita' || activityPDFData.isVisita || (trabajo?.estado !== 'Finalizado' && trabajo?.estado !== 'En Proceso')}
                     reporteData={activityPDFData}
                     onClose={() => {
                         setShowActivityPDFPreview(false);
