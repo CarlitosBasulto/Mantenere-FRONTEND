@@ -114,7 +114,7 @@ const AutonomoListaNegocios: React.FC = () => {
     });
 
     const handleCardClick = (id: number) => {
-        const basePath = user?.role === 'cliente' ? '/cliente' : (user?.role === 'tecnico' ? '/tecnico' : (user?.role === 'encargado' ? '/encargado' : (user?.role === 'autonomo' ? '/autonomo' : '/menu')));
+        const basePath = user?.role === 'cliente' ? '/cliente' : (user?.role === 'tecnico' ? '/tecnico' : (user?.role === 'encargado' ? '/encargado' : (['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '') ? '/autonomo' : '/menu')));
         navigate(`${basePath}/trabajo/${id}`);
     };
 
@@ -126,7 +126,7 @@ const AutonomoListaNegocios: React.FC = () => {
             navigate(`/encargado/sucursal?id=${id}`);
         } else if (user?.role === 'cliente') {
             navigate(`/cliente/perfil-empresa?id=${id}`);
-        } else if (user?.role === 'autonomo') {
+        } else if (['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '')) {
             navigate(`/autonomo/perfil-empresa?id=${id}`);
         } else {
             navigate(`/menu/perfil-empresa?id=${id}`);
@@ -155,7 +155,7 @@ const AutonomoListaNegocios: React.FC = () => {
                                 Registrar
                             </button>
                         )}
-                        {user?.role === 'autonomo' && (
+                        {['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '') && (
                             <button
                                 className={styles.registrarBtn}
                                 onClick={() => navigate("/autonomo/perfil-empresa")}
@@ -196,8 +196,8 @@ const AutonomoListaNegocios: React.FC = () => {
                                         <div 
                                             className={styles.cardIcon} 
                                             onClick={(e) => handleEditClick(e, negocio.id)}
-                                            style={{ cursor: (user?.role === 'cliente' || user?.role === 'admin' || user?.role === 'encargado' || user?.role === 'autonomo') ? 'pointer' : 'default' }}
-                                            title={(user?.role === 'cliente' || user?.role === 'admin' || user?.role === 'encargado' || user?.role === 'autonomo') ? "Editar Perfil" : ""}
+                                            style={{ cursor: (user?.role === 'cliente' || user?.role === 'admin' || user?.role === 'encargado' || ['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '')) ? 'pointer' : 'default' }}
+                                            title={(user?.role === 'cliente' || user?.role === 'admin' || user?.role === 'encargado' || ['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '')) ? "Editar Perfil" : ""}
                                         >
                                             {negocio.imagenPerfil && !imageErrors[negocio.id] ? (
                                                 <img

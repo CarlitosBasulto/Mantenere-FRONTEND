@@ -247,7 +247,8 @@ const ListaSolicitudes: React.FC = () => {
                             key={req.id}
                             className={styles.jobCard}
                             onClick={() => {
-                                const basePath = user?.role === 'tecnico' ? '/tecnico' : (user?.role === 'autonomo' ? '/autonomo' : '/menu');
+                                const isAutonomoContext = ['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '');
+                                const basePath = user?.role === 'tecnico' ? '/tecnico' : (isAutonomoContext ? '/autonomo' : '/menu');
                                 navigate(`${basePath}/trabajo-detalle/${req.id}`);
                             }}
                         >
@@ -318,7 +319,8 @@ const ListaSolicitudes: React.FC = () => {
                                                     className={styles.assignBtn}
                                                     onClick={(e) => { 
                                                         e.stopPropagation(); 
-                                                        const basePath = user?.role === 'tecnico' ? '/tecnico' : (user?.role === 'autonomo' ? '/autonomo' : '/menu');
+                                                        const isAutonomoContext = ['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '');
+                                                        const basePath = user?.role === 'tecnico' ? '/tecnico' : (isAutonomoContext ? '/autonomo' : '/menu');
                                                         navigate(`${basePath}/trabajo-detalle/${req.id}`); 
                                                     }}
                                                     title="Asignar Técnico"

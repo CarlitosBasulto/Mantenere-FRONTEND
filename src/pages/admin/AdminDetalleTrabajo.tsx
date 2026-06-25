@@ -4006,7 +4006,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                     })()}
                     userRole={user?.role ?? undefined}
                     onEdit={() => {
-                        const baseRoute = user?.role === 'tecnico' ? '/tecnico' : (user?.role === 'autonomo' ? '/autonomo' : '/menu');
+                        const baseRoute = user?.role === 'tecnico' ? '/tecnico' : (['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '') ? '/autonomo' : '/menu');
                         navigate(`${baseRoute}/reporte-tarea/${trabajo?.id}`, { state: { trabajoId: trabajo?.id, actividadId: (selectedHistoryTask as any).id } });
                     }}
                 />
@@ -4033,7 +4033,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                                 onClick={() => {
                                     if (selectedTaskForReport && trabajo) {
                                         setIsSecurityModalOpen(false);
-                                        const baseRoute = user?.role === 'tecnico' ? '/tecnico' : (user?.role === 'autonomo' ? '/autonomo' : '/menu');
+                                        const baseRoute = user?.role === 'tecnico' ? '/tecnico' : (['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '') ? '/autonomo' : '/menu');
                                         navigate(`${baseRoute}/reporte-tarea/${trabajo.id}`, { state: { trabajoId: trabajo.id, actividadId: selectedTaskForReport.id } });
                                     }
                                 }}

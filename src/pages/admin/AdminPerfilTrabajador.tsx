@@ -14,6 +14,9 @@ interface Trabajador {
     correo: string;
     telefono: string;
     ciudad: string;
+    fecha_nacimiento?: string;
+    direccion?: string;
+    rfc?: string;
     avatar?: string;
     trabajos_count?: number;
 }
@@ -42,6 +45,9 @@ const AdminPerfilTrabajador: React.FC = () => {
                     correo: data.correo || "",
                     telefono: data.telefono || "",
                     ciudad: data.estado_prov || "Mérida, Yucatán",
+                    fecha_nacimiento: data.fecha_nacimiento || "",
+                    direccion: data.direccion || "",
+                    rfc: data.rfc || "",
                     avatar: data.avatar || "",
                     trabajos_count: data.trabajos_count || 0
                 });
@@ -194,6 +200,38 @@ const AdminPerfilTrabajador: React.FC = () => {
                             <span className={styles.infoValue}>{worker.ciudad || '—'}</span>
                         </div>
                     </div>
+
+                    <div className={styles.infoCard}>
+                        <div className={`${styles.infoIcon} ${styles.blue}`}>
+                            <span style={{ fontSize: '18px' }}>🎂</span>
+                        </div>
+                        <div className={styles.infoTextBlock}>
+                            <span className={styles.infoLabel}>Fecha de Nacimiento</span>
+                            <span className={styles.infoValue}>{worker.fecha_nacimiento || '—'}</span>
+                        </div>
+                    </div>
+
+                    <div className={styles.infoCard}>
+                        <div className={`${styles.infoIcon} ${styles.orange}`}>
+                            <HiOutlineMapPin size={18} />
+                        </div>
+                        <div className={styles.infoTextBlock}>
+                            <span className={styles.infoLabel}>Dirección</span>
+                            <span className={styles.infoValue}>{worker.direccion || '—'}</span>
+                        </div>
+                    </div>
+
+                    {worker.puesto.includes('- Externo') && (
+                        <div className={styles.infoCard}>
+                            <div className={`${styles.infoIcon} ${styles.purple}`}>
+                                <span style={{ fontSize: '18px' }}>📄</span>
+                            </div>
+                            <div className={styles.infoTextBlock}>
+                                <span className={styles.infoLabel}>RFC</span>
+                                <span className={styles.infoValue}>{worker.rfc || '—'}</span>
+                            </div>
+                        </div>
+                    )}
 
                     <div className={styles.infoCard}>
                         <div className={`${styles.infoIcon} ${styles.purple}`}>

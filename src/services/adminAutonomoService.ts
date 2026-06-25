@@ -71,3 +71,14 @@ export const toggleBloqueoAdminAutonomo = async (id: number) => {
     const res = await api.put(`/admin-autonomo/${id}/bloquear`);
     return res.data;
 };
+
+// ── Gerente General ───────────────────────────────────────────────────────
+export const getGerenteGeneral = async () => {
+    const res = await api.get('/admin-autonomo/gerente');
+    return res.data;
+};
+
+export const asignarGerenteGeneral = async (data: { name: string; email: string; password?: string }) => {
+    const res = await api.post('/admin-autonomo/gerente', data);
+    return res.data;
+};

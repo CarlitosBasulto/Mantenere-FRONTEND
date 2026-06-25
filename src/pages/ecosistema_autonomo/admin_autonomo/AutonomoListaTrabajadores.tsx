@@ -78,12 +78,16 @@ const AutonomoListaTrabajadores: React.FC = () => {
 
     // ESTADOS PARA "NUEVO TRABAJADOR"
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-    const [newWorkerName, setNewWorkerName] = useState("");
+    const [newWorkerFirstName, setNewWorkerFirstName] = useState("");
+    const [newWorkerLastName, setNewWorkerLastName] = useState("");
     const [newWorkerRoles, setNewWorkerRoles] = useState<string[]>([]);
     const [newWorkerPhone, setNewWorkerPhone] = useState("");
     const [newWorkerEmail, setNewWorkerEmail] = useState("");
     const [newWorkerPassword, setNewWorkerPassword] = useState("");
     const [newWorkerType, setNewWorkerType] = useState<"Interno" | "Externo">("Interno");
+    const [newWorkerDOB, setNewWorkerDOB] = useState("");
+    const [newWorkerAddress, setNewWorkerAddress] = useState("");
+    const [newWorkerRFC, setNewWorkerRFC] = useState("");
     const [newCategoryName, setNewCategoryName] = useState("");
 
     const [availableRoles, setAvailableRoles] = useState(["General", "Electricista", "Plomero", "Albañil", "Pintor"]);
@@ -137,32 +141,40 @@ const AutonomoListaTrabajadores: React.FC = () => {
     const handleAddWorker = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        if (!newWorkerName || !newWorkerEmail || !newWorkerPassword) {
-            showAlert("Campos Incompletos", "Rellena nombre, correo y contraseña obligatoriamente.", "warning");
+        if (!newWorkerFirstName || !newWorkerLastName || !newWorkerEmail || !newWorkerPassword) {
+            showAlert("Campos Incompletos", "Rellena nombre, apellidos, correo y contraseña obligatoriamente.", "warning");
             return;
         }
 
         try {
+            const fullName = `${newWorkerFirstName.trim()} ${newWorkerLastName.trim()}`;
             const rolesSeleccionados = newWorkerRoles.length > 0 ? newWorkerRoles.join(", ") : "General";
             const puestoConTipo = `${rolesSeleccionados} - ${newWorkerType}`;
             await createTrabajador({
-                nombre: newWorkerName,
+                nombre: fullName,
                 correo: newWorkerEmail,
                 password: newWorkerPassword,
                 puesto: puestoConTipo,
-                telefono: newWorkerPhone || null
+                telefono: newWorkerPhone || null,
+                fecha_nacimiento: newWorkerDOB || null,
+                direccion: newWorkerAddress || null,
+                rfc: newWorkerType === "Externo" ? (newWorkerRFC || null) : null
             });
 
             // Refrescar
             await fetchTrabajadores();
 
             // Reset y cerrar
-            setNewWorkerName("");
+            setNewWorkerFirstName("");
+            setNewWorkerLastName("");
             setNewWorkerRoles([]);
             setNewWorkerPhone("");
             setNewWorkerEmail("");
             setNewWorkerPassword("");
             setNewWorkerType("Interno");
+            setNewWorkerDOB("");
+            setNewWorkerAddress("");
+            setNewWorkerRFC("");
             setIsAddModalOpen(false);
             showAlert("Éxito", "Trabajador creado exitosamente.", "success");
         } catch (error: any) {
@@ -270,11 +282,7 @@ Line: 97
                             key={worker.id}
                             className={styles.jobCard}
                             onClick={() => {
-                                if (user?.role === 'autonomo') {
-                                    navigate(`/autonomo/trabajador/${worker.id}`);
-                                } else {
-                                    navigate(`/menu/trabajador/${worker.id}`);
-                                }
+                                navigate(`/autonomo/trabajador/${worker.id}`);
                             }}
                         >
                             {/* Barra de color superior */}
@@ -425,13 +433,25 @@ Line: 97
                         <form onSubmit={handleAddWorker} className={styles.workerForm}>
                             <div className={styles.formGrid}>
                                 <div className={styles.formField}>
-                                    <label>Nombre Completo</label>
+                                    <label>Nombre(s)</label>
                                     <input
                                         type="text"
                                         className={styles.premiumInput}
-                                        value={newWorkerName}
-                                        onChange={(e) => setNewWorkerName(e.target.value)}
-                                        placeholder="Ej. Juan Pérez"
+                                        value={newWorkerFirstName}
+                                        onChange={(e) => setNewWorkerFirstName(e.target.value)}
+                                        placeholder="Ej. Juan Carlos"
+                                        required
+                                    />
+                                </div>
+
+                                <div className={styles.formField}>
+                                    <label>Apellidos</label>
+                                    <input
+                                        type="text"
+                                        className={styles.premiumInput}
+                                        value={newWorkerLastName}
+                                        onChange={(e) => setNewWorkerLastName(e.target.value)}
+                                        placeholder="Ej. Pérez Gómez"
                                         required
                                     />
                                 </div>
@@ -470,6 +490,27 @@ Line: 97
                                         required
                                     />
                                 </div>
+
+                                <div className={styles.formField}>
+                                    <label>Fecha de Nacimiento</label>
+                                    <input
+                                        type="date"
+                                        className={styles.premiumInput}
+                                        value={newWorkerDOB}
+                                        onChange={(e) => setNewWorkerDOB(e.target.value)}
+                                    />
+                                </div>
+
+                                <div className={styles.formField}>
+                                    <label>Dirección</label>
+                                    <input
+                                        type="text"
+                                        className={styles.premiumInput}
+                                        value={newWorkerAddress}
+                                        onChange={(e) => setNewWorkerAddress(e.target.value)}
+                                        placeholder="Ej. Calle Principal 123"
+                                    />
+                                </div>
                             </div>
 
                             <div className={styles.typeSection} style={{ marginBottom: '20px', marginTop: '10px' }}>
@@ -497,6 +538,20 @@ Line: 97
                                     </label>
                                 </div>
                             </div>
+
+                            {newWorkerType === "Externo" && (
+                                <div className={styles.formField} style={{ marginBottom: '20px' }}>
+                                    <label>RFC (Opcional)</label>
+                                    <input
+                                        type="text"
+                                        className={styles.premiumInput}
+                                        value={newWorkerRFC}
+                                        onChange={(e) => setNewWorkerRFC(e.target.value)}
+                                        placeholder="Ingrese el RFC"
+                                        style={{ width: '100%' }}
+                                    />
+                                </div>
+                            )}
 
                             <div className={styles.specialtySection}>
                                 <label className={styles.sectionLabel}>Puesto / Especialidad (Selecciona al menos uno)</label>

@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState } from 'react';
 import type { ReactNode } from 'react';
 
 // Tipos de roles disponibles
-export type UserRole = 'admin' | 'cliente' | 'tecnico' | 'encargado' | 'autonomo' | null;
+export type UserRole = 'admin' | 'cliente' | 'tecnico' | 'encargado' | 'autonomo' | 'admin-autonomo' | 'gerente-general' | null;
 
 interface User {
     id: number;

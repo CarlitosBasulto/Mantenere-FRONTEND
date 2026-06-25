@@ -54,7 +54,7 @@ const MenuLayout: React.FC = () => {
         if (role === 'cliente') return "/cliente";
         if (role === 'tecnico') return "/tecnico";
         if (role === 'encargado') return "/encargado";
-        if (role === 'autonomo') return "/autonomo";
+        if (role === 'autonomo' || role === 'gerente-general' || role === 'admin-autonomo') return "/autonomo";
         return "/";
     };
 
@@ -118,7 +118,7 @@ const MenuLayout: React.FC = () => {
 
         if (user.role === 'admin') {
             baseOptions = ["Negocios", "Dashboard", "Inventario General", "Trabajadores", "Usuarios", "Solicitudes", "Reportes Mantenimiento", "Trabajos Globales Realizados"];
-        } else if (user.role === 'autonomo') {
+        } else if (user.role === 'autonomo' || user.role === 'admin-autonomo' || user.role === 'gerente-general') {
             baseOptions = ["Mi Dashboard", "Mis Sucursales", "Mis Técnicos", "Usuarios", "Solicitudes", "Historial"];
         } else if (user.role === 'cliente') {
             baseOptions = ["Mis Negocios", "Resumen", "Cotizaciones", "Historial"];
@@ -185,11 +185,11 @@ const MenuLayout: React.FC = () => {
         if (option === "Inventario General") navigate("/menu/inventario-general");
         if (option === "Trabajadores") navigate("/menu/trabajadores");
         if (option === "Usuarios") {
-            if (user?.role === 'autonomo') navigate("/autonomo/usuarios");
+            if (user?.role === 'autonomo' || user?.role === 'admin-autonomo' || user?.role === 'gerente-general') navigate("/autonomo/usuarios");
             else navigate("/menu/usuarios");
         }
         if (option === "Solicitudes") {
-            if (user?.role === 'autonomo') navigate("/autonomo/solicitudes");
+            if (user?.role === 'autonomo' || user?.role === 'admin-autonomo' || user?.role === 'gerente-general') navigate("/autonomo/solicitudes");
             else navigate("/menu/solicitudes");
         }
         if (option === "Reportes Mantenimiento") navigate("/menu/mantenimiento");
@@ -218,7 +218,7 @@ const MenuLayout: React.FC = () => {
         if (option === "Historial") {
             if (user?.role === 'tecnico') navigate("/tecnico/historial");
             else if (user?.role === 'encargado') navigate("/encargado/historial");
-            else if (user?.role === 'autonomo') navigate("/autonomo/historial");
+            else if (user?.role === 'autonomo' || user?.role === 'admin-autonomo' || user?.role === 'gerente-general') navigate("/autonomo/historial");
             else navigate("/cliente/historial");
         }
 
@@ -245,7 +245,7 @@ const MenuLayout: React.FC = () => {
                 navigate(location.pathname);
             } else {
                 if (user?.role === 'admin') navigate("/menu/negocios");
-                else if (user?.role === 'autonomo') navigate("/autonomo/negocios");
+                else if (user?.role === 'autonomo' || user?.role === 'admin-autonomo' || user?.role === 'gerente-general') navigate("/autonomo/negocios");
                 else if (user?.role === 'cliente') navigate("/cliente/negocios");
                 else if (user?.role === 'encargado') navigate("/encargado/negocios");
                 else if (user?.role === 'tecnico') navigate("/tecnico");
@@ -393,7 +393,7 @@ const MenuLayout: React.FC = () => {
                                                             marcarUnaComoLeida(noti.id);
                                                             let targetUrl = noti.enlace;
                                                             if (user?.role && targetUrl.startsWith('/menu/')) {
-                                                                if (user.role === 'autonomo') targetUrl = targetUrl.replace('/menu/', '/autonomo/');
+                                                                if (user.role === 'autonomo' || user.role === 'admin-autonomo' || user.role === 'gerente-general') targetUrl = targetUrl.replace('/menu/', '/autonomo/');
                                                                 else if (user.role === 'tecnico') targetUrl = targetUrl.replace('/menu/', '/tecnico/');
                                                                 else if (user.role === 'encargado') targetUrl = targetUrl.replace('/menu/', '/encargado/');
                                                                 else if (user.role === 'cliente') targetUrl = targetUrl.replace('/menu/', '/cliente/');
@@ -458,7 +458,7 @@ const MenuLayout: React.FC = () => {
                                                 if (user?.role === 'cliente') navigate("/cliente/mi-perfil");
                                                 else if (user?.role === 'admin') navigate("/menu/mi-perfil");
                                                 else if (user?.role === 'tecnico') navigate("/tecnico/mi-perfil");
-                                                else if (user?.role === 'autonomo') navigate("/autonomo/mi-perfil");
+                                                else if (user?.role === 'autonomo' || user?.role === 'admin-autonomo' || user?.role === 'gerente-general') navigate("/autonomo/mi-perfil");
                                                 // encargado: no tiene perfil propio, se queda en su sucursal
                                             }}
                                         >

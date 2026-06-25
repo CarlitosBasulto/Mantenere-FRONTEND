@@ -562,7 +562,7 @@ const AdminReporte: React.FC = () => {
 
             showAlert("Éxito", "Reporte guardado con éxito en la Base de Datos.", "success");
 
-            const basePath = user?.role === 'tecnico' ? '/tecnico' : (user?.role === 'autonomo' ? '/autonomo' : '/menu');
+            const basePath = user?.role === 'tecnico' ? '/tecnico' : (['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '') ? '/autonomo' : '/menu');
             const targetPath = `${basePath}/trabajo-detalle/${safeTrabajoId}`;
             navigate(targetPath, { replace: true });
 

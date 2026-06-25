@@ -92,7 +92,7 @@ const AuthPage: React.FC = () => {
                 if (role === 'admin') navigate('/menu');
                 else if (role === 'tecnico') navigate('/tecnico');
                 else if (role === 'encargado') navigate('/encargado');
-                else if (role === 'autonomo') navigate('/autonomo');
+                else if (role === 'autonomo' || role === 'gerente-general') navigate('/autonomo');
                 else navigate('/cliente');
             }, 5000);
         } catch (error: any) {

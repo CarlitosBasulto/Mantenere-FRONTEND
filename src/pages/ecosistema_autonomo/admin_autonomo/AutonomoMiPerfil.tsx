@@ -1,12 +1,13 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../../context/AuthContext";
-import { useModal } from "../../context/ModalContext";
-import { getTrabajadores, updateTrabajador } from "../../services/trabajadoresService";
-import { getUserById, updateUser } from "../../services/usersService";
-import { getNegocios } from "../../services/negociosService";
+import { useAuth } from "../../../context/AuthContext";
+import { useModal } from "../../../context/ModalContext";
+import { getTrabajadores, updateTrabajador } from "../../../services/trabajadoresService";
+import { getUserById, updateUser } from "../../../services/usersService";
+import { getNegocios } from "../../../services/negociosService";
 import { HiOutlineCamera, HiOutlineUser, HiOutlineEye, HiOutlineEyeSlash, HiOutlinePhoto, HiXMark } from "react-icons/hi2";
-import api from "../../services/api";
+import api from "../../../services/api";
+import { getGerenteGeneral, asignarGerenteGeneral } from "../../../services/adminAutonomoService";
 
 interface UserProfile {
     nombre: string;
@@ -23,7 +24,7 @@ interface UserProfile {
 const MiPerfil: React.FC = () => {
     const navigate = useNavigate();
     const { user, login } = useAuth();
-    const { showAlert } = useModal();
+    const { showAlert, showConfirm } = useModal();
 
     const [formData, setFormData] = useState<UserProfile>({
         nombre: user?.name || "",
@@ -36,11 +37,19 @@ const MiPerfil: React.FC = () => {
         empresa: ""
     });
 
+    const [gerenteData, setGerenteData] = useState({
+        nombre: "",
+        apellidos: "",
+        email: "",
+        password: ""
+    });
+
     const [workerId, setWorkerId] = useState<number | null>(null);
     const [misNegocios, setMisNegocios] = useState<any[]>([]);
     const [showPassword, setShowPassword] = useState(false);
     const [showPhotoModal, setShowPhotoModal] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
+    const [hasGerente, setHasGerente] = useState(false);
 
     const cameraInputRef = useRef<HTMLInputElement>(null);
     const galleryInputRef = useRef<HTMLInputElement>(null);
@@ -99,6 +108,26 @@ const MiPerfil: React.FC = () => {
                 } catch (err) {
                     console.error("Error fetching user data:", err);
                 }
+
+                if (user.role === 'autonomo') {
+                    try {
+                        const gerenteRes = await getGerenteGeneral();
+                        if (gerenteRes.gerente) {
+                            const nameParts = gerenteRes.gerente.name.split(' ');
+                            const nombre = nameParts[0] || '';
+                            const apellidos = nameParts.slice(1).join(' ') || '';
+                            setGerenteData({
+                                nombre: nombre,
+                                apellidos: apellidos,
+                                email: gerenteRes.gerente.email,
+                                password: ""
+                            });
+                            setHasGerente(true);
+                        }
+                    } catch (err) {
+                        console.error("Error fetching gerente general:", err);
+                    }
+                }
             }
 
             const storedWorkers = localStorage.getItem('trabajadores_list');
@@ -130,6 +159,11 @@ const MiPerfil: React.FC = () => {
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleGerenteChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const { name, value } = e.target;
+        setGerenteData(prev => ({ ...prev, [name]: value }));
     };
 
     // Comprime la imagen antes de guardarla para no saturar la DB
@@ -174,8 +208,20 @@ const MiPerfil: React.FC = () => {
                 });
 
                 if (response.data && response.data.url) {
-                    setFormData(prev => ({ ...prev, imagenPerfil: response.data.url }));
-                    showAlert("Éxito", "Foto subida correctamente", "success");
+                    const newAvatar = response.data.url;
+                    setFormData(prev => ({ ...prev, imagenPerfil: newAvatar }));
+                    
+                    // Auto-guardar en la base de datos
+                    if (user?.id) {
+                        try {
+                            await updateUser(user.id, { avatar: newAvatar });
+                            login({ ...user, avatar: newAvatar });
+                        } catch (e) {
+                            console.error("Error auto-guardando avatar:", e);
+                        }
+                    }
+                    
+                    showAlert("Éxito", "Foto subida y guardada correctamente", "success");
                 }
             } catch (error) {
                 console.error("Error subiendo imagen:", error);
@@ -226,15 +272,45 @@ const MiPerfil: React.FC = () => {
 
                 await updateUser(user.id, userUpdateData);
                 login({ ...user, name: userUpdateData.name || user.name, avatar: userUpdateData.avatar || user.avatar });
+                showAlert("Éxito", "Perfil actualizado correctamente.", "success");
             }
-
             localStorage.setItem(profileKey, JSON.stringify(formData));
-            showAlert("Éxito", "Perfil actualizado correctamente", "success");
             navigate(-1);
         } catch (error) {
-            console.error("Error al guardar perfil:", error);
-            showAlert("Error al Guardar", "No se pudo sincronizar con el servidor. Verifica tu conexión.", "error");
+            console.error(error);
+            showAlert("Error", "No se pudo actualizar el perfil", "error");
         }
+    };
+
+    const handleGuardarGerente = () => {
+        if (!gerenteData.nombre.trim() || !gerenteData.apellidos.trim() || !gerenteData.email.trim()) {
+            showAlert("Campos Incompletos", "Por favor llena nombre, apellidos y correo del gerente.", "warning");
+            return;
+        }
+        if (gerenteData.password && gerenteData.password.length < 8) {
+            showAlert("Contraseña Corta", "La contraseña del gerente debe tener al menos 8 caracteres.", "warning");
+            return;
+        }
+
+        showConfirm(
+            "Asignar Gerente",
+            "¿Estás seguro de que deseas guardar los datos de este gerente general?",
+            async () => {
+                try {
+                    const fullGerenteName = `${gerenteData.nombre.trim()} ${gerenteData.apellidos.trim()}`;
+                    await asignarGerenteGeneral({
+                        name: fullGerenteName,
+                        email: gerenteData.email,
+                        password: gerenteData.password || 'Mantenere123.' 
+                    });
+                    setHasGerente(true);
+                    showAlert("Éxito", "Gerente general asignado correctamente.", "success");
+                } catch (error) {
+                    console.error(error);
+                    showAlert("Error", "Ocurrió un error al asignar el gerente. Puede que el correo ya esté en uso.", "error");
+                }
+            }
+        );
     };
 
     const handleSucursalClick = (id: number) => {
@@ -308,29 +384,13 @@ const MiPerfil: React.FC = () => {
                                 {formData.nombre || 'Mi Perfil'}
                             </h1>
                             <p style={{ margin: '0 0 4px', fontSize: '11px', color: '#f26522', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                                {user?.role === 'admin' ? 'Administrador' : user?.role === 'tecnico' ? 'Técnico' : user?.role === 'encargado' ? 'Encargado' : 'Cliente'}
+                                {user?.role === 'admin' ? 'Administrador' : user?.role === 'tecnico' ? 'Técnico' : user?.role === 'encargado' ? 'Encargado' : user?.role === 'autonomo' ? 'Admin Autónomo' : user?.role === 'gerente-general' ? 'Gerente General' : 'Cliente'}
                             </p>
                             <p style={{ margin: 0, fontSize: '11px', color: '#94a3b8' }}>
                                 Toca la foto para editarla
                             </p>
                         </div>
                     </div>
-
-                    {/* BOTÓN GUARDAR */}
-                    <button
-                        onClick={handleSave}
-                        style={{
-                            width: '100%', padding: '16px', background: 'linear-gradient(135deg, #f26522, #ff8c42)',
-                            color: 'white', border: 'none', borderRadius: '18px', fontSize: '15px',
-                            fontWeight: '800', cursor: 'pointer', boxShadow: '0 8px 18px rgba(242,101,34,0.3)',
-                            transition: 'all 0.3s ease'
-                        }}
-                        onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 12px 24px rgba(242,101,34,0.4)'; }}
-                        onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 8px 18px rgba(242,101,34,0.3)'; }}
-                    >
-                        Guardar Cambios
-                    </button>
-
                 </div>
 
                 {/* ── COLUMNA DERECHA: Formularios ── */}
@@ -393,8 +453,8 @@ const MiPerfil: React.FC = () => {
                 </div>
             </div>
 
-            {/* DATOS FISCALES (solo clientes) */}
-            {user?.role !== 'tecnico' && (
+            {/* DATOS FISCALES (solo clientes o admin-autonomo) */}
+            {(user?.role === 'cliente' || user?.role === 'autonomo') && (
                 <div className="perfil-fiscal-container">
                     <div className="perfil-card">
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
@@ -418,6 +478,57 @@ const MiPerfil: React.FC = () => {
                                 <Label>Dirección Fiscal Completa</Label>
                                 <Input name="direccionFiscal" placeholder="Calle, Número, Colonia, CP, Mérida, Yucatán" value={formData.direccionFiscal} onChange={handleChange} />
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* GERENTE GENERAL (solo admin-autonomo) */}
+            {user?.role === 'autonomo' && (
+                <div className="perfil-fiscal-container">
+                    <div className="perfil-card" style={{ marginTop: '20px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
+                            <p style={{ fontSize: '12px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
+                                👨‍💼 Gerente General (Mano Derecha) {hasGerente && <span style={{ color: '#16a34a', marginLeft: '5px' }}>✓ Asignado</span>}
+                            </p>
+                            <span style={{ fontSize: '11px', background: '#e3f2fd', color: '#1565c0', padding: '3px 10px', borderRadius: '10px', fontWeight: 'bold' }}>
+                                Acceso total
+                            </span>
+                        </div>
+                        <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '16px' }}>
+                            Asigna un gerente que tendrá los mismos permisos que tú para gestionar sucursales, técnicos y trabajos, pero no podrá ver ni modificar tu información fiscal ni tu perfil.
+                        </p>
+                        <div className="perfil-grid">
+                            <div>
+                                <Label>Nombre(s)</Label>
+                                <Input name="nombre" placeholder="Nombre(s) del gerente" value={gerenteData.nombre} onChange={handleGerenteChange} />
+                            </div>
+                            <div>
+                                <Label>Apellidos</Label>
+                                <Input name="apellidos" placeholder="Apellidos del gerente" value={gerenteData.apellidos} onChange={handleGerenteChange} />
+                            </div>
+                            <div>
+                                <Label>Correo Electrónico</Label>
+                                <Input name="email" type="email" placeholder="correo@ejemplo.com" value={gerenteData.email} onChange={handleGerenteChange} />
+                            </div>
+                            <div>
+                                <Label>Contraseña</Label>
+                                <Input name="password" type="password" placeholder="Opcional (Mín. 8 caracteres)" value={gerenteData.password} onChange={handleGerenteChange} />
+                            </div>
+                        </div>
+                        <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end' }}>
+                            <button
+                                onClick={handleGuardarGerente}
+                                style={{
+                                    padding: '12px 24px', background: '#e0e7ff', color: '#4f46e5',
+                                    border: 'none', borderRadius: '12px', fontSize: '14px',
+                                    fontWeight: '700', cursor: 'pointer', transition: 'all 0.2s',
+                                }}
+                                onMouseEnter={e => { e.currentTarget.style.background = '#c7d2fe'; }}
+                                onMouseLeave={e => { e.currentTarget.style.background = '#e0e7ff'; }}
+                            >
+                                {hasGerente ? 'Actualizar Gerente' : 'Asignar Gerente'}
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -465,6 +576,23 @@ const MiPerfil: React.FC = () => {
                     </div>
                 </div>
             )}
+
+            {/* BOTÓN GUARDAR GENERAL (AL FINAL) */}
+            <div style={{ maxWidth: '1100px', margin: '32px auto 0', display: 'flex', justifyContent: 'flex-end' }}>
+                <button
+                    onClick={handleSave}
+                    style={{
+                        width: '100%', maxWidth: '300px', padding: '16px', background: 'linear-gradient(135deg, #f26522, #ff8c42)',
+                        color: 'white', border: 'none', borderRadius: '18px', fontSize: '15px',
+                        fontWeight: '800', cursor: 'pointer', boxShadow: '0 8px 18px rgba(242,101,34,0.3)',
+                        transition: 'all 0.3s ease'
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 12px 24px rgba(242,101,34,0.4)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 8px 18px rgba(242,101,34,0.3)'; }}
+                >
+                    Guardar Cambios
+                </button>
+            </div>
 
             {/* Modal de Selección de Foto */}
             {showPhotoModal && (

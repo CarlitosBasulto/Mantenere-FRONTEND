@@ -23,12 +23,14 @@ import AdminDetalleTrabajo from "./pages/admin/AdminDetalleTrabajo";
 import AutonomoDetalleTrabajo from "./pages/ecosistema_autonomo/admin_autonomo/AutonomoDetalleTrabajo";
 import AutonomoListaNegocios from "./pages/ecosistema_autonomo/admin_autonomo/AutonomoListaNegocios";
 import AutonomoListaTrabajadores from "./pages/ecosistema_autonomo/admin_autonomo/AutonomoListaTrabajadores";
+import AutonomoPerfilEmpresa from "./pages/ecosistema_autonomo/admin_autonomo/AutonomoPerfilEmpresa";
 import AdminVerificacionEquipo from "./pages/admin/AdminVerificacionEquipo";
 import AdminReporte from "./pages/admin/AdminReporte";
 import AdminCotizacion from "./pages/admin/AdminCotizacion";
 import AdminPerfilTrabajador from "./pages/admin/AdminPerfilTrabajador";
 import PerfilEmpresa from "./pages/cliente/PerfilEmpresa";
 import MiPerfil from "./pages/cliente/MiPerfil";
+import AutonomoMiPerfil from "./pages/ecosistema_autonomo/admin_autonomo/AutonomoMiPerfil";
 import Cotizaciones from "./pages/cliente/Cotizaciones";
 import Historial from "./pages/cliente/Historial";
 import AdminHistorial from "./pages/admin/AdminHistorial";
@@ -135,7 +137,7 @@ function App() {
 
                         {/* ADMIN AUTÓNOMO ROUTES */}
                         <Route path="/autonomo" element={
-                            <ProtectedRoute allowedRoles={['autonomo']}>
+                            <ProtectedRoute allowedRoles={['autonomo', 'gerente-general', 'admin-autonomo']}>
                                 <AutonomoLayout />
                             </ProtectedRoute>
                         }>
@@ -151,8 +153,8 @@ function App() {
                             <Route path="trabajo-detalle/:id" element={<AutonomoDetalleTrabajo />} />
                             <Route path="cotizacion/:id" element={<AdminCotizacion />} />
                             <Route path="reporte-tarea/:id" element={<AdminReporte />} />
-                            <Route path="mi-perfil" element={<MiPerfil />} />
-                            <Route path="perfil-empresa" element={<PerfilEmpresa />} />
+                            <Route path="mi-perfil" element={<AutonomoMiPerfil />} />
+                            <Route path="perfil-empresa" element={<AutonomoPerfilEmpresa />} />
                         </Route>
 
                         {/* FALLBACK */}

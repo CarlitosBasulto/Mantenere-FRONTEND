@@ -67,6 +67,18 @@ export const updateNegocio = async (id: number, data: any) => {
     return res.data;
 };
 
+// Asignar encargado (subgerente) a negocio
+export const asignarEncargado = async (id: number, data: { name: string; email: string; password?: string }) => {
+    const res = await api.post(`/negocios/${id}/encargado`, data);
+    return res.data;
+};
+
+// Obtener encargado (subgerente) del negocio
+export const getEncargado = async (id: number) => {
+    const res = await api.get(`/negocios/${id}/encargado`);
+    return res.data;
+};
+
 // Actualizar datos de un equipo individual (Admin)
 export const updateEquipo = async (id: number, data: {
     nombre?: string;

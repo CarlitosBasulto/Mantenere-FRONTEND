@@ -80,7 +80,7 @@ const AdminCotizacion: React.FC = () => {
             window.dispatchEvent(new Event('storage'));
 
             showAlert("Éxito", "Cotización enviada exitosamente al cliente.", "success");
-            const basePath = user?.role === 'tecnico' ? '/tecnico' : (user?.role === 'autonomo' ? '/autonomo' : '/menu');
+            const basePath = user?.role === 'tecnico' ? '/tecnico' : (['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '') ? '/autonomo' : '/menu');
             navigate(`${basePath}/trabajo-detalle/${id}`);
         } catch (error: any) {
             console.error("Error al enviar cotización:", error);
