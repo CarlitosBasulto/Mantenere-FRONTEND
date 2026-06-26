@@ -8,8 +8,9 @@ import {
     HiOutlineUser, HiOutlineBell, HiOutlineBriefcase, 
     HiOutlineUsers, HiOutlineDocumentText, HiOutlineClock,
     HiOutlineCurrencyDollar, HiOutlineWrench, HiOutlineSquares2X2,
-    HiCheckBadge, HiOutlineArchiveBox
+    HiCheckBadge, HiOutlineArchiveBox, HiXMark 
 } from "react-icons/hi2";
+import { FaWhatsapp, FaEnvelope } from "react-icons/fa";
 import { LuHardHat } from "react-icons/lu";
 import { 
     getNotificaciones, 
@@ -30,6 +31,35 @@ const MenuLayout: React.FC = () => {
     const [mostrarPerfil, setMostrarPerfil] = useState(false);
     const notificacionesRef = useRef<HTMLDivElement>(null);
     const perfilRef = useRef<HTMLDivElement>(null);
+
+    // Estado para el carrusel de la tarjeta de contacto
+    const [adSlide, setAdSlide] = useState(0);
+    const [showSupportModal, setShowSupportModal] = useState(false);
+    const [cvUrl, setCvUrl] = useState<string | null>(null);
+
+    // Obtener CV URL del admin autonomo
+    useEffect(() => {
+        if (!user) return;
+        if (user.role === 'autonomo') {
+            setCvUrl(user.cv_url || null);
+        } else if (user.admin_autonomo_id) {
+            import("../services/usersService").then(({ getUserById }) => {
+                getUserById(user.admin_autonomo_id!).then(adminData => {
+                    if (adminData && adminData.cv_url) {
+                        setCvUrl(adminData.cv_url);
+                    }
+                }).catch(e => console.error("Error fetching admin CV", e));
+            });
+        }
+    }, [user]);
+
+    // Efecto para el carrusel
+    useEffect(() => {
+        const adInterval = setInterval(() => {
+            setAdSlide((prev) => (prev + 1) % 3);
+        }, 4000);
+        return () => clearInterval(adInterval);
+    }, []);
 
     // Cerrar menús al hacer clic fuera
     useEffect(() => {
@@ -322,6 +352,18 @@ const MenuLayout: React.FC = () => {
                         </button>
                     ))}
                 </nav>
+
+                {/* ENLACE PARA ABRIR PUBLICIDAD / CONTACTO (Solo Ecosistema Autónomo) */}
+                {(user?.role === 'autonomo' || user?.role === 'admin-autonomo' || user?.role === 'gerente-general' || user?.role === 'encargado' || user?.role === 'tecnico' || user?.role === 'cliente') && (
+                    <div style={{ marginTop: 'auto', padding: '15px' }}>
+                        <button 
+                            className={styles.supportLinkBtn}
+                            onClick={() => setShowSupportModal(true)}
+                        >
+                            ¿Necesitas ayuda? Contáctanos
+                        </button>
+                    </div>
+                )}
             </aside>
 
             {/* AREA DERECHA */}
@@ -486,6 +528,44 @@ const MenuLayout: React.FC = () => {
                     <Outlet />
                 </main>
             </div>
+
+            {/* MODAL DE SOPORTE Y CONTACTO */}
+            {showSupportModal && (
+                <div className={styles.modalOverlay} onClick={() => setShowSupportModal(false)}>
+                    <div className={styles.modalContent} onClick={(e) => e.stopPropagation()} style={{ background: '#0d192b', padding: 0, overflow: 'hidden' }}>
+                        <div style={{ position: 'absolute', top: 15, right: 15, zIndex: 10 }}>
+                            <button onClick={() => setShowSupportModal(false)} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer' }}>
+                                <HiXMark size={24} />
+                            </button>
+                        </div>
+                        <div className={styles.adCard} style={{ marginTop: 0, marginBottom: 0, border: 'none', boxShadow: 'none' }}>
+                            <div className={styles.adGlow}></div>
+                            <div className={styles.adLogoContainer}>
+                                <img src={logo} alt="Agente Solutions" className={styles.adLogo} style={{ width: 160, marginBottom: 10 }} />
+                            </div>
+                            <h4 className={styles.adTitle} style={{ fontSize: 18, marginBottom: 15 }}>Soporte y Atención</h4>
+                            
+                            <div className={styles.adCarousel} style={{ minHeight: 60, marginBottom: 25 }}>
+                                {adSlide === 0 && <p className={styles.adSlideText} style={{ fontSize: 14 }}>Resolviendo tus necesidades al instante.</p>}
+                                {adSlide === 1 && <p className={styles.adSlideText} style={{ fontSize: 14 }}>Mantenimiento a subestaciones, climas, y más.</p>}
+                                {adSlide === 2 && <p className={styles.adSlideText} style={{ fontSize: 14 }}>Garantía de satisfacción en cada trabajo.</p>}
+                            </div>
+
+                            <div className={styles.adActions} style={{ gap: 12 }}>
+                                <a href="https://wa.me/529992426030" target="_blank" rel="noreferrer" className={`${styles.adBtn} ${styles.btnWhatsapp}`} style={{ padding: '12px', fontSize: 15 }}>
+                                    <FaWhatsapp size={20} /> Contactar por WhatsApp
+                                </a>
+                                <a href="mailto:Ernestososa2022@hotmail.com" className={`${styles.adBtn} ${styles.btnEmail}`} style={{ padding: '12px', fontSize: 15 }}>
+                                    <FaEnvelope size={20} /> Enviar Correo Electrónico
+                                </a>
+                                <a href={cvUrl || "#"} onClick={(e) => !cvUrl && e.preventDefault()} target={cvUrl ? "_blank" : undefined} rel="noreferrer" className={`${styles.adBtn} ${styles.btnCv}`} style={{ padding: '12px', fontSize: 15, opacity: cvUrl ? 1 : 0.5, cursor: cvUrl ? 'pointer' : 'not-allowed' }}>
+                                    <HiOutlineDocumentText size={20} /> {cvUrl ? 'Ver Nuestro Currículum' : 'Currículum No Disponible'}
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div >
     );
 };

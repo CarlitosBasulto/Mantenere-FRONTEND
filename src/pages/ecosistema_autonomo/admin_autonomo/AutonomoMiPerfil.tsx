@@ -19,6 +19,7 @@ interface UserProfile {
     razonSocial?: string;
     direccionFiscal?: string;
     empresa?: string;
+    cv_url?: string;
 }
 
 const MiPerfil: React.FC = () => {
@@ -34,7 +35,8 @@ const MiPerfil: React.FC = () => {
         rfc: "",
         razonSocial: "",
         direccionFiscal: "",
-        empresa: ""
+        empresa: "",
+        cv_url: ""
     });
 
     const [gerenteData, setGerenteData] = useState({
@@ -43,6 +45,8 @@ const MiPerfil: React.FC = () => {
         email: "",
         password: ""
     });
+
+    const cvInputRef = useRef<HTMLInputElement>(null);
 
     const [workerId, setWorkerId] = useState<number | null>(null);
     const [misNegocios, setMisNegocios] = useState<any[]>([]);
@@ -88,7 +92,8 @@ const MiPerfil: React.FC = () => {
                             rfc: userData.rfc || "",
                             razonSocial: userData.razon_social || "",
                             direccionFiscal: userData.direccion_fiscal || "",
-                            imagenPerfil: userData.avatar || ""
+                            imagenPerfil: userData.avatar || "",
+                            cv_url: userData.cv_url || ""
                         };
                         try {
                             const negocios = await getNegocios();
@@ -269,9 +274,15 @@ const MiPerfil: React.FC = () => {
                 if (formData.razonSocial) userUpdateData.razon_social = formData.razonSocial;
                 if (formData.direccionFiscal) userUpdateData.direccion_fiscal = formData.direccionFiscal;
                 if (formData.imagenPerfil) userUpdateData.avatar = formData.imagenPerfil;
+                if (formData.cv_url) userUpdateData.cv_url = formData.cv_url;
 
                 await updateUser(user.id, userUpdateData);
-                login({ ...user, name: userUpdateData.name || user.name, avatar: userUpdateData.avatar || user.avatar });
+                login({ 
+                    ...user, 
+                    name: userUpdateData.name || user.name, 
+                    avatar: userUpdateData.avatar || user.avatar,
+                    cv_url: userUpdateData.cv_url || user.cv_url
+                });
                 showAlert("Éxito", "Perfil actualizado correctamente.", "success");
             }
             localStorage.setItem(profileKey, JSON.stringify(formData));
@@ -316,6 +327,48 @@ const MiPerfil: React.FC = () => {
     const handleSucursalClick = (id: number) => {
         const basePath = user?.role === 'cliente' ? '/cliente' : (user?.role === 'tecnico' ? '/tecnico' : (user?.role === 'encargado' ? '/encargado' : (['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '') ? '/autonomo' : '/menu')));
         navigate(`${basePath}/trabajo/${id}`);
+    };
+
+    const handleCvUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (file.type !== "application/pdf") {
+            showAlert("Error", "Por favor selecciona un archivo PDF.", "error");
+            return;
+        }
+
+        setIsUploading(true);
+        try {
+            const form = new FormData();
+            form.append("foto", file);
+
+            const response = await api.post('/upload-imagen', form, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+
+            if (response.data && response.data.url) {
+                const uploadedUrl = response.data.url;
+                setFormData(prev => ({ ...prev, cv_url: uploadedUrl }));
+                
+                // Auto-guardar en base de datos si el usuario existe
+                if (user?.id) {
+                    try {
+                        await updateUser(user.id, { cv_url: uploadedUrl });
+                        login({ ...user, cv_url: uploadedUrl });
+                    } catch (e) {
+                        console.error("Error auto-guardando CV:", e);
+                    }
+                }
+                
+                showAlert("Éxito", "Currículum subido y actualizado correctamente.", "success");
+            }
+        } catch (error) {
+            console.error("Error al subir CV:", error);
+            showAlert("Error", "No se pudo subir el archivo.", "error");
+        } finally {
+            setIsUploading(false);
+        }
     };
 
     return (
@@ -450,6 +503,49 @@ const MiPerfil: React.FC = () => {
                             </div>
                         </div>
                     </div>
+
+                    {/* CARGA DE CURRÍCULUM (Solo Autonomo) */}
+                    {user?.role === 'autonomo' && (
+                        <div className="perfil-card" style={{ marginTop: '20px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
+                                <p style={{ fontSize: '12px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
+                                    📄 Currículum Corporativo (PDF)
+                                </p>
+                            </div>
+                            <p style={{ fontSize: '13px', color: '#666', marginBottom: '15px' }}>
+                                Sube el CV de la empresa. Este archivo estará disponible en el menú lateral para clientes, gerentes y técnicos.
+                            </p>
+                            
+                            <input
+                                type="file"
+                                accept="application/pdf"
+                                ref={cvInputRef}
+                                style={{ display: "none" }}
+                                onChange={handleCvUpload}
+                            />
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                                <button
+                                    onClick={() => cvInputRef.current?.click()}
+                                    disabled={isUploading}
+                                    style={{
+                                        padding: '10px 20px', background: '#f26522', color: '#fff',
+                                        border: 'none', borderRadius: '10px', fontSize: '14px',
+                                        fontWeight: '600', cursor: isUploading ? 'not-allowed' : 'pointer', transition: 'background 0.2s',
+                                        opacity: isUploading ? 0.7 : 1
+                                    }}
+                                >
+                                    {isUploading ? 'Subiendo...' : 'Subir Archivo PDF'}
+                                </button>
+                                
+                                {formData.cv_url && (
+                                    <a href={formData.cv_url} target="_blank" rel="noreferrer" style={{ fontSize: '14px', color: '#f26522', textDecoration: 'underline' }}>
+                                        Ver Archivo Actual
+                                    </a>
+                                )}
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 

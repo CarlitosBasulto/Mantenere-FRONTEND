@@ -11,6 +11,8 @@ interface User {
     role: UserRole;
     avatar?: string;
     negocio_id?: number; // Sucursal asignada (solo para rol encargado)
+    admin_autonomo_id?: number | null;
+    cv_url?: string | null;
 }
 
 interface AuthContextType {

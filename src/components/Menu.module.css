@@ -1058,3 +1058,149 @@
         transform: translate(0, 0) scale(1);
     }
 }
+/* ===========================
+   AD CARD (CONTACTO / PUBLICIDAD)
+=========================== */
+.adCard {
+    margin-top: auto;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    padding: 20px 15px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    overflow: hidden;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    margin-bottom: 10px;
+}
+
+.adGlow {
+    position: absolute;
+    top: -50px;
+    right: -50px;
+    width: 100px;
+    height: 100px;
+    background: radial-gradient(circle, rgba(242, 101, 34, 0.3) 0%, transparent 70%);
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.adLogoContainer {
+    margin-bottom: 10px;
+    z-index: 1;
+}
+
+.adLogo {
+    width: 120px;
+    object-fit: contain;
+    filter: brightness(0) invert(1);
+    opacity: 0.9;
+}
+
+.adTitle {
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    margin: 0 0 10px 0;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    text-align: center;
+    z-index: 1;
+}
+
+.adCarousel {
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 15px;
+    text-align: center;
+    z-index: 1;
+}
+
+.adSlideText {
+    color: #cbd5e1;
+    font-size: 12px;
+    margin: 0;
+    animation: fadeInSlide 0.5s ease-in-out;
+}
+
+@keyframes fadeInSlide {
+    0% { opacity: 0; transform: translateY(5px); }
+    100% { opacity: 1; transform: translateY(0); }
+}
+
+.adActions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    z-index: 1;
+}
+
+.adBtn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    color: #fff;
+    transition: all 0.2s ease;
+    border: none;
+    cursor: pointer;
+}
+
+.btnWhatsapp {
+    background: #25D366;
+    box-shadow: 0 2px 8px rgba(37, 211, 102, 0.3);
+}
+
+.btnWhatsapp:hover {
+    background: #1ebc5a;
+    transform: translateY(-2px);
+}
+
+.btnEmail {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.btnEmail:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: translateY(-2px);
+}
+
+.btnCv {
+    background: linear-gradient(135deg, #f26522, #e05510);
+    box-shadow: 0 2px 8px rgba(242, 101, 34, 0.3);
+}
+
+.btnCv:hover {
+    filter: brightness(1.1);
+    transform: translateY(-2px);
+}
+
+.supportLinkBtn {
+    width: 100%;
+    background: transparent;
+    border: 1px dashed rgba(255, 255, 255, 0.3);
+    color: #cbd5e1;
+    padding: 12px;
+    border-radius: 12px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-align: center;
+}
+.supportLinkBtn:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: #f26522;
+    color: #fff;
+}

@@ -80,10 +80,15 @@ export default function ListaUsuarios() {
     useEffect(() => { fetchUsers(); }, []);
 
     const getRoleName = (role: any) => {
-        if (!role) return "Usuario";
-        if (typeof role === 'string') return role;
-        if (typeof role === 'object' && role.name) return role.name;
-        return "Usuario";
+        let name = "Usuario";
+        if (role) {
+            if (typeof role === 'string') name = role;
+            else if (typeof role === 'object' && role.name) name = role.name;
+        }
+        
+        if (name.toLowerCase() === 'encargado') return 'Sub-Gerente';
+        if (name.toLowerCase() === 'gerente-general') return 'Gerente General';
+        return name;
     };
 
     const handleEditStart = (user: User) => {
@@ -189,7 +194,9 @@ export default function ListaUsuarios() {
             (filterRole === "Trabajador" && (roleName.toLowerCase() === "trabajador" || roleName.toLowerCase() === "tecnico")) ||
             (filterRole === "Cliente" && roleName.toLowerCase() === "cliente") ||
             (filterRole === "Admin" && roleName.toLowerCase() === "admin") ||
-            (filterRole === "AdminAutonomo" && roleName.toLowerCase() === "admin-autonomo");
+            (filterRole === "AdminAutonomo" && roleName.toLowerCase() === "admin-autonomo") ||
+            (filterRole === "GerenteGeneral" && roleName.toLowerCase() === "gerente general") ||
+            (filterRole === "SubGerente" && roleName.toLowerCase() === "sub-gerente");
 
         return matchesSearch && matchesRole;
     });
@@ -220,6 +227,12 @@ export default function ListaUsuarios() {
                             <>
                                 <option value="Admin">Administradores</option>
                                 <option value="AdminAutonomo">Admin Autónomo</option>
+                            </>
+                        )}
+                        {(user?.role === 'admin-autonomo' || user?.role === 'gerente-general') && (
+                            <>
+                                <option value="GerenteGeneral">Gerentes Generales</option>
+                                <option value="SubGerente">Sub-Gerentes</option>
                             </>
                         )}
                     </select>
