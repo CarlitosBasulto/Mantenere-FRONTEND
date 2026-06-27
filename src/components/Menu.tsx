@@ -490,7 +490,9 @@ const MenuLayout: React.FC = () => {
                                     <div className={styles.perfilDropdown}>
                                         <div className={styles.perfilHeader}>
                                             <p className={styles.userName}>{user?.name}</p>
-                                            <p className={styles.userRole}>{user?.role}</p>
+                                            <p className={styles.userRole}>
+                                                {user?.role === 'admin' ? 'Administrador' : user?.role === 'tecnico' ? 'Técnico' : user?.role === 'encargado' ? 'Gerente de Sucursal' : user?.role === 'autonomo' ? 'Admin Autónomo' : user?.role === 'gerente-general' ? 'Gerente General' : 'Cliente'}
+                                            </p>
                                         </div>
                                         <div className={styles.dropdownDivider} />
                                         <button 

@@ -86,7 +86,7 @@ export default function ListaUsuarios() {
             else if (typeof role === 'object' && role.name) name = role.name;
         }
         
-        if (name.toLowerCase() === 'encargado') return 'Sub-Gerente';
+        if (name.toLowerCase() === 'encargado') return 'Gerente';
         if (name.toLowerCase() === 'gerente-general') return 'Gerente General';
         return name;
     };
@@ -196,7 +196,7 @@ export default function ListaUsuarios() {
             (filterRole === "Admin" && roleName.toLowerCase() === "admin") ||
             (filterRole === "AdminAutonomo" && roleName.toLowerCase() === "admin-autonomo") ||
             (filterRole === "GerenteGeneral" && roleName.toLowerCase() === "gerente general") ||
-            (filterRole === "SubGerente" && roleName.toLowerCase() === "sub-gerente");
+            (filterRole === "Gerente" && roleName.toLowerCase() === "gerente");
 
         return matchesSearch && matchesRole;
     });
@@ -227,12 +227,14 @@ export default function ListaUsuarios() {
                             <>
                                 <option value="Admin">Administradores</option>
                                 <option value="AdminAutonomo">Admin Autónomo</option>
+                                <option value="GerenteGeneral">Gerentes Generales</option>
+                                <option value="Gerente">Gerentes de Sucursal</option>
                             </>
                         )}
-                        {(user?.role === 'admin-autonomo' || user?.role === 'gerente-general') && (
+                        {(user?.role === 'autonomo' || user?.role === 'gerente-general' || user?.role === 'admin-autonomo') && (
                             <>
                                 <option value="GerenteGeneral">Gerentes Generales</option>
-                                <option value="SubGerente">Sub-Gerentes</option>
+                                <option value="Gerente">Gerentes de Sucursal</option>
                             </>
                         )}
                     </select>
