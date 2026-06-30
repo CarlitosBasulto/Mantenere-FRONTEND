@@ -41,10 +41,12 @@ const NegotiationChatWidget: React.FC<ChatProps> = ({ trabajoId, currentUser, on
 
     const canProposeQuote = currentUser?.role === 'admin' || currentUser?.role === 'admin-autonomo' || currentUser?.role === 'gerente-general' || currentUser?.role === 'encargado';
 
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+
     const fetchMessages = async () => {
         try {
             const token = localStorage.getItem('token');
-            const res = await axios.get(`http://127.0.0.1:8085/api/trabajos/${trabajoId}/chat`, {
+            const res = await axios.get(`${API_URL}/trabajos/${trabajoId}/chat`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             const data = res.data;
@@ -89,7 +91,7 @@ const NegotiationChatWidget: React.FC<ChatProps> = ({ trabajoId, currentUser, on
                 is_quote: quoteMode,
                 quote_amount: quoteMode ? parseFloat(quoteAmount) : null
             };
-            await axios.post(`http://127.0.0.1:8085/api/trabajos/${trabajoId}/chat`, payload, {
+            await axios.post(`${API_URL}/trabajos/${trabajoId}/chat`, payload, {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
@@ -103,13 +105,14 @@ const NegotiationChatWidget: React.FC<ChatProps> = ({ trabajoId, currentUser, on
             setTimeout(() => setToast(prev => ({ ...prev, show: false })), 3000);
         }
     };
+
     const handleSendWithAction = async (action: 'aceptar' | 'rechazar') => {
         try {
             const token = localStorage.getItem('token');
             const prefix = action === 'aceptar' ? "ACEPTADA: " : "RECHAZADA: ";
             const textContent = inputText.trim() ? inputText.trim() : (action === 'aceptar' ? 'Propuesta aceptada' : 'Propuesta rechazada');
             
-            await axios.post(`http://127.0.0.1:8085/api/trabajos/${trabajoId}/chat`, {
+            await axios.post(`${API_URL}/trabajos/${trabajoId}/chat`, {
                 message: prefix + textContent,
                 is_quote: false,
                 quote_amount: null
@@ -118,7 +121,7 @@ const NegotiationChatWidget: React.FC<ChatProps> = ({ trabajoId, currentUser, on
             });
 
             const newState = action === 'aceptar' ? "Cotización Aceptada" : "Cotización Rechazada";
-            await axios.put(`http://127.0.0.1:8085/api/trabajos/${trabajoId}`, {
+            await axios.put(`${API_URL}/trabajos/${trabajoId}`, {
                 estado: newState
             }, {
                 headers: { Authorization: `Bearer ${token}` }
@@ -126,14 +129,14 @@ const NegotiationChatWidget: React.FC<ChatProps> = ({ trabajoId, currentUser, on
 
             // Notifications
             try {
-                await axios.post(`http://127.0.0.1:8085/api/notificaciones/role`, {
+                await axios.post(`${API_URL}/notificaciones/role`, {
                     role: 'admin',
                     titulo: 'Respuesta del Técnico',
                     mensaje: `El técnico ha ${action === 'aceptar' ? 'ACEPTADO' : 'RECHAZADO'} la propuesta del trabajo #${trabajoId}.`,
                     enlace: `/menu/trabajo-detalle/${trabajoId}`
                 }, { headers: { Authorization: `Bearer ${token}` } });
                 
-                await axios.post(`http://127.0.0.1:8085/api/notificaciones/role`, {
+                await axios.post(`${API_URL}/notificaciones/role`, {
                     role: 'autonomo',
                     titulo: 'Respuesta del Técnico',
                     mensaje: `El técnico ha ${action === 'aceptar' ? 'ACEPTADO' : 'RECHAZADO'} la propuesta del trabajo #${trabajoId}.`,
