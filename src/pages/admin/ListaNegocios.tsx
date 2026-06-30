@@ -104,8 +104,8 @@ const ListaNegocios: React.FC = () => {
                 if (!isMine) return false;
 
                 const status = (j.estado || "").toLowerCase();
-                // Ocultar si ya fue visitado (En Espera) o si ya finalizó
-                const isProcessedVisita = j.tipo === "Visita" && (j.visitado || status === 'en espera');
+                // Ocultar solo si ya finalizó (ahora sí vemos "en espera" para negociar chat)
+                const isProcessedVisita = j.tipo === "Visita" && j.visitado && !status.includes('cotizaci') && status !== 'en espera';
                 const isFinalizado = status === 'finalizado';
 
                 return !isProcessedVisita && !isFinalizado;

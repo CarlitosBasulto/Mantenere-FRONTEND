@@ -326,6 +326,7 @@ const AutonomoDetalleTrabajo: React.FC = () => {
     const [showRejectionModal, setShowRejectionModal] = useState(false);
     const [rejectionReason, setRejectionReason] = useState("");
     const [quoteToReject, setQuoteToReject] = useState<number | null>(null);
+    const [rejectionMode, setRejectionMode] = useState<'cotizacion' | 'solicitud'>('cotizacion');
 
     useEffect(() => {
         const fetchTecnicos = async () => {
@@ -575,6 +576,11 @@ const AutonomoDetalleTrabajo: React.FC = () => {
         } else {
             setSelectedType("Visita");
         }
+        
+        if (trabajo?.trabajador_id && !selectedTechnicians.includes(trabajo.trabajador_id)) {
+            setSelectedTechnicians([trabajo.trabajador_id]);
+        }
+        
         setIsModalOpen(true);
     };
     const [selectedHistoryTask, setSelectedHistoryTask] = useState<SubTarea | null>(null);
@@ -628,6 +634,36 @@ const AutonomoDetalleTrabajo: React.FC = () => {
         t.nombre.toLowerCase().includes(technicianSearch.toLowerCase())
     );
 
+    const handleAceptarSolicitudPreasignada = async () => {
+        if (!trabajo) return;
+        try {
+            await updateEstadoTrabajo(trabajo.id, { estado: "Asignado" });
+            
+            setTrabajo((prev: any) => ({ ...prev, estado: "Asignado" }));
+            
+            // Notificar al técnico si es posible
+            if (trabajo.trabajador_id) {
+                const tech = tecnicosData.find(t => t.id === trabajo.trabajador_id);
+                if (tech && tech.user_id) {
+                    try {
+                        await createNotificacion({
+                            user_id: tech.user_id,
+                            titulo: 'Nuevo Trabajo Asignado',
+                            mensaje: `Se ha confirmado tu asignación al trabajo: ${trabajo.titulo || 'Mantenimiento'} en ${trabajo.sucursal || 'la sucursal'}.`,
+                            enlace: `/tecnico/trabajo-detalle/${trabajo.id}`
+                        });
+                    } catch (err) { console.error("Error notificando al técnico:", err); }
+                }
+            }
+            
+            setShowZoomModal(false);
+            showAlert('Solicitud Aceptada', 'La solicitud ha sido aprobada y el técnico ha sido notificado.', 'success');
+        } catch (error) {
+            console.error("Error aceptando solicitud preasignada:", error);
+            showAlert('Error', 'Hubo un problema al aceptar la solicitud.', 'error');
+        }
+    };
+
     const handleConfirmAssignment = async () => {
         if (trabajo && selectedTechnicians.length > 0) {
             const assignedNames = selectedTechnicians
@@ -640,7 +676,7 @@ const AutonomoDetalleTrabajo: React.FC = () => {
                     // Update in Backend
                     await assignTrabajador(trabajo.id, selectedTechnicians[0]);
 
-                    const needsStateUpdate = trabajo.estado === "Solicitud" || trabajo.estado === "Cotización Aceptada" || trabajo.estado === "Cotización Aprobada";
+                    const needsStateUpdate = trabajo.estado === "Pendiente" || trabajo.estado === "Solicitud" || trabajo.estado === "Cotización Aceptada" || trabajo.estado === "Cotización Aprobada";
                     const newEstado = needsStateUpdate ? "Asignado" : trabajo.estado;
 
                     let nuevoTitulo = trabajo.titulo || "";
@@ -1473,51 +1509,85 @@ const AutonomoDetalleTrabajo: React.FC = () => {
     const handleClienteRechazarCotizacion = (cotizId: number) => {
         setQuoteToReject(cotizId);
         setRejectionReason("");
+        setRejectionMode("cotizacion");
+        setShowRejectionModal(true);
+    };
+
+    const handleAdminRechazarSolicitud = () => {
+        setRejectionReason("");
+        setRejectionMode("solicitud");
+        setShowZoomModal(false); // Cerramos el modal de zoom si estaba abierto
         setShowRejectionModal(true);
     };
 
     const handleSubmitRejection = async () => {
-        if (!quoteToReject || !rejectionReason.trim() || !trabajo) {
+        if (!rejectionReason.trim() || !trabajo) {
             showAlert('Atención', 'Por favor ingresa un motivo para el rechazo.', 'warning');
             return;
         }
 
         try {
-            // 1. Actualizar estado de la cotización individual
-            await updateCotizacionStatus(quoteToReject, "Rechazada");
-            
-            // 2. Notificar al administrador con el motivo
-            await createNotificacionByRole({
-                role: 'admin',
-                titulo: '🚫 Cotización Rechazada',
-                mensaje: `El cliente ha rechazado una opción de presupuesto para "${trabajo.sucursal || 'Servicio'}". Motivo: ${rejectionReason}`,
-                enlace: `/menu/trabajo-detalle/${trabajo.id}?tab=cotizacion`
-            });
-
-            // 2.5 Enviar el motivo de rechazo al chat automáticamente
             const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
             const token = localStorage.getItem('token');
-            try {
-                await fetch(`${API_URL}/trabajos/${trabajo.id}/chat`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ message: `MOTIVO DE RECHAZO: ${rejectionReason}` })
-                });
-            } catch (err) {
-                console.error("Error al enviar mensaje de chat automático:", err);
-            }
 
-            // 3. Actualizar estado local
-            setCotizaciones(prev => prev.map(c => c.id === quoteToReject ? { ...c, estado: "Rechazada" as const } : c));
-            
-            setShowRejectionModal(false);
-            setRejectionReason("");
-            setQuoteToReject(null);
-            
-            showAlert('Enviado', 'Se ha notificado al administrador sobre el rechazo y tu motivo.', 'info');
+            if (rejectionMode === "cotizacion") {
+                if (!quoteToReject) return;
+                // 1. Actualizar estado de la cotización individual
+                await updateCotizacionStatus(quoteToReject, "Rechazada");
+                
+                // 2. Notificar al administrador con el motivo
+                await createNotificacionByRole({
+                    role: 'admin',
+                    titulo: '🚫 Cotización Rechazada',
+                    mensaje: `El cliente ha rechazado una opción de presupuesto para "${trabajo.sucursal || 'Servicio'}". Motivo: ${rejectionReason}`,
+                    enlace: `/menu/trabajo-detalle/${trabajo.id}?tab=cotizacion`
+                });
+
+                // 2.5 Enviar el motivo de rechazo al chat automáticamente
+                try {
+                    await fetch(`${API_URL}/trabajos/${trabajo.id}/chat`, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ message: `MOTIVO DE RECHAZO: ${rejectionReason}` })
+                    });
+                } catch (err) { console.error("Error al enviar mensaje de chat:", err); }
+
+                // 3. Actualizar estado local
+                setCotizaciones(prev => prev.map(c => c.id === quoteToReject ? { ...c, estado: "Rechazada" as const } : c));
+                
+                setShowRejectionModal(false);
+                setRejectionReason("");
+                setQuoteToReject(null);
+                showAlert('Enviado', 'Se ha notificado al administrador sobre el rechazo y tu motivo.', 'info');
+            } else if (rejectionMode === "solicitud") {
+                // RECHAZO DE LA SOLICITUD COMPLETA (Por el admin/gerente)
+                // 1. Cambiar estado del trabajo a "Cancelado"
+                await updateEstadoTrabajo(trabajo.id, { estado: "Cancelado" });
+                setTrabajo(prev => prev ? { ...prev, estado: "Cancelado" } : prev);
+
+                // 2. Notificar al creador de la solicitud (cliente / subgerente)
+                if (trabajo.cliente_id) {
+                    await createNotificacion({
+                        user_id: trabajo.cliente_id,
+                        titulo: '🚫 Solicitud Rechazada',
+                        mensaje: `Tu solicitud para "${trabajo.sucursal || 'Servicio'}" ha sido rechazada por el administrador. Motivo: ${rejectionReason}`,
+                        enlace: `/cliente/trabajo-detalle/${trabajo.id}`
+                    });
+                }
+
+                // 3. Mandar el comentario de rechazo al chat del trabajo
+                try {
+                    await fetch(`${API_URL}/trabajos/${trabajo.id}/chat`, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ message: `SOLICITUD RECHAZADA. MOTIVO: ${rejectionReason}` })
+                    });
+                } catch (err) { console.error("Error al enviar mensaje de chat:", err); }
+
+                setShowRejectionModal(false);
+                setRejectionReason("");
+                showAlert('Solicitud Rechazada', 'La solicitud ha sido cancelada y el creador ha sido notificado.', 'info');
+            }
         } catch (error: any) {
             showAlert('Error', error.response?.data?.message || error.message, 'error');
         }
@@ -2190,12 +2260,29 @@ const AutonomoDetalleTrabajo: React.FC = () => {
                                             )}
                                             {trabajo.foto_url && (
                                                 <div style={{ marginTop: '10px' }}>
-                                                    <span className={styles.bentoLabel} style={{ marginBottom: '4px', color: '#334155', display: 'block' }}>Foto Adjunta:</span>
-                                                    <img 
-                                                        src={trabajo.foto_url} 
-                                                        alt="Evidencia SOS" 
-                                                        style={{ width: '120px', height: '120px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }} 
-                                                    />
+                                                    <span className={styles.bentoLabel} style={{ marginBottom: '4px', color: '#334155', display: 'block' }}>Evidencia(s) Adjunta(s):</span>
+                                                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                                        {(() => {
+                                                            let fotos: string[] = [];
+                                                            try {
+                                                                if (typeof trabajo.foto_url === 'string' && trabajo.foto_url.trim().startsWith('[')) {
+                                                                    fotos = JSON.parse(trabajo.foto_url);
+                                                                } else if (trabajo.foto_url) {
+                                                                    fotos = [trabajo.foto_url];
+                                                                }
+                                                            } catch(e) {
+                                                                if (typeof trabajo.foto_url === 'string') fotos = [trabajo.foto_url];
+                                                            }
+                                                            return Array.isArray(fotos) ? fotos.map((f, i) => (
+                                                                <img 
+                                                                    key={i}
+                                                                    src={f} 
+                                                                    alt="Evidencia" 
+                                                                    style={{ width: '120px', height: '120px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }} 
+                                                                />
+                                                            )) : null;
+                                                        })()}
+                                                    </div>
                                                 </div>
                                             )}
                                         </div>
@@ -2220,7 +2307,7 @@ const AutonomoDetalleTrabajo: React.FC = () => {
                                     </span>
 
                                     {/* BOTÓN ACCIÓN — lógica diferente para SOS vs Normal */}
-                                    {(user?.role === 'admin' || user?.role === 'autonomo') && trabajo.estado !== 'Finalizado' && trabajo.estado !== 'Asignado' && trabajo.estado !== 'En Proceso' && (
+                                    {(['admin', 'autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '')) && trabajo.estado !== 'Finalizado' && trabajo.estado !== 'Asignado' && trabajo.estado !== 'En Proceso' && (
                                         isSOS ? (
                                             // FLUJO SOS:
                                             // - Si está en Solicitud: primero debe crear cotización
@@ -2280,35 +2367,7 @@ const AutonomoDetalleTrabajo: React.FC = () => {
                                                     {trabajo.tecnico && trabajo.tecnico !== 'Sin asignar' && trabajo.tecnico !== 'Sin Asignar' ? `🚨 Técnico: ${trabajo.tecnico}` : '🚨 Asignar Técnico (Emergencia)'}
                                                 </button>
                                             ) : null
-                                        ) : (
-                                            // FLUJO NORMAL: botón asignar siempre visible
-                                            <button
-                                                onClick={handleOpenAssignModal}
-                                                style={{
-                                                    marginTop: '8px',
-                                                    display: 'inline-flex',
-                                                    alignItems: 'center',
-                                                    gap: '8px',
-                                                    background: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)',
-                                                    color: 'white',
-                                                    border: 'none',
-                                                    padding: '10px 20px',
-                                                    borderRadius: '25px',
-                                                    fontSize: '13px',
-                                                    fontWeight: '700',
-                                                    cursor: 'pointer',
-                                                    transition: 'all 0.2s ease',
-                                                    boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)',
-                                                    whiteSpace: 'nowrap',
-                                                    width: '100%',
-                                                    justifyContent: 'center'
-                                                }}
-                                                onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-1px)')}
-                                                onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}
-                                            >
-                                                {trabajo.tecnico && trabajo.tecnico !== 'Sin asignar' && trabajo.tecnico !== 'Sin Asignar' ? `👤 Técnico: ${trabajo.tecnico}` : '👤 Asignar Técnico'}
-                                            </button>
-                                        )
+                                        ) : null
                                     )}
 
                                     {/* BOTONES PARA TÉCNICO: Aceptar, Rechazar, Empezar */}
@@ -3448,43 +3507,133 @@ const AutonomoDetalleTrabajo: React.FC = () => {
                 <div
                     style={{
                         position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
-                        background: 'rgba(0, 0, 0, 0.85)', zIndex: 9999, display: 'flex',
+                        background: 'rgba(15, 23, 42, 0.75)', zIndex: 9999, display: 'flex',
                         alignItems: 'center', justifyContent: 'center', padding: '20px',
-                        backdropFilter: 'blur(5px)'
+                        backdropFilter: 'blur(8px)'
                     }}
                     onClick={() => setShowZoomModal(false)}
                 >
                     <div 
                         style={{ 
-                            position: 'relative', maxWidth: '95%', maxHeight: '95%', display: 'flex', flexDirection: 'column', 
-                            alignItems: 'center', background: '#fff', padding: '30px', borderRadius: '24px', overflowY: 'auto'
+                            position: 'relative', width: '100%', maxWidth: '700px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', 
+                            background: '#ffffff', padding: '40px', borderRadius: '24px', overflowY: 'auto',
+                            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', border: '1px solid #e2e8f0'
                         }}
                         onClick={(e) => e.stopPropagation()}
                     >
                         <button
                             onClick={() => setShowZoomModal(false)}
-                            style={{ position: 'absolute', top: '15px', right: '15px', background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569', cursor: 'pointer', fontSize: '20px', fontWeight: 'bold' }}
+                            style={{ position: 'absolute', top: '20px', right: '20px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', cursor: 'pointer', fontSize: '18px', fontWeight: 'bold', transition: 'all 0.2s ease' }}
+                            onMouseEnter={e => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#0f172a'; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.color = '#64748b'; }}
                         >
                             ✕
                         </button>
                         
-                        <h2 style={{ fontSize: '24px', fontWeight: '800', color: '#1e293b', marginBottom: '20px', width: '100%', textAlign: 'left' }}>Detalles del Problema</h2>
+                        <div style={{ borderBottom: '2px solid #f1f5f9', paddingBottom: '20px', marginBottom: '30px' }}>
+                            <h2 style={{ fontSize: '26px', fontWeight: '800', color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <span style={{ fontSize: '28px' }}>📄</span> Detalles de la Solicitud
+                            </h2>
+                        </div>
                         
                         {trabajo?.descripcion && (
-                            <div style={{ width: '100%', marginBottom: '24px' }}>
-                                <span style={{ display: 'block', fontSize: '12px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '8px' }}>Problema Reportado</span>
-                                <p style={{ fontSize: '18px', color: '#334155', background: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0', margin: 0, lineHeight: '1.6' }}>"{trabajo.descripcion}"</p>
+                            <div style={{ width: '100%', marginBottom: '30px' }}>
+                                <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>
+                                    <HiOutlineSquare3Stack3D size={16} /> Problema Reportado
+                                </span>
+                                <div style={{ background: '#f8fafc', borderLeft: '4px solid #3b82f6', padding: '24px', borderRadius: '0 16px 16px 0', border: '1px solid #e2e8f0', borderLeftWidth: '4px' }}>
+                                    <p style={{ fontSize: '17px', color: '#334155', margin: 0, lineHeight: '1.7', fontStyle: 'italic' }}>
+                                        "{trabajo.descripcion}"
+                                    </p>
+                                </div>
                             </div>
                         )}
                         
                         {trabajo?.foto_url && (
-                            <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                <span style={{ display: 'block', fontSize: '12px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '12px', alignSelf: 'flex-start' }}>Foto Adjunta</span>
-                                <img
-                                    src={trabajo.foto_url}
-                                    alt="Zoomed Evidence"
-                                    style={{ maxWidth: '100%', maxHeight: '60vh', objectFit: 'contain', borderRadius: '15px', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
-                                />
+                            <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', marginBottom: '10px' }}>
+                                <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '16px' }}>
+                                    📸 Evidencia(s) Adjunta(s)
+                                </span>
+                                <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', width: '100%' }}>
+                                    {(() => {
+                                        let fotos: string[] = [];
+                                        try {
+                                            if (typeof trabajo.foto_url === 'string' && trabajo.foto_url.trim().startsWith('[')) {
+                                                fotos = JSON.parse(trabajo.foto_url);
+                                            } else if (trabajo.foto_url) {
+                                                fotos = [trabajo.foto_url];
+                                            }
+                                        } catch(e) {
+                                            if (typeof trabajo.foto_url === 'string') fotos = [trabajo.foto_url];
+                                        }
+                                        return Array.isArray(fotos) ? fotos.map((f, i) => (
+                                            <div key={i} style={{ flex: '1 1 min(100%, 300px)', display: 'flex', justifyContent: 'center' }}>
+                                                <img
+                                                    src={f}
+                                                    alt={`Zoomed Evidence ${i+1}`}
+                                                    style={{ width: '100%', maxHeight: '40vh', objectFit: 'contain', borderRadius: '16px', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)', border: '1px solid #e2e8f0', backgroundColor: '#f8fafc' }}
+                                                />
+                                            </div>
+                                        )) : null;
+                                    })()}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Botón de Acción para Admin/Gerente dentro del Modal */}
+                        {(['admin', 'autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '')) && trabajo?.estado !== 'Finalizado' && trabajo?.estado !== 'Asignado' && trabajo?.estado !== 'En Proceso' && trabajo?.estado !== 'Cancelado' && (
+                            <div style={{ width: '100%', marginTop: '40px', paddingTop: '30px', borderTop: '2px solid #f1f5f9', display: 'flex', justifyContent: 'center', gap: '20px', flexWrap: 'wrap' }}>
+                                <button
+                                    onClick={() => {
+                                        if (trabajo?.tecnico && trabajo.tecnico !== 'Sin asignar' && trabajo.tecnico !== 'Sin Asignar') {
+                                            handleAceptarSolicitudPreasignada();
+                                        } else {
+                                            setShowZoomModal(false);
+                                            handleOpenAssignModal();
+                                        }
+                                    }}
+                                    style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '10px',
+                                        background: 'linear-gradient(135deg, #2563eb 0%, #3b82f6 100%)',
+                                        color: 'white',
+                                        border: '1px solid #1d4ed8',
+                                        padding: '16px 36px',
+                                        borderRadius: '30px',
+                                        fontSize: '16px',
+                                        fontWeight: '700',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                        boxShadow: '0 10px 20px -5px rgba(59, 130, 246, 0.5), inset 0 1px 1px rgba(255,255,255,0.2)'
+                                    }}
+                                    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 15px 25px -5px rgba(59, 130, 246, 0.6), inset 0 1px 1px rgba(255,255,255,0.2)'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 10px 20px -5px rgba(59, 130, 246, 0.5), inset 0 1px 1px rgba(255,255,255,0.2)'; }}
+                                >
+                                    {trabajo?.tecnico && trabajo.tecnico !== 'Sin asignar' && trabajo.tecnico !== 'Sin Asignar' ? `✅ Confirmar y Aceptar` : '👤 Asignar Técnico'}
+                                </button>
+                                <button
+                                    onClick={handleAdminRechazarSolicitud}
+                                    style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '10px',
+                                        background: '#fff',
+                                        color: '#ef4444',
+                                        border: '2px solid #fecaca',
+                                        padding: '16px 36px',
+                                        borderRadius: '30px',
+                                        fontSize: '16px',
+                                        fontWeight: '700',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)'
+                                    }}
+                                    onMouseEnter={e => { e.currentTarget.style.background = '#fef2f2'; e.currentTarget.style.borderColor = '#f87171'; e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(239, 68, 68, 0.2)'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = '#fecaca'; e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.05)'; }}
+                                >
+                                    ❌ Rechazar Solicitud
+                                </button>
                             </div>
                         )}
                     </div>

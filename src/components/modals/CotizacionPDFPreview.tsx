@@ -96,6 +96,13 @@ export default function CotizacionPDFPreview({ trabajo, subTareas, costo, notas,
                             <h4 style={{ margin: '0 0 10px 0', fontSize: '12px', fontWeight: '800', color: '#1e293b', textTransform: 'uppercase', borderBottom: '1px solid #cbd5e1', paddingBottom: '4px' }}>Detalles del Servicio</h4>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '12px', color: '#475569' }}>
                                 <div><strong>Diagnóstico / Visita:</strong> {trabajo?.titulo || 'Servicio de Mantenimiento'}</div>
+                                {(() => {
+                                    const llegadaTask = subTareas?.find((t: any) => t.serviceData?.horaLlegada);
+                                    if (llegadaTask) {
+                                        return <div><strong>Hora de Llegada:</strong> {llegadaTask.serviceData.horaLlegada}</div>;
+                                    }
+                                    return null;
+                                })()}
                                 <div><strong>Trabajo a Realizar:</strong> {trabajo?.descripcion || 'Sin descripción registrada.'}</div>
                             </div>
                         </div>

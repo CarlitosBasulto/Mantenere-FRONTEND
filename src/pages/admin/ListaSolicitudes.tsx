@@ -50,21 +50,16 @@ const ListaSolicitudes: React.FC = () => {
 
                     if (isTecnico) {
                         const status = (j.estado || "").toLowerCase();
-                        // El técnico solo debe ver lo que tiene activamente para TRABAJAR (Asignado, En Proceso) y Propuestas (Cotización Enviada)
-                        // EXCLUIMOS: Finalizado, Cancelado, En Espera (Diagnóstico terminado), Solicitud (Aún es visita)
-                        return assignedToMe && 
+                        // El técnico debe ver lo que tiene asignado y las propuestas
+                        return (assignedToMe || j.trabajador_id === user?.id || j.trabajador?.user_id === user?.id) && 
                                status !== 'finalizado' && 
                                status !== 'cancelado' && 
-                               status !== 'en espera' && 
                                status !== 'solicitud' && 
                                status !== 'pendiente';
                     }
 
-                    // Filtro original para Admin (Bandeja de entrada general)
-                    // Mostrar si: Pendiente, Solicitud, En Espera, Cotización Aceptada
-                    // O si: Es SOS/Alta Prioridad y NO está Finalizado/Cancelado
+                    // Filtro para Admin
                     const isSOS = j.prioridad === 'Alta' || (j.titulo && j.titulo.includes('SOS'));
-                    
                     if (isSOS) {
                         return j.estado !== 'Finalizado' && j.estado !== 'Cancelado';
                     }
@@ -73,6 +68,8 @@ const ListaSolicitudes: React.FC = () => {
                         j.estado === 'Solicitud' || 
                         j.estado === 'En Espera' || 
                         j.estado === 'Asignado' ||
+                        j.estado === 'Cotización Enviada' ||
+                        j.estado === 'Cotización Rechazada' ||
                         j.estado === 'Cotización Aceptada';
                 });
 
@@ -174,7 +171,19 @@ const ListaSolicitudes: React.FC = () => {
         } else if (job.tipo === "SOS") {
             barClass = styles.red;
             text = "¡ALERTA SOS!";
-        } else if (status.includes("cotizaci") || status === "asignado" || (job.tecnico && job.tecnico !== "Sin asignar" && job.tecnico !== "Sin Asignar")) {
+        } else if (status === "en proceso" || status === "en espera") {
+            barClass = styles.blue;
+            text = "TÉCNICO ACEPTADO";
+        } else if (status === "solicitud" || status === "pendiente" || status === "asignado") {
+            const hasTech = job.tecnico && job.tecnico !== "Sin asignar" && job.tecnico !== "Sin Asignar";
+            if (hasTech) {
+                barClass = styles.orange;
+                text = "SOLICITUD POR ACEPTAR";
+            } else {
+                barClass = styles.yellow;
+                text = "SOLICITUD";
+            }
+        } else if (status.includes("cotizaci") || (job.tecnico && job.tecnico !== "Sin asignar" && job.tecnico !== "Sin Asignar")) {
             const hasTech = job.tecnico && job.tecnico !== "Sin asignar" && job.tecnico !== "Sin Asignar";
 
             if (user?.role === 'tecnico') {

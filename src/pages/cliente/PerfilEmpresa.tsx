@@ -691,7 +691,7 @@ const PerfilEmpresa: React.FC = () => {
                             </h2>
                             <div className={styles.formGrid}>
                                 <div className={styles.inputGroup}>
-                                    <label className={styles.label}>Gerente de Sucursal</label>
+                                    <label className={styles.label}>Sub gerente</label>
                                     <input type="text" name="gerente" className={styles.input} value={formData.gerente || ''} onChange={handleChange} disabled={!canEdit} />
                                 </div>
                                 <div className={styles.inputGroup}>

@@ -1,4 +1,4 @@
-﻿// @ts-nocheck
+// @ts-nocheck
 import React, { useState, useEffect, useRef } from 'react';
 import { HiOutlinePaperAirplane, HiOutlineUserCircle } from 'react-icons/hi2';
 import { useAuth } from '../context/AuthContext';
@@ -206,11 +206,13 @@ const ChatTrabajo: React.FC<ChatTrabajoProps> = ({ trabajoId, adminAutonomoId, o
                         const isMe = msg.sender_id === user?.id;
                         return (
                             <div key={idx} style={{ display: 'flex', flexDirection: isMe ? 'row-reverse' : 'row', gap: '10px', alignItems: 'flex-end' }}>
-                                <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <HiOutlineUserCircle size={20} color="#64748b" />
+                                <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: isMe ? '#fed7aa' : '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <HiOutlineUserCircle size={20} color={isMe ? "#ea580c" : "#64748b"} />
                                 </div>
                                 <div style={{ maxWidth: '70%', display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start' }}>
-                                    <span style={{ fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>{msg.sender.name} ({msg.sender.role.name})</span>
+                                    <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#475569', marginBottom: '4px' }}>
+                                        {msg.sender?.name || 'Usuario'} <span style={{ fontWeight: 'normal', color: '#94a3b8' }}>({msg.sender?.role?.name || 'Rol'})</span>
+                                    </span>
                                     <div style={{ 
                                         padding: '10px 14px', 
                                         background: isMe ? '#f26522' : '#ffffff', 

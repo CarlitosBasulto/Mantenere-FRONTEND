@@ -61,3 +61,29 @@ export const markAllNotificacionesAsRead = async (userId: number) => {
     const response = await axios.put(`${API_URL}/notificaciones/usuario/${userId}/leer-todas`);
     return response.data;
 };
+
+/**
+ * Notificar a todos los administradores de un ecosistema (admin-autonomo y gerente-general)
+ */
+export const createNotificacionEcosistema = async (data: {
+    admin_autonomo_id: number;
+    titulo: string;
+    mensaje: string;
+    enlace?: string;
+}) => {
+    const response = await axios.post(`${API_URL}/notificaciones/ecosistema`, data);
+    return response.data;
+};
+
+/**
+ * Notificar a todos los usuarios que pertenecen a un negocio_id (p.ej. los encargados de una sucursal)
+ */
+export const createNotificacionNegocio = async (data: {
+    negocio_id: number;
+    titulo: string;
+    mensaje: string;
+    enlace?: string;
+}) => {
+    const response = await axios.post(`${API_URL}/notificaciones/negocio`, data);
+    return response.data;
+};

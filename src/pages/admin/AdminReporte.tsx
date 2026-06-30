@@ -4,7 +4,7 @@ import styles from './AdminReporte.module.css';
 import { createReporte, getReporteByTrabajoId } from '../../services/reportesService';
 import { getActividadesByTrabajo } from '../../services/actividadesService';
 import { updateEstadoTrabajo, getTrabajo } from '../../services/trabajosService';
-import { createNotificacionByRole, createNotificacion } from '../../services/notificacionesService';
+import { createNotificacionByRole, createNotificacion, createNotificacionNegocio } from '../../services/notificacionesService';
 import { useAuth } from '../../context/AuthContext';
 import { useModal } from '../../context/ModalContext';
 import { 
@@ -544,10 +544,11 @@ const AdminReporte: React.FC = () => {
                 console.error("Error al notificar admins en BD:", notiErr);
             }
 
-            // 2. Notificar al Cliente a través del negocio asociado al trabajo
+            // 2. Notificar al Cliente a través del negocio asociado al trabajo y al admin autonomo
             try {
                 const jobData = await getTrabajo(Number(safeTrabajoId));
                 const clienteUserId = jobData?.negocio?.user_id;
+                
                 if (clienteUserId) {
                     await createNotificacion({
                         user_id: clienteUserId,
@@ -556,8 +557,28 @@ const AdminReporte: React.FC = () => {
                         enlace: `/cliente/historial`
                     });
                 }
+                
+                // Notificar al admin autonomo (subgerente) específico de la sucursal
+                if (jobData?.admin_autonomo_id) {
+                    await createNotificacion({
+                        user_id: jobData.admin_autonomo_id,
+                        titulo: 'Reporte de Visita/Trabajo Recibido 📋',
+                        mensaje: `El técnico ha generado y enviado el reporte para la sucursal: ${jobData.sucursal || 'Tu sucursal'}.`,
+                        enlace: `/autonomo/trabajo-detalle/${safeTrabajoId}`
+                    });
+                }
+
+                // Notificar a todos los encargados de la sucursal
+                if (jobData?.negocio_id) {
+                    await createNotificacionNegocio({
+                        negocio_id: jobData.negocio_id,
+                        titulo: 'Reporte de Visita/Trabajo Recibido 📋',
+                        mensaje: `El técnico ha generado y enviado el reporte para tu sucursal.`,
+                        enlace: `/encargado/resumen`
+                    });
+                }
             } catch (clienteNotiErr) {
-                console.error("Error al notificar al cliente en BD:", clienteNotiErr);
+                console.error("Error al notificar al cliente/subgerente en BD:", clienteNotiErr);
             }
 
             showAlert("Éxito", "Reporte guardado con éxito en la Base de Datos.", "success");

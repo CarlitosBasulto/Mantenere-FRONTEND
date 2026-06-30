@@ -55,6 +55,7 @@ interface ReportePDFPreviewProps {
         fechaInicio?: string;
         isVisita?: boolean;
     };
+    subTareas?: any[];
     isVisita?: boolean;
     onClose: () => void;
 }
@@ -66,7 +67,7 @@ const getCleanNotes = (text: string) => {
     return cleanLines.join('\n').trim();
 };
 
-export default function ReportePDFPreview({ trabajo, reporteData, isVisita: isVisitaProp, onClose }: ReportePDFPreviewProps) {
+export default function ReportePDFPreview({ trabajo, reporteData, subTareas, isVisita: isVisitaProp, onClose }: ReportePDFPreviewProps) {
     const isVisita = isVisitaProp ?? reporteData?.isVisita ?? (trabajo?.tipo === 'Visita' || trabajo?.originalTipo === 'Visita');
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [customLogo, setCustomLogo] = useState<string | null>(null);
@@ -266,11 +267,15 @@ export default function ReportePDFPreview({ trabajo, reporteData, isVisita: isVi
 
                         {(() => {
                             const isVisita = trabajo?.tipo === 'Visita' || trabajo?.originalTipo === 'Visita';
+                            const llegadaTask = subTareas?.find((t: any) => t.serviceData?.horaLlegada);
                             return (
                                 <div style={{ background: '#f8fafc', padding: '15px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
                                     <h4 style={{ margin: '0 0 10px 0', fontSize: '12px', fontWeight: '800', color: '#1e293b', textTransform: 'uppercase', borderBottom: '1px solid #cbd5e1', paddingBottom: '4px' }}>Detalles del Servicio</h4>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '12px', color: '#475569' }}>
                                         <div><strong>{isVisita ? 'Diagnóstico / Visita:' : 'Diagnóstico / Reporte:'}</strong> {reporteData.reporteTienda || 'Sin diagnóstico registrado.'}</div>
+                                        {llegadaTask && (
+                                            <div><strong>Hora de Llegada:</strong> {llegadaTask.serviceData.horaLlegada}</div>
+                                        )}
                                         <div><strong>{isVisita ? 'Trabajo a Realizar:' : 'Trabajo Realizado:'}</strong> {reporteData.descripcion || 'Sin descripción de trabajo.'}</div>
                                     </div>
                                 </div>

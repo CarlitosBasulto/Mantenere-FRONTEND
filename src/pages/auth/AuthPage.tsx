@@ -82,7 +82,10 @@ const AuthPage: React.FC = () => {
                 name: user.name, 
                 role: role, 
                 email: user.email,
-                negocio_id: user.negocio_id 
+                negocio_id: user.negocio_id,
+                admin_autonomo_id: user.admin_autonomo_id,
+                cv_url: user.cv_url,
+                avatar: user.avatar
             });
             
             setWelcomeName(user.name);
@@ -132,7 +135,16 @@ const AuthPage: React.FC = () => {
             
             let role: UserRole = roleStr as UserRole;
             
-            login({ id: user.id, name: user.name, role: role, email: user.email });
+            login({ 
+                id: user.id, 
+                name: user.name, 
+                role: role, 
+                email: user.email,
+                negocio_id: user.negocio_id,
+                admin_autonomo_id: user.admin_autonomo_id,
+                cv_url: user.cv_url,
+                avatar: user.avatar
+            });
             
             setWelcomeName(user.name);
             setShowWelcomeModal(true);

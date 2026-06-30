@@ -11,7 +11,7 @@ import Cotizaciones from "../cliente/Cotizaciones";
 import EquiposNegocio from "../admin/EquiposNegocio";
 import { getNegocios, getNegocio, updateNegocio, uploadImage } from "../../services/negociosService";
 import { getTrabajadores } from "../../services/trabajadoresService";
-import { createNotificacion, createNotificacionByRole } from "../../services/notificacionesService";
+import { createNotificacion, createNotificacionByRole, createNotificacionEcosistema } from "../../services/notificacionesService";
 import { getReporteByTrabajoId } from "../../services/reportesService";
 import ReporteDetailModal from "../../components/modals/ReporteDetailModal";
 import { getTrabajo } from "../../services/trabajosService";
@@ -311,9 +311,10 @@ const TrabajoDetalle: React.FC = () => {
     const [newRequestData, setNewRequestData] = useState({
         categoria: "Electricidad",
         cliente: "",
-        fecha: "",
+        fecha: new Date().toISOString().split('T')[0],
         descripcion: "",
-        equipoSeleccionado: ""
+        equipoSeleccionado: "",
+        trabajador_id: ""
     });
     const [customCategoria, setCustomCategoria] = useState("");
 
@@ -699,6 +700,9 @@ const TrabajoDetalle: React.FC = () => {
                     formData.append('prioridad', isEmergency ? 'Alta' : 'Media');
                     formData.append('tipo', isEmergency ? 'SOS' : 'Nueva Solicitud');
                     formData.append('negocio_id', id || '');
+                    if (newRequestData.trabajador_id) {
+                        formData.append('trabajador_id', newRequestData.trabajador_id);
+                    }
                     if (newRequestData.fecha) {
                         formData.append('fecha_programada', newRequestData.fecha);
                     }
@@ -718,7 +722,8 @@ const TrabajoDetalle: React.FC = () => {
                         prioridad: isEmergency ? "Alta" : "Media",
                         tipo: isEmergency ? "SOS" : "Nueva Solicitud",
                         negocio_id: Number(id),
-                        fecha_programada: newRequestData.fecha || null
+                        fecha_programada: newRequestData.fecha || null,
+                        trabajador_id: newRequestData.trabajador_id || null
                     };
 
                     dbJob = await createTrabajo(newJobPayload);
@@ -755,8 +760,8 @@ const TrabajoDetalle: React.FC = () => {
                         : `El cliente ha creado una nueva solicitud: ${newJobView.titulo} en la sucursal ${businessName}.`;
 
                     if (businessDetails && businessDetails.admin_autonomo_id) {
-                        await createNotificacion({
-                            user_id: businessDetails.admin_autonomo_id,
+                        await createNotificacionEcosistema({
+                            admin_autonomo_id: businessDetails.admin_autonomo_id,
                             titulo: tituloNoti,
                             mensaje: mensajeNoti,
                             enlace: `/autonomo/trabajo-detalle/${newJobView.id}`
@@ -776,7 +781,9 @@ const TrabajoDetalle: React.FC = () => {
                     isEmergency ? "🚨 ¡Emergencia Enviada!" : "✅ ¡Solicitud Enviada!",
                     isEmergency
                         ? "Tu alerta SOS ha sido enviada al administrador. Nos pondremos en contacto contigo a la brevedad posible."
-                        : "Tu solicitud ha sido enviada exitosamente al administrador. Pronto te notificaremos cuando se asigne un técnico.",
+                        : (newRequestData.trabajador_id 
+                            ? "Tu solicitud ha sido mandada exitosamente al administrador, se te notificará cuando el técnico acepte."
+                            : "Tu solicitud ha sido enviada exitosamente al administrador. Pronto te notificaremos cuando se asigne un técnico."),
                     "success"
                 );
             } catch (error: any) {
@@ -804,9 +811,10 @@ const TrabajoDetalle: React.FC = () => {
         setNewRequestData({
             categoria: "Electricidad",
             cliente: businessName,
-            fecha: "",
+            fecha: new Date().toISOString().split('T')[0],
             descripcion: "",
-            equipoSeleccionado: ""
+            equipoSeleccionado: "",
+            trabajador_id: ""
         });
     };
 
@@ -816,7 +824,8 @@ const TrabajoDetalle: React.FC = () => {
             cliente: businessName,
             fecha: new Date().toISOString().split('T')[0],
             descripcion: "",
-            equipoSeleccionado: ""
+            equipoSeleccionado: "",
+            trabajador_id: ""
         });
         setIsSOSRequest(true);
         setIsEditingRequest(false);
@@ -858,7 +867,8 @@ const TrabajoDetalle: React.FC = () => {
             cliente: businessName,
             fecha: job.fecha ? (job.fecha.includes('/') ? job.fecha.split('/').reverse().join('-') : job.fecha) : "",
             descripcion: job.descripcion || "",
-            equipoSeleccionado: ""
+            equipoSeleccionado: "",
+            trabajador_id: ""
         });
         setFotosSOS([]);
         setFotosPreviewUrls([]);
@@ -937,7 +947,10 @@ const TrabajoDetalle: React.FC = () => {
         let barClass = styles.yellow;
         let text: string = job.estado || "Pendiente";
 
-        if (status === "finalizado") {
+        if (status === "cancelado") {
+            barClass = styles.red;
+            text = "SOLICITUD CANCELADA";
+        } else if (status === "finalizado") {
             barClass = styles.green;
             text = "Finalizado";
         } else if (status === "rechazado por técnico" || status === "rechazado por tecnico") {
@@ -948,7 +961,6 @@ const TrabajoDetalle: React.FC = () => {
             text = "¡ALERTA SOS!";
         } else if (status.includes("cotizaci")) {
             barClass = styles.blue;
-            // Si ya hay un técnico asignado (no es "Sin Asignar"), lo mostramos en el banner
             const hasTech = job.tecnico && job.tecnico !== "Sin asignar" && job.tecnico !== "Sin Asignar";
             if (hasTech) {
                 text = user?.role === 'tecnico' 
@@ -968,7 +980,19 @@ const TrabajoDetalle: React.FC = () => {
                     text = user?.role === 'admin' ? "COTIZACIÓN ENVIADA" : "COTIZACIÓN DEL TRABAJO";
                 }
             }
-        } else if (status === "asignado" || (job.tecnico && job.tecnico !== "Sin asignar" && job.tecnico !== "Sin Asignar")) {
+        } else if (status === "en proceso" || status === "en espera") {
+            barClass = styles.blue;
+            text = "TÉCNICO ACEPTADO";
+        } else if (status === "solicitud" || status === "pendiente" || status === "asignado") {
+            const hasTech = job.tecnico && job.tecnico !== "Sin asignar" && job.tecnico !== "Sin Asignar";
+            if (hasTech) {
+                barClass = styles.orange;
+                text = "SOLICITUD POR ACEPTAR";
+            } else {
+                barClass = styles.yellow;
+                text = "SOLICITUD";
+            }
+        } else if (job.tecnico && job.tecnico !== "Sin asignar" && job.tecnico !== "Sin Asignar") {
             barClass = user?.role === 'tecnico' ? styles.orange : styles.blue;
             text = user?.role === 'tecnico' 
                 ? (job.tipo === 'Visita' ? "ASIGNACIÓN DE VISITA" : "SE TE ASIGNÓ ESTE TRABAJO 🛠️") 
@@ -1290,7 +1314,7 @@ const TrabajoDetalle: React.FC = () => {
                                         className={styles.jobCard}
                                         onClick={(e) => {
                                             if (!(e.target as HTMLElement).closest('button')) {
-                                                const basePath = user?.role === 'tecnico' ? '/tecnico' : (user?.role === 'cliente' ? '/cliente' : (user?.role === 'autonomo' ? '/autonomo' : (user?.role === 'encargado' ? '/encargado' : '/menu')));
+                                                const basePath = user?.role === 'tecnico' ? '/tecnico' : (user?.role === 'cliente' ? '/cliente' : (['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '') ? '/autonomo' : (user?.role === 'encargado' ? '/encargado' : '/menu')));
                                                 navigate(`${basePath}/trabajo-detalle/${trabajo.id}`);
                                             }
                                         }}
@@ -1352,9 +1376,6 @@ const TrabajoDetalle: React.FC = () => {
                                                 {/* FILA SUPERIOR: FECHA Y MENU */}
                                                 <div className={styles.headerRow}>
                                                     <div className={styles.dateGroup}>
-                                                        <p className={styles.requestedDate}>
-                                                            📝 Solicitado: {trabajo.fechaSolicitud || "No registrada"}
-                                                        </p>
                                                         <p className={styles.strikingDate}>
                                                             📅 Cita solicitada: {trabajo.fechaAsignada || trabajo.fecha}
                                                         </p>
@@ -1725,6 +1746,24 @@ const TrabajoDetalle: React.FC = () => {
                             </div>
 
                             <div className={styles.formField}>
+                                <label className={styles.formLabel}>Técnico Sugerido/Asignado (Opcional)</label>
+                                <div className={styles.selectWrapper}>
+                                    <select
+                                        className={`${styles.newServiceInput} ${isSOSRequest ? styles.newServiceInputSos : ''}`}
+                                        value={newRequestData.trabajador_id || ""}
+                                        onChange={(e) => setNewRequestData({ ...newRequestData, trabajador_id: e.target.value })}
+                                    >
+                                        <option value="">-- Seleccionar Técnico --</option>
+                                        {tecnicosData.map(tecnico => (
+                                            <option key={tecnico.id} value={tecnico.id}>
+                                                {tecnico.nombre}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className={styles.formField}>
                                 <label className={styles.formLabel}>Descripción del problema</label>
                                 <textarea
                                     className={`${styles.newServiceTextArea} ${isSOSRequest ? styles.newServiceTextAreaSos : ''}`}
@@ -1783,31 +1822,51 @@ const TrabajoDetalle: React.FC = () => {
                                 </div>
                             )}
 
-                            <div className={`${styles.uploadContainer} ${isSOSRequest ? styles.uploadContainerSos : ''}`}>
-                                <input
-                                    type="file"
-                                    accept="image/*"
-                                    multiple
-                                    onChange={(e) => {
-                                        const files = e.target.files ? Array.from(e.target.files) : [];
-                                        if (files.length > 0) {
-                                            setFotosSOS(prev => [...prev, ...files]);
-                                            const newUrls = files.map(file => URL.createObjectURL(file));
-                                            setFotosPreviewUrls(prev => [...prev, ...newUrls]);
-                                        }
-                                    }}
-                                    style={{
-                                        position: 'absolute',
-                                        top: 0, left: 0, width: '100%', height: '100%',
-                                        opacity: 0, cursor: 'pointer',
-                                        zIndex: 2
-                                    }}
-                                />
-                                <span className={styles.uploadIcon}>📸</span>
-                                <span className={`${styles.uploadText} ${isSOSRequest ? styles.uploadTextSos : ''}`}>
-                                    Haz clic para agregar fotos
-                                </span>
-                                <span className={`${styles.uploadSubtext} ${isSOSRequest ? styles.uploadSubtextSos : ''}`}>Formatos soportados: JPG, PNG</span>
+                            <div style={{ display: 'flex', gap: '10px' }}>
+                                <label className={`${styles.uploadContainer} ${isSOSRequest ? styles.uploadContainerSos : ''}`} style={{ flex: 1, position: 'relative', cursor: 'pointer', padding: '15px 10px' }}>
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        capture="environment"
+                                        multiple
+                                        onChange={(e) => {
+                                            const files = e.target.files ? Array.from(e.target.files) : [];
+                                            if (files.length > 0) {
+                                                setFotosSOS(prev => [...prev, ...files]);
+                                                const newUrls = files.map(file => URL.createObjectURL(file));
+                                                setFotosPreviewUrls(prev => [...prev, ...newUrls]);
+                                            }
+                                            e.target.value = '';
+                                        }}
+                                        style={{ display: 'none' }}
+                                    />
+                                    <span className={styles.uploadIcon}>📸</span>
+                                    <span className={`${styles.uploadText} ${isSOSRequest ? styles.uploadTextSos : ''}`} style={{ fontSize: '13px' }}>
+                                        Tomar Foto
+                                    </span>
+                                </label>
+
+                                <label className={`${styles.uploadContainer} ${isSOSRequest ? styles.uploadContainerSos : ''}`} style={{ flex: 1, position: 'relative', cursor: 'pointer', padding: '15px 10px' }}>
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        multiple
+                                        onChange={(e) => {
+                                            const files = e.target.files ? Array.from(e.target.files) : [];
+                                            if (files.length > 0) {
+                                                setFotosSOS(prev => [...prev, ...files]);
+                                                const newUrls = files.map(file => URL.createObjectURL(file));
+                                                setFotosPreviewUrls(prev => [...prev, ...newUrls]);
+                                            }
+                                            e.target.value = '';
+                                        }}
+                                        style={{ display: 'none' }}
+                                    />
+                                    <span className={styles.uploadIcon}>🖼️</span>
+                                    <span className={`${styles.uploadText} ${isSOSRequest ? styles.uploadTextSos : ''}`} style={{ fontSize: '13px' }}>
+                                        Abrir Galería
+                                    </span>
+                                </label>
                             </div>
                         </div>
 
