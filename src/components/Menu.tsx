@@ -8,7 +8,7 @@ import {
     HiOutlineUser, HiOutlineBell, HiOutlineBriefcase, 
     HiOutlineUsers, HiOutlineDocumentText, HiOutlineClock,
     HiOutlineCurrencyDollar, HiOutlineWrench, HiOutlineSquares2X2,
-    HiCheckBadge, HiOutlineArchiveBox, HiXMark 
+    HiCheckBadge, HiOutlineArchiveBox, HiXMark, HiOutlineQuestionMarkCircle
 } from "react-icons/hi2";
 import { FaWhatsapp, FaEnvelope } from "react-icons/fa";
 import { LuHardHat } from "react-icons/lu";
@@ -147,7 +147,7 @@ const MenuLayout: React.FC = () => {
         let baseOptions: string[] = [];
 
         if (user.role === 'admin') {
-            baseOptions = ["Negocios", "Dashboard", "Inventario General", "Trabajadores", "Usuarios", "Solicitudes", "Reportes Mantenimiento", "Trabajos Globales Realizados"];
+            baseOptions = ["Negocios", "Dashboard", "Inventario General", "Trabajadores", "Usuarios", "Solicitudes", "Reportes Mantenimiento", "Trabajos Realizados"];
         } else if (user.role === 'autonomo' || user.role === 'admin-autonomo' || user.role === 'gerente-general') {
             baseOptions = ["Mi Dashboard", "Mis Sucursales", "Mis Técnicos", "Usuarios", "Solicitudes", "Historial"];
         } else if (user.role === 'cliente') {
@@ -177,7 +177,7 @@ const MenuLayout: React.FC = () => {
                 else if (path.includes("usuarios")) setActiveOption("Usuarios");
                 else if (path.includes("solicitudes")) setActiveOption("Solicitudes");
                 else if (path.includes("mantenimiento")) setActiveOption("Reportes Mantenimiento");
-                else if (path.includes("trabajos-realizados")) setActiveOption("Trabajos Globales Realizados");
+                else if (path.includes("trabajos-realizados")) setActiveOption("Trabajos Realizados");
                 else setActiveOption("Negocios");
             } else if (path.startsWith("/autonomo")) {
                 if (path === "/autonomo" || path === "/autonomo/" || path.includes("dashboard")) setActiveOption("Mi Dashboard");
@@ -223,7 +223,7 @@ const MenuLayout: React.FC = () => {
             else navigate("/menu/solicitudes");
         }
         if (option === "Reportes Mantenimiento") navigate("/menu/mantenimiento");
-        if (option === "Trabajos Globales Realizados") navigate("/menu/trabajos-realizados");
+        if (option === "Trabajos Realizados") navigate("/menu/trabajos-realizados");
 
         // Admin Autónomo
         if (option === "Mi Dashboard") navigate("/autonomo/dashboard");
@@ -305,7 +305,7 @@ const MenuLayout: React.FC = () => {
             case "Solicitudes":
             case "Nueva Solicitud":
                 return <HiOutlineDocumentText size={22} />;
-            case "Trabajos Globales Realizados":
+            case "Trabajos Realizados":
             case "Historial":
             case "Historial de Trabajo":
                 return <HiOutlineClock size={22} />;
@@ -355,7 +355,7 @@ const MenuLayout: React.FC = () => {
 
                 {/* ENLACE PARA ABRIR PUBLICIDAD / CONTACTO (Solo Ecosistema Autónomo) */}
                 {(user?.role === 'autonomo' || user?.role === 'admin-autonomo' || user?.role === 'gerente-general' || user?.role === 'encargado' || user?.role === 'tecnico' || user?.role === 'cliente') && (
-                    <div style={{ marginTop: 'auto', padding: '15px' }}>
+                    <div className={styles.sidebarSupportWrapper}>
                         <button 
                             className={styles.supportLinkBtn}
                             onClick={() => setShowSupportModal(true)}
@@ -535,11 +535,6 @@ const MenuLayout: React.FC = () => {
             {showSupportModal && (
                 <div className={styles.modalOverlay} onClick={() => setShowSupportModal(false)}>
                     <div className={styles.modalContent} onClick={(e) => e.stopPropagation()} style={{ background: '#0d192b', padding: 0, overflow: 'hidden' }}>
-                        <div style={{ position: 'absolute', top: 15, right: 15, zIndex: 10 }}>
-                            <button onClick={() => setShowSupportModal(false)} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer' }}>
-                                <HiXMark size={24} />
-                            </button>
-                        </div>
                         <div className={styles.adCard} style={{ marginTop: 0, marginBottom: 0, border: 'none', boxShadow: 'none' }}>
                             <div className={styles.adGlow}></div>
                             <div className={styles.adLogoContainer}>
@@ -565,8 +560,41 @@ const MenuLayout: React.FC = () => {
                                 </a>
                             </div>
                         </div>
+
+                        {/* BOTÓN CERRAR CON Z-INDEX ALTO */}
+                        <div style={{ position: 'absolute', top: 15, right: 15, zIndex: 9999 }}>
+                            <button 
+                                onClick={() => setShowSupportModal(false)} 
+                                style={{ 
+                                    background: 'rgba(255, 255, 255, 0.15)', 
+                                    border: 'none', 
+                                    color: '#fff', 
+                                    cursor: 'pointer',
+                                    width: '32px',
+                                    height: '32px',
+                                    borderRadius: '50%',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    backdropFilter: 'blur(4px)',
+                                    transition: 'background 0.2s'
+                                }}
+                            >
+                                <HiXMark size={20} />
+                            </button>
+                        </div>
                     </div>
                 </div>
+            )}
+            {/* BOTÓN FLOTANTE DE SOPORTE (Solo en móviles) */}
+            {(user?.role === 'autonomo' || user?.role === 'admin-autonomo' || user?.role === 'gerente-general' || user?.role === 'encargado' || user?.role === 'tecnico' || user?.role === 'cliente') && (
+                <button 
+                    className={styles.mobileSupportFab}
+                    onClick={() => setShowSupportModal(true)}
+                    title="Soporte y Ayuda"
+                >
+                    <HiOutlineQuestionMarkCircle size={28} />
+                </button>
             )}
         </div >
     );

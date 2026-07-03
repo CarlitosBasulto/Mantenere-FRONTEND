@@ -1434,4 +1434,53 @@
     }
 }
 
+.stepperContainer {
+    padding: 8px 15px;
+    background: #fff;
+    border-radius: 12px;
+    margin-bottom: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border: 1px solid #f0f0f0;
+    box-sizing: border-box;
+}
+
+.stepperLine {
+    flex: 1;
+    height: 4px;
+    background: #e2e8f0;
+    border-radius: 2px;
+    position: relative;
+    margin: 0 8px;
+    bottom: 8px;
+    overflow: hidden;
+}
+
+@media (max-width: 768px) {
+    .stepperContainer {
+        overflow-x: auto !important;
+        justify-content: flex-start !important;
+        gap: 8px !important;
+        scrollbar-width: none !important;
+        -ms-overflow-style: none !important;
+        padding-bottom: 12px !important;
+    }
+    
+    .stepperContainer::-webkit-scrollbar {
+        display: none !important;
+    }
+    
+    .stepperContainer > div {
+        flex-shrink: 0 !important;
+    }
+    
+    .stepperLine {
+        flex: 0 0 30px !important;
+        width: 30px !important;
+        min-width: 30px !important;
+    }
+}
+
 

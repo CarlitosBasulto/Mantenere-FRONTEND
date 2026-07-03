@@ -67,19 +67,19 @@
 @media (max-width: 768px) {
     .container {
         width: 90%;
-        height: auto !important;
-        min-height: 540px !important;
-        max-height: none !important;
-        margin: 40px 0 20px;
+        height: 90vh !important;
+        max-height: 650px !important;
+        min-height: 480px !important;
+        margin: 20px 0;
     }
 }
 
 @media (max-width: 480px) {
     .container {
         width: 95%;
-        height: auto !important;
-        min-height: 540px !important;
-        max-height: none !important;
+        height: 90vh !important;
+        max-height: 650px !important;
+        min-height: 480px !important;
     }
 }
 
@@ -408,13 +408,8 @@
         flex-grow: 1 !important;
         display: flex !important;
         flex-direction: column !important;
-        justify-content: center !important;
         align-items: center !important;
-    }
-
-    .form::before,
-    .form::after {
-        display: none !important;
+        overflow-y: auto !important;
     }
 
     .title {

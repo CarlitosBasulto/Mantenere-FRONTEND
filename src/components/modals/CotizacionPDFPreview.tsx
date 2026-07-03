@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { HiOutlineXMark, HiOutlinePrinter, HiOutlineArrowDownTray } from 'react-icons/hi2';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
@@ -6,6 +6,13 @@ import jsPDF from 'jspdf';
 export default function CotizacionPDFPreview({ trabajo, subTareas, costo, notas, materials = [], manoObra = 0, onClose }: any) {
     const pdfRef = useRef<HTMLDivElement>(null);
     const [isGenerating, setIsGenerating] = useState(false);
+    const [screenWidth, setScreenWidth] = useState(window.innerWidth);
+
+    useEffect(() => {
+        const handleResize = () => setScreenWidth(window.innerWidth);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
     const handleDownload = async () => {
         if (!pdfRef.current) return;
@@ -32,35 +39,61 @@ export default function CotizacionPDFPreview({ trabajo, subTareas, costo, notas,
     const subtotal = totalAmount / 1.16;
     const iva = totalAmount - subtotal;
 
+    const isMobile = screenWidth < 768;
+    const availableWidth = isMobile ? screenWidth - 30 : 800;
+    const scale = availableWidth < 800 ? availableWidth / 800 : 1;
+
     return (
         <div style={{
             position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
             background: 'rgba(0,0,0,0.85)', zIndex: 10000, display: 'flex', flexDirection: 'column',
-            alignItems: 'center', padding: '20px', backdropFilter: 'blur(5px)', overflowY: 'auto'
+            alignItems: 'center', padding: '15px', backdropFilter: 'blur(5px)', overflowY: 'auto',
+            boxSizing: 'border-box'
         }}>
             {/* Header Actions */}
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '15px', width: '100%', maxWidth: '800px', marginBottom: '20px' }}>
-                <button onClick={onClose} style={{ padding: '10px 20px', background: '#64748b', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <HiOutlineXMark size={20} /> REGRESAR
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', width: '100%', maxWidth: '800px', marginBottom: '20px', flexWrap: 'wrap' }}>
+                <button onClick={onClose} style={{ padding: '10px 15px', background: '#64748b', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', flex: '1 1 auto', justifyContent: 'center' }}>
+                    <HiOutlineXMark size={18} /> REGRESAR
                 </button>
-                <button onClick={handleDownload} disabled={isGenerating} style={{ padding: '10px 20px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <HiOutlineArrowDownTray size={20} /> {isGenerating ? 'GENERANDO...' : 'GUARDAR (DESCARGAR)'}
+                <button onClick={handleDownload} disabled={isGenerating} style={{ padding: '10px 15px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', flex: '1 1 auto', justifyContent: 'center' }}>
+                    <HiOutlineArrowDownTray size={18} /> {isGenerating ? 'GENERANDO...' : 'GUARDAR (DESCARGAR)'}
                 </button>
-                <button onClick={() => window.print()} style={{ padding: '10px 20px', background: '#22c55e', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <HiOutlinePrinter size={20} /> IMPRIMIR
+                <button onClick={() => window.print()} style={{ padding: '10px 15px', background: '#22c55e', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', flex: '1 1 auto', justifyContent: 'center' }}>
+                    <HiOutlinePrinter size={18} /> IMPRIMIR
                 </button>
             </div>
 
-            {/* A4 PDF Canvas Container with shadow */}
-            <div style={{ boxShadow: '0 20px 40px rgba(0,0,0,0.2)', width: '100%', maxWidth: '800px', flexShrink: 0, marginBottom: '40px' }}>
-                <div 
-                    ref={pdfRef}
-                    style={{
-                        background: '#fff', width: '100%', minHeight: '1131px',
-                        padding: '50px', boxSizing: 'border-box', position: 'relative',
-                        fontFamily: 'Arial, sans-serif'
-                    }}
-                >
+            {/* Container that handles the scaled height and centering */}
+            <div style={{ 
+                width: '100%', 
+                maxWidth: '800px',
+                height: `${1131 * scale}px`, 
+                overflow: 'hidden', 
+                marginBottom: '40px',
+                position: 'relative',
+                display: 'flex',
+                justifyContent: 'center',
+                flexShrink: 0
+            }}>
+                {/* A4 PDF Canvas Container with shadow, scaled down on mobile */}
+                <div style={{ 
+                    boxShadow: '0 20px 40px rgba(0,0,0,0.2)', 
+                    width: '800px', 
+                    minWidth: '800px', 
+                    flexShrink: 0,
+                    transform: `scale(${scale})`,
+                    transformOrigin: 'top center',
+                    position: 'absolute',
+                    top: 0
+                }}>
+                    <div 
+                        ref={pdfRef}
+                        style={{
+                            background: '#fff', width: '800px', minHeight: '1131px',
+                            padding: '50px', boxSizing: 'border-box', position: 'relative',
+                            fontFamily: 'Arial, sans-serif'
+                        }}
+                    >
                     {/* Header Banner */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#1e293b', padding: '15px 30px', margin: '-50px -50px 30px -50px', color: 'white' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
@@ -200,5 +233,6 @@ export default function CotizacionPDFPreview({ trabajo, subTareas, costo, notas,
                 </div>
             </div>
         </div>
-    );
+    </div>
+  );
 }

@@ -142,12 +142,18 @@
 
 .content {
     flex: 1;
-    padding: 10px 100px;
+    padding: 5px 100px;
     overflow-y: auto;
     -ms-overflow-style: none;
     /* IE y Edge */
     scrollbar-width: none;
     /* Firefox */
+}
+
+@media (max-width: 1200px) {
+    .content {
+        padding: 5px 20px;
+    }
 }
 
 .content::-webkit-scrollbar {
@@ -876,6 +882,7 @@
         padding: 0;
         /* Remove lateral padding so lines touch edges */
         background: transparent;
+        overflow-x: hidden;
     }
 
     .notificationDropdown {
@@ -1024,12 +1031,15 @@
     0% {
         transform: translate(0, 0) scale(1);
     }
+
     33% {
         transform: translate(30px, -40px) scale(1.08);
     }
+
     66% {
         transform: translate(-20px, 20px) scale(0.96);
     }
+
     100% {
         transform: translate(0, 0) scale(1);
     }
@@ -1039,9 +1049,11 @@
     0% {
         transform: translate(0, 0) scale(1);
     }
+
     50% {
         transform: translate(-35px, 25px) scale(1.12);
     }
+
     100% {
         transform: translate(0, 0) scale(1);
     }
@@ -1051,13 +1063,16 @@
     0% {
         transform: translate(0, 0) scale(1);
     }
+
     50% {
         transform: translate(20px, -15px) scale(0.92);
     }
+
     100% {
         transform: translate(0, 0) scale(1);
     }
 }
+
 /* ===========================
    AD CARD (CONTACTO / PUBLICIDAD)
 =========================== */
@@ -1129,8 +1144,15 @@
 }
 
 @keyframes fadeInSlide {
-    0% { opacity: 0; transform: translateY(5px); }
-    100% { opacity: 1; transform: translateY(0); }
+    0% {
+        opacity: 0;
+        transform: translateY(5px);
+    }
+
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .adActions {
@@ -1187,6 +1209,11 @@
     transform: translateY(-2px);
 }
 
+.sidebarSupportWrapper {
+    margin-top: auto;
+    padding: 15px;
+}
+
 .supportLinkBtn {
     width: 100%;
     background: transparent;
@@ -1199,8 +1226,42 @@
     transition: all 0.3s ease;
     text-align: center;
 }
+
 .supportLinkBtn:hover {
     background: rgba(255, 255, 255, 0.05);
     border-color: #f26522;
     color: #fff;
+}
+
+.mobileSupportFab {
+    display: none;
+    position: fixed;
+    bottom: 25px;
+    right: 20px;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #f26522, #e05510);
+    color: white;
+    border: none;
+    box-shadow: 0 4px 15px rgba(242, 101, 34, 0.4);
+    z-index: 999;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.2s, background-color 0.2s;
+}
+
+.mobileSupportFab:active {
+    transform: scale(0.95);
+}
+
+@media (max-width: 768px) {
+    .sidebarSupportWrapper {
+        display: none !important;
+    }
+    
+    .mobileSupportFab {
+        display: flex !important;
+    }
 }

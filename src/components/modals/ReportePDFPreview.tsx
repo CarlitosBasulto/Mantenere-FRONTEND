@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { HiOutlineXMark, HiOutlinePrinter, HiOutlineArrowDownTray, HiOutlinePhoto } from 'react-icons/hi2';
 import { generateMaintenanceReportPDF } from '../../utils/pdfGenerator';
 
@@ -130,15 +130,29 @@ export default function ReportePDFPreview({ trabajo, reporteData, subTareas, isV
         }
     };
 
+    const [screenWidth, setScreenWidth] = useState(window.innerWidth);
+
+    useEffect(() => {
+        const handleResize = () => setScreenWidth(window.innerWidth);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
     const mainImgsExist = reporteData.imagenes.antes || reporteData.imagenes.durante || reporteData.imagenes.despues;
     const hasObs = (reporteData.observacionesList && reporteData.observacionesList.length > 0) || reporteData.observaciones?.trim() || reporteData.imagenesObservacion?.length || reporteData.imagenObservacion;
     const totalPages = (mainImgsExist || hasObs) ? 2 : 1;
+
+    const isMobile = screenWidth < 768;
+    const availableWidth = isMobile ? screenWidth - 30 : 800;
+    const scale = availableWidth < 800 ? availableWidth / 800 : 1;
+    const totalHeight = totalPages === 2 ? (1122.5 * 2 + 30) : 1122.5;
 
     return (
         <div style={{
             position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
             background: 'rgba(0,0,0,0.85)', zIndex: 10000, display: 'flex', flexDirection: 'column',
-            alignItems: 'center', padding: '20px', backdropFilter: 'blur(5px)', overflowY: 'auto'
+            alignItems: 'center', padding: '15px', backdropFilter: 'blur(5px)', overflowY: 'auto',
+            boxSizing: 'border-box'
         }}>
             {/* Styles for clean A4 print preview */}
             <style>{`
@@ -185,26 +199,49 @@ export default function ReportePDFPreview({ trabajo, reporteData, subTareas, isV
             />
 
             {/* Header Actions */}
-            <div className="no-print" style={{ display: 'flex', justifyContent: 'center', gap: '15px', width: '100%', maxWidth: '800px', marginBottom: '20px' }}>
-                <button onClick={onClose} style={{ padding: '10px 20px', background: '#64748b', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <HiOutlineXMark size={20} /> CERRAR
+            <div className="no-print" style={{ display: 'flex', justifyContent: 'center', gap: '10px', width: '100%', maxWidth: '800px', marginBottom: '20px', flexWrap: 'wrap' }}>
+                <button onClick={onClose} style={{ padding: '10px 15px', background: '#64748b', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', flex: '1 1 auto', justifyContent: 'center' }}>
+                    <HiOutlineXMark size={18} /> CERRAR
                 </button>
-                <button onClick={() => fileInputRef.current?.click()} style={{ padding: '10px 20px', background: '#f59e0b', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <HiOutlinePhoto size={20} /> CAMBIAR LOGO
+                <button onClick={() => fileInputRef.current?.click()} style={{ padding: '10px 15px', background: '#f59e0b', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', flex: '1 1 auto', justifyContent: 'center' }}>
+                    <HiOutlinePhoto size={18} /> CAMBIAR LOGO
                 </button>
-                <button onClick={handleDownload} style={{ padding: '10px 20px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <HiOutlineArrowDownTray size={20} /> DESCARGAR
+                <button onClick={handleDownload} style={{ padding: '10px 15px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', flex: '1 1 auto', justifyContent: 'center' }}>
+                    <HiOutlineArrowDownTray size={18} /> DESCARGAR
                 </button>
-                <button onClick={() => window.print()} style={{ padding: '10px 20px', background: '#22c55e', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <HiOutlinePrinter size={20} /> IMPRIMIR
+                <button onClick={() => window.print()} style={{ padding: '10px 15px', background: '#22c55e', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', flex: '1 1 auto', justifyContent: 'center' }}>
+                    <HiOutlinePrinter size={18} /> IMPRIMIR
                 </button>
             </div>
 
-            {/* A4 Report sheet */}
-            <div id="print-reporte-pdf" style={{ display: 'flex', flexDirection: 'column', gap: '30px', width: '100%', maxWidth: '800px', flexShrink: 0, marginBottom: '40px' }}>
-                
-                {/* PAGE 1 */}
-                <div className="pdf-page" style={{ position: 'relative', background: '#fff', padding: '50px', boxSizing: 'border-box', border: '1px solid #e2e8f0', borderRadius: '12px', minHeight: '297mm', fontFamily: 'Arial, sans-serif', boxShadow: '0 4px 15px rgba(0,0,0,0.1)' }}>
+            {/* Container that handles the scaled height and centering */}
+            <div className="no-print" style={{ 
+                width: '100%', 
+                maxWidth: '800px',
+                height: `${totalHeight * scale}px`, 
+                overflow: 'hidden', 
+                marginBottom: '40px',
+                position: 'relative',
+                display: 'flex',
+                justifyContent: 'center',
+                flexShrink: 0
+            }}>
+                {/* A4 Report sheet, scaled down on mobile */}
+                <div id="print-reporte-pdf" style={{ 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    gap: '30px', 
+                    width: '800px', 
+                    minWidth: '800px', 
+                    flexShrink: 0,
+                    transform: `scale(${scale})`,
+                    transformOrigin: 'top center',
+                    position: 'absolute',
+                    top: 0
+                }}>
+                    
+                    {/* PAGE 1 */}
+                    <div className="pdf-page" style={{ position: 'relative', background: '#fff', padding: '50px', boxSizing: 'border-box', border: '1px solid #e2e8f0', borderRadius: '12px', minHeight: '297mm', fontFamily: 'Arial, sans-serif', boxShadow: '0 4px 15px rgba(0,0,0,0.1)', width: '800px', minWidth: '800px' }}>
                     {/* Header Banner */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#1e293b', padding: '15px 30px', margin: '-50px -50px 30px -50px', color: 'white' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
@@ -587,5 +624,6 @@ export default function ReportePDFPreview({ trabajo, reporteData, subTareas, isV
 
             </div>
         </div>
-    );
+    </div>
+  );
 }

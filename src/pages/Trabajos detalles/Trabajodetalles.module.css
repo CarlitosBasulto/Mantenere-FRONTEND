@@ -6,9 +6,10 @@
 
 .mainContainer {
     width: 100%;
-    max-width: 1000px;
+    max-width: 1200px;
     margin: 0 auto;
     padding: 0 20px;
+    box-sizing: border-box;
 }
 
 .premiumHeader {
@@ -19,10 +20,11 @@
 .bannerWrapper {
     position: relative;
     width: 100%;
-    height: 220px;
+    height: 260px;
     border-radius: 24px;
     overflow: hidden;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    box-sizing: border-box;
 }
 
 .bannerImg {
@@ -42,6 +44,7 @@
     flex-direction: column;
     justify-content: flex-end;
     padding: 30px;
+    box-sizing: border-box;
 }
 
 .bannerContent {
@@ -204,6 +207,7 @@
     cursor: pointer;
     transition: transform 0.2s, box-shadow 0.2s;
     margin-bottom: 5px;
+    box-sizing: border-box;
 }
 
 .jobCard:hover {
@@ -225,6 +229,7 @@
     margin-bottom: 20px;
     border-top-left-radius: 29px;
     border-top-right-radius: 29px;
+    box-sizing: border-box;
 }
 
 .statusBar.yellow {
@@ -254,9 +259,13 @@
 
 .cardContent {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
     padding: 0 30px;
-    width: 100%;
+    flex: 1;
+    min-width: 0;
+    box-sizing: border-box;
 }
 
 .headerRow {
@@ -278,6 +287,13 @@
     margin: 0;
 }
 
+.cardInfo {
+    width: 100%;
+    max-width: 100%;
+    display: block;
+    box-sizing: border-box;
+}
+
 .jobTitle {
     margin: 0 0 10px 0;
     font-size: 22px;
@@ -291,6 +307,7 @@
     border-radius: 12px;
     margin-bottom: 15px;
     border-left: 4px solid #cfd8dc;
+    box-sizing: border-box;
 }
 
 .descriptionBox p {
@@ -342,6 +359,14 @@
 .menuContainer {
     position: relative;
     z-index: 10;
+}
+
+.desktopOnlyEditContainer {
+    display: block;
+}
+
+.mobileOnlyEditBtn {
+    display: none;
 }
 
 .editBtnSmall {
@@ -515,6 +540,7 @@
         opacity: 0;
         transform: translateY(30px) scale(0.95);
     }
+
     to {
         opacity: 1;
         transform: translateY(0) scale(1);
@@ -577,12 +603,15 @@
     animation: modalSlideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
     overflow-y: auto;
     max-height: 90vh;
-    -ms-overflow-style: none;  /* IE and Edge */
-    scrollbar-width: none;  /* Firefox */
+    -ms-overflow-style: none;
+    /* IE and Edge */
+    scrollbar-width: none;
+    /* Firefox */
 }
 
 .modalContentMedium::-webkit-scrollbar {
-    display: none; /* Chrome, Safari and Opera */
+    display: none;
+    /* Chrome, Safari and Opera */
 }
 
 
@@ -718,6 +747,13 @@
     flex-direction: column;
     align-items: flex-start;
     gap: 6px;
+    width: 100%;
+}
+
+.formGridRow {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
     width: 100%;
 }
 
@@ -967,8 +1003,47 @@
    RESPONISVE / MOBILE (WhatsApp Style)
 =========================== */
 @media (max-width: 768px) {
+    .dashboardLayout {
+        display: block;
+        width: 100%;
+    }
+
     .mainContainer {
-        padding: 10px;
+        padding: 10px !important;
+        min-width: 0 !important;
+        max-width: 100vw !important;
+        overflow-x: hidden !important;
+        box-sizing: border-box !important;
+    }
+
+    .headerActionsRow {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+    }
+
+    .leftColumn,
+    .rightColumn,
+    .jobsSection {
+        min-width: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    .cardBodyWrapper {
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+        min-width: 0 !important;
+    }
+
+    .headerWrapper {
+        padding: 16px 20px;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+        box-sizing: border-box;
     }
 
     .bannerWrapper {
@@ -988,39 +1063,221 @@
         font-size: 9px;
     }
 
+    .formGridRow {
+        grid-template-columns: 1fr !important;
+        gap: 15px !important;
+    }
+
+    .actionButtonsGroup {
+        display: flex !important;
+        width: 100% !important;
+        gap: 10px !important;
+        flex-wrap: nowrap !important;
+        justify-content: space-between !important;
+        box-sizing: border-box !important;
+    }
+
     .sosBtn,
-    .newRequestBtn {
-        padding: 10px 15px !important;
-        font-size: 12px !important;
-        flex: 1;
+    .newRequestBtn,
+    .equiposBtn,
+    .historialBtn {
+        padding: 12px 10px !important;
+        font-size: 13px !important;
+        flex: 1 1 0% !important;
         min-width: 0 !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 6px !important;
+        box-sizing: border-box !important;
+        border-radius: 44px !important;
     }
 
     .jobCard {
-        border-radius: 20px;
-        padding-bottom: 15px;
+        border-radius: 14px !important;
+        margin-bottom: 10px !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+        overflow: hidden !important;
     }
 
     .statusBar {
         height: 30px;
         padding: 0 15px;
-        font-size: 10px;
+        font-size: 9px;
+        border-top-left-radius: 19px;
+        border-top-right-radius: 19px;
     }
 
     .cardContent {
-        padding: 0 20px;
+        padding: 0 12px !important;
+        flex-wrap: nowrap !important;
+        align-items: flex-start !important;
+        box-sizing: border-box !important;
+        overflow: hidden !important;
+        flex: 1 !important;
+        min-width: 0 !important;
+    }
+
+    .cardLeftDetails {
+        flex: 1 !important;
+        min-width: 0 !important;
+        overflow: hidden !important;
     }
 
     .jobTitle {
-        font-size: 18px;
+        font-size: 13px !important;
+        word-break: break-word !important;
+        overflow-wrap: break-word !important;
+        white-space: normal !important;
+        line-height: 1.3 !important;
+        margin-bottom: 4px !important;
+        width: 100% !important;
+        display: block !important;
     }
 
     .strikingDate {
-        font-size: 13px;
+        font-size: 10px !important;
+        margin-bottom: 2px !important;
     }
 
     .descriptionBox {
-        padding: 10px;
+        padding: 4px 8px !important;
+        margin-bottom: 5px !important;
+    }
+
+    .descriptionBox p {
+        font-size: 11px !important;
+        line-height: 1.3 !important;
+    }
+
+    .equipmentBadge {
+        font-size: 10px !important;
+        padding: 3px 6px !important;
+    }
+
+    .technicianInfo {
+        font-size: 11px !important;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 180px !important;
+    }
+
+    .footerRow {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 6px !important;
+        margin-top: 10px !important;
+    }
+
+    .jobTypeBadge {
+        font-size: 10px !important;
+        padding: 3px 10px !important;
+    }
+
+    .cardRightStatus {
+        display: flex !important;
+        align-items: center !important;
+        flex: 0 0 20px !important;
+        width: 20px !important;
+        margin-left: 6px !important;
+        gap: 4px !important;
+        justify-content: flex-end !important;
+        margin-top: 4px !important;
+    }
+
+    .statusPriorityBadge {
+        padding: 3px 6px !important;
+        font-size: 9px !important;
+    }
+
+    .mobileOnlyStatusBadge {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+
+    .desktopOnlyStatusBadge {
+        display: none !important;
+    }
+
+    .desktopOnlyEditContainer {
+        display: none !important;
+    }
+
+    .mobileOnlyEditBtn {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        width: 34px !important;
+        height: 34px !important;
+        border-radius: 50% !important;
+        border: 1px solid #f0f0f0 !important;
+        background: #f1f5f9 !important;
+        color: #64748b !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        cursor: pointer !important;
+        transition: all 0.2s ease !important;
+    }
+
+    .mobileOnlyEditBtn:hover {
+        background: #e2e8f0 !important;
+        color: #334155 !important;
+        transform: scale(1.05) !important;
+    }
+
+    .cardChevron {
+        font-size: 16px !important;
+    }
+
+    .summaryGrid {
+        display: flex !important;
+        flex-direction: row !important;
+        overflow-x: auto !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        gap: 12px !important;
+        box-sizing: border-box;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    }
+
+    .summaryGrid::-webkit-scrollbar {
+        display: none;
+    }
+
+    .miniCountCard {
+        flex: 0 0 90px !important;
+        padding: 8px 4px !important;
+        box-sizing: border-box;
+        border-radius: 12px !important;
+    }
+
+    .miniCountIconWrapper {
+        width: 24px !important;
+        height: 24px !important;
+        font-size: 12px !important;
+        margin-bottom: 2px !important;
+    }
+
+    .miniCountValue {
+        font-size: 14px !important;
+        font-weight: 700 !important;
+    }
+
+    .miniCountLabel {
+        font-size: 8.5px !important;
+    }
+
+    .searchGroup {
+        min-width: 0 !important;
+        width: 100%;
+    }
+
+    .searchGroup input {
+        min-width: 0 !important;
     }
 
     .footerRow {
@@ -1031,7 +1288,9 @@
 
     .actionsCard {
         width: 100%;
-        justify-content: space-between;
+        justify-content: flex-start !important;
+        gap: 8px !important;
+        flex-wrap: wrap !important;
     }
 
     .modalContent {
@@ -1167,7 +1426,7 @@
     z-index: 10;
     font-size: 12px;
     transition: all 0.2s ease;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
 }
 
 .removePreviewBtn:hover {
@@ -1191,21 +1450,25 @@
     display: flex;
     flex-direction: row;
     width: 100%;
-    align-items: flex-start;
+    max-width: 100%;
+    box-sizing: border-box;
+    align-items: center;
 }
 
 .verticalCarousel {
     display: flex;
     flex-direction: column;
     gap: 8px;
-    width: 60px;
-    min-width: 60px;
+    width: 64px;
+    min-width: 64px;
     max-height: 160px;
     overflow-y: auto;
-    margin-left: 30px;
+    margin-left: 20px;
     flex-shrink: 0;
-    scrollbar-width: none;  /* Firefox */
-    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;
+    /* Firefox */
+    -ms-overflow-style: none;
+    /* IE and Edge */
 }
 
 /* Hide scrollbar for Chrome, Safari and Opera */
@@ -1213,40 +1476,506 @@
     display: none;
 }
 
-.verticalCarousel + .cardContent {
+.verticalCarousel+.cardContent {
     padding-left: 15px;
 }
 
 .carouselImg {
-    width: 50px;
-    height: 50px;
+    width: 58px;
+    height: 58px;
     object-fit: cover;
-    border-radius: 8px;
-    border: 2px solid #e2e8f0;
+    border-radius: 10px;
+    border: 1.5px solid #e2e8f0;
     cursor: zoom-in;
     transition: transform 0.2s ease, border-color 0.2s ease;
 }
 
 .carouselImg:hover {
-    transform: scale(1.08);
+    transform: scale(1.05);
     border-color: #f26522;
 }
 
 @media (max-width: 768px) {
     .verticalCarousel {
-        margin-left: 20px;
-        width: 50px;
-        min-width: 50px;
-        max-height: 130px;
+        margin-left: 10px !important;
+        width: 48px !important;
+        min-width: 48px !important;
+        max-height: 140px;
         gap: 6px;
     }
-    
-    .verticalCarousel + .cardContent {
-        padding-left: 10px;
+
+    .verticalCarousel+.cardContent {
+        padding-left: 8px !important;
     }
-    
+
     .carouselImg {
-        width: 40px;
-        height: 40px;
+        width: 44px !important;
+        height: 44px !important;
+        border-radius: 8px !important;
     }
-}
+}
+
+/* VISUAL TABS FOR FILTERING */
+.tabBarWrapper {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    max-width: 100%;
+    margin-bottom: 20px;
+    box-sizing: border-box;
+}
+
+.tabBarContainer {
+    background: #ffffff;
+    border-radius: 50px;
+    padding: 6px;
+    display: inline-flex;
+    gap: 6px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    border: 1px solid #e2e8f0;
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    align-items: center;
+}
+
+.tabBarContainer::-webkit-scrollbar {
+    display: none;
+}
+
+.tabButton {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 18px;
+    border-radius: 40px;
+    border: 2px solid transparent;
+    background: transparent;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    font-weight: 600;
+    font-size: 14px;
+    color: #475569;
+    white-space: nowrap;
+}
+
+.tabButton:hover {
+    color: #0f172a;
+    background: #f8fafc;
+}
+
+.tabButtonActive {
+    background: #e0f2fe !important;
+    border-color: #f97316 !important;
+    color: #0369a1 !important;
+}
+
+.tabIcon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+}
+
+.countBadge {
+    background: #f1f5f9;
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 800;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.25s ease;
+}
+
+.tabButtonActive .countBadge {
+    background: #0284c7;
+    color: #ffffff;
+}
+
+@media (max-width: 768px) {
+    .tabBarContainer {
+        width: 100% !important;
+        max-width: 100% !important;
+        border-radius: 16px !important;
+        padding: 4px !important;
+        gap: 4px !important;
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
+        box-sizing: border-box !important;
+        scrollbar-width: none !important;
+        -ms-overflow-style: none !important;
+    }
+
+    .tabBarContainer::-webkit-scrollbar {
+        display: none !important;
+    }
+
+    .tabButton {
+        padding: 6px 12px !important;
+        font-size: 13px !important;
+        border-radius: 12px !important;
+        flex: 0 0 auto !important;
+        justify-content: center !important;
+    }
+
+    .countBadge {
+        width: 18px;
+        height: 18px;
+        font-size: 10px;
+    }
+}
+
+/* DASHBOARD GRID AND COLUMNS */
+.headerActionsRow {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+    width: 100%;
+    flex-wrap: wrap;
+}
+
+.searchGroup {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex: 1;
+    min-width: 280px;
+}
+
+.actionButtonsGroup {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.dashboardGrid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+    gap: 24px;
+    width: 100%;
+    align-items: start;
+    margin-bottom: 40px;
+}
+
+.leftColumn {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
+.rightColumn {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    width: 100%;
+}
+
+/* SIDEBAR CARDS (RESUMEN & RECIENTES) */
+.sideCard {
+    background: #ffffff;
+    border-radius: 24px;
+    padding: 24px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    border: 1px solid #e2e8f0;
+}
+
+.sideCardTitle {
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 1.5px;
+    color: #2563eb;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    margin-top: 0;
+}
+
+/* SUMMARY STATS */
+.summaryGrid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+}
+
+.miniCountCard {
+    display: flex;
+    flex-direction: column;
+    padding: 14px;
+    border-radius: 16px;
+    background: #f8fafc;
+    border: 1px solid #f1f5f9;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 4px;
+}
+
+.miniCountIconWrapper {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    margin-bottom: 4px;
+}
+
+.bgBlue {
+    background: #e0f2fe;
+    color: #0369a1;
+}
+
+.bgGreen {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.bgTeal {
+    background: #ccfbf1;
+    color: #0f766e;
+}
+
+.bgPurple {
+    background: #f3e8ff;
+    color: #7e22ce;
+}
+
+.miniCountValue {
+    font-size: 20px;
+    font-weight: 800;
+    color: #0f172a;
+}
+
+.miniCountLabel {
+    font-size: 11px;
+    font-weight: 600;
+    color: #64748b;
+}
+
+/* RECENT JOBS */
+.recentJobsList {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.recentJobItem {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    background: #f8fafc;
+    border: 1px solid #f1f5f9;
+    border-radius: 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    gap: 12px;
+}
+
+.recentJobItem:hover {
+    background: #f1f5f9;
+    transform: translateX(4px);
+    border-color: #e2e8f0;
+}
+
+.recentJobInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+    overflow: hidden;
+}
+
+.recentJobTitle {
+    font-size: 13px;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.recentJobMeta {
+    font-size: 11px;
+    font-weight: 500;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.statusIndicatorDot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.recentJobChevron {
+    color: #94a3b8;
+    display: flex;
+    align-items: center;
+}
+
+.viewAllLink {
+    display: inline-flex;
+    align-items: center;
+    font-size: 13px;
+    font-weight: 700;
+    color: #f26522;
+    text-decoration: none;
+    margin-top: 16px;
+    cursor: pointer;
+    transition: color 0.2s ease;
+    gap: 4px;
+}
+
+.viewAllLink:hover {
+    color: #d14d13;
+}
+
+@media (max-width: 992px) {
+    .dashboardGrid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+}
+
+.cardLeftDetails {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+}
+
+.cardRightStatus {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    margin-left: 15px;
+    box-sizing: border-box;
+}
+
+.statusPriorityBadge {
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: capitalize;
+    white-space: nowrap;
+}
+
+.mobileOnlyStatusBadge {
+    display: none;
+}
+
+.desktopOnlyStatusBadge {
+    display: inline-block;
+}
+
+.badgeMedia {
+    background: #fff3e0;
+    color: #ff9800;
+    border: 1px solid #ffe0b2;
+}
+
+.badgeAlta {
+    background: #ffebee;
+    color: #d32f2f;
+    border: 1px solid #ffcdd2;
+}
+
+.badgeFinalizado {
+    background: #e8f5e9;
+    color: #2e7d32;
+    border: 1px solid #c8e6c9;
+}
+
+.badgeEnProceso {
+    background: #e3f2fd;
+    color: #1565c0;
+    border: 1px solid #bbdefb;
+}
+
+.badgeBaja {
+    background: #f1f5f9;
+    color: #475569;
+    border: 1px solid #e2e8f0;
+}
+
+.cardChevron {
+    color: #cbd5e1;
+    flex-shrink: 0;
+    transition: transform 0.2s, color 0.2s;
+}
+
+.jobCard:hover .cardChevron {
+    transform: translateX(2px);
+    color: #f26522;
+}
+
+.mobileSummaryWrapper {
+    display: none;
+    margin-bottom: 20px;
+    width: 100%;
+}
+
+.desktopSummaryWrapper {
+    display: block;
+    width: 100%;
+}
+
+@media (max-width: 992px) {
+    .mobileSummaryWrapper {
+        display: block !important;
+        margin-top: 15px !important;
+        margin-bottom: 25px !important;
+    }
+
+    .desktopSummaryWrapper {
+        display: none;
+    }
+
+    .sideCard {
+        padding: 16px !important;
+        border-radius: 16px !important;
+        box-sizing: border-box !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        overflow: hidden !important;
+    }
+
+    .recentJobsList {
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+        min-width: 0 !important;
+    }
+
+    .recentJobItem {
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+        min-width: 0 !important;
+        overflow: hidden !important;
+        padding: 10px 12px !important;
+    }
+
+    .recentJobInfo {
+        min-width: 0 !important;
+        flex: 1 !important;
+        overflow: hidden !important;
+    }
+}
