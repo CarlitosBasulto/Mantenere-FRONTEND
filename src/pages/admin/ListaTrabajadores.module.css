@@ -610,6 +610,132 @@
         font-size: 24px;
     }
     
+    .statItem:nth-child(2) {
+        border-right: none;
+    }
+}
+
+/* BOTÓN FLOTANTE SOLICITAR TÉCNICOS */
+.floatingRequestBtn {
+    position: fixed;
+    bottom: 30px;
+    right: 40px;
+    background: #0ea5e9;
+    color: white;
+    padding: 14px 24px;
+    border-radius: 30px;
+    font-weight: 700;
+    font-size: 15px;
+    box-shadow: 0 4px 15px rgba(14, 165, 233, 0.4);
+    cursor: pointer;
+    z-index: 100;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border: none;
+}
+
+.floatingRequestBtn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(14, 165, 233, 0.6);
+    background: #0284c7;
+}
+
+/* ============================
+   MODAL SOLICITAR TÉCNICO
+   ============================ */
+.modalHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.modalHeader h2 {
+    font-size: 18px;
+    color: #1e293b;
+    margin: 0;
+}
+
+.closeBtn {
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+}
+
+.closeBtn:hover {
+    background: #f1f5f9;
+    color: #64748b;
+}
+
+.inputField {
+    width: 100%;
+    padding: 12px 16px;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    font-size: 14px;
+    color: #334155;
+    background-color: #f8fafc;
+    transition: all 0.2s;
+    outline: none;
+    font-family: inherit;
+}
+
+.inputField:focus {
+    border-color: #0ea5e9;
+    background-color: #ffffff;
+    box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
+}
+
+.formActions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.cancelBtn {
+    padding: 10px 20px;
+    background: white;
+    border: 1px solid #cbd5e1;
+    color: #64748b;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.cancelBtn:hover {
+    background: #f8fafc;
+    border-color: #94a3b8;
+    color: #475569;
+}
+
+.submitBtn {
+    padding: 10px 20px;
+    background: #0ea5e9;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 4px 10px rgba(14, 165, 233, 0.3);
+}
+
+.submitBtn:hover {
+    background: #0284c7;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 12px rgba(14, 165, 233, 0.4);
+}
+    
     .cardInfo h3 {
         font-size: 14px;
     }
@@ -652,7 +778,6 @@
     .rolesGrid {
         grid-template-columns: 1fr 1fr;
     }
-}
 
 @media (max-width: 480px) {
     .jobsSection {

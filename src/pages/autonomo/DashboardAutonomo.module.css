@@ -1,0 +1,31 @@
+/*
+    DashboardAutonomo layout.
+    Sits inside Menu's .content (padding: 10px 100px, overflow-y: auto).
+    No height constraints here — the board inside AutonomoTablero has a fixed 380px height.
+*/
+
+.wrapper {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    padding-bottom: 20px;
+}
+
+.welcomeHeader {
+    padding: 12px 0 8px 0;
+}
+
+.welcomeHeader h1 {
+    font-size: 22px;
+    font-weight: 800;
+    color: #1e293b;
+    margin: 0 0 2px 0;
+    line-height: 1.3;
+}
+
+.welcomeHeader p {
+    color: #64748b;
+    font-size: 13px;
+    margin: 0;
+    line-height: 1.4;
+}

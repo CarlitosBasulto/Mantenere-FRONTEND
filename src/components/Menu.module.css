@@ -91,6 +91,8 @@
 
 .mainArea {
     flex: 1;
+    min-width: 0;       /* prevents flex child from expanding beyond available space */
+    overflow-x: hidden; /* clips any child that tries to escape horizontally */
     display: flex;
     flex-direction: column;
     position: relative;
@@ -142,8 +144,10 @@
 
 .content {
     flex: 1;
+    min-width: 0;
     padding: 5px 100px;
     overflow-y: auto;
+    overflow-x: hidden;  /* board scrolls within itself, page never scrolls horizontally */
     -ms-overflow-style: none;
     /* IE y Edge */
     scrollbar-width: none;

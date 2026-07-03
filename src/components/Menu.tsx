@@ -526,7 +526,14 @@ const MenuLayout: React.FC = () => {
                 )}
 
                 {/* CONTENIDO (Aquí se renderizan las vistas) */}
-                <main className={styles.content} style={(location.pathname.includes("/trabajo-detalle") || location.pathname.includes("/verificacion-tarea") || location.pathname.includes("/reporte-tarea")) ? { padding: 0 } : {}}>
+                <main
+                    className={styles.content}
+                    style={
+                        (location.pathname.includes("/trabajo-detalle") || location.pathname.includes("/verificacion-tarea") || location.pathname.includes("/reporte-tarea"))
+                            ? { padding: 0 }
+                            : {}
+                    }
+                >
                     <Outlet />
                 </main>
             </div>

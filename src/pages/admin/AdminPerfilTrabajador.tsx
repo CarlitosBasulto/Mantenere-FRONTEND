@@ -2,8 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import styles from './AdminPerfilTrabajador.module.css';
 import { useModal } from '../../context/ModalContext';
-import { HiOutlineCamera, HiOutlinePhoto, HiXMark, HiOutlineEnvelope, HiOutlinePhone, HiOutlineMapPin, HiOutlineWrenchScrewdriver } from 'react-icons/hi2';
+import { HiOutlineCamera, HiOutlinePhoto, HiXMark, HiOutlineEnvelope, HiOutlinePhone, HiOutlineMapPin, HiOutlineWrenchScrewdriver, HiOutlineShare } from 'react-icons/hi2';
 import api from '../../services/api';
+import { getUsers } from '../../services/usersService';
+import { createNotificacionEcosistema, createNotificacion } from '../../services/notificacionesService';
 
 interface Trabajador {
     id: number;
@@ -31,6 +33,57 @@ const AdminPerfilTrabajador: React.FC = () => {
     const [isUploading, setIsUploading] = useState(false);
     const cameraInputRef = useRef<HTMLInputElement>(null);
     const galleryInputRef = useRef<HTMLInputElement>(null);
+
+    // ESTADOS PARA COMPARTIR TÉCNICO
+    const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+    const [availableAdmins, setAvailableAdmins] = useState<any[]>([]);
+    const [selectedAdminId, setSelectedAdminId] = useState("");
+
+    const fetchAdmins = async () => {
+        try {
+            const users = await getUsers();
+            // Filtramos admin-autonomo, gerente-general, admin y root
+            const admins = users.filter((u: any) => 
+                u.role?.name === 'admin-autonomo' || 
+                u.role?.name === 'gerente-general' || 
+                u.role?.name === 'admin' || 
+                u.role?.name === 'root'
+            );
+            setAvailableAdmins(admins);
+        } catch (error) {
+            console.error("Error cargando admins:", error);
+            showAlert("Error", "No se pudieron cargar los administradores.", "error");
+        }
+    };
+
+    const handleShareTechnician = async () => {
+        if (!selectedAdminId) {
+            showAlert("Atención", "Selecciona un administrador para compartir.", "warning");
+            return;
+        }
+
+        try {
+            // Actualizar admin_autonomo_id
+            await updateTrabajador(worker!.id, { admin_autonomo_id: parseInt(selectedAdminId) });
+            
+            // Notificar al destinatario
+            // Note: If createNotificacionEcosistema requires admin_autonomo_id, we send it there. 
+            // We can also just use createNotificacion directly to the user_id. 
+            await createNotificacion({
+                user_id: parseInt(selectedAdminId),
+                titulo: 'Técnico Asignado',
+                mensaje: `Se te ha compartido al técnico: ${worker?.nombre} (${displayPuesto}).`,
+                enlace: '/autonomo/trabajadores'
+            });
+
+            showAlert("Éxito", "Técnico compartido correctamente.", "success");
+            setIsShareModalOpen(false);
+            setSelectedAdminId("");
+        } catch (error) {
+            console.error(error);
+            showAlert("Error", "No se pudo compartir el técnico.", "error");
+        }
+    };
 
     useEffect(() => {
         const fetchWorker = async () => {
@@ -165,6 +218,16 @@ const AdminPerfilTrabajador: React.FC = () => {
                     <span className={`${styles.statusBadge} ${worker.estado === 'Activo' ? styles.activo : styles.baja}`}>
                         {worker.estado}
                     </span>
+                    
+                    <button 
+                        className={styles.shareBtn} 
+                        onClick={() => {
+                            fetchAdmins();
+                            setIsShareModalOpen(true);
+                        }}
+                    >
+                        <HiOutlineShare size={18} /> Compartir Técnico
+                    </button>
                 </div>
 
                 <div className={styles.divider} />
@@ -318,6 +381,41 @@ const AdminPerfilTrabajador: React.FC = () => {
                     to { opacity: 1; }
                 }
             `}</style>
+            {/* MODAL COMPARTIR TÉCNICO */}
+            {isShareModalOpen && (
+                <div className={styles.modalOverlay}>
+                    <div className={styles.modalContent} style={{ maxWidth: '400px' }}>
+                        <div className={styles.modalHeader}>
+                            <h2>Compartir Técnico</h2>
+                            <button className={styles.closeBtn} onClick={() => setIsShareModalOpen(false)}>
+                                <HiXMark size={24} />
+                            </button>
+                        </div>
+                        <div className={styles.modalBody}>
+                            <p style={{ color: '#475569', marginBottom: '15px', fontSize: '14px' }}>
+                                Selecciona el ecosistema al que deseas enviar este técnico. Este administrador tendrá acceso a su perfil.
+                            </p>
+                            <select 
+                                className={styles.inputField} 
+                                value={selectedAdminId} 
+                                onChange={(e) => setSelectedAdminId(e.target.value)}
+                            >
+                                <option value="">Selecciona un administrador...</option>
+                                {availableAdmins.map(admin => (
+                                    <option key={admin.id} value={admin.id}>
+                                        {admin.name} ({admin.role?.name})
+                                    </option>
+                                ))}
+                            </select>
+                            
+                            <div className={styles.formActions} style={{ marginTop: '20px', display: 'flex', gap: '10px' }}>
+                                <button className={styles.cancelBtn} onClick={() => setIsShareModalOpen(false)}>Cancelar</button>
+                                <button className={styles.submitBtn} onClick={handleShareTechnician}>Compartir</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

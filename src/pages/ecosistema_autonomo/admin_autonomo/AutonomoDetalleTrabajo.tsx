@@ -30,7 +30,7 @@ import { getTrabajo, updateEstadoTrabajo, assignTrabajador, updateTrabajo } from
 import { createActividad, getActividadesByTrabajo, deleteActividad, updateActividad } from "../../../services/actividadesService";
 import { getTrabajadores } from "../../../services/trabajadoresService";
 import { saveCotizacion, updateCotizacion, deleteCotizacion, updateCotizacionStatus, getCotizacionesByTrabajoId, type Cotizacion } from "../../../services/cotizacionesService";
-import { createNotificacionByRole, createNotificacion } from "../../../services/notificacionesService";
+import { createNotificacion, createNotificacionEcosistema } from "../../../services/notificacionesService";
 import { getReporteByTrabajoId } from "../../../services/reportesService";
 import { useModal } from "../../../context/ModalContext";
 import { getNegocio } from "../../../services/negociosService";
@@ -1304,10 +1304,11 @@ const AutonomoDetalleTrabajo: React.FC = () => {
                                     enlace: `/menu/trabajo-detalle/${trabajo.id}`
                                 });
                             }
-                            await createNotificacionByRole({
-                                role: 'admin',
-                                titulo: '📍 Visita Finalizada',
-                                mensaje: `El técnico ${user?.name || 'Sistema'} ha concluido la visita en ${trabajo.sucursal || 'la sucursal'}. Ya puede enviar cotización al cliente.`,
+                            const targetAdminId = user?.admin_autonomo_id || user?.id || 0;
+                            await createNotificacionEcosistema({
+                                admin_autonomo_id: targetAdminId,
+                                titulo: 'Visita Finalizada 📍',
+                                mensaje: `El técnico ${user?.name || 'Sistema'} ha concluido la visita en ${trabajo.sucursal || 'la sucursal'}. Ya puedes enviar cotización al cliente.`,
                                 enlace: `/menu/trabajo-detalle/${trabajo.id}`
                             });
                         } catch (notiErr) {
@@ -1332,8 +1333,9 @@ const AutonomoDetalleTrabajo: React.FC = () => {
                                     enlace: `/menu/trabajo-detalle/${trabajo.id}`
                                 });
                             }
-                            await createNotificacionByRole({
-                                role: 'admin',
+                            const targetAdminId = user?.admin_autonomo_id || user?.id || 0;
+                            await createNotificacionEcosistema({
+                                admin_autonomo_id: targetAdminId,
                                 titulo: '✅ Trabajo Finalizado',
                                 mensaje: `El técnico ${user?.name || 'Sistema'} finalizó el trabajo en ${trabajo.sucursal || 'la sucursal'}. El reporte ya está disponible.`,
                                 enlace: `/menu/trabajo-detalle/${trabajo.id}`
@@ -1489,12 +1491,14 @@ const AutonomoDetalleTrabajo: React.FC = () => {
             await updateEstadoTrabajo(trabajo.id, { estado: "Cotización Aprobada" });
             setCotizaciones(prev => prev.map(c => c.id === cotizId ? { ...c, estado: "Aprobada" as const } : c));
             setTrabajo((prev: any) => prev ? { ...prev, estado: "Cotización Aprobada" } : prev);
+            
             // Notificar al Admin
             try {
-                await createNotificacionByRole({
-                    role: 'admin',
-                    titulo: '📄 Cotización Aceptada',
-                    mensaje: `El cliente aceptó la propuesta de presupuesto para "${trabajo.sucursal || 'la sucursal'}". Ya puede asignar un técnico para el trabajo.`,
+                const targetAdminId = user?.admin_autonomo_id || user?.id || 0;
+                await createNotificacionEcosistema({
+                    admin_autonomo_id: targetAdminId,
+                    titulo: '✅ Cotización Aprobada',
+                    mensaje: `El cliente ha aprobado la cotización para ${trabajo.sucursal || 'la sucursal'}. ¡Es hora de iniciar el trabajo!`,
                     enlace: `/menu/trabajo-detalle/${trabajo.id}`
                 });
             } catch (notiErr) {
@@ -2041,15 +2045,18 @@ const AutonomoDetalleTrabajo: React.FC = () => {
 
                     <div className={styles.headerContainer}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                            <div 
+                            <button 
                                 onClick={() => navigate(-1)} 
-                                style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '5px' }}
+                                style={{ 
+                                    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', 
+                                    padding: '8px 16px', background: '#f1f5f9', border: '1px solid #cbd5e1', 
+                                    borderRadius: '8px', color: '#334155', fontWeight: '600' 
+                                }}
                                 title="Volver atrás"
                             >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="#1e293b" strokeWidth={2.5}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
-                                </svg>
-                            </div>
+                                <HiOutlineArrowLeft size={20} />
+                                Regresar
+                            </button>
                             <h1 className={styles.pageTitle}>
                                 {activeTab === 'Trabajo' ? 'tareas por realizar' :
                                     (activeTab === 'Registro' ? 'Registro de Actividad' :

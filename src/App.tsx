@@ -43,7 +43,9 @@ import AutonomoLayout from "./layouts/AutonomoLayout";
 import DashboardCliente from "./pages/cliente/DashboardCliente";
 import DashboardEncargado from "./pages/encargado/DashboardEncargado";
 import DashboardAutonomo from "./pages/autonomo/DashboardAutonomo";
+import AutonomoTablero from "./pages/autonomo/AutonomoTablero";
 import DetalleAdminAutonomo from "./pages/admin/DetalleAdminAutonomo";
+import DashboardTecnico from "./pages/tecnico/DashboardTecnico";
 
 function App() {
     return (
@@ -110,7 +112,7 @@ function App() {
                                 <TecnicoLayout />
                             </ProtectedRoute>
                         }>
-                            <Route index element={<ListaNegocios />} />
+                            <Route index element={<DashboardTecnico />} />
                             <Route path="solicitudes" element={<ListaSolicitudes />} />
                             <Route path="mi-perfil" element={<MiPerfil />} />
                             <Route path="historial" element={<AdminHistorial />} />

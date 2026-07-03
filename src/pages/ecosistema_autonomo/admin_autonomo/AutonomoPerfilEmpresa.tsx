@@ -21,7 +21,7 @@ import {
 } from "react-icons/hi2";
 
 import { createNegocio, updateNegocio, getNegocio, uploadImage } from "../../../services/negociosService";
-import { createNotificacionByRole } from "../../../services/notificacionesService";
+import { createNotificacionEcosistema } from "../../../services/notificacionesService";
 import { asignarEncargadoSucursal, getEncargadoSucursal } from "../../../services/usersService";
 import LevantamientoModal from "../../../components/LevantamientoModal";
 import DetalleEquipoModal from "../../../components/DetalleEquipoModal";
@@ -405,6 +405,20 @@ const AutonomoPerfilEmpresa: React.FC = () => {
                 const updateRes = await updateNegocio(Number(editId), apiPayload);
                 if (updateRes?.data?.areas) fullLocalData.areas = updateRes.data.areas;
                 saveSafeLocalInfo('local_negocios_info', editId, fullLocalData, showAlert);
+                
+                // Notificar al admin
+                try {
+                    const targetAdminId = user?.admin_autonomo_id || user?.id || 0;
+                    await createNotificacionEcosistema({
+                        admin_autonomo_id: targetAdminId,
+                        titulo: '🏢 Actualización de Perfil',
+                        mensaje: `El cliente ${user?.name || 'un usuario'} ha actualizado la información de su empresa/sucursal.`,
+                        enlace: `/menu/negocios`
+                    });
+                } catch (notiErr) {
+                    console.error("Error notificando al admin de nueva sucursal:", notiErr);
+                }
+
                 showAlert("Éxito", "Información actualizada correctamente", "success");
             } else {
                 const createPayload = { ...apiPayload, user_id: user?.id };
@@ -422,8 +436,9 @@ const AutonomoPerfilEmpresa: React.FC = () => {
                     }
                     // Notificar al admin que hay una nueva sucursal
                     try {
-                        await createNotificacionByRole({
-                            role: 'admin',
+                        const targetAdminId = user?.admin_autonomo_id || user?.id || 0;
+                        await createNotificacionEcosistema({
+                            admin_autonomo_id: targetAdminId,
                             titulo: '🏢 Nueva Sucursal Registrada',
                             mensaje: `El cliente ${user?.name || 'un usuario'} registró una nueva sucursal: "${formData.nombreSucursal}".`,
                             enlace: `/menu/negocios`

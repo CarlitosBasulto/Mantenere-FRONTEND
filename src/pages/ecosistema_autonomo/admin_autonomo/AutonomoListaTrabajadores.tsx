@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { useModal } from "../../../context/ModalContext";
 import { useAuth } from "../../../context/AuthContext";
 import { getTrabajadores, createTrabajador, toggleEstado } from "../../../services/trabajadoresService";
+import { createNotificacionByRole } from "../../../services/notificacionesService";
 
 interface Trabajador {
     id: number;
@@ -116,6 +117,32 @@ const AutonomoListaTrabajadores: React.FC = () => {
     const handleRemoveCategory = (role: string) => {
         setAvailableRoles(availableRoles.filter(r => r !== role));
         setNewWorkerRoles(newWorkerRoles.filter(r => r !== role));
+    };
+
+    // ESTADOS PARA "SOLICITAR TÉCNICO"
+    const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
+    const [requestRole, setRequestRole] = useState("");
+
+    const handleRequestTechnician = async () => {
+        if (!requestRole) {
+            showAlert("Atención", "Por favor selecciona el tipo de técnico que necesitas.", "warning");
+            return;
+        }
+
+        try {
+            await createNotificacionByRole({
+                role: 'admin',
+                titulo: 'Solicitud de Técnico',
+                mensaje: `El administrador ${user?.name || 'autónomo'} solicita un técnico con especialidad: ${requestRole}.`,
+                enlace: '/menu/trabajadores'
+            });
+            showAlert("Éxito", "Solicitud enviada al administrador principal.", "success");
+            setIsRequestModalOpen(false);
+            setRequestRole("");
+        } catch (error) {
+            console.error(error);
+            showAlert("Error", "No se pudo enviar la solicitud.", "error");
+        }
     };
 
     // Estado temporal para el modal de filtro
@@ -418,6 +445,48 @@ Line: 97
                         <div className={styles.modalActions}>
                             <button className={styles.applyBtn} onClick={handleApplyFilter}>Aplicar Filtro</button>
                             <button className={styles.cancelBtn} onClick={() => setIsFilterModalOpen(false)}>Cancelar</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* BOTÓN FLOTANTE: NECESITAS TÉCNICOS */}
+            <div 
+                className={styles.floatingRequestBtn} 
+                onClick={() => setIsRequestModalOpen(true)}
+            >
+                ¿Necesitas técnicos?
+            </div>
+
+            {/* MODAL SOLICITAR TÉCNICO */}
+            {isRequestModalOpen && (
+                <div className={styles.modalOverlay}>
+                    <div className={styles.modalContent} style={{ maxWidth: '400px' }}>
+                        <div className={styles.modalHeader}>
+                            <h2>Solicitar Técnico</h2>
+                            <button className={styles.closeBtn} onClick={() => setIsRequestModalOpen(false)}>
+                                <HiX size={24} />
+                            </button>
+                        </div>
+                        <div className={styles.modalBody}>
+                            <p style={{ color: '#475569', marginBottom: '15px' }}>
+                                ¿Qué tipo de técnico necesitas? Enviaremos tu solicitud al administrador general.
+                            </p>
+                            <select 
+                                className={styles.inputField} 
+                                value={requestRole} 
+                                onChange={(e) => setRequestRole(e.target.value)}
+                            >
+                                <option value="">Selecciona una opción...</option>
+                                {availableRoles.map(role => (
+                                    <option key={role} value={role}>{role}</option>
+                                ))}
+                            </select>
+                            
+                            <div className={styles.formActions} style={{ marginTop: '20px' }}>
+                                <button className={styles.cancelBtn} onClick={() => setIsRequestModalOpen(false)}>Cancelar</button>
+                                <button className={styles.submitBtn} onClick={handleRequestTechnician}>Solicitar</button>
+                            </div>
                         </div>
                     </div>
                 </div>

@@ -658,6 +658,201 @@
     .jobsSection {
         grid-template-columns: 1fr;
     }
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
+.radioBox {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 15px;
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    cursor: pointer;
+    font-size: 14px;
+    background: white;
+    transition: all 0.2s;
+}
+
+.radioBox:hover {
+    border-color: #ccc;
+}
+
+.dateInput {
+    padding: 12px 15px;
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    width: 100%;
+    font-family: inherit;
+    color: #555;
+    font-size: 14px;
+    outline: none;
+}
+
+.dateInput:focus {
+    border-color: #f26522;
+}
+
+.modalActions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
+}
+
+.applyBtn {
+    background: #f26522;
+    color: white;
+    border: none;
+    padding: 14px 40px;
+    border-radius: 30px;
+    font-weight: bold;
+    font-size: 16px;
+    cursor: pointer;
+    width: 100%;
+    margin-top: 10px;
+    box-shadow: 0 4px 10px rgba(242, 101, 34, 0.3);
+}
+
+.applyBtn:hover {
+    background: #d14d13;
+}
+
+.cancelBtn {
+    background: transparent;
+    border: none;
+    color: #888;
+    cursor: pointer;
+    text-decoration: underline;
+    font-size: 12px;
+}
+
+/* ===========================
+   RESPONISVE / MOBILE
+ =========================== */
+
+@media (max-width: 1024px) {
+    .jobsSection {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    .dashboardLayout {
+        flex-direction: column;
+        gap: 0;
+    }
+    
+    .leftColumn {
+        padding: 0 15px;
+    }
+
+    .rightColumn { display: none; }
+    
+    .searchSection {
+        flex-direction: column;
+        align-items: stretch;
+        margin: 10px 0;
+    }
+    
+    .searchSection > div:first-child {
+        width: 100% !important;
+    }
+    
+    .searchCard { width: 100%; margin-bottom: 0; }
+    
+    .searchInput { width: 100%; }
+    
+    .filterBtn {
+        width: 44px;
+        height: 44px;
+        padding: 0;
+        margin-bottom: 0;
+    }
+
+    .primaryBtn {
+        width: 100%;
+        justify-content: center;
+        text-align: center;
+        padding: 12px;
+        margin-bottom: 5px;
+        margin-top: 5px;
+    }
+    
+    .jobsSection {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+        padding: 0 0 20px;
+    }
+    
+    .jobCard {
+        padding: 20px 15px;
+        border-radius: 20px;
+        text-align: center;
+    }
+    
+    .cardContent {
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .cardIcon {
+        width: 60px;
+        height: 60px;
+        font-size: 24px;
+    }
+    
+    .cardInfo h3 {
+        font-size: 14px;
+    }
+
+    .cardIndicator { display: block; }
+    
+    .modalContent {
+        width: 92%;
+        padding: 20px;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+
+    .modalWide {
+        width: 92%;
+        padding: 20px;
+    }
+
+    .formGrid { grid-template-columns: 1fr; }
+    .radioGrid { grid-template-columns: 1fr; }
+
+    .addCategoryWrapper {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .addCategoryBtn {
+        padding: 12px;
+    }
+
+    .modalActionsRow {
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .saveWorkerBtn {
+        width: 100%;
+    }
+
+    .rolesGrid {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+@media (max-width: 480px) {
+    .jobsSection {
+        grid-template-columns: 1fr;
+    }
 
     .rolesGrid {
         grid-template-columns: 1fr;
@@ -666,4 +861,124 @@
     .modalTitleLarge {
         font-size: 20px;
     }
-}
+} 
+
+/* BOTÓN FLOTANTE SOLICITAR TÉCNICOS */
+.floatingRequestBtn {
+    position: fixed;
+    bottom: 30px;
+    right: 40px;
+    background: #0ea5e9;
+    color: white;
+    padding: 14px 24px;
+    border-radius: 30px;
+    font-weight: 700;
+    font-size: 15px;
+    box-shadow: 0 4px 15px rgba(14, 165, 233, 0.4);
+    cursor: pointer;
+    z-index: 100;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.floatingRequestBtn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(14, 165, 233, 0.6);
+    background: #0284c7;
+}
+
+/* ============================
+   MODAL SOLICITAR TÉCNICO
+   ============================ */
+.modalHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.modalHeader h2 {
+    font-size: 18px;
+    color: #1e293b;
+    margin: 0;
+}
+
+.closeBtn {
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+}
+
+.closeBtn:hover {
+    background: #f1f5f9;
+    color: #64748b;
+}
+
+.inputField {
+    width: 100%;
+    padding: 12px 16px;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    font-size: 14px;
+    color: #334155;
+    background-color: #f8fafc;
+    transition: all 0.2s;
+    outline: none;
+    font-family: inherit;
+}
+
+.inputField:focus {
+    border-color: #0ea5e9;
+    background-color: #ffffff;
+    box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
+}
+
+.formActions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.cancelBtn {
+    padding: 10px 20px;
+    background: white;
+    border: 1px solid #cbd5e1;
+    color: #64748b;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.cancelBtn:hover {
+    background: #f8fafc;
+    border-color: #94a3b8;
+    color: #475569;
+}
+
+.submitBtn {
+    padding: 10px 20px;
+    background: #0ea5e9;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 4px 10px rgba(14, 165, 233, 0.3);
+}
+
+.submitBtn:hover {
+    background: #0284c7;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 12px rgba(14, 165, 233, 0.4);
+}
