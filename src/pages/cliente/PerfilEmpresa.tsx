@@ -32,6 +32,7 @@ import { saveSafeLocalInfo, stripBlobUrls } from "../../utils/storageHelper";
 import { createMantenimientoSolicitud, getMantenimientoSolicitudes } from "../../services/mantenimientoService";
 import { getTrabajos } from "../../services/trabajosService";
 import { getReporteByTrabajoId } from "../../services/reportesService";
+import LevantamientoFlotaMockup from "../../components/LevantamientoFlotaMockup";
 
 export interface Equipment {
     id?: string;
@@ -556,9 +557,16 @@ const PerfilEmpresa: React.FC = () => {
                     >
                         Levantamiento de Equipos
                     </button>
+                    <button
+                        type="button"
+                        onClick={() => setActiveTab('flota')}
+                        className={`${styles.tab} ${activeTab === 'flota' ? styles.activeTab : ''}`}
+                    >
+                        Levantamiento de Flota
+                    </button>
                 </div>
 
-                {activeTab === 'info' ? (
+                {activeTab === 'info' && (
                     <div className={styles.contentWrapper}>
                         
                         {/* CARD 1: INFORMACIÓN GENERAL */}
@@ -684,30 +692,7 @@ const PerfilEmpresa: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* CARD 3: CONTACTOS */}
-                        <div className={styles.infoCard}>
-                            <h2 className={styles.sectionTitle}>
-                                <HiOutlineUserGroup /> Contactos Operativos
-                            </h2>
-                            <div className={styles.formGrid}>
-                                <div className={styles.inputGroup}>
-                                    <label className={styles.label}>Sub gerente</label>
-                                    <input type="text" name="gerente" className={styles.input} value={formData.gerente || ''} onChange={handleChange} disabled={!canEdit} />
-                                </div>
-                                <div className={styles.inputGroup}>
-                                    <label className={styles.label}>Teléfono Gerente</label>
-                                    <input type="text" name="telefonoGerente" className={styles.input} value={formData.telefonoGerente || ''} onChange={handleChange} disabled={!canEdit} />
-                                </div>
-                                <div className={styles.inputGroup}>
-                                    <label className={styles.label}>Subgerente / Encargado 2</label>
-                                    <input type="text" name="subgerente" className={styles.input} value={formData.subgerente || ''} onChange={handleChange} disabled={!canEdit} />
-                                </div>
-                                <div className={styles.inputGroup}>
-                                    <label className={styles.label}>Teléfono Subgerente</label>
-                                    <input type="text" name="telefonoSubgerente" className={styles.input} value={formData.telefonoSubgerente || ''} onChange={handleChange} disabled={!canEdit} />
-                                </div>
-                            </div>
-                        </div>
+
 
                         {/* CARD 4: ACCESO DE ENCARGADO DE SUCURSAL */}
                         {editId && canEdit && (
@@ -800,7 +785,9 @@ const PerfilEmpresa: React.FC = () => {
                         )}
 
                     </div>
-                ) : (
+                )}
+                
+                {activeTab === 'levantamiento' && (
                     <div className={styles.contentWrapper}>
                         {/* SECCIÓN LEVANTAMIENTO PREMIUM */}
                         <div className={styles.infoCard}>
@@ -888,6 +875,12 @@ const PerfilEmpresa: React.FC = () => {
                                 )}
                             </div>
                         </div>
+                    </div>
+                )}
+                
+                {activeTab === 'flota' && (
+                    <div className={styles.contentWrapper}>
+                        <LevantamientoFlotaMockup />
                     </div>
                 )}
 

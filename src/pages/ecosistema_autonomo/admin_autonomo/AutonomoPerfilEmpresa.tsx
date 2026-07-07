@@ -32,6 +32,7 @@ import { saveSafeLocalInfo, stripBlobUrls } from "../../../utils/storageHelper";
 import { createMantenimientoSolicitud, getMantenimientoSolicitudes } from "../../../services/mantenimientoService";
 import { getTrabajos } from "../../../services/trabajosService";
 import { getReporteByTrabajoId } from "../../../services/reportesService";
+import LevantamientoFlotaMockup from "../../../components/LevantamientoFlotaMockup";
 
 export interface Equipment {
     id?: string;
@@ -584,9 +585,16 @@ const AutonomoPerfilEmpresa: React.FC = () => {
                     >
                         Levantamiento de Equipos
                     </button>
+                    <button
+                        type="button"
+                        onClick={() => setActiveTab('flota')}
+                        className={`${styles.tab} ${activeTab === 'flota' ? styles.activeTab : ''}`}
+                    >
+                        Levantamiento de Flota
+                    </button>
                 </div>
 
-                {activeTab === 'info' ? (
+                {activeTab === 'info' && (
                     <div className={styles.contentWrapper}>
                         
                         {/* CARD 1: INFORMACIÓN GENERAL */}
@@ -699,163 +707,102 @@ const AutonomoPerfilEmpresa: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* CARD 3: CONTACTOS Y ACCESO */}
-                        <div className={styles.infoCard}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                                <h2 className={styles.sectionTitle} style={{ marginBottom: 0 }}>
-                                    <HiOutlineUserGroup /> Contactos Operativos
-                                </h2>
-                                {user?.role === 'gerente-general' && canEdit && (
-                                    <button 
-                                        type="button"
-                                        onClick={() => {
-                                            const nameParts = user?.name?.split(' ') || [];
-                                            const nombre = nameParts[0] || '';
-                                            const apellidos = nameParts.slice(1).join(' ') || '';
-                                            setFormData(prev => ({
-                                                ...prev,
-                                                gerente: nombre,
-                                                apellidosGerente: apellidos,
-                                                correo: user?.email || prev.correo
-                                            }));
-                                            showAlert('Datos cargados', 'Se han autocompletado tus datos. No olvides darle a Guardar General.', 'success');
-                                        }}
-                                        style={{
-                                            background: '#f1f5f9', color: '#334155', border: '1px solid #cbd5e1', 
-                                            padding: '6px 12px', borderRadius: '6px', fontSize: '13px', 
-                                            cursor: 'pointer', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '6px'
-                                        }}
-                                    >
-                                        ✨ Autocompletar con mis datos
-                                    </button>
-                                )}
-                            </div>
-                            <div className={styles.formGrid}>
-                                <div className={styles.inputGroup}>
-                                    <label className={styles.label}>Nombre(s) del Gerente General</label>
-                                    <input type="text" name="gerente" className={styles.input} value={formData.gerente || ''} onChange={handleChange} disabled={!canEdit} placeholder="Ej: Juan Carlos" />
-                                </div>
-                                <div className={styles.inputGroup}>
-                                    <label className={styles.label}>Apellidos del Gerente General</label>
-                                    <input type="text" name="apellidosGerente" className={styles.input} value={formData.apellidosGerente || ''} onChange={handleChange} disabled={!canEdit} placeholder="Ej: Pérez Gómez" />
-                                </div>
-                                <div className={styles.inputGroup}>
-                                    <label className={styles.label}>Correo Electrónico</label>
-                                    <input type="email" name="correo" className={styles.input} value={formData.correo || ''} onChange={handleChange} disabled={!canEdit} placeholder="Ej: juan.perez@empresa.com" />
-                                </div>
-                                <div className={styles.inputGroup}>
-                                    <label className={styles.label}>
-                                        Número de Teléfono
-                                        {formData.telefonoGerente && (
-                                            <a 
-                                                href={`https://wa.me/${formData.telefonoGerente.replace(/\D/g, '')}`} 
-                                                target="_blank" 
-                                                rel="noopener noreferrer"
-                                                style={{ marginLeft: '8px', color: '#22c55e', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                                                title="Abrir chat en WhatsApp"
-                                            >
-                                                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                                                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/>
-                                                </svg>
-                                            </a>
-                                        )}
-                                    </label>
-                                    <input type="text" name="telefonoGerente" className={styles.input} value={formData.telefonoGerente || ''} onChange={handleChange} disabled={!canEdit} placeholder="Ej: 999 123 4567" />
-                                </div>
-                            </div>
-
-                            {editId && canEdit && (
-                                <div style={{ marginTop: '30px', paddingTop: '20px', borderTop: '1px solid #e2e8f0' }}>
+                        {/* CARD 3: ACCESO SUBGERENTE */}
+                        {editId && canEdit && (
+                            <div className={styles.infoCard}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                                     <h3 style={{ fontSize: '16px', color: '#334155', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                         <HiOutlineKey size={20} color="#f59e0b" /> Asignar Acceso al Subgerente
                                     </h3>
-                                    
-                                    {encargadoExistente && (
-                                        <div style={{
-                                            display: 'flex', alignItems: 'center', gap: '10px',
-                                            background: 'linear-gradient(135deg, #d1fae5, #a7f3d0)',
-                                            borderRadius: '10px', padding: '12px 16px',
-                                            marginBottom: '18px', fontSize: '14px', color: '#065f46', fontWeight: 500
-                                        }}>
-                                            <span style={{ fontSize: '18px' }}>✅</span>
-                                            <span>Subgerente asignado: <strong>{encargadoExistente.name}</strong> — {encargadoExistente.email}</span>
-                                        </div>
-                                    )}
-
-                                    <p style={{ color: '#64748b', fontSize: '13px', marginBottom: '20px', lineHeight: '1.6' }}>
-                                        Asigna credenciales de acceso exclusivas para esta sucursal. El subgerente podrá iniciar sesión y administrar la sucursal.
-                                    </p>
-
-                                    <div className={styles.formGrid}>
-                                        <div className={styles.inputGroup}>
-                                            <label className={styles.label}>Nombre del Subgerente</label>
-                                            <input
-                                                type="text"
-                                                placeholder="Ej: Luis Ramírez"
-                                                className={styles.input}
-                                                value={encargadoForm.name}
-                                                onChange={e => setEncargadoForm(prev => ({ ...prev, name: e.target.value }))}
-                                            />
-                                        </div>
-                                        <div className={styles.inputGroup}>
-                                            <label className={styles.label}>Correo de Acceso</label>
-                                            <input
-                                                type="email"
-                                                placeholder="Ej: subgerente@gmail.com"
-                                                className={styles.input}
-                                                value={encargadoForm.email}
-                                                onChange={e => setEncargadoForm(prev => ({ ...prev, email: e.target.value }))}
-                                            />
-                                        </div>
-                                        <div className={styles.inputGroup} style={{ position: 'relative' }}>
-                                            <label className={styles.label}>
-                                                {encargadoExistente ? 'Nueva Contraseña (opcional)' : 'Contraseña'}
-                                            </label>
-                                            <input
-                                                type={showPassword ? 'text' : 'password'}
-                                                placeholder="Mínimo 8 caracteres"
-                                                className={styles.input}
-                                                style={{ paddingRight: '42px' }}
-                                                value={encargadoForm.password}
-                                                onChange={e => setEncargadoForm(prev => ({ ...prev, password: e.target.value }))}
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowPassword(!showPassword)}
-                                                style={{
-                                                    position: 'absolute', right: '12px', bottom: '12px',
-                                                    background: 'none', border: 'none', cursor: 'pointer',
-                                                    color: '#64748b', display: 'flex', alignItems: 'center'
-                                                }}
-                                            >
-                                                {showPassword ? <HiOutlineEyeSlash size={18} /> : <HiOutlineEye size={18} />}
-                                            </button>
-                                        </div>
+                                </div>
+                                
+                                {encargadoExistente && (
+                                    <div style={{
+                                        display: 'flex', alignItems: 'center', gap: '10px',
+                                        background: 'linear-gradient(135deg, #d1fae5, #a7f3d0)',
+                                        borderRadius: '10px', padding: '12px 16px',
+                                        marginBottom: '18px', fontSize: '14px', color: '#065f46', fontWeight: 500
+                                    }}>
+                                        <span style={{ fontSize: '18px' }}>✅</span>
+                                        <span>Subgerente asignado: <strong>{encargadoExistente.name}</strong> — {encargadoExistente.email}</span>
                                     </div>
+                                )}
 
-                                    <div style={{ marginTop: '20px' }}>
+                                <p style={{ color: '#64748b', fontSize: '13px', marginBottom: '20px', lineHeight: '1.6' }}>
+                                    Asigna credenciales de acceso exclusivas para esta sucursal. El subgerente podrá iniciar sesión y administrar la sucursal.
+                                </p>
+
+                                <div className={styles.formGrid}>
+                                    <div className={styles.inputGroup}>
+                                        <label className={styles.label}>Nombre del Subgerente</label>
+                                        <input
+                                            type="text"
+                                            placeholder="Ej: Luis Ramírez"
+                                            className={styles.input}
+                                            value={encargadoForm.name}
+                                            onChange={e => setEncargadoForm(prev => ({ ...prev, name: e.target.value }))}
+                                        />
+                                    </div>
+                                    <div className={styles.inputGroup}>
+                                        <label className={styles.label}>Correo de Acceso</label>
+                                        <input
+                                            type="email"
+                                            placeholder="Ej: subgerente@gmail.com"
+                                            className={styles.input}
+                                            value={encargadoForm.email}
+                                            onChange={e => setEncargadoForm(prev => ({ ...prev, email: e.target.value }))}
+                                        />
+                                    </div>
+                                    <div className={styles.inputGroup} style={{ position: 'relative' }}>
+                                        <label className={styles.label}>
+                                            {encargadoExistente ? 'Nueva Contraseña (opcional)' : 'Contraseña'}
+                                        </label>
+                                        <input
+                                            type={showPassword ? 'text' : 'password'}
+                                            placeholder="Mínimo 8 caracteres"
+                                            className={styles.input}
+                                            style={{ paddingRight: '42px' }}
+                                            value={encargadoForm.password}
+                                            onChange={e => setEncargadoForm(prev => ({ ...prev, password: e.target.value }))}
+                                        />
                                         <button
-                                            onClick={handleAsignarEncargado}
-                                            disabled={encargadoLoading}
+                                            type="button"
+                                            onClick={() => setShowPassword(!showPassword)}
                                             style={{
-                                                display: 'inline-flex', alignItems: 'center', gap: '8px',
-                                                background: encargadoLoading ? '#94a3b8' : 'linear-gradient(135deg, #f59e0b, #d97706)',
-                                                color: 'white', border: 'none', borderRadius: '10px',
-                                                padding: '12px 24px', fontWeight: 700, fontSize: '14px',
-                                                cursor: encargadoLoading ? 'not-allowed' : 'pointer',
-                                                transition: 'all 0.2s', boxShadow: '0 4px 12px rgba(217,119,6,0.3)'
+                                                position: 'absolute', right: '12px', bottom: '12px',
+                                                background: 'none', border: 'none', cursor: 'pointer',
+                                                color: '#64748b', display: 'flex', alignItems: 'center'
                                             }}
                                         >
-                                            <HiOutlinePaperAirplane size={18} />
-                                            {encargadoLoading ? 'Guardando...' : encargadoExistente ? 'Actualizar Acceso' : 'Asignar Acceso'}
+                                            {showPassword ? <HiOutlineEyeSlash size={18} /> : <HiOutlineEye size={18} />}
                                         </button>
                                     </div>
                                 </div>
-                            )}
-                        </div>
+
+                                <div style={{ marginTop: '20px' }}>
+                                    <button
+                                        onClick={handleAsignarEncargado}
+                                        disabled={encargadoLoading}
+                                        style={{
+                                            display: 'inline-flex', alignItems: 'center', gap: '8px',
+                                            background: encargadoLoading ? '#94a3b8' : 'linear-gradient(135deg, #f59e0b, #d97706)',
+                                            color: 'white', border: 'none', borderRadius: '10px',
+                                            padding: '12px 24px', fontWeight: 700, fontSize: '14px',
+                                            cursor: encargadoLoading ? 'not-allowed' : 'pointer',
+                                            transition: 'all 0.2s', boxShadow: '0 4px 12px rgba(217,119,6,0.3)'
+                                        }}
+                                    >
+                                        <HiOutlinePaperAirplane size={18} />
+                                        {encargadoLoading ? 'Guardando...' : encargadoExistente ? 'Actualizar Acceso' : 'Asignar Acceso'}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
 
                     </div>
-                ) : (
+                )}
+                
+                {activeTab === 'levantamiento' && (
                     <div className={styles.contentWrapper}>
                         {/* SECCIÓN LEVANTAMIENTO PREMIUM */}
                         <div className={styles.infoCard}>
@@ -943,6 +890,12 @@ const AutonomoPerfilEmpresa: React.FC = () => {
                                 )}
                             </div>
                         </div>
+                    </div>
+                )}
+                
+                {activeTab === 'flota' && (
+                    <div className={styles.contentWrapper}>
+                        <LevantamientoFlotaMockup />
                     </div>
                 )}
 
