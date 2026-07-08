@@ -2280,6 +2280,17 @@ const AutonomoDetalleTrabajo: React.FC = () => {
                                                             } catch(e) {
                                                                 if (typeof trabajo.foto_url === 'string') fotos = [trabajo.foto_url];
                                                             }
+                                                            
+                                                            const baseUrl = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8085/api').replace(/\/api\/?$/, '');
+                                                            fotos = fotos.map(url => {
+                                                                if (typeof url === 'string' && (url.includes('127.0.0.1') || url.includes('localhost'))) {
+                                                                    const parts = url.split('/storage/');
+                                                                    if (parts.length === 2) {
+                                                                        return `${baseUrl}/storage/${parts[1]}`;
+                                                                    }
+                                                                }
+                                                                return url;
+                                                            });
                                                             return Array.isArray(fotos) ? fotos.map((f, i) => (
                                                                 <img 
                                                                     key={i}

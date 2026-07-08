@@ -95,21 +95,32 @@ const AdminReporte: React.FC = () => {
 
     const parseFotoUrls = (fotoUrl: any): string[] => {
         if (!fotoUrl) return [];
+        let urls: string[] = [];
         if (typeof fotoUrl === 'string') {
             if (fotoUrl.trim().startsWith('[')) {
                 try {
                     const parsed = JSON.parse(fotoUrl);
-                    if (Array.isArray(parsed)) return parsed;
+                    if (Array.isArray(parsed)) urls = parsed;
                 } catch (e) {
                     console.error("Error parsing foto_url JSON:", e);
                 }
+            } else {
+                urls = [fotoUrl];
             }
-            return [fotoUrl];
+        } else if (Array.isArray(fotoUrl)) {
+            urls = fotoUrl;
         }
-        if (Array.isArray(fotoUrl)) {
-            return fotoUrl;
-        }
-        return [];
+
+        const baseUrl = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8085/api').replace(/\/api\/?$/, '');
+        return urls.map(url => {
+            if (typeof url === 'string' && (url.includes('127.0.0.1') || url.includes('localhost'))) {
+                const parts = url.split('/storage/');
+                if (parts.length === 2) {
+                    return `${baseUrl}/storage/${parts[1]}`;
+                }
+            }
+            return url;
+        });
     };
 
     React.useEffect(() => {
