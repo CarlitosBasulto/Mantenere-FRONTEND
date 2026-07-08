@@ -305,7 +305,7 @@ const MiPerfil: React.FC = () => {
 
         showConfirm(
             "Asignar Gerente",
-            "¿Estás seguro de que deseas guardar los datos de este gerente general?",
+            "¿Estás seguro de que deseas guardar los datos de este encargado?",
             async () => {
                 try {
                     const fullGerenteName = `${gerenteData.nombre.trim()} ${gerenteData.apellidos.trim()}`;
@@ -315,7 +315,7 @@ const MiPerfil: React.FC = () => {
                         password: gerenteData.password || 'Mantenere123.' 
                     });
                     setHasGerente(true);
-                    showAlert("Éxito", "Gerente general asignado correctamente.", "success");
+                    showAlert("Éxito", "Encargado asignado correctamente.", "success");
                 } catch (error) {
                     console.error(error);
                     showAlert("Error", "Ocurrió un error al asignar el gerente. Puede que el correo ya esté en uso.", "error");
@@ -437,7 +437,7 @@ const MiPerfil: React.FC = () => {
                                 {formData.nombre || 'Mi Perfil'}
                             </h1>
                             <p style={{ margin: '0 0 4px', fontSize: '11px', color: '#f26522', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                                {user?.role === 'admin' ? 'Administrador' : user?.role === 'tecnico' ? 'Técnico' : user?.role === 'encargado' ? 'Sub gerente' : user?.role === 'autonomo' ? 'Admin Autónomo' : user?.role === 'gerente-general' ? 'Gerente General' : 'Cliente'}
+                                {user?.role === 'admin' ? 'Administrador' : user?.role === 'tecnico' ? 'Técnico' : user?.role === 'encargado' ? 'Encargado de Sucursal' : user?.role === 'autonomo' ? 'Admin Autónomo' : user?.role === 'gerente-general' ? 'Encargado' : 'Cliente'}
                             </p>
                             <p style={{ margin: 0, fontSize: '11px', color: '#94a3b8' }}>
                                 Toca la foto para editarla
@@ -585,7 +585,7 @@ const MiPerfil: React.FC = () => {
                     <div className="perfil-card" style={{ marginTop: '20px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
                             <p style={{ fontSize: '12px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
-                                👨‍💼 Gerente General (Mano Derecha) {hasGerente && <span style={{ color: '#16a34a', marginLeft: '5px' }}>✓ Asignado</span>}
+                                👨‍💼 Encargado (Mano Derecha) {hasGerente && <span style={{ color: '#16a34a', marginLeft: '5px' }}>✓ Asignado</span>}
                             </p>
                             <span style={{ fontSize: '11px', background: '#e3f2fd', color: '#1565c0', padding: '3px 10px', borderRadius: '10px', fontWeight: 'bold' }}>
                                 Acceso total

@@ -86,8 +86,8 @@ export default function ListaUsuarios() {
             else if (typeof role === 'object' && role.name) name = role.name;
         }
         
-        if (name.toLowerCase() === 'encargado') return 'Gerente';
-        if (name.toLowerCase() === 'gerente-general') return 'Gerente General';
+        if (name.toLowerCase() === 'encargado') return 'Encargado de Sucursal';
+        if (name.toLowerCase() === 'gerente-general') return 'Encargado';
         return name;
     };
 
@@ -192,11 +192,11 @@ export default function ListaUsuarios() {
             filterRole === "Todos" ||
             roleName.toLowerCase() === filterRole.toLowerCase() ||
             (filterRole === "Trabajador" && (roleName.toLowerCase() === "trabajador" || roleName.toLowerCase() === "tecnico")) ||
-            (filterRole === "Cliente" && roleName.toLowerCase() === "cliente") ||
-            (filterRole === "Admin" && roleName.toLowerCase() === "admin") ||
-            (filterRole === "AdminAutonomo" && roleName.toLowerCase() === "admin-autonomo") ||
-            (filterRole === "GerenteGeneral" && roleName.toLowerCase() === "gerente general") ||
-            (filterRole === "Gerente" && roleName.toLowerCase() === "gerente");
+            (filterRole === "Técnico" && roleName.toLowerCase() === "tecnico") ||
+            (filterRole === "Trabajador" && roleName.toLowerCase() === "trabajador") ||
+            (filterRole === "EncargadoSucursal" && roleName.toLowerCase() === "encargado de sucursal") ||
+            (filterRole === "Encargado" && roleName.toLowerCase() === "encargado") ||
+            (filterRole === "Cliente" && roleName.toLowerCase() === "cliente");
 
         return matchesSearch && matchesRole;
     });
@@ -227,14 +227,14 @@ export default function ListaUsuarios() {
                             <>
                                 <option value="Admin">Administradores</option>
                                 <option value="AdminAutonomo">Admin Autónomo</option>
-                                <option value="GerenteGeneral">Gerentes Generales</option>
-                                <option value="Gerente">Gerentes de Sucursal</option>
+                                <option value="Encargado">Encargados (G. Generales)</option>
+                                <option value="EncargadoSucursal">Encargados de Sucursal</option>
                             </>
                         )}
                         {(user?.role === 'autonomo' || user?.role === 'gerente-general' || user?.role === 'admin-autonomo') && (
                             <>
-                                <option value="GerenteGeneral">Gerentes Generales</option>
-                                <option value="Gerente">Gerentes de Sucursal</option>
+                                <option value="Encargado">Encargados (G. Generales)</option>
+                                <option value="EncargadoSucursal">Encargados de Sucursal</option>
                             </>
                         )}
                     </select>
@@ -277,15 +277,19 @@ export default function ListaUsuarios() {
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                         <h3>{u.name}</h3>
                                         <div className={styles.actionButtons}>
-                                            <button className={`${styles.iconBtn} ${styles.editBtn}`} title="Editar Correo" onClick={() => handleEditStart(u)}>
-                                                <HiOutlinePencil size={18} />
-                                            </button>
-                                            <button className={`${styles.iconBtn}`} title="Cambiar Contraseña" onClick={() => handlePasswordResetStart(u)} style={{ color: '#eab308' }}>
-                                                <HiOutlineKey size={18} />
-                                            </button>
-                                            <button className={`${styles.iconBtn} ${u.status === 'blocked' ? styles.unblockBtn : styles.blockBtn}`} title={u.status === 'blocked' ? "Desbloquear" : "Bloquear"} onClick={() => handleToggleBlock(u)}>
-                                                {u.status === 'blocked' ? <HiOutlineLockOpen size={18} /> : <HiOutlineLockClosed size={18} />}
-                                            </button>
+                                            {(!isAutonomo(u) || user?.role !== 'gerente-general') && (
+                                                <>
+                                                    <button className={`${styles.iconBtn} ${styles.editBtn}`} title="Editar Correo" onClick={() => handleEditStart(u)}>
+                                                        <HiOutlinePencil size={18} />
+                                                    </button>
+                                                    <button className={`${styles.iconBtn}`} title="Cambiar Contraseña" onClick={() => handlePasswordResetStart(u)} style={{ color: '#eab308' }}>
+                                                        <HiOutlineKey size={18} />
+                                                    </button>
+                                                    <button className={`${styles.iconBtn} ${u.status === 'blocked' ? styles.unblockBtn : styles.blockBtn}`} title={u.status === 'blocked' ? "Desbloquear" : "Bloquear"} onClick={() => handleToggleBlock(u)}>
+                                                        {u.status === 'blocked' ? <HiOutlineLockOpen size={18} /> : <HiOutlineLockClosed size={18} />}
+                                                    </button>
+                                                </>
+                                            )}
                                             {/* 👁 VER SISTEMA — solo para Admin Autónomo */}
                                             {isAutonomo(u) && (
                                                 <button
