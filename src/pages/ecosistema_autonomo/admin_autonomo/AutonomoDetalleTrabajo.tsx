@@ -2281,7 +2281,7 @@ const AutonomoDetalleTrabajo: React.FC = () => {
                                                                 if (typeof trabajo.foto_url === 'string') fotos = [trabajo.foto_url];
                                                             }
                                                             
-                                                            const baseUrl = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8085/api').replace(/\/api\/?$/, '');
+                                                            const baseUrl = 'https://mantenere-backend-production.up.railway.app';
                                                             fotos = fotos.map(url => {
                                                                 if (typeof url === 'string' && (url.includes('127.0.0.1') || url.includes('localhost'))) {
                                                                     const parts = url.split('/storage/');

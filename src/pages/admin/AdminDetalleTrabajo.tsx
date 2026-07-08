@@ -242,7 +242,7 @@ const AdminDetalleTrabajo: React.FC = () => {
             urls = fotoUrl;
         }
 
-        const baseUrl = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8085/api').replace(/\/api\/?$/, '');
+        const baseUrl = 'https://mantenere-backend-production.up.railway.app';
         return urls.map(url => {
             if (typeof url === 'string' && (url.includes('127.0.0.1') || url.includes('localhost'))) {
                 const parts = url.split('/storage/');
