@@ -649,10 +649,10 @@ const AutonomoPerfilEmpresa: React.FC = () => {
                                             </label>
                                             <input
                                                 type="text"
-                                                name={(formData.tipo === 'FS' || formData.tipo === 'Otro') ? 'calle' : 'nombrePlaza'}
+                                                name={(formData.tipo === 'FS' || formData.tipo === 'Otro') ? 'calleAv' : 'nombrePlaza'}
                                                 className={styles.input}
                                                 placeholder={(formData.tipo === 'FS' || formData.tipo === 'Otro') ? 'Ej: Prolongación Montejo' : 'Ej: Plaza Altabrisa'}
-                                                value={((formData.tipo === 'FS' || formData.tipo === 'Otro') ? formData.calle : formData.nombrePlaza) || ''}
+                                                value={((formData.tipo === 'FS' || formData.tipo === 'Otro') ? formData.calleAv : formData.nombrePlaza) || ''}
                                                 onChange={handleChange}
                                                 disabled={!canEdit}
                                             />
@@ -708,7 +708,7 @@ const AutonomoPerfilEmpresa: React.FC = () => {
                         </div>
 
                         {/* CARD 3: ACCESO SUBGERENTE */}
-                        {editId && canEdit && (
+                        {editId && canEdit && (user?.role === 'gerente-general' || user?.role === 'admin-autonomo') && (
                             <div className={styles.infoCard}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                                     <h3 style={{ fontSize: '16px', color: '#334155', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
