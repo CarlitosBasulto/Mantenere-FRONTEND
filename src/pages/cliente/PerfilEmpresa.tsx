@@ -550,20 +550,24 @@ const PerfilEmpresa: React.FC = () => {
                     >
                         Información Detallada
                     </button>
-                    <button
-                        type="button"
-                        onClick={() => setActiveTab('levantamiento')}
-                        className={`${styles.tab} ${activeTab === 'levantamiento' ? styles.activeTab : ''}`}
-                    >
-                        Levantamiento de Equipos
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setActiveTab('flota')}
-                        className={`${styles.tab} ${activeTab === 'flota' ? styles.activeTab : ''}`}
-                    >
-                        Levantamiento de Flota
-                    </button>
+                    {editId && (
+                        <>
+                            <button
+                                type="button"
+                                onClick={() => setActiveTab('levantamiento')}
+                                className={`${styles.tab} ${activeTab === 'levantamiento' ? styles.activeTab : ''}`}
+                            >
+                                Levantamiento de Equipos
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setActiveTab('flota')}
+                                className={`${styles.tab} ${activeTab === 'flota' ? styles.activeTab : ''}`}
+                            >
+                                Levantamiento de Flota
+                            </button>
+                        </>
+                    )}
                 </div>
 
                 {activeTab === 'info' && (
