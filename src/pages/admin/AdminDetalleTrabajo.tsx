@@ -242,12 +242,18 @@ const AdminDetalleTrabajo: React.FC = () => {
             urls = fotoUrl;
         }
 
-        const baseUrl = 'https://mantenere-backend-production.up.railway.app';
+        const baseUrl = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8085/api').replace(/\/api\/?$/, '');
         return urls.map(url => {
-            if (typeof url === 'string' && (url.includes('127.0.0.1') || url.includes('localhost'))) {
-                const parts = url.split('/storage/');
-                if (parts.length === 2) {
-                    return `${baseUrl}/storage/${parts[1]}`;
+            if (typeof url === 'string') {
+                if (url.includes('127.0.0.1') || url.includes('localhost')) {
+                    const parts = url.split('/storage/');
+                    if (parts.length === 2) {
+                        return `${baseUrl}/storage/${parts[1]}`;
+                    }
+                } else if (url.startsWith('/storage/')) {
+                    return `${baseUrl}${url}`;
+                } else if (url.startsWith('storage/')) {
+                    return `${baseUrl}/${url}`;
                 }
             }
             return url;
