@@ -17,6 +17,7 @@ import ReporteDetailModal from "../../components/modals/ReporteDetailModal";
 import { getTrabajo } from "../../services/trabajosService";
 import { deleteTrabajo } from "../../services/trabajosService";
 import { HiOutlinePencil, HiOutlineTrash, HiOutlineArchiveBox, HiOutlineClock, HiOutlineListBullet, HiOutlineArrowPath, HiOutlineCheckCircle, HiOutlineClipboardDocument, HiOutlineChevronRight } from "react-icons/hi2";
+import { HiX } from "react-icons/hi";
 import { Pencil, MoveVertical } from 'lucide-react';
 import ChatTrabajo from "../../components/ChatTrabajo";
 
