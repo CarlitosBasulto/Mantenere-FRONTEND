@@ -452,8 +452,10 @@ const AutonomoPerfilEmpresa: React.FC = () => {
             }
             if (user?.role === 'encargado') {
                 navigate('/encargado');
-            } else if (user?.role === 'autonomo') {
+            } else if (['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '')) {
                 navigate('/autonomo/negocios');
+            } else if (user?.role === 'admin') {
+                navigate('/menu/negocios');
             } else {
                 navigate('/cliente');
             }
@@ -785,6 +787,7 @@ const AutonomoPerfilEmpresa: React.FC = () => {
 
                                 <div style={{ marginTop: '20px' }}>
                                     <button
+                                        type="button"
                                         onClick={handleAsignarEncargado}
                                         disabled={encargadoLoading}
                                         style={{
