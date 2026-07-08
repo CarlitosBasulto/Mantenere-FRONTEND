@@ -247,6 +247,32 @@ const TrabajoDetalle: React.FC = () => {
         fetchTecnicos();
     }, []);
 
+    // ESTADOS PARA "SOLICITAR TÉCNICO"
+    const [isTechRequestModalOpen, setIsTechRequestModalOpen] = useState(false);
+    const [requestRole, setRequestRole] = useState("");
+
+    const handleRequestTechnician = async () => {
+        if (!requestRole) {
+            showAlert("Atención", "Por favor selecciona el tipo de técnico que necesitas.", "warning");
+            return;
+        }
+
+        try {
+            await createNotificacionByRole({
+                role: 'admin',
+                titulo: 'Solicitud de Técnico',
+                mensaje: `El usuario ${user?.name || 'encargado'} solicita un técnico con especialidad: ${requestRole}.`,
+                enlace: '/menu/trabajadores'
+            });
+            showAlert("Éxito", "Solicitud enviada al administrador principal.", "success");
+            setIsTechRequestModalOpen(false);
+            setRequestRole("");
+        } catch (error) {
+            console.error(error);
+            showAlert("Error", "No se pudo enviar la solicitud.", "error");
+        }
+    };
+
     // ESTADOS
     const [searchText, setSearchText] = useState("");
 
@@ -2029,8 +2055,16 @@ const TrabajoDetalle: React.FC = () => {
                             </div>
 
                             <div className={styles.formField}>
-                                <label className={styles.formLabel}>Técnico Sugerido/Asignado (Opcional)</label>
-                                <div className={styles.selectWrapper}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <label className={styles.formLabel} style={{ marginBottom: 0 }}>Técnico Sugerido/Asignado (Opcional)</label>
+                                    <span 
+                                        style={{ color: '#f26522', fontSize: '11px', cursor: 'pointer', fontWeight: 'bold' }}
+                                        onClick={() => setIsTechRequestModalOpen(true)}
+                                    >
+                                        ¿Necesitas técnicos?
+                                    </span>
+                                </div>
+                                <div className={styles.selectWrapper} style={{ marginTop: '5px' }}>
                                     <select
                                         className={`${styles.newServiceInput} ${isSOSRequest ? styles.newServiceInputSos : ''}`}
                                         value={newRequestData.trabajador_id || ""}
@@ -2175,6 +2209,58 @@ const TrabajoDetalle: React.FC = () => {
                     </div>
                 </div>
             )}
+            
+            {/* MODAL SOLICITAR TÉCNICO */}
+            {isTechRequestModalOpen && (
+                <div className={styles.modalOverlay}>
+                    <div className={styles.modalContent} style={{ maxWidth: '400px', background: 'white', borderRadius: '12px', padding: '20px' }}>
+                        <div className={styles.modalHeader} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                            <h2 style={{ fontSize: '18px', fontWeight: 'bold', margin: 0, color: '#0f172a' }}>Solicitar Técnico</h2>
+                            <button 
+                                onClick={() => setIsTechRequestModalOpen(false)}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}
+                            >
+                                <HiX size={24} />
+                            </button>
+                        </div>
+                        <div className={styles.modalBody}>
+                            <p style={{ color: '#475569', marginBottom: '15px', fontSize: '14px' }}>
+                                ¿Qué tipo de técnico necesitas? Enviaremos tu solicitud al administrador general.
+                            </p>
+                            <select 
+                                className={`${styles.newServiceInput} ${isSOSRequest ? styles.newServiceInputSos : ''}`}
+                                value={requestRole} 
+                                onChange={(e) => setRequestRole(e.target.value)}
+                                style={{ width: '100%', marginBottom: '20px' }}
+                            >
+                                <option value="">Selecciona una opción...</option>
+                                {[
+                                    "Plomero", "Electricista", "Albañil", "Pintor", "Jardinero",
+                                    "Limpieza", "Técnico HVAC", "Herrero", "Carpintero"
+                                ].map(role => (
+                                    <option key={role} value={role}>{role}</option>
+                                ))}
+                            </select>
+                            
+                            <div className={styles.formActions} style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                                <button 
+                                    onClick={() => setIsTechRequestModalOpen(false)}
+                                    style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #cbd5e1', background: 'white', color: '#64748b', cursor: 'pointer' }}
+                                >
+                                    Cancelar
+                                </button>
+                                <button 
+                                    onClick={handleRequestTechnician}
+                                    style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', background: '#f26522', color: 'white', cursor: 'pointer', fontWeight: 'bold' }}
+                                >
+                                    Solicitar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* MODAL DE REPORTE DETALLES (USA PORTAL) */}
             {reporteModalOpen && (
                 <ReporteDetailModal
