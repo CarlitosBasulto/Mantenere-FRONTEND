@@ -716,6 +716,18 @@ const TrabajoDetalle: React.FC = () => {
 
                 const isEmergency = isSOSRequest;
                 
+                const isDirectAssignmentAllowed = ['admin', 'admin-autonomo', 'gerente-general'].includes(user?.role?.toLowerCase() || '');
+                let finalTrabajadorId = newRequestData.trabajador_id || null;
+                let baseDescripcion = newRequestData.descripcion;
+
+                if (!isDirectAssignmentAllowed && newRequestData.trabajador_id) {
+                    const selectedTecnico = tecnicosData.find(t => String(t.id) === String(newRequestData.trabajador_id));
+                    if (selectedTecnico) {
+                        baseDescripcion = `[Técnico sugerido: ${selectedTecnico.nombre}]\n\n${baseDescripcion}`;
+                    }
+                    finalTrabajadorId = null;
+                }
+                
                 let dbJob;
                 if (fotosSOS.length > 0) {
                     const formData = new FormData();
@@ -724,14 +736,14 @@ const TrabajoDetalle: React.FC = () => {
                         : `${finalCategoria} - ${newRequestData.cliente || businessName}`
                     );
                     formData.append('descripcion', (newRequestData.categoria === 'Mantenimiento' && newRequestData.equipoSeleccionado)
-                        ? `[Equipo: ${newRequestData.equipoSeleccionado}]\n${newRequestData.descripcion}`
-                        : newRequestData.descripcion
+                        ? `[Equipo: ${newRequestData.equipoSeleccionado}]\n${baseDescripcion}`
+                        : baseDescripcion
                     );
                     formData.append('prioridad', isEmergency ? 'Alta' : 'Media');
                     formData.append('tipo', isEmergency ? 'SOS' : 'Nueva Solicitud');
                     formData.append('negocio_id', id || '');
-                    if (newRequestData.trabajador_id) {
-                        formData.append('trabajador_id', newRequestData.trabajador_id);
+                    if (finalTrabajadorId) {
+                        formData.append('trabajador_id', finalTrabajadorId);
                     }
                     if (newRequestData.fecha) {
                         formData.append('fecha_programada', newRequestData.fecha);
@@ -747,13 +759,13 @@ const TrabajoDetalle: React.FC = () => {
                             ? `🚨 SOS: ${finalCategoria} - ${businessName}`
                             : `${finalCategoria} - ${newRequestData.cliente || businessName}`,
                         descripcion: (newRequestData.categoria === 'Mantenimiento' && newRequestData.equipoSeleccionado)
-                            ? `[Equipo: ${newRequestData.equipoSeleccionado}]\n${newRequestData.descripcion}`
-                            : newRequestData.descripcion,
+                            ? `[Equipo: ${newRequestData.equipoSeleccionado}]\n${baseDescripcion}`
+                            : baseDescripcion,
                         prioridad: isEmergency ? "Alta" : "Media",
                         tipo: isEmergency ? "SOS" : "Nueva Solicitud",
                         negocio_id: Number(id),
                         fecha_programada: newRequestData.fecha || null,
-                        trabajador_id: newRequestData.trabajador_id || null
+                        trabajador_id: finalTrabajadorId
                     };
 
                     dbJob = await createTrabajo(newJobPayload);
