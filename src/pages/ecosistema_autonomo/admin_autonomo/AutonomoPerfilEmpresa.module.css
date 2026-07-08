@@ -59,6 +59,30 @@
     flex-shrink: 0;
 }
 
+.editBannerOverlay {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: rgba(255, 255, 255, 0.8);
+    color: #475569;
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s ease;
+    z-index: 10;
+}
+
+.editBannerOverlay:hover {
+    background: #ffffff;
+    color: #0f172a;
+    transform: scale(1.05);
+}
+
 .profileIcon {
     position: relative;
     width: 130px;
@@ -96,6 +120,7 @@
     cursor: pointer;
     box-shadow: 0 8px 16px rgba(37, 99, 235, 0.3);
     transition: all 0.2s ease;
+    z-index: 10;
 }
 
 .editOverlay:hover {

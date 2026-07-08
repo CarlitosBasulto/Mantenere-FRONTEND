@@ -201,7 +201,10 @@ export default function ListaUsuarios() {
         return matchesSearch && matchesRole;
     });
 
-    const isAutonomo = (u: User) => getRoleName(u.role).toLowerCase() === 'admin-autonomo';
+    const isAutonomo = (u: User) => {
+        const role = getRoleName(u.role).toLowerCase();
+        return role === 'admin-autonomo' || role === 'autonomo';
+    };
 
     return (
         <div className={styles.container}>

@@ -295,6 +295,7 @@ const AutonomoPerfilEmpresa: React.FC = () => {
     };
 
     const fileInputRef = React.useRef<HTMLInputElement>(null);
+    const bannerInputRef = React.useRef<HTMLInputElement>(null);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         if (!canEdit) return;
@@ -312,6 +313,18 @@ const AutonomoPerfilEmpresa: React.FC = () => {
             const tempUrl = URL.createObjectURL(file);
             setFormData(prev => ({ ...prev, imagenPerfil: tempUrl, imagenPerfilFile: file }));
             setImageError(false); // <--- REINICIAR EL ERROR PARA VER EL PREVIEW
+        }
+    };
+
+    const handleBannerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!canEdit) return;
+        const file = e.target.files?.[0];
+        if (file) {
+            if (formData.imagen_portada && formData.imagen_portada.startsWith('blob:')) {
+                URL.revokeObjectURL(formData.imagen_portada);
+            }
+            const tempUrl = URL.createObjectURL(file);
+            setFormData(prev => ({ ...prev, imagen_portada: tempUrl, imagenPortadaFile: file }));
         }
     };
 
@@ -347,6 +360,12 @@ const AutonomoPerfilEmpresa: React.FC = () => {
             if (formData.imagenPerfilFile) {
                 try { finalImagenPerfil = await uploadImage(formData.imagenPerfilFile); } catch (ign) { }
             }
+            
+            let finalImagenPortada = formData.imagen_portada;
+            if (formData.imagenPortadaFile) {
+                try { finalImagenPortada = await uploadImage(formData.imagenPortadaFile); } catch (ign) { }
+            }
+
             const finalLevantamiento = await Promise.all((formData.levantamiento || []).map(async (section) => {
                 const finalEquipos = await Promise.all(section.equipos.map(async (eq) => {
                     let eqFoto = eq.foto;
@@ -388,8 +407,9 @@ const AutonomoPerfilEmpresa: React.FC = () => {
                 manzana: formData.manzana,
                 lote: formData.lote,
                 calleAv: formData.calleAv,
-                levantamiento: finalLevantamiento,
-                imagenPerfil: finalImagenPerfil
+                imagenPerfil: finalImagenPerfil,
+                imagen_portada: finalImagenPortada,
+                levantamiento: finalLevantamiento
             };
             const fullLocalData = {
                 ...apiPayload,
@@ -527,7 +547,31 @@ const AutonomoPerfilEmpresa: React.FC = () => {
                 </header>
 
                 {/* BUSINESS PROFILE HEADER CARD */}
-                <div className={styles.profileHeaderCard}>
+                <div 
+                    className={styles.profileHeaderCard} 
+                    style={formData.imagen_portada ? {
+                        backgroundImage: `linear-gradient(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.9)), url(${formData.imagen_portada})`,
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                    } : {}}
+                >
+                    {canEdit && (
+                        <div 
+                            className={styles.editBannerOverlay} 
+                            onClick={() => bannerInputRef.current?.click()}
+                            title="Cambiar Fondo de Sucursal"
+                        >
+                            <HiOutlinePencilSquare size={20} />
+                        </div>
+                    )}
+                    <input
+                        type="file"
+                        accept="image/*"
+                        ref={bannerInputRef}
+                        style={{ display: 'none' }}
+                        onChange={handleBannerChange}
+                    />
+
                     <div className={styles.profileIconWrapper}>
                         <div className={styles.profileIcon}>
                             {formData.imagenPerfil && !imageError ? (
