@@ -1504,7 +1504,7 @@ const TrabajoDetalle: React.FC = () => {
                                 </div>
                             )}
 
-                            {user?.role?.toLowerCase() === 'cliente' && (
+                            {['cliente', 'encargado', 'autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '') && (
                                 <div style={{ position: 'absolute', top: 16, right: 16, display: 'flex', gap: 10, zIndex: 50 }}>
                                     <button 
                                         onClick={() => setIsAdjustingPosition(!isAdjustingPosition)}
@@ -1555,7 +1555,7 @@ const TrabajoDetalle: React.FC = () => {
                                     📍 {getBusinessAddress()}
                                 </p>
                             )}
-                            {user?.role?.toLowerCase() === 'cliente' && (
+                            {['cliente', 'encargado', 'autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '') && (
                                 <button 
                                     onClick={() => fileInputRef.current?.click()}
                                     style={{ position: 'absolute', top: 16, right: 16, background: '#f97316', border: '2px solid white', borderRadius: '50%', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'white', zIndex: 50, boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}
