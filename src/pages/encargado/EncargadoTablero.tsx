@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import styles from '../autonomo/AutonomoTablero.module.css';
 import { getTrabajos } from '../../services/trabajosService';
 import { getUsers } from '../../services/usersService';
-import { getActividadesByTrabajo } from '../../services/actividadesService';
+
 import { HiOutlineBuildingOffice, HiOutlineUser, HiOutlineClock, HiOutlineBriefcase, HiOutlineCheckCircle, HiArrowPath } from 'react-icons/hi2';
 import { useAuth } from '../../context/AuthContext';
 

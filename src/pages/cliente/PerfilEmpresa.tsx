@@ -80,6 +80,8 @@ export interface BusinessData {
     levantamiento?: LevantamientoData;
     imagenPerfil?: string;
     imagenPerfilFile?: File;
+    imagen_portada?: string;
+    imagenPortadaFile?: File;
 }
 
 const PerfilEmpresa: React.FC = () => {

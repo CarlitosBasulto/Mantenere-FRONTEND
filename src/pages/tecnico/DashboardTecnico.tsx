@@ -3,8 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import styles from './DashboardTecnico.module.css';
 import { getTrabajos } from '../../services/trabajosService';
 import { getUsers } from '../../services/usersService';
-import { getActividadesByTrabajo } from '../../services/actividadesService';
-import { HiOutlineBuildingOffice, HiOutlineUser, HiOutlineClock, HiOutlineBriefcase, HiOutlineCheckCircle, HiArrowPath } from 'react-icons/hi2';
+import { HiOutlineUser, HiOutlineClock, HiArrowPath } from 'react-icons/hi2';
 import { useAuth } from '../../context/AuthContext';
 
 interface Trabajo {
@@ -36,7 +35,7 @@ const DashboardTecnico: React.FC = () => {
     const [trabajos, setTrabajos] = useState<Trabajo[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+
 
     const fetchData = async (isSilent = false) => {
         if (!isSilent) setLoading(true);

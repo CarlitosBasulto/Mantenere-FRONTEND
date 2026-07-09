@@ -9,12 +9,9 @@ import { useAuth } from '../../context/AuthContext';
 import { useModal } from '../../context/ModalContext';
 import { 
     HiOutlineCamera, 
-    HiOutlinePhoto, 
-    HiXMark,
     HiOutlineArrowUpTray,
     HiOutlinePlus
 } from 'react-icons/hi2';
-import { generateMaintenanceReportPDF } from '../../utils/pdfGenerator';
 import ReportePDFPreview from '../../components/modals/ReportePDFPreview';
 
 const compressImage = (file: File, callback: (compressedBase64: string) => void) => {
@@ -66,14 +63,12 @@ const AdminReporte: React.FC = () => {
     const [descripcion, setDescripcion] = useState('');
     const [materiales, setMateriales] = useState('');
     const [refaccionesList, setRefaccionesList] = useState<{pieza: string, cantidad: number, costo_estimado: string}[]>([]);
-    const [observaciones, setObservaciones] = useState('');
 
     const [imagenes, setImagenes] = useState({
         antes: null as string | null,
         durante: null as string | null,
         despues: null as string | null
     });
-    const [imagenesObservacion, setImagenesObservacion] = useState<string[]>([]);
     const [observacionesList, setObservacionesList] = useState<{ id: string; texto: string; imagenes: string[] }[]>([]);
     const [activeUploadBlockId, setActiveUploadBlockId] = useState<string | null>(null);
     const [showObservacionesInput, setShowObservacionesInput] = useState(false);
@@ -138,9 +133,7 @@ const AdminReporte: React.FC = () => {
             setDescripcion('');
             setMateriales('');
             setRefaccionesList([]);
-            setObservaciones('');
             setImagenes({ antes: null, durante: null, despues: null });
-            setImagenesObservacion([]);
             setObservacionesList([]);
             setShowObservacionesInput(false);
             setFirmaEmpresa(null);
@@ -164,14 +157,16 @@ const AdminReporte: React.FC = () => {
                         if (parsed.reporteTienda) setReporteTienda(parsed.reporteTienda);
                         if (parsed.descripcion) setDescripcion(parsed.descripcion);
                         if (parsed.materiales) setMateriales(parsed.materiales);
-                        if (parsed.observaciones) setObservaciones(parsed.observaciones);
+                        if (parsed.observaciones) {
+                            // nothing to set directly for single observation text since it was removed
+                        }
                         if (parsed.imagenes) setImagenes(parsed.imagenes);
                         if (parsed.imagenesObservacion) {
-                            setImagenesObservacion(parsed.imagenesObservacion);
+                            // removed setImagenesObservacion
                         } else if (parsed.imagenObservacion) {
-                            setImagenesObservacion([parsed.imagenObservacion]);
+                            // removed setImagenesObservacion
                         } else {
-                            setImagenesObservacion([]);
+                            // removed setImagenesObservacion
                         }
 
                         let loadedObsList: { id: string; texto: string; imagenes: string[] }[] = [];
@@ -193,7 +188,9 @@ const AdminReporte: React.FC = () => {
                         if (parsed.involucraEquipo !== undefined) setInvolucraEquipo(parsed.involucraEquipo);
                         if (parsed.equipoInfo) setEquipoInfo(parsed.equipoInfo);
                         if (parsed.refaccionesList) setRefaccionesList(parsed.refaccionesList);
-                    } catch(e) {}
+                    } catch {
+                        // ignore error
+                    }
                 }
 
                 // If no report or fields are still empty, try temporal storage
@@ -204,16 +201,16 @@ const AdminReporte: React.FC = () => {
                     setReporteTienda(prev => prev || parsed.reporteTienda || '');
                     setDescripcion(prev => prev || parsed.descripcion || '');
                     setMateriales(prev => prev || parsed.materiales || '');
-                    setObservaciones(prev => prev || parsed.observaciones || '');
+                    // setObservaciones removed
                     setImagenes(prev => ({
                         antes: prev.antes || parsed.imagenes?.antes || null,
                         durante: prev.durante || parsed.imagenes?.durante || null,
                         despues: prev.despues || parsed.imagenes?.despues || null
                     }));
                     if (parsed.imagenesObservacion) {
-                        setImagenesObservacion(parsed.imagenesObservacion);
+                        // removed setImagenesObservacion
                     } else if (parsed.imagenObservacion) {
-                        setImagenesObservacion([parsed.imagenObservacion]);
+                        // removed setImagenesObservacion
                     }
 
                     let loadedObsList: { id: string; texto: string; imagenes: string[] }[] = [];
@@ -266,7 +263,7 @@ const AdminReporte: React.FC = () => {
                     const quoteMarker = "|||QUOTE_DATA|||";
                     const techMarker = "|||TECH_NAME|||";
                     
-                    let newRefList: {pieza: string, cantidad: number, costo_estimado: string}[] = [];
+                    const newRefList: {pieza: string, cantidad: number, costo_estimado: string}[] = [];
                     let concatenatedDesc = "";
 
                     acts.forEach((a: any) => {
@@ -327,7 +324,9 @@ const AdminReporte: React.FC = () => {
                                         piezas: prev.piezas || newRefList.map(r => `- ${r.cantidad}x ${r.pieza}`).join(", ") || sData.piezas || '',
                                         garantia: sData.garantia || ''
                                     }));
-                                } catch (e) {}
+                                } catch {
+                                    // ignore error
+                                }
                             }
                         }
                     }
@@ -473,50 +472,6 @@ const AdminReporte: React.FC = () => {
     const handleGuardarYPrevisualizar = async () => {
         await handleGuardarInformacion(false);
         setShowReportePreview(true);
-    };
-
-    const handleGenerarPDF = async () => {
-        try {
-            const dynamicFolio = reporteId ? `REP-${reporteId.toString().padStart(5, '0')}` : `TRB-${(trabajoId || id || '').toString().padStart(5, '0')}`;
-            
-            // Compilamos los materiales combinando el widget dinámico y el texto extra
-            const widgetMateriales = refaccionesList.length > 0 
-                ? refaccionesList.map(r => `- ${r.cantidad || 1}x ${r.pieza} ${r.costo_estimado ? `($${r.costo_estimado})` : ''}`).join('\n')
-                : '';
-            const combinedMateriales = [widgetMateriales, materiales].filter(Boolean).join('\n\n');
-
-            const compiledObservaciones = observacionesList.map(o => o.texto).filter(Boolean).join('\n\n');
-            const compiledImagenesObservacion = observacionesList.reduce((acc, o) => [...acc, ...o.imagenes], [] as string[]);
-
-            await generateMaintenanceReportPDF({
-                id: reporteId || id || trabajoId || 0,
-                folio: dynamicFolio,
-                fecha: new Date().toLocaleDateString('es-MX'),
-                sucursal: trabajoBase?.negocio?.nombre || '---',
-                encargado: trabajoBase?.negocio?.encargado || '---',
-                tecnico: trabajoBase?.trabajador?.nombre || user?.name || trabajoBase?.tecnico || 'Técnico',
-                tecnicoAvatar: user?.avatar || null,
-                fechaInicio: fechaInicio || null,
-                diagnostico: reporteTienda,
-                descripcion,
-                materiales: combinedMateriales,
-                observaciones: compiledObservaciones,
-                observacionesList: observacionesList,
-                imagenes: {
-                    antes: imagenes.antes,
-                    durante: imagenes.durante,
-                    despues: imagenes.despues,
-                    extra: compiledImagenesObservacion
-                },
-                firmaEmpresa,
-                equipo: involucraEquipo ? equipoInfo : null,
-                refaccionesList: refaccionesList,
-                isVisita: trabajoBase?.tipo === 'Visita' || trabajoBase?.originalTipo === 'Visita'
-            });
-        } catch (error) {
-            console.error(error);
-            showAlert("Error PDF", "Hubo un error al generar el PDF. Revisa las imágenes.", "error");
-        }
     };
 
     const handleOpenConfirm = () => {
@@ -1227,8 +1182,8 @@ const AdminReporte: React.FC = () => {
                             equipoInfo: involucraEquipo ? equipoInfo : null,
                             fecha: new Date().toLocaleDateString('es-MX'),
                             tecnicoNombre: trabajoBase?.trabajador?.nombre || user?.name || trabajoBase?.tecnico || 'Técnico',
-                            tecnicoAvatar: user?.avatar || null,
-                            fechaInicio: fechaInicio || null
+                            tecnicoAvatar: user?.avatar || undefined,
+                            fechaInicio: fechaInicio || undefined
                         }}
                         onClose={() => setShowReportePreview(false)}
                     />
