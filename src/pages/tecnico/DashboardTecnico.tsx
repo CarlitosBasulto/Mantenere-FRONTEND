@@ -68,34 +68,7 @@ const DashboardTecnico: React.FC = () => {
                     subgerenteName: t.admin_autonomo_id ? (subgerentesMap.get(t.admin_autonomo_id) || 'Asignado') : 'Sin Asignar'
                 }));
 
-            // 4. Extract "horaLlegada" for jobs in "En Proceso" / "Visita"
-            const jobsToCheckArrival = processedJobs.filter(t => t.estado === 'En Proceso' && t.tipo === 'Visita');
-            
-            await Promise.all(jobsToCheckArrival.map(async (job) => {
-                try {
-                    const acts = await getActividadesByTrabajo(job.id);
-                    let arrivalTime = null;
-                    for (const act of acts) {
-                        if (act.descripcion && act.descripcion.includes('|||SERVICE_DATA|||')) {
-                            const parts = act.descripcion.split('|||SERVICE_DATA|||');
-                            if (parts.length > 1) {
-                                try {
-                                    let jsonStr = parts[1].split('|||')[0].trim();
-                                    const parsed = JSON.parse(jsonStr);
-                                    if (parsed.llegadaConfirmada && parsed.horaLlegada) {
-                                        arrivalTime = parsed.horaLlegada;
-                                    }
-                                } catch (e) { }
-                            }
-                        }
-                    }
-                    if (arrivalTime) {
-                        job.horaLlegada = arrivalTime;
-                    }
-                } catch (err) {
-                    console.error("Error fetching activities for job", job.id);
-                }
-            }));
+            // 4. hora_llegada is natively present in the 'hora_llegada' column
 
             setTrabajos(processedJobs);
             setLastUpdated(new Date());
@@ -130,10 +103,10 @@ const DashboardTecnico: React.FC = () => {
     
     // 2. Asignaciones de visitas (En proceso + Visita, or maybe Aceptada/Asignada + Visita)
     // Assuming "En Proceso" or "Asignado" means the tech is working on it or about to.
-    const colVisita = trabajos.filter(t => ['En Proceso', 'Asignado', 'Aceptada'].includes(t.estado) && t.tipo === 'Visita');
+    const colVisita = trabajos.filter(t => ['En Proceso', 'Asignado', 'Aceptada', 'En Espera'].includes(t.estado) && t.tipo === 'Visita');
     
     // 3. Asignaciones de trabajo (En proceso + not Visita)
-    const colProceso = trabajos.filter(t => ['En Proceso', 'Asignado', 'Aceptada'].includes(t.estado) && t.tipo !== 'Visita');
+    const colProceso = trabajos.filter(t => ['En Proceso', 'Asignado', 'Aceptada', 'En Espera'].includes(t.estado) && t.tipo !== 'Visita');
     
     // 4. Trabajos finalizados
     const colFinalizadas = trabajos.filter(t => ['Finalizado', 'Completado'].includes(t.estado));
@@ -161,10 +134,9 @@ const DashboardTecnico: React.FC = () => {
                 </div>
             )}
 
-            {t.horaLlegada && (
-                <div className={styles.arrivalHighlight}>
-                    <HiOutlineCheckCircle size={18} />
-                    <span>Llegada: <span className={styles.strongText}>{t.horaLlegada}</span></span>
+            {t.hora_llegada && (
+                <div style={{ background: '#ecfdf5', color: '#059669', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', marginBottom: '8px', display: 'inline-block' }}>
+                    ⏰ Llegada confirmada: {t.hora_llegada}
                 </div>
             )}
 

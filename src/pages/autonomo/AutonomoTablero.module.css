@@ -260,3 +260,39 @@
     align-items: center;
     gap: 4px;
 }
+
+.refreshBtn {
+    background: #ffffff;
+    color: #3b82f6;
+    border: 1px solid #bfdbfe;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+    box-shadow: 0 2px 4px rgba(59, 130, 246, 0.1);
+}
+
+.refreshBtn:hover:not(:disabled) {
+    background: #f0f9ff;
+    border-color: #93c5fd;
+    transform: translateY(-1px);
+}
+
+.refreshBtn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.spin {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}

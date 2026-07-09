@@ -634,30 +634,48 @@ const AutonomoDetalleTrabajo: React.FC = () => {
         t.nombre.toLowerCase().includes(technicianSearch.toLowerCase())
     );
 
-    const handleAceptarSolicitudPreasignada = async () => {
+    const handleAceptarSolicitudPreasignada = async (tecnicoSugeridoName?: string | null) => {
         if (!trabajo) return;
         try {
+            const techName = tecnicoSugeridoName || (trabajo.tecnico && trabajo.tecnico !== 'Sin asignar' && trabajo.tecnico !== 'Sin Asignar' ? trabajo.tecnico : null);
+            let techId = null;
+            let techUserId = null;
+            
+            if (techName) {
+                const tech = tecnicosData.find(t => t.nombre.toLowerCase() === techName.toLowerCase());
+                if (tech) {
+                    techId = tech.id;
+                    techUserId = tech.user_id;
+                }
+            }
+
+            if (techId) {
+                await assignTrabajador(trabajo.id, techId);
+            }
+            
             await updateEstadoTrabajo(trabajo.id, { estado: "Asignado" });
             
-            setTrabajo((prev: any) => ({ ...prev, estado: "Asignado" }));
+            setTrabajo((prev: any) => ({ 
+                ...prev, 
+                estado: "Asignado", 
+                tecnico: techName || prev.tecnico,
+                trabajador_id: techId || prev.trabajador_id
+            }));
             
             // Notificar al técnico si es posible
-            if (trabajo.trabajador_id) {
-                const tech = tecnicosData.find(t => t.id === trabajo.trabajador_id);
-                if (tech && tech.user_id) {
-                    try {
-                        await createNotificacion({
-                            user_id: tech.user_id,
-                            titulo: 'Nuevo Trabajo Asignado',
-                            mensaje: `Se ha confirmado tu asignación al trabajo: ${trabajo.titulo || 'Mantenimiento'} en ${trabajo.sucursal || 'la sucursal'}.`,
-                            enlace: `/tecnico/trabajo-detalle/${trabajo.id}`
-                        });
-                    } catch (err) { console.error("Error notificando al técnico:", err); }
-                }
+            if (techUserId) {
+                try {
+                    await createNotificacion({
+                        user_id: techUserId,
+                        titulo: 'Nuevo Trabajo Asignado',
+                        mensaje: `Se ha confirmado tu asignación al trabajo: ${trabajo.titulo || 'Mantenimiento'} en ${trabajo.sucursal || 'la sucursal'}.`,
+                        enlace: `/tecnico/trabajo-detalle/${trabajo.id}`
+                    });
+                } catch (err) { console.error("Error notificando al técnico:", err); }
             }
             
             setShowZoomModal(false);
-            showAlert('Solicitud Aceptada', 'La solicitud ha sido aprobada y el técnico ha sido notificado.', 'success');
+            showAlert('Solicitud Aceptada', 'La solicitud ha sido aprobada y el técnico ha sido asignado y notificado.', 'success');
         } catch (error) {
             console.error("Error aceptando solicitud preasignada:", error);
             showAlert('Error', 'Hubo un problema al aceptar la solicitud.', 'error');
@@ -2262,7 +2280,25 @@ const AutonomoDetalleTrabajo: React.FC = () => {
                                             {trabajo.descripcion && (
                                                 <>
                                                     <span className={styles.bentoLabel} style={{ marginBottom: '4px', color: '#334155' }}>Problema Reportado</span>
-                                                    <p className={styles.descriptionQuote}>"{trabajo.descripcion}"</p>
+                                                    {(() => {
+                                                        let desc = trabajo.descripcion || "";
+                                                        let tecnicoSugerido = null;
+                                                        const match = desc.match(/^\[Técnico sugerido:\s*([^\]]+)\]\s*/i);
+                                                        if (match) {
+                                                            tecnicoSugerido = match[1];
+                                                            desc = desc.substring(match[0].length).trim();
+                                                        }
+                                                        return (
+                                                            <>
+                                                                {tecnicoSugerido && (
+                                                                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#e0f2fe', color: '#0369a1', padding: '4px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: '700', marginBottom: '8px' }}>
+                                                                        <span style={{ fontSize: '14px' }}>👷</span> Técnico sugerido: {tecnicoSugerido}
+                                                                    </div>
+                                                                )}
+                                                                <p className={styles.descriptionQuote}>"{desc}"</p>
+                                                            </>
+                                                        );
+                                                    })()}
                                                 </>
                                             )}
                                             {trabajo.foto_url && (
@@ -2280,17 +2316,6 @@ const AutonomoDetalleTrabajo: React.FC = () => {
                                                             } catch(e) {
                                                                 if (typeof trabajo.foto_url === 'string') fotos = [trabajo.foto_url];
                                                             }
-                                                            
-                                                            const baseUrl = 'https://mantenere-backend-production.up.railway.app';
-                                                            fotos = fotos.map(url => {
-                                                                if (typeof url === 'string' && (url.includes('127.0.0.1') || url.includes('localhost'))) {
-                                                                    const parts = url.split('/storage/');
-                                                                    if (parts.length === 2) {
-                                                                        return `${baseUrl}/storage/${parts[1]}`;
-                                                                    }
-                                                                }
-                                                                return url;
-                                                            });
                                                             return Array.isArray(fotos) ? fotos.map((f, i) => (
                                                                 <img 
                                                                     key={i}
@@ -2358,32 +2383,45 @@ const AutonomoDetalleTrabajo: React.FC = () => {
                                                     {trabajo.estado === 'Cotización Enviada' ? '📄 Ver Cotización' : '💰 Crear Cotización (SOS)'}
                                                 </button>
                                             ) : (trabajo.estado === 'Cotización Aceptada' || trabajo.estado === 'Cotización Aprobada') ? (
-                                                <button
-                                                    onClick={handleOpenAssignModal}
-                                                    style={{
-                                                        marginTop: '8px',
-                                                        display: 'inline-flex',
-                                                        alignItems: 'center',
-                                                        gap: '8px',
-                                                        background: 'linear-gradient(135deg, #dc2626 0%, #ef4444 100%)',
-                                                        color: 'white',
-                                                        border: 'none',
-                                                        padding: '10px 20px',
-                                                        borderRadius: '25px',
-                                                        fontSize: '13px',
-                                                        fontWeight: '700',
-                                                        cursor: 'pointer',
-                                                        transition: 'all 0.2s ease',
-                                                        boxShadow: '0 4px 12px rgba(220, 38, 38, 0.35)',
-                                                        whiteSpace: 'nowrap',
-                                                        width: '100%',
-                                                        justifyContent: 'center'
-                                                    }}
-                                                    onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-1px)')}
-                                                    onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}
-                                                >
-                                                    {trabajo.tecnico && trabajo.tecnico !== 'Sin asignar' && trabajo.tecnico !== 'Sin Asignar' ? `🚨 Técnico: ${trabajo.tecnico}` : '🚨 Asignar Técnico (Emergencia)'}
-                                                </button>
+                                                (() => {
+                                                    const match = (trabajo.descripcion || "").match(/^\[Técnico sugerido:\s*([^\]]+)\]\s*/i);
+                                                    const tecnicoSugeridoName = match ? match[1] : null;
+                                                    const isPreassigned = tecnicoSugeridoName || (trabajo.tecnico && trabajo.tecnico !== 'Sin asignar' && trabajo.tecnico !== 'Sin Asignar');
+                                                    return (
+                                                        <button
+                                                            onClick={() => {
+                                                                if (isPreassigned) {
+                                                                    handleAceptarSolicitudPreasignada(tecnicoSugeridoName);
+                                                                } else {
+                                                                    handleOpenAssignModal();
+                                                                }
+                                                            }}
+                                                            style={{
+                                                                marginTop: '8px',
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                gap: '8px',
+                                                                background: 'linear-gradient(135deg, #dc2626 0%, #ef4444 100%)',
+                                                                color: 'white',
+                                                                border: 'none',
+                                                                padding: '10px 20px',
+                                                                borderRadius: '25px',
+                                                                fontSize: '13px',
+                                                                fontWeight: '700',
+                                                                cursor: 'pointer',
+                                                                transition: 'all 0.2s ease',
+                                                                boxShadow: '0 4px 12px rgba(220, 38, 38, 0.35)',
+                                                                whiteSpace: 'nowrap',
+                                                                width: '100%',
+                                                                justifyContent: 'center'
+                                                            }}
+                                                            onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-1px)')}
+                                                            onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}
+                                                        >
+                                                            {isPreassigned ? `🚨 Confirmar y Aceptar (${tecnicoSugeridoName || trabajo.tecnico})` : '🚨 Asignar Técnico (Emergencia)'}
+                                                        </button>
+                                                    );
+                                                })()
                                             ) : null
                                         ) : null
                                     )}
@@ -3560,9 +3598,27 @@ const AutonomoDetalleTrabajo: React.FC = () => {
                                     <HiOutlineSquare3Stack3D size={16} /> Problema Reportado
                                 </span>
                                 <div style={{ background: '#f8fafc', borderLeft: '4px solid #3b82f6', padding: '24px', borderRadius: '0 16px 16px 0', border: '1px solid #e2e8f0', borderLeftWidth: '4px' }}>
-                                    <p style={{ fontSize: '17px', color: '#334155', margin: 0, lineHeight: '1.7', fontStyle: 'italic' }}>
-                                        "{trabajo.descripcion}"
-                                    </p>
+                                    {(() => {
+                                        let desc = trabajo.descripcion || "";
+                                        let tecnicoSugerido = null;
+                                        const match = desc.match(/^\[Técnico sugerido:\s*([^\]]+)\]\s*/i);
+                                        if (match) {
+                                            tecnicoSugerido = match[1];
+                                            desc = desc.substring(match[0].length).trim();
+                                        }
+                                        return (
+                                            <>
+                                                {tecnicoSugerido && (
+                                                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#e0f2fe', color: '#0369a1', padding: '6px 14px', borderRadius: '16px', fontSize: '14px', fontWeight: '700', marginBottom: '16px', border: '1px solid #bae6fd' }}>
+                                                        <span style={{ fontSize: '16px' }}>👷</span> Técnico sugerido: {tecnicoSugerido}
+                                                    </div>
+                                                )}
+                                                <p style={{ fontSize: '17px', color: '#334155', margin: 0, lineHeight: '1.7', fontStyle: 'italic' }}>
+                                                    "{desc}"
+                                                </p>
+                                            </>
+                                        );
+                                    })()}
                                 </div>
                             </div>
                         )}
@@ -3601,35 +3657,42 @@ const AutonomoDetalleTrabajo: React.FC = () => {
                         {/* Botón de Acción para Admin/Gerente dentro del Modal */}
                         {(['admin', 'autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '')) && trabajo?.estado !== 'Finalizado' && trabajo?.estado !== 'Asignado' && trabajo?.estado !== 'En Proceso' && trabajo?.estado !== 'Cancelado' && (
                             <div style={{ width: '100%', marginTop: '40px', paddingTop: '30px', borderTop: '2px solid #f1f5f9', display: 'flex', justifyContent: 'center', gap: '20px', flexWrap: 'wrap' }}>
-                                <button
-                                    onClick={() => {
-                                        if (trabajo?.tecnico && trabajo.tecnico !== 'Sin asignar' && trabajo.tecnico !== 'Sin Asignar') {
-                                            handleAceptarSolicitudPreasignada();
-                                        } else {
-                                            setShowZoomModal(false);
-                                            handleOpenAssignModal();
-                                        }
-                                    }}
-                                    style={{
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        gap: '10px',
-                                        background: 'linear-gradient(135deg, #2563eb 0%, #3b82f6 100%)',
-                                        color: 'white',
-                                        border: '1px solid #1d4ed8',
-                                        padding: '16px 36px',
-                                        borderRadius: '30px',
-                                        fontSize: '16px',
-                                        fontWeight: '700',
-                                        cursor: 'pointer',
-                                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                        boxShadow: '0 10px 20px -5px rgba(59, 130, 246, 0.5), inset 0 1px 1px rgba(255,255,255,0.2)'
-                                    }}
-                                    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 15px 25px -5px rgba(59, 130, 246, 0.6), inset 0 1px 1px rgba(255,255,255,0.2)'; }}
-                                    onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 10px 20px -5px rgba(59, 130, 246, 0.5), inset 0 1px 1px rgba(255,255,255,0.2)'; }}
-                                >
-                                    {trabajo?.tecnico && trabajo.tecnico !== 'Sin asignar' && trabajo.tecnico !== 'Sin Asignar' ? `✅ Confirmar y Aceptar` : '👤 Asignar Técnico'}
-                                </button>
+                                {(() => {
+                                    const match = (trabajo?.descripcion || "").match(/^\[Técnico sugerido:\s*([^\]]+)\]\s*/i);
+                                    const tecnicoSugeridoName = match ? match[1] : null;
+                                    const isPreassigned = tecnicoSugeridoName || (trabajo?.tecnico && trabajo.tecnico !== 'Sin asignar' && trabajo.tecnico !== 'Sin Asignar');
+                                    return (
+                                        <button
+                                            onClick={() => {
+                                                if (isPreassigned) {
+                                                    handleAceptarSolicitudPreasignada(tecnicoSugeridoName);
+                                                } else {
+                                                    setShowZoomModal(false);
+                                                    handleOpenAssignModal();
+                                                }
+                                            }}
+                                            style={{
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '10px',
+                                                background: 'linear-gradient(135deg, #2563eb 0%, #3b82f6 100%)',
+                                                color: 'white',
+                                                border: '1px solid #1d4ed8',
+                                                padding: '16px 36px',
+                                                borderRadius: '30px',
+                                                fontSize: '16px',
+                                                fontWeight: '700',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                                boxShadow: '0 10px 20px -5px rgba(59, 130, 246, 0.5), inset 0 1px 1px rgba(255,255,255,0.2)'
+                                            }}
+                                            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 15px 25px -5px rgba(59, 130, 246, 0.6), inset 0 1px 1px rgba(255,255,255,0.2)'; }}
+                                            onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 10px 20px -5px rgba(59, 130, 246, 0.5), inset 0 1px 1px rgba(255,255,255,0.2)'; }}
+                                        >
+                                            {isPreassigned ? `✅ Confirmar y Aceptar` : '👤 Asignar Técnico'}
+                                        </button>
+                                    );
+                                })()}
                                 <button
                                     onClick={handleAdminRechazarSolicitud}
                                     style={{

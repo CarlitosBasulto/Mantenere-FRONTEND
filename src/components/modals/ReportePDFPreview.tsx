@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { HiOutlineXMark, HiOutlinePrinter, HiOutlineArrowDownTray, HiOutlinePhoto } from 'react-icons/hi2';
+import { HiOutlineXMark, HiOutlinePrinter, HiOutlineArrowDownTray, HiOutlinePhoto, HiOutlinePaperAirplane } from 'react-icons/hi2';
 import { generateMaintenanceReportPDF } from '../../utils/pdfGenerator';
 
 const getAvatarForTech = (nombre: string) => {
@@ -58,6 +58,7 @@ interface ReportePDFPreviewProps {
     subTareas?: any[];
     isVisita?: boolean;
     onClose: () => void;
+    onSendToAdminAutonomo?: () => void;
 }
 
 const getCleanNotes = (text: string) => {
@@ -67,7 +68,7 @@ const getCleanNotes = (text: string) => {
     return cleanLines.join('\n').trim();
 };
 
-export default function ReportePDFPreview({ trabajo, reporteData, subTareas, isVisita: isVisitaProp, onClose }: ReportePDFPreviewProps) {
+export default function ReportePDFPreview({ trabajo, reporteData, subTareas, isVisita: isVisitaProp, onClose, onSendToAdminAutonomo }: ReportePDFPreviewProps) {
     const isVisita = isVisitaProp ?? reporteData?.isVisita ?? (trabajo?.tipo === 'Visita' || trabajo?.originalTipo === 'Visita');
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [customLogo, setCustomLogo] = useState<string | null>(null);
@@ -206,6 +207,11 @@ export default function ReportePDFPreview({ trabajo, reporteData, subTareas, isV
                 <button onClick={() => fileInputRef.current?.click()} style={{ padding: '10px 15px', background: '#f59e0b', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', flex: '1 1 auto', justifyContent: 'center' }}>
                     <HiOutlinePhoto size={18} /> CAMBIAR LOGO
                 </button>
+                {onSendToAdminAutonomo && (
+                    <button onClick={onSendToAdminAutonomo} style={{ padding: '10px 15px', background: '#8b5cf6', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', flex: '1 1 auto', justifyContent: 'center' }}>
+                        <HiOutlinePaperAirplane size={18} /> ENVIAR A ADMIN
+                    </button>
+                )}
                 <button onClick={handleDownload} style={{ padding: '10px 15px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', flex: '1 1 auto', justifyContent: 'center' }}>
                     <HiOutlineArrowDownTray size={18} /> DESCARGAR
                 </button>
@@ -324,9 +330,8 @@ export default function ReportePDFPreview({ trabajo, reporteData, subTareas, isV
                     {(() => {
                         const isVisita = trabajo?.tipo === 'Visita' || trabajo?.originalTipo === 'Visita';
                         const totalAmount = reporteData.refaccionesList.reduce((acc, ref) => {
-                            const qty = ref.cantidad || 1;
-                            const price = parseFloat(ref.costo_estimado) || 0;
-                            return acc + (qty * price);
+                            const totalPrice = parseFloat(ref.costo_estimado) || 0;
+                            return acc + totalPrice;
                         }, 0);
                         const subtotal = totalAmount / 1.16;
                         const iva = totalAmount - subtotal;
@@ -351,15 +356,15 @@ export default function ReportePDFPreview({ trabajo, reporteData, subTareas, isV
                                             <tbody>
                                                 {reporteData.refaccionesList.map((ref, idx) => {
                                                     const qty = ref.cantidad || 1;
-                                                    const price = parseFloat(ref.costo_estimado) || 0;
-                                                    const total = qty * price;
+                                                    const totalPrice = parseFloat(ref.costo_estimado) || 0;
+                                                    const unitPrice = qty > 0 ? totalPrice / qty : totalPrice;
                                                     return (
                                                         <tr key={idx} style={{ borderBottom: '1px solid #e2e8f0', background: idx % 2 === 0 ? '#f8fafc' : '#fff' }}>
                                                             <td style={{ padding: '8px 12px', fontWeight: 'bold' }}>{idx + 1}</td>
                                                             <td style={{ padding: '8px 12px', textTransform: 'uppercase' }}>{ref.pieza}</td>
                                                             <td style={{ padding: '8px 12px', textAlign: 'center' }}>{qty}</td>
-                                                            <td style={{ padding: '8px 12px', textAlign: 'right' }}>{price > 0 ? `$${price.toLocaleString('es-MX', { minimumFractionDigits: 2 })}` : 'N/A'}</td>
-                                                            <td style={{ padding: '8px 12px', textAlign: 'right' }}>{total > 0 ? `$${total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}` : 'N/A'}</td>
+                                                            <td style={{ padding: '8px 12px', textAlign: 'right' }}>{unitPrice > 0 ? `$${unitPrice.toLocaleString('es-MX', { minimumFractionDigits: 2 })}` : 'N/A'}</td>
+                                                            <td style={{ padding: '8px 12px', textAlign: 'right' }}>{totalPrice > 0 ? `$${totalPrice.toLocaleString('es-MX', { minimumFractionDigits: 2 })}` : 'N/A'}</td>
                                                         </tr>
                                                     );
                                                 })}

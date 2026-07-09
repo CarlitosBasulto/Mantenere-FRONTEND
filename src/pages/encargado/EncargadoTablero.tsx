@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import styles from './AutonomoTablero.module.css';
+import styles from '../autonomo/AutonomoTablero.module.css';
 import { getTrabajos } from '../../services/trabajosService';
 import { getUsers } from '../../services/usersService';
 import { getActividadesByTrabajo } from '../../services/actividadesService';
 import { HiOutlineBuildingOffice, HiOutlineUser, HiOutlineClock, HiOutlineBriefcase, HiOutlineCheckCircle, HiArrowPath } from 'react-icons/hi2';
+import { useAuth } from '../../context/AuthContext';
 
 interface Trabajo {
     id: number;
@@ -25,19 +26,23 @@ interface Trabajo {
     };
     // Extra fields fetched
     subgerenteName?: string;
+    horaLlegada?: string;
     hora_llegada?: string;
     latitud_llegada?: string;
     longitud_llegada?: string;
 }
 
-const AutonomoTablero: React.FC = () => {
+const EncargadoTablero: React.FC = () => {
     const navigate = useNavigate();
+    const { user } = useAuth();
     const [trabajos, setTrabajos] = useState<Trabajo[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
 
     const fetchData = async (isSilent = false) => {
+        if (!user || !user.negocio_id) return;
+
         if (!isSilent) setLoading(true);
         else setRefreshing(true);
 
@@ -48,6 +53,9 @@ const AutonomoTablero: React.FC = () => {
                 getUsers()
             ]);
 
+            // Filter jobs by current user's negocio_id
+            const misTrabajos = trabajosData.filter((t: any) => t.negocio_id === user.negocio_id);
+
             // 2. Map subgerentes
             const subgerentesMap = new Map<number, string>();
             usersData.forEach((u: any) => {
@@ -57,7 +65,7 @@ const AutonomoTablero: React.FC = () => {
             });
 
             // hora_llegada is now natively provided in the 'hora_llegada' column of Trabajo
-            let processedJobs: Trabajo[] = trabajosData.map((t: any) => ({
+            let processedJobs: Trabajo[] = misTrabajos.map((t: any) => ({
                 ...t,
                 subgerenteName: t.admin_autonomo_id ? (subgerentesMap.get(t.admin_autonomo_id) || 'Asignado') : 'Sin Asignar'
             }));
@@ -91,13 +99,13 @@ const AutonomoTablero: React.FC = () => {
 
     // Filter columns
     const colSolicitudes = trabajos.filter(t => ['Solicitud', 'Pendiente'].includes(t.estado));
-    const colAceptadas = trabajos.filter(t => ['Aceptada', 'Asignado', 'Cotización Aceptada', 'Cotización Enviada'].includes(t.estado));
-    const colVisita = trabajos.filter(t => ['En Espera'].includes(t.estado) || (t.estado === 'En Proceso' && t.tipo === 'Visita'));
-    const colProceso = trabajos.filter(t => t.estado === 'En Proceso' && t.tipo !== 'Visita');
+    const colCotizaciones = trabajos.filter(t => ['Cotización Enviada', 'Cotización Aceptada'].includes(t.estado));
+    const colEnEspera = trabajos.filter(t => ['Aceptada', 'Asignado', 'En Espera'].includes(t.estado));
+    const colProceso = trabajos.filter(t => t.estado === 'En Proceso');
     const colFinalizadas = trabajos.filter(t => ['Finalizado', 'Completado'].includes(t.estado));
 
     const renderCard = (t: Trabajo) => (
-        <div key={t.id} className={styles.card} onClick={() => navigate(`/autonomo/trabajo-detalle/${t.id}`)}>
+        <div key={t.id} className={styles.card} onClick={() => navigate(`/encargado/trabajo-detalle/${t.id}`)}>
             <div className={styles.cardHeader}>
                 <span className={styles.jobId}>#{t.id}</span>
                 <span className={`${styles.priorityBadge} ${t.prioridad === 'Alta' ? styles.priorityAlta : (t.prioridad === 'Media' ? styles.priorityMedia : styles.priorityBaja)}`}>
@@ -127,26 +135,28 @@ const AutonomoTablero: React.FC = () => {
             
             {t.subgerenteName && t.subgerenteName !== 'Sin Asignar' && (
                 <div className={styles.infoRow}>
-                    <HiOutlineUser size={16} />
-                    <span>Subgerente: <span className={styles.strongText}>{t.subgerenteName}</span></span>
-                </div>
-            )}
-
-            {t.trabajador && (
-                <div className={styles.infoRow}>
                     <HiOutlineBriefcase size={16} />
-                    <span>Técnico: <span className={styles.strongText}>{t.trabajador.nombre}</span></span>
+                    <span className={styles.subText}>{t.subgerenteName}</span>
                 </div>
             )}
-
-
-
+            
+            <div className={styles.infoRow}>
+                <HiOutlineUser size={16} />
+                <span className={styles.subText}>{t.trabajador?.nombre || 'Sin asignar'}</span>
+            </div>
+            
+            {t.fecha_programada && (
+                <div className={styles.infoRow}>
+                    <HiOutlineClock size={16} />
+                    <span className={styles.subText}>{new Date(t.fecha_programada).toLocaleDateString()}</span>
+                </div>
+            )}
+            
             <div className={styles.cardFooter}>
-                <span className={styles.dateText}>
-                    <HiOutlineClock size={14} />
-                    {new Date(t.created_at).toLocaleDateString()}
+                <span className={`${styles.typeBadge} ${t.tipo === 'Visita' ? styles.typeVisita : styles.typeTrabajo}`}>
+                    {t.tipo}
                 </span>
-                <span style={{ fontWeight: 600, color: '#3b82f6' }}>{t.tipo}</span>
+                <span className={styles.dateText}>{new Date(t.created_at).toLocaleDateString()}</span>
             </div>
         </div>
     );
@@ -156,68 +166,83 @@ const AutonomoTablero: React.FC = () => {
             <div className={styles.header}>
                 <div>
                     <h1>Tablero de Operaciones</h1>
-                    <p>Monitoreo en tiempo real de todas las sucursales</p>
+                    <p>Monitorea y gestiona los trabajos en tu sucursal</p>
                 </div>
-                {refreshing && (
-                    <div className={styles.refreshBadge}>
-                        <HiArrowPath className={styles.spinIcon} /> Actualizando...
+                
+                <div className={styles.actionsGroup}>
+                    <div className={styles.lastUpdated}>
+                        <HiOutlineCheckCircle size={16} color="#10b981"/>
+                        <span>Actualizado {lastUpdated.toLocaleTimeString()}</span>
                     </div>
-                )}
+                    <button 
+                        className={styles.refreshBtn} 
+                        onClick={() => fetchData(true)}
+                        disabled={refreshing}
+                    >
+                        <HiArrowPath size={18} className={refreshing ? styles.spin : ''} />
+                        <span>Actualizar</span>
+                    </button>
+                </div>
             </div>
 
             <div className={styles.board}>
-                {/* SOLICITUDES */}
+                {/* Columna Pendientes */}
                 <div className={styles.column}>
-                    <div className={`${styles.columnHeader} ${styles.colSolicitudes}`}>
-                        <div className={styles.columnTitle}>Solicitudes</div>
-                        <span className={styles.columnBadge}>{colSolicitudes.length}</span>
+                    <div className={`${styles.columnHeader} ${styles.colYellow}`}>
+                        <h3>Solicitudes / Pendientes</h3>
+                        <span className={styles.countBadge}>{colSolicitudes.length}</span>
                     </div>
                     <div className={styles.cardList}>
                         {colSolicitudes.map(renderCard)}
+                        {colSolicitudes.length === 0 && <div className={styles.emptyState}>No hay trabajos pendientes</div>}
                     </div>
                 </div>
 
-                {/* ACEPTADAS */}
+                {/* Columna Cotizaciones */}
                 <div className={styles.column}>
-                    <div className={`${styles.columnHeader} ${styles.colAceptadas}`}>
-                        <div className={styles.columnTitle}>Aceptadas</div>
-                        <span className={styles.columnBadge}>{colAceptadas.length}</span>
+                    <div className={`${styles.columnHeader} ${styles.colBlue}`}>
+                        <h3>Cotizaciones</h3>
+                        <span className={styles.countBadge}>{colCotizaciones.length}</span>
                     </div>
                     <div className={styles.cardList}>
-                        {colAceptadas.map(renderCard)}
+                        {colCotizaciones.map(renderCard)}
+                        {colCotizaciones.length === 0 && <div className={styles.emptyState}>No hay cotizaciones activas</div>}
                     </div>
                 </div>
 
-                {/* EN VISITA */}
+                {/* Columna En Espera (Visitas/Técnico Aceptado) */}
                 <div className={styles.column}>
-                    <div className={`${styles.columnHeader} ${styles.colVisita}`}>
-                        <div className={styles.columnTitle}>En Visita</div>
-                        <span className={styles.columnBadge}>{colVisita.length}</span>
+                    <div className={`${styles.columnHeader} ${styles.colOrange}`}>
+                        <h3>Técnico en Camino / Visita</h3>
+                        <span className={styles.countBadge}>{colEnEspera.length}</span>
                     </div>
                     <div className={styles.cardList}>
-                        {colVisita.map(renderCard)}
+                        {colEnEspera.map(renderCard)}
+                        {colEnEspera.length === 0 && <div className={styles.emptyState}>No hay técnicos en espera</div>}
                     </div>
                 </div>
 
-                {/* EN PROCESO */}
+                {/* Columna En Proceso */}
                 <div className={styles.column}>
-                    <div className={`${styles.columnHeader} ${styles.colProceso}`}>
-                        <div className={styles.columnTitle}>En Proceso</div>
-                        <span className={styles.columnBadge}>{colProceso.length}</span>
+                    <div className={`${styles.columnHeader} ${styles.colGreen}`}>
+                        <h3>En Proceso</h3>
+                        <span className={styles.countBadge}>{colProceso.length}</span>
                     </div>
                     <div className={styles.cardList}>
                         {colProceso.map(renderCard)}
+                        {colProceso.length === 0 && <div className={styles.emptyState}>No hay trabajos en proceso</div>}
                     </div>
                 </div>
 
-                {/* FINALIZADAS */}
+                {/* Columna Finalizados */}
                 <div className={styles.column}>
-                    <div className={`${styles.columnHeader} ${styles.colFinalizadas}`}>
-                        <div className={styles.columnTitle}>Finalizadas</div>
-                        <span className={styles.columnBadge}>{colFinalizadas.length}</span>
+                    <div className={`${styles.columnHeader} ${styles.colPurple}`}>
+                        <h3>Finalizados</h3>
+                        <span className={styles.countBadge}>{colFinalizadas.length}</span>
                     </div>
                     <div className={styles.cardList}>
                         {colFinalizadas.map(renderCard)}
+                        {colFinalizadas.length === 0 && <div className={styles.emptyState}>No hay trabajos finalizados</div>}
                     </div>
                 </div>
             </div>
@@ -225,4 +250,4 @@ const AutonomoTablero: React.FC = () => {
     );
 };
 
-export default AutonomoTablero;
+export default EncargadoTablero;

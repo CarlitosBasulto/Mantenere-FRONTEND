@@ -1234,6 +1234,11 @@ const TrabajoDetalle: React.FC = () => {
                                                 <p className={styles.strikingDate}>
                                                     📅 Cita solicitada: {trabajo.fechaAsignada || trabajo.fecha}
                                                 </p>
+                                                {trabajo.hora_llegada && (
+                                                    <p className={styles.strikingDate} style={{ color: '#059669', marginTop: '4px', background: '#ecfdf5', display: 'inline-block', padding: '2px 8px', borderRadius: '8px' }}>
+                                                        ⏰ Llegada aprox: {trabajo.hora_llegada}
+                                                    </p>
+                                                )}
                                             </div>
                                             {/* ACCIONES - Solo Admin o Cliente en la parte derecha del header */}
                                             {user?.role === 'cliente' && (

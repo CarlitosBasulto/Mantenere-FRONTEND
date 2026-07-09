@@ -1,4 +1,5 @@
 import { Navigate, useLocation } from "react-router-dom";
+import MandatoryPasswordModal from "./modals/MandatoryPasswordModal";
 
 interface Props {
     children: React.ReactNode;
@@ -31,7 +32,12 @@ const ProtectedRoute = ({ children, allowedRoles }: Props) => {
     }
 
     console.log("✅ [ProtectedRoute] ACCESO CONCEDIDO");
-    return <>{children}</>;
+    return (
+        <>
+            {children}
+            {user.must_change_password && <MandatoryPasswordModal />}
+        </>
+    );
 };
 
 export default ProtectedRoute;

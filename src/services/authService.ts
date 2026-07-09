@@ -29,3 +29,9 @@ export const resetPassword = async (data: any) => {
     const res = await api.post(`/reset-password`, data);
     return res.data;
 };
+
+// Cambiar contraseña obligatoria
+export const changeMandatoryPassword = async (data: any) => {
+    const res = await api.post(`/auth/change-mandatory-password`, data);
+    return res.data;
+};

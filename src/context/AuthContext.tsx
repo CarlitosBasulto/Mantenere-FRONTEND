@@ -13,6 +13,7 @@ interface User {
     negocio_id?: number; // Sucursal asignada (solo para rol encargado)
     admin_autonomo_id?: number | null;
     cv_url?: string | null;
+    must_change_password?: boolean;
 }
 
 interface AuthContextType {
