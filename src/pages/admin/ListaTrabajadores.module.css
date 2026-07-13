@@ -89,106 +89,313 @@
 
 .jobsSection {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: 20px;
     align-content: start;
     padding-bottom: 30px;
 }
 
-.jobCard {
-    background: white;
-    padding: 24px 20px 20px;
-    border-radius: 24px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.06);
+.flipCard {
+    background: transparent;
+    perspective: 1000px;
     width: 100%;
-    border: 2px solid #eaeaea;
-    min-height: 160px;
+    height: 250px;
+    border: none;
+    outline: none;
+}
+
+.flipCardInner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    text-align: center;
+    transition: transform 0.65s cubic-bezier(0.4, 0, 0.2, 1);
+    transform-style: preserve-3d;
+}
+
+.flipCard:hover .flipCardInner,
+.flipCard.isFlipped .flipCardInner {
+    transform: rotateY(180deg);
+}
+
+.flipCardFront,
+.flipCardBack {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    border-radius: 20px;
+    border: 2px solid #a7f3d0; /* Soft green frame for Activos */
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+    overflow: hidden;
+    background: white;
+    box-sizing: border-box;
+}
+
+.flipCard.cardBaja .flipCardFront,
+.flipCard.cardBaja .flipCardBack {
+    border: 2px solid #fecaca; /* Soft red frame for Baja */
+}
+
+.flipCardFront {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    position: relative;
-    overflow: hidden;
-    cursor: pointer;
-    transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
-    text-align: center;
+    justify-content: flex-start;
+    padding: 0;
 }
 
-.jobCard:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 12px 30px rgba(242, 101, 34, 0.15);
-    border-color: #f26522;
+.flipCardBack {
+    transform: rotateY(180deg);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 24px;
+    background: #fafafb;
+    border: 1px solid #eef2f6;
+}
+
+.cardCoverWrapper {
+    width: 100%;
+    height: 120px;
+    position: relative;
+    overflow: hidden;
+    background: #e2e8f0;
+}
+
+.cardCoverImage {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.cardCoverPlaceholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #ffffff;
+}
+
+.cardInfoWrapper {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    justify-content: center;
+    flex: 1;
+    z-index: 1;
+    position: relative;
+    background: #ecfdf5; /* Soft active green background */
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.flipCard.cardBaja .cardInfoWrapper {
+    background: #fef2f2; /* Soft baja red background */
+}
+
+.cardContentBack {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    position: relative;
+    z-index: 1;
+    justify-content: space-between;
 }
 
 .cardContent {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 10px;
     width: 100%;
+    height: 100%;
+    position: relative;
+    z-index: 1;
+}
+
+.cardHeaderRow {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    width: 100%;
+    margin-bottom: 12px;
 }
 
 .cardIcon {
-    width: 70px;
-    height: 70px;
-    background: #f4f4f4;
+    width: 58px;
+    height: 58px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: #f1f5f9;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #e2e8f0;
+    flex-shrink: 0;
+}
+
+.headerTextGroup {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.statusMenuRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+}
+
+.statusPill {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.statusPill.active {
+    background: #ecfdf5;
+    color: #10b981;
+}
+
+.statusPill.baja {
+    background: #fef2f2;
+    color: #ef4444;
+}
+
+.statusDot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.menuBtn {
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    padding: 2px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 30px;
-    flex-shrink: 0;
-    border: 3px solid #eee;
-    overflow: hidden;
-    margin-bottom: 4px;
+    transition: background 0.2s;
 }
 
-.cardInfo {
+.menuBtn:hover {
+    background: #f1f5f9;
+    color: #64748b;
+}
+
+.cardName {
+    font-size: 15px;
+    font-weight: 800;
+    color: #1e293b;
+    margin: 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.25;
+    height: 2.5em;
+}
+
+.cardPuesto {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #64748b;
+    margin: 0;
+}
+
+.divider {
+    height: 1px;
+    background: #f1f5f9;
+    width: 100%;
+    margin-bottom: 12px;
+}
+
+.detailsList {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 4px;
-    min-width: 0;
+    gap: 10px;
+    margin-bottom: 12px;
     width: 100%;
 }
 
-.cardDate {
-    font-size: 11px;
-    color: #aaa;
-    margin-top: 6px;
-}
-
-.cardInfo h3 {
-    margin: 0;
-    font-size: 15px;
-    color: #111;
-    font-weight: 700;
-    text-align: center;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 100%;
-}
-
-.cardInfo p {
-    margin: 0;
+.detailItem {
+    display: flex;
+    align-items: center;
+    gap: 12px;
     font-size: 13px;
-    color: #777;
-    text-align: center;
+    color: #475569;
+    font-weight: 600;
+    padding: 8px 12px;
+    background: #ffffff;
+    border-radius: 12px;
+    border: 1px solid #f1f5f9;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+    transition: all 0.2s ease;
+    text-align: left;
 }
 
-.cardIndicator {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 5px;
-    background: #d4ebf9;
-    border-radius: 24px 24px 0 0;
+.detailItem:hover {
+    transform: translateX(4px);
+    background: #f8fafc;
+    border-color: #e2e8f0;
 }
 
-.orange {
-    background: linear-gradient(90deg, #fb923c, #f97316); /* Naranja de la marca */
+.detailIcon {
+    color: #f26522;
+    width: 28px;
+    height: 28px;
+    background: rgba(242, 101, 34, 0.08);
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.cardFooter {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+    margin-top: auto;
+}
+
+.detailsBtn {
+    flex: 1;
+    height: 38px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    background: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    color: #64748b;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.detailsBtn:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+    color: #1e293b;
 }
 
 /* Modal styles Improved */
@@ -781,7 +988,39 @@
 
 @media (max-width: 480px) {
     .jobsSection {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 10px !important;
+    }
+
+    .flipCard {
+        height: 220px !important;
+    }
+
+    .cardCoverWrapper {
+        height: 90px !important;
+    }
+
+    .cardInfoWrapper {
+        padding: 8px !important;
+    }
+
+    .cardName {
+        font-size: 11.5px !important;
+    }
+
+    .cardPuesto {
+        font-size: 9.5px !important;
+    }
+
+    .detailItem {
+        padding: 5px 6px !important;
+        gap: 6px !important;
+        font-size: 9.5px !important;
+    }
+
+    .detailIcon {
+        width: 18px !important;
+        height: 18px !important;
     }
 
     .rolesGrid {

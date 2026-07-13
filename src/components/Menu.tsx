@@ -341,6 +341,16 @@ const MenuLayout: React.FC = () => {
                 </div>
 
                 <nav className={styles.menu}>
+                    {activeOption && sidebarOptions.indexOf(activeOption) !== -1 && (
+                        <div 
+                            className={styles.fluidIndicator} 
+                            style={{
+                                '--active-index': sidebarOptions.indexOf(activeOption),
+                                '--options-count': sidebarOptions.length,
+                                transform: `translateY(${sidebarOptions.indexOf(activeOption) * 54}px)`
+                            } as React.CSSProperties}
+                        />
+                    )}
                     {sidebarOptions.map((option) => (
                         <button
                             key={option}

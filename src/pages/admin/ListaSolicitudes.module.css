@@ -67,11 +67,8 @@
     flex-direction: column;
     gap: 15px;
     flex: 1;
-    overflow-y: auto;
-    min-height: 0;
+    overflow: visible;
     padding-right: 10px;
-    -ms-overflow-style: none;  /* IE y Edge */
-    scrollbar-width: none;  /* Firefox */
 }
 
 .jobsSection::-webkit-scrollbar {

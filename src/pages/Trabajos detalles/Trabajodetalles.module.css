@@ -1238,37 +1238,53 @@
         overflow-x: auto !important;
         width: 100% !important;
         max-width: 100% !important;
-        gap: 12px !important;
+        gap: 8px !important;
         box-sizing: border-box;
-        scrollbar-width: none;
-        -ms-overflow-style: none;
+        scrollbar-width: thin;
+        scrollbar-color: #cbd5e1 #f1f5f9;
     }
 
     .summaryGrid::-webkit-scrollbar {
-        display: none;
+        height: 5px;
+        display: block !important;
+    }
+
+    .summaryGrid::-webkit-scrollbar-track {
+        background: #f1f5f9;
+        border-radius: 10px;
+    }
+
+    .summaryGrid::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 10px;
+    }
+
+    .summaryGrid::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
     }
 
     .miniCountCard {
-        flex: 0 0 90px !important;
-        padding: 8px 4px !important;
+        flex: 0 0 auto !important;
+        width: 85px !important;
+        padding: 6px 2px !important;
         box-sizing: border-box;
         border-radius: 12px !important;
     }
 
     .miniCountIconWrapper {
-        width: 24px !important;
-        height: 24px !important;
-        font-size: 12px !important;
+        width: 22px !important;
+        height: 22px !important;
+        font-size: 11px !important;
         margin-bottom: 2px !important;
     }
 
     .miniCountValue {
-        font-size: 14px !important;
+        font-size: 13px !important;
         font-weight: 700 !important;
     }
 
     .miniCountLabel {
-        font-size: 8.5px !important;
+        font-size: 8px !important;
     }
 
     .searchGroup {
@@ -1759,6 +1775,30 @@
     font-size: 11px;
     font-weight: 600;
     color: #64748b;
+}
+
+.cardBlue {
+    border: 2px solid #bae6fd !important;
+    background-color: #f0f9ff !important;
+    box-shadow: 0 4px 12px rgba(3, 105, 161, 0.04) !important;
+}
+
+.cardGreen {
+    border: 2px solid #bbf7d0 !important;
+    background-color: #f0fdf4 !important;
+    box-shadow: 0 4px 12px rgba(21, 128, 61, 0.04) !important;
+}
+
+.cardTeal {
+    border: 2px solid #99f6e4 !important;
+    background-color: #f0fdfa !important;
+    box-shadow: 0 4px 12px rgba(15, 118, 110, 0.04) !important;
+}
+
+.cardPurple {
+    border: 2px solid #e9d5ff !important;
+    background-color: #faf5ff !important;
+    box-shadow: 0 4px 12px rgba(126, 34, 206, 0.04) !important;
 }
 
 /* RECENT JOBS */

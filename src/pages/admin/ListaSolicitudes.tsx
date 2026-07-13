@@ -251,16 +251,26 @@ const ListaSolicitudes: React.FC = () => {
                 </div>
 
                 <div className={styles.jobsSection}>
-                    {filteredRequests.map((req) => (
-                        <div
-                            key={req.id}
-                            className={styles.jobCard}
-                            onClick={() => {
-                                const isAutonomoContext = ['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '');
-                                const basePath = user?.role === 'tecnico' ? '/tecnico' : (isAutonomoContext ? '/autonomo' : '/menu');
-                                navigate(`${basePath}/trabajo-detalle/${req.id}`);
-                            }}
-                        >
+                    {filteredRequests.map((req, index) => {
+                        const stackIndex = Math.min(index, 5);
+                        return (
+                            <div 
+                                key={req.id} 
+                                style={{ 
+                                    position: 'sticky', 
+                                    top: `calc(10px + ${stackIndex * 14}px)`, 
+                                    zIndex: index, 
+                                    paddingBottom: '15px' 
+                                }}
+                            >
+                                <div
+                                    className={styles.jobCard}
+                                    onClick={() => {
+                                        const isAutonomoContext = ['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '');
+                                        const basePath = user?.role === 'tecnico' ? '/tecnico' : (isAutonomoContext ? '/autonomo' : '/menu');
+                                        navigate(`${basePath}/trabajo-detalle/${req.id}`);
+                                    }}
+                                >
                             {/* BARRA DE ESTADO SUPERIOR */}
                             {renderStatusBar(req)}
 
@@ -350,7 +360,9 @@ const ListaSolicitudes: React.FC = () => {
                                 </div>
                             </div>
                         </div>
-                    ))}
+                    </div>
+                );
+            })}
                 </div>
             </div>
 

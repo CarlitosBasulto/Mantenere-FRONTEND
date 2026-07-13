@@ -2526,14 +2526,29 @@ const AdminDetalleTrabajo: React.FC = () => {
                         ];
 
                         return (
-                            <div style={{ padding: '8px 15px', background: '#fff', borderRadius: '12px', marginBottom: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.02)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid #f0f0f0' }}>
+                            <div style={{ 
+                                padding: '12px 15px', 
+                                background: '#fff', 
+                                borderRadius: '12px', 
+                                marginBottom: '10px', 
+                                boxShadow: '0 2px 8px rgba(0,0,0,0.02)', 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                justifyContent: 'space-between', 
+                                border: '1px solid #f0f0f0',
+                                overflowX: 'auto',
+                                WebkitOverflowScrolling: 'touch',
+                                gap: '8px',
+                                width: '100%',
+                                boxSizing: 'border-box'
+                            }}>
                                 {steps.map((step, index, arr) => {
                                     const isActive = currentStep === step.id;
                                     const isCompleted = currentStep > step.id;
 
                                     return (
                                         <React.Fragment key={step.id}>
-                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', zIndex: 1, width: '80px' }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', zIndex: 1, width: '80px', flexShrink: 0 }}>
                                                 <div style={{
                                                     width: '28px',
                                                     height: '28px',
@@ -2565,7 +2580,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                                             </div>
 
                                             {index < arr.length - 1 && (
-                                                <div style={{ flex: 1, height: '4px', background: '#e2e8f0', borderRadius: '2px', position: 'relative', margin: '0 8px', bottom: '8px', overflow: 'hidden' }}>
+                                                <div style={{ flex: '1 0 20px', minWidth: '15px', height: '4px', background: '#e2e8f0', borderRadius: '2px', position: 'relative', margin: '0 8px', bottom: '8px', overflow: 'hidden' }}>
                                                     <div style={{
                                                         position: 'absolute',
                                                         top: 0,

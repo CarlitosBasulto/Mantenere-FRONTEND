@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import styles from './AdminPerfilTrabajador.module.css';
 import { useModal } from '../../context/ModalContext';
-import { HiOutlineCamera, HiOutlinePhoto, HiXMark, HiOutlineEnvelope, HiOutlinePhone, HiOutlineMapPin, HiOutlineWrenchScrewdriver, HiOutlineShare } from 'react-icons/hi2';
+import { HiOutlineCamera, HiOutlinePhoto, HiXMark, HiOutlineEnvelope, HiOutlinePhone, HiOutlineMapPin, HiOutlineWrenchScrewdriver, HiOutlineShare, HiOutlineUserMinus, HiOutlineUserPlus } from 'react-icons/hi2';
 import api from '../../services/api';
 import { getUsers } from '../../services/usersService';
 import { createNotificacionEcosistema, createNotificacion } from '../../services/notificacionesService';
@@ -23,7 +23,7 @@ interface Trabajador {
     trabajos_count?: number;
 }
 
-import { getTrabajador, updateTrabajador } from '../../services/trabajadoresService';
+import { getTrabajador, updateTrabajador, toggleEstado } from '../../services/trabajadoresService';
 
 const AdminPerfilTrabajador: React.FC = () => {
     const { id } = useParams();
@@ -82,6 +82,19 @@ const AdminPerfilTrabajador: React.FC = () => {
         } catch (error) {
             console.error(error);
             showAlert("Error", "No se pudo compartir el técnico.", "error");
+        }
+    };
+
+    const handleToggleStatus = async () => {
+        if (!worker) return;
+        try {
+            await toggleEstado(worker.id);
+            const nuevoEstado = worker.estado === 'Activo' ? 'Baja' : 'Activo';
+            setWorker({ ...worker, estado: nuevoEstado });
+            showAlert("Éxito", `El trabajador ha sido ${nuevoEstado === 'Activo' ? 'activado' : 'dado de baja'} correctamente.`, "success");
+        } catch (error) {
+            console.error("Error toggling state:", error);
+            showAlert("Error", "No se pudo actualizar el estado del trabajador.", "error");
         }
     };
 
@@ -219,15 +232,32 @@ const AdminPerfilTrabajador: React.FC = () => {
                         {worker.estado}
                     </span>
                     
-                    <button 
-                        className={styles.shareBtn} 
-                        onClick={() => {
-                            fetchAdmins();
-                            setIsShareModalOpen(true);
-                        }}
-                    >
-                        <HiOutlineShare size={18} /> Compartir Técnico
-                    </button>
+                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                        <button 
+                            className={styles.shareBtn} 
+                            onClick={() => {
+                                fetchAdmins();
+                                setIsShareModalOpen(true);
+                            }}
+                        >
+                            <HiOutlineShare size={18} /> Compartir Técnico
+                        </button>
+                        {worker.estado === "Activo" ? (
+                            <button 
+                                className={`${styles.statusToggleBtn} ${styles.deactivate}`}
+                                onClick={handleToggleStatus}
+                            >
+                                <HiOutlineUserMinus size={18} /> Dar de baja
+                            </button>
+                        ) : (
+                            <button 
+                                className={`${styles.statusToggleBtn} ${styles.activate}`}
+                                onClick={handleToggleStatus}
+                            >
+                                <HiOutlineUserPlus size={18} /> Activar
+                            </button>
+                        )}
+                    </div>
                 </div>
 
                 <div className={styles.divider} />

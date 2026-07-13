@@ -170,7 +170,7 @@ const ListaNegocios: React.FC = () => {
                 </div>
 
                 <div className={styles.jobsSection}>
-                    {filteredNegocios.map((negocio) => {
+                    {filteredNegocios.map((negocio, index) => {
                         let hasSOS = false;
                         let hasDiagnosis = false;
                         if (user?.role === 'admin') {
@@ -186,7 +186,7 @@ const ListaNegocios: React.FC = () => {
                         const posY = matchPos ? `${matchPos[1]}%` : 'center';
 
                         return (
-                            <div style={{ position: 'relative' }} key={negocio.id}>
+                            <div style={{ position: 'sticky', top: `calc(10px + ${index * 14}px)`, zIndex: index, paddingBottom: '10px' }} key={negocio.id}>
                                 {hasSOS && (
                                     <div className={styles.badgeSOS}>
                                         EMERGENCIA SOS

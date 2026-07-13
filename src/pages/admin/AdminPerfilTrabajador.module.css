@@ -380,6 +380,50 @@
     box-shadow: 0 6px 15px rgba(14, 165, 233, 0.4);
 }
 
+.statusToggleBtn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid transparent;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    margin-top: 15px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.statusToggleBtn.deactivate {
+    background: #fff5f5;
+    color: #ef4444;
+    border-color: #fee2e2;
+    box-shadow: 0 4px 10px rgba(239, 68, 68, 0.1);
+}
+
+.statusToggleBtn.deactivate:hover {
+    background: #ef4444;
+    color: white;
+    border-color: #ef4444;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(239, 68, 68, 0.3);
+}
+
+.statusToggleBtn.activate {
+    background: #f0fdf4;
+    color: #10b981;
+    border-color: #dcfce7;
+    box-shadow: 0 4px 10px rgba(16, 185, 129, 0.1);
+}
+
+.statusToggleBtn.activate:hover {
+    background: #10b981;
+    color: white;
+    border-color: #10b981;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(16, 185, 129, 0.3);
+}
+
 /* ============================
    MODAL COMPARTIR TÉCNICO
    ============================ */

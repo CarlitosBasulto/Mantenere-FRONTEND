@@ -2,6 +2,17 @@ import React, { useState, useEffect } from "react";
 import styles from "./AutonomoListaTrabajadores.module.css";
 import menuStyles from "../../../components/Menu.module.css";
 import { HiOutlineUser, HiX } from 'react-icons/hi';
+import { 
+    HiOutlinePhone, 
+    HiOutlineMapPin, 
+    HiOutlineCalendarDays, 
+    HiOutlineEllipsisVertical, 
+    HiOutlineListBullet, 
+    HiOutlineUserMinus, 
+    HiOutlineUserPlus,
+    HiOutlineEnvelope,
+    HiOutlineWrench
+} from 'react-icons/hi2';
 import { useNavigate } from "react-router-dom";
 import { useModal } from "../../../context/ModalContext";
 import { useAuth } from "../../../context/AuthContext";
@@ -25,6 +36,13 @@ const AutonomoListaTrabajadores: React.FC = () => {
     const { user } = useAuth(); // Agregado useAuth para saber el rol
     const { showAlert, showConfirm } = useModal();
     const [trabajadoresData, setTrabajadoresData] = useState<Trabajador[]>([]);
+    const [flippedCardId, setFlippedCardId] = useState<number | null>(null);
+
+    useEffect(() => {
+        const handleGlobalClick = () => setFlippedCardId(null);
+        document.addEventListener("click", handleGlobalClick);
+        return () => document.removeEventListener("click", handleGlobalClick);
+    }, []);
     
     const fetchTrabajadores = async () => {
         try {
@@ -55,6 +73,7 @@ const AutonomoListaTrabajadores: React.FC = () => {
                     fecha: new Date(t.created_at).toLocaleDateString("es-ES"),
                     puesto: t.puesto || "General",
                     correo: t.correo,
+                    telefono: t.telefono,
                     avatar: localAvatar, // Usa el local si la API falló en guardarlo
                     estado: t.estado === "Activo" || t.estado?.toLowerCase() === "activo" ? "Activo" : "Baja"
                 };
@@ -304,112 +323,101 @@ Line: 97
 
                 {/* LISTA DE TRABAJADORES - GRID 3 COLUMNAS */}
                 <div className={styles.jobsSection}>
-                    {filteredWorkers.map((worker) => (
-                        <div
-                            key={worker.id}
-                            className={styles.jobCard}
-                            onClick={() => {
-                                navigate(`/autonomo/trabajador/${worker.id}`);
-                            }}
-                        >
-                            {/* Barra de color superior */}
-                            <div className={`${styles.cardIndicator} ${styles.orange}`}></div>
+                    {filteredWorkers.map((worker) => {
+                        const relativeTime = (() => {
+                            const parts = worker.fecha.split('/');
+                            if (parts.length === 3) {
+                                const d = parseInt(parts[0], 10);
+                                const m = parseInt(parts[1], 10) - 1;
+                                const y = parseInt(parts[2], 10);
+                                const refDate = new Date(y, m, d);
+                                const now = new Date();
+                                refDate.setHours(0,0,0,0);
+                                now.setHours(0,0,0,0);
+                                const diffTime = now.getTime() - refDate.getTime();
+                                const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                                if (diffDays <= 0) return "Hoy";
+                                if (diffDays === 1) return "Hace 1 día";
+                                return `Hace ${diffDays} días`;
+                            }
+                            return "";
+                        })();
 
-                            <div className={styles.cardContent}>
-                                {/* AVATAR */}
-                                <div className={styles.cardIcon}>
-                                    {worker.avatar ? (
-                                        <img 
-                                            src={worker.avatar} 
-                                            alt={worker.nombre} 
-                                            style={{ width: '70px', height: '70px', borderRadius: '50%', objectFit: 'cover' }} 
-                                        />
-                                    ) : (
-                                        <HiOutlineUser size={36} color="#555" />
-                                    )}
-                                </div>
+                        const displayLocation = (worker as any).direccion || (worker as any).ciudad || 'Mérida, Yucatán';
 
-                                {/* INFO */}
-                                <div className={styles.cardInfo}>
-                                    <h3>{worker.nombre}</h3>
-                                    {(() => {
-                                        const isExterno = worker.puesto.includes('- Externo');
-                                        const isInterno = worker.puesto.includes('- Interno');
-                                        const displayPuesto = worker.puesto.replace('- Externo', '').replace('- Interno', '').trim();
-                                        return (
-                                            <>
-                                                <p>{displayPuesto}</p>
-                                                <div style={{ display: 'flex', gap: '6px', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', marginTop: '4px' }}>
-                                                    <span style={{ fontWeight: 'bold', fontSize: '13px', color: worker.estado === 'Activo' ? '#16a34a' : '#dc2626' }}>
-                                                        {worker.estado}
-                                                    </span>
-                                                    {(isExterno || isInterno) && (
-                                                        <span style={{ 
-                                                            fontSize: '11px', 
-                                                            fontWeight: 'bold', 
-                                                            padding: '2px 7px', 
-                                                            borderRadius: '10px', 
-                                                            background: isExterno ? '#fef3c7' : '#e0e7ff', 
-                                                            color: isExterno ? '#d97706' : '#4338ca' 
-                                                        }}>
-                                                            {isExterno ? 'Externo' : 'Interno'}
-                                                        </span>
-                                                    )}
+                        return (
+                            <div
+                                key={worker.id}
+                                className={`${styles.flipCard} ${worker.estado === 'Baja' ? styles.cardBaja : ''} ${flippedCardId === worker.id ? styles.isFlipped : ''}`}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    const isMobile = window.innerWidth <= 768;
+                                    if (isMobile) {
+                                        if (flippedCardId !== worker.id) {
+                                            setFlippedCardId(worker.id);
+                                            return;
+                                        }
+                                    }
+                                    navigate(`/autonomo/trabajador/${worker.id}`);
+                                }}
+                            >
+                                <div className={styles.flipCardInner}>
+                                    {/* FRONT SIDE */}
+                                    <div className={styles.flipCardFront}>
+                                        <div className={styles.cardCoverWrapper}>
+                                            {worker.avatar ? (
+                                                <img 
+                                                    src={worker.avatar} 
+                                                    alt={worker.nombre} 
+                                                    className={styles.cardCoverImage}
+                                                />
+                                            ) : (
+                                                <div className={styles.cardCoverPlaceholder}>
+                                                    <HiOutlineUser size={48} color="#94a3b8" />
                                                 </div>
-                                                <span className={styles.cardDate}>{worker.fecha}</span>
-                                            </>
-                                        );
-                                    })()}
-                                </div>
+                                            )}
+                                        </div>
+                                        <div className={styles.cardInfoWrapper}>
+                                            <h3 className={styles.cardName} title={worker.nombre}>{worker.nombre}</h3>
+                                            {(() => {
+                                                const displayPuesto = worker.puesto.replace('- Externo', '').replace('- Interno', '').trim();
+                                                return <p className={styles.cardPuesto}>{displayPuesto}</p>;
+                                            })()}
+                                            <span className={`${styles.statusPill} ${worker.estado === 'Activo' ? styles.active : styles.baja}`} style={{ marginTop: '8px' }}>
+                                                <span className={styles.statusDot}></span>
+                                                {worker.estado}
+                                            </span>
+                                        </div>
+                                    </div>
 
-                                {/* BOTÓN ACCIÓN */}
-                                <div style={{ marginTop: '4px', zIndex: 10 }}>
-                                    {worker.estado === "Activo" && (
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleDeactivateWorker(worker);
-                                            }}
-                                            style={{
-                                                background: '#fee2e2',
-                                                color: '#dc2626',
-                                                border: 'none',
-                                                padding: '6px 16px',
-                                                borderRadius: '15px',
-                                                fontSize: '12px',
-                                                fontWeight: 'bold',
-                                                cursor: 'pointer',
-                                                whiteSpace: 'nowrap'
-                                            }}
-                                        >
-                                            Dar de Baja
-                                        </button>
-                                    )}
-                                    {worker.estado === "Baja" && (
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleReactivateWorker(worker);
-                                            }}
-                                            style={{
-                                                background: '#dcfce7',
-                                                color: '#16a34a',
-                                                border: 'none',
-                                                padding: '6px 16px',
-                                                borderRadius: '15px',
-                                                fontSize: '12px',
-                                                fontWeight: 'bold',
-                                                cursor: 'pointer',
-                                                whiteSpace: 'nowrap'
-                                            }}
-                                        >
-                                            Activar
-                                        </button>
-                                    )}
+                                    {/* BACK SIDE */}
+                                    <div className={styles.flipCardBack}>
+                                        <div className={styles.cardContentBack}>
+                                            {/* DETAILS LIST */}
+                                            <div className={styles.detailsList}>
+                                                <div className={styles.detailItem} title={worker.correo}>
+                                                    <span className={styles.detailIcon}><HiOutlineEnvelope size={14} /></span>
+                                                    <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{worker.correo || '—'}</span>
+                                                </div>
+                                                <div className={styles.detailItem}>
+                                                    <span className={styles.detailIcon}><HiOutlinePhone size={14} /></span>
+                                                    <span>{worker.telefono || '—'}</span>
+                                                </div>
+                                                <div className={styles.detailItem}>
+                                                    <span className={styles.detailIcon}><HiOutlineMapPin size={14} /></span>
+                                                    <span>{displayLocation}</span>
+                                                </div>
+                                                <div className={styles.detailItem}>
+                                                    <span className={styles.detailIcon}><HiOutlineWrench size={14} /></span>
+                                                    <span>{worker.puesto.includes('Externo') ? 'Externo' : 'Interno'}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             </div>
 

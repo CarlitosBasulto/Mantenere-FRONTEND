@@ -2,7 +2,6 @@
     display: flex;
     justify-content: center;
     width: 100%;
-    overflow-x: hidden;
 }
 
 .leftColumn {
@@ -73,20 +72,9 @@
 .jobsSection {
     display: flex;
     flex-direction: column;
-    gap: 15px;
-    flex: 1;
-    overflow-y: auto;
-    min-height: 0;
-    padding-right: 10px;
-    -ms-overflow-style: none;
-    /* IE y Edge */
-    scrollbar-width: none;
-    /* Firefox */
-}
-
-.jobsSection::-webkit-scrollbar {
-    display: none;
-    /* Chrome, Safari y Opera */
+    gap: 20px;
+    overflow: visible;
+    padding-bottom: 50px;
 }
 
 .jobCard {

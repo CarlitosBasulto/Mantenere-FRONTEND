@@ -1432,28 +1432,28 @@ const TrabajoDetalle: React.FC = () => {
         const counts = getTabCounts();
         return (
             <div className={styles.summaryGrid}>
-                <div className={styles.miniCountCard}>
+                <div className={`${styles.miniCountCard} ${styles.cardBlue}`}>
                     <div className={`${styles.miniCountIconWrapper} ${styles.bgBlue}`}>
                         <HiOutlineListBullet />
                     </div>
                     <span className={styles.miniCountValue}>{counts.total}</span>
                     <span className={styles.miniCountLabel}>Total</span>
                 </div>
-                <div className={styles.miniCountCard}>
+                <div className={`${styles.miniCountCard} ${styles.cardGreen}`}>
                     <div className={`${styles.miniCountIconWrapper} ${styles.bgGreen}`}>
                         <HiOutlineArrowPath />
                     </div>
                     <span className={styles.miniCountValue}>{counts.enProceso}</span>
                     <span className={styles.miniCountLabel}>En proceso</span>
                 </div>
-                <div className={styles.miniCountCard}>
+                <div className={`${styles.miniCountCard} ${styles.cardTeal}`}>
                     <div className={`${styles.miniCountIconWrapper} ${styles.bgTeal}`}>
                         <HiOutlineCheckCircle />
                     </div>
                     <span className={styles.miniCountValue}>{counts.finalizadas}</span>
                     <span className={styles.miniCountLabel}>Finalizadas</span>
                 </div>
-                <div className={styles.miniCountCard}>
+                <div className={`${styles.miniCountCard} ${styles.cardPurple}`}>
                     <div className={`${styles.miniCountIconWrapper} ${styles.bgPurple}`}>
                         <HiOutlineClipboardDocument />
                     </div>
