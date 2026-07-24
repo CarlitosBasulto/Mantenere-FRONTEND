@@ -29,6 +29,7 @@ const AutonomoListaNegocios: React.FC = () => {
     const [globalJobs, setGlobalJobs] = useState<any[]>([]);
     const [searchText, setSearchText] = useState("");
     const [imageErrors, setImageErrors] = useState<Record<number, boolean>>({});
+    const [coverImageErrors, setCoverImageErrors] = useState<Record<number, boolean>>({});
 
     useEffect(() => {
         const fetchData = async () => {
@@ -175,6 +176,13 @@ const AutonomoListaNegocios: React.FC = () => {
                             hasDiagnosis = globalJobs.some((j: any) => j.negocio_id === negocio.id && (j.visitado === 1 || j.visitado === true) && (j.estado === 'Solicitud' || j.estado === 'En Espera'));
                         }
 
+                        const hasValidCover = !!(negocio.imagen_portada && !coverImageErrors[negocio.id]);
+                        const cardBg = hasSOS ? '#fffafa' : (hasDiagnosis ? '#f0fdfc' : '#ffffff');
+
+                        const coverUrl = negocio.imagen_portada || '';
+                        const matchPos = coverUrl.match(/[?&]posy=(\d+)/);
+                        const posY = matchPos ? `${matchPos[1]}%` : 'center';
+
                         return (
                             <div style={{ position: 'sticky', top: `calc(10px + ${index * 14}px)`, zIndex: index, paddingBottom: '10px' }} key={negocio.id}>
                                 {hasSOS && (
@@ -190,8 +198,24 @@ const AutonomoListaNegocios: React.FC = () => {
                                 <div
                                     className={styles.jobCard}
                                     onClick={() => handleCardClick(negocio.id)}
-                                    style={hasSOS ? { border: '2px solid #f44336', backgroundColor: '#fffafa' } : (hasDiagnosis ? { border: '2px solid #00a699', backgroundColor: '#f0fdfc' } : {})}
+                                    style={{
+                                        border: hasSOS ? '2px solid #f44336' : (hasDiagnosis ? '2px solid #00a699' : undefined),
+                                        backgroundColor: cardBg,
+                                        ['--card-bg' as any]: cardBg
+                                    }}
                                 >
+                                    {hasValidCover && (
+                                        <div className={styles.cardRightImageWrapper}>
+                                            <img
+                                                src={negocio.imagen_portada}
+                                                alt={negocio.nombre}
+                                                className={styles.cardRightImage}
+                                                style={{ objectPosition: `center ${posY}` }}
+                                                onError={() => setCoverImageErrors(prev => ({...prev, [negocio.id]: true}))}
+                                            />
+                                            <div className={styles.cardRightImageOverlay} />
+                                        </div>
+                                    )}
                                     <div className={styles.cardContent}>
                                         <div 
                                             className={styles.cardIcon} 

@@ -1,5 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { HiOutlineXMark, HiOutlinePrinter, HiOutlineArrowDownTray, HiOutlinePhoto, HiOutlinePaperAirplane } from 'react-icons/hi2';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 import { generateMaintenanceReportPDF } from '../../utils/pdfGenerator';
 
 const getAvatarForTech = (nombre: string) => {
@@ -86,48 +88,43 @@ export default function ReportePDFPreview({ trabajo, reporteData, subTareas, isV
         }
     };
 
+    const [isGenerating, setIsGenerating] = useState(false);
+
     const handleDownload = async () => {
+        setIsGenerating(true);
         try {
+            const pageElements = document.querySelectorAll('#print-reporte-pdf .pdf-page');
+            if (!pageElements || pageElements.length === 0) return;
+
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+
+            for (let i = 0; i < pageElements.length; i++) {
+                const pageEl = pageElements[i] as HTMLElement;
+                const canvas = await html2canvas(pageEl, {
+                    scale: 2,
+                    useCORS: true,
+                    allowTaint: true,
+                    logging: false,
+                    backgroundColor: '#ffffff'
+                });
+
+                const imgData = canvas.toDataURL('image/png');
+                const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
+                if (i > 0) {
+                    pdf.addPage();
+                }
+
+                pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+            }
+
             const dynamicFolio = `TRB-${(trabajo?.id || '').toString().padStart(5, '0')}`;
-            
-            // Compilamos los materiales combinando el widget dinámico y el texto extra
-            const widgetMateriales = reporteData.refaccionesList.length > 0 
-                ? reporteData.refaccionesList.map(r => `- ${r.cantidad || 1}x ${r.pieza} ${r.costo_estimado ? `($${r.costo_estimado})` : ''}`).join('\n')
-                : '';
-            const combinedMateriales = [widgetMateriales, reporteData.materiales].filter(Boolean).join('\n\n');
-
-            const techName = reporteData.tecnicoNombre || trabajo?.tecnico || trabajo?.trabajador?.nombre || 'Técnico';
-            const techAvatar = reporteData.tecnicoAvatar || getAvatarForTech(techName);
-
-            await generateMaintenanceReportPDF({
-                id: trabajo?.id || 0,
-                folio: dynamicFolio,
-                fecha: reporteData.fecha || new Date().toLocaleDateString('es-MX'),
-                sucursal: trabajo?.negocio?.nombre || trabajo?.sucursal || '---',
-                encargado: trabajo?.negocio?.encargado || trabajo?.encargado || '---',
-                tecnico: techName,
-                tecnicoAvatar: techAvatar,
-                fechaInicio: reporteData.fechaInicio || null,
-                diagnostico: reporteData.reporteTienda,
-                descripcion: reporteData.descripcion,
-                materiales: combinedMateriales,
-                observaciones: reporteData.observaciones,
-                observacionesList: reporteData.observacionesList,
-                imagenes: {
-                    antes: reporteData.imagenes.antes,
-                    durante: reporteData.imagenes.durante,
-                    despues: reporteData.imagenes.despues,
-                    extra: (reporteData.imagenesObservacion && reporteData.imagenesObservacion.length > 0)
-                        ? reporteData.imagenesObservacion
-                        : reporteData.imagenObservacion
-                },
-                firmaEmpresa: reporteData.firmaEmpresa,
-                equipo: reporteData.involucraEquipo ? reporteData.equipoInfo : null,
-                logoBase64: customLogo,
-                isVisita: isVisita
-            });
+            pdf.save(`Reporte_${dynamicFolio}.pdf`);
         } catch (error) {
             console.error('Error generating PDF:', error);
+        } finally {
+            setIsGenerating(false);
         }
     };
 
@@ -212,8 +209,8 @@ export default function ReportePDFPreview({ trabajo, reporteData, subTareas, isV
                         <HiOutlinePaperAirplane size={18} /> ENVIAR A ADMIN
                     </button>
                 )}
-                <button onClick={handleDownload} style={{ padding: '10px 15px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', flex: '1 1 auto', justifyContent: 'center' }}>
-                    <HiOutlineArrowDownTray size={18} /> DESCARGAR
+                <button onClick={handleDownload} disabled={isGenerating} style={{ padding: '10px 15px', background: isGenerating ? '#94a3b8' : '#3b82f6', color: '#fff', border: 'none', borderRadius: '8px', cursor: isGenerating ? 'not-allowed' : 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', flex: '1 1 auto', justifyContent: 'center' }}>
+                    <HiOutlineArrowDownTray size={18} /> {isGenerating ? 'GENERANDO...' : 'DESCARGAR'}
                 </button>
                 <button onClick={() => window.print()} style={{ padding: '10px 15px', background: '#22c55e', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', flex: '1 1 auto', justifyContent: 'center' }}>
                     <HiOutlinePrinter size={18} /> IMPRIMIR

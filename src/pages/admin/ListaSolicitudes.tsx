@@ -171,7 +171,10 @@ const ListaSolicitudes: React.FC = () => {
         } else if (job.tipo === "SOS") {
             barClass = styles.red;
             text = "¡ALERTA SOS!";
-        } else if (status === "en proceso" || status === "en espera") {
+        } else if (status === "en espera") {
+            barClass = styles.yellow;
+            text = "EN ESPERA DE ASIGNACIÓN";
+        } else if (status === "en proceso") {
             barClass = styles.blue;
             text = "TÉCNICO ACEPTADO";
         } else if (status === "solicitud" || status === "pendiente" || status === "asignado") {

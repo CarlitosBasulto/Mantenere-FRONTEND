@@ -26,10 +26,11 @@ interface ChatProps {
     trabajoId: number;
     currentUser: any; // User object from AuthContext
     onViewVisitInfo?: () => void;
+    inlineMode?: boolean;
 }
 
-const NegotiationChatWidget: React.FC<ChatProps> = ({ trabajoId, currentUser, onViewVisitInfo }) => {
-    const [isOpen, setIsOpen] = useState(false);
+const NegotiationChatWidget: React.FC<ChatProps> = ({ trabajoId, currentUser, onViewVisitInfo, inlineMode = false }) => {
+    const [isOpen, setIsOpen] = useState(inlineMode ? true : false);
     const [messages, setMessages] = useState<Message[]>([]);
     const [inputText, setInputText] = useState('');
     const [quoteMode, setQuoteMode] = useState(false);
@@ -67,7 +68,7 @@ const NegotiationChatWidget: React.FC<ChatProps> = ({ trabajoId, currentUser, on
         fetchMessages();
         const interval = setInterval(fetchMessages, 3000); // Polling every 3 seconds
         return () => clearInterval(interval);
-    }, [trabajoId, isOpen]);
+    }, [trabajoId, isOpen, inlineMode]);
 
     useEffect(() => {
         if (isOpen) {
@@ -77,7 +78,10 @@ const NegotiationChatWidget: React.FC<ChatProps> = ({ trabajoId, currentUser, on
     }, [messages, isOpen]);
 
     const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        const chatBody = messagesEndRef.current?.parentElement;
+        if (chatBody) {
+            chatBody.scrollTop = chatBody.scrollHeight;
+        }
     };
 
     const handleSendMessage = async () => {
@@ -157,9 +161,9 @@ const NegotiationChatWidget: React.FC<ChatProps> = ({ trabajoId, currentUser, on
     };
 
     return (
-        <div className={styles.chatWidgetContainer} style={{ position: 'fixed', bottom: '24px', right: '24px', zIndex: 9999, fontFamily: "'Inter', system-ui, sans-serif" }}>
+        <div className={styles.chatWidgetContainer} style={inlineMode ? { position: 'relative', width: '100%', fontFamily: "'Inter', system-ui, sans-serif", marginTop: '20px', zIndex: 1 } : { position: 'fixed', bottom: '24px', right: '24px', zIndex: 9999, fontFamily: "'Inter', system-ui, sans-serif" }}>
             {/* FAB Button */}
-            {!isOpen && (
+            {!isOpen && !inlineMode && (
                 <button 
                     className={styles.fabButton}
                     onClick={() => setIsOpen(true)}
@@ -180,7 +184,7 @@ const NegotiationChatWidget: React.FC<ChatProps> = ({ trabajoId, currentUser, on
 
             {/* Chat Modal */}
             {isOpen && (
-                <div className={styles.chatModal} style={{ width: '400px' }}>
+                <div className={styles.chatModal} style={inlineMode ? { width: '100%', height: 'auto', maxHeight: '500px', border: '1px solid #e2e8f0', borderRadius: '16px', boxShadow: 'none', display: 'flex', flexDirection: 'column', overflow: 'hidden', animation: 'none' } : { width: '400px' }}>
                     <div className={styles.chatHeader}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                             <div className={styles.headerIcon}>
@@ -191,16 +195,18 @@ const NegotiationChatWidget: React.FC<ChatProps> = ({ trabajoId, currentUser, on
                                 <p className={styles.headerSubtitle}>Técnico, Subgerente y Administrador</p>
                             </div>
                         </div>
-                        <div style={{ display: 'flex', gap: '4px' }}>
-                            {onViewVisitInfo && (
-                                <button className={styles.closeBtn} onClick={onViewVisitInfo} title="Ver Información de la Visita">
-                                    <HiOutlineDocumentText size={20} />
+                        {!inlineMode && (
+                            <div style={{ display: 'flex', gap: '4px' }}>
+                                {onViewVisitInfo && (
+                                    <button className={styles.closeBtn} onClick={onViewVisitInfo} title="Ver Información de la Visita">
+                                        <HiOutlineDocumentText size={20} />
+                                    </button>
+                                )}
+                                <button className={styles.closeBtn} onClick={() => setIsOpen(false)} title="Cerrar Chat">
+                                    <HiOutlineX size={20} />
                                 </button>
-                            )}
-                            <button className={styles.closeBtn} onClick={() => setIsOpen(false)} title="Cerrar Chat">
-                                <HiOutlineX size={20} />
-                            </button>
-                        </div>
+                            </div>
+                        )}
                     </div>
 
                     {toast.show && (
@@ -209,7 +215,7 @@ const NegotiationChatWidget: React.FC<ChatProps> = ({ trabajoId, currentUser, on
                         </div>
                     )}
 
-                    <div className={styles.chatBody}>
+                    <div className={styles.chatBody} style={inlineMode ? { maxHeight: '350px', minHeight: '200px', background: '#f8fafc' } : {}}>
                         {messages.length === 0 ? (
                             <div className={styles.emptyState}>
                                 <div className={styles.emptyIcon}>💬</div>

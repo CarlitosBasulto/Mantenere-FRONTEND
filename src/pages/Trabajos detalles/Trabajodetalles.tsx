@@ -20,6 +20,7 @@ import { HiOutlinePencil, HiOutlineTrash, HiOutlineArchiveBox, HiOutlineClock, H
 import { HiX } from "react-icons/hi";
 import { Pencil, MoveVertical } from 'lucide-react';
 import ChatTrabajo from "../../components/ChatTrabajo";
+import { isCardSeen, markCardAsSeen } from "../../utils/seenCards";
 
 interface Trabajo {
     id: number;
@@ -666,10 +667,13 @@ const TrabajoDetalle: React.FC = () => {
                     // Notificar a cada técnico asignado usando user_id (no trabajador.id)
                     for (const asig of selectedAssignments) {
                         const notifUserId = asig.userId || asig.tecnicoId;
+                        const isVisita = selectedType === 'Visita';
                         await createNotificacion({
                             user_id: notifUserId,
-                            titulo: selectedType === 'Trabajo' ? 'Se te asignó este trabajo 🛠️' : '📋 Se te asignó una visita',
-                            mensaje: `Te han asignado: ${assignedNames} en la sucursal ${businessName}.`,
+                            titulo: isVisita ? '📋 Nueva Visita Asignada' : '🛠️ Nuevo Trabajo Asignado',
+                            mensaje: isVisita 
+                                ? `Se te ha asignado una nueva visita de evaluación para: ${assignedNames} en la sucursal ${businessName}.`
+                                : `Te han asignado un nuevo trabajo: ${assignedNames} en la sucursal ${businessName}.`,
                             enlace: `/tecnico/trabajo-detalle/${selectedJobId}`
                         });
                     }
@@ -1046,27 +1050,23 @@ const TrabajoDetalle: React.FC = () => {
             barClass = styles.red;
             text = "¡ALERTA SOS!";
         } else if (status.includes("cotizaci")) {
-            barClass = styles.blue;
-            const hasTech = job.tecnico && job.tecnico !== "Sin asignar" && job.tecnico !== "Sin Asignar";
-            if (hasTech) {
-                text = user?.role === 'tecnico' 
-                    ? (job.tipo === 'Visita' ? "ASIGNACIÓN DE VISITA" : "SE TE ASIGNÓ ESTE TRABAJO 🛠️") 
-                    : "TÉCNICO ASIGNADO";
-                if (user?.role === 'tecnico') {
-                    barClass = styles.orange;
-                }
+            if (status.includes("aceptada") || status.includes("aprobada")) {
+                text = "COTIZACIÓN ACEPTADA";
+                barClass = styles.green;
+            } else if (status.includes("rechazada")) {
+                text = "COTIZACIÓN RECHAZADA";
+                barClass = styles.red;
+            } else if (status.includes("enviada")) {
+                text = "COTIZACIÓN ENVIADA";
+                barClass = styles.blue;
             } else {
-                if (status.includes("aceptada") || status.includes("aprobada")) {
-                    text = "COTIZACIÓN ACEPTADA";
-                    barClass = styles.green;
-                } else if (status.includes("rechazada")) {
-                    text = "COTIZACIÓN RECHAZADA";
-                    barClass = styles.red;
-                } else {
-                    text = user?.role === 'admin' ? "COTIZACIÓN ENVIADA" : "COTIZACIÓN DEL TRABAJO";
-                }
+                text = "PROCESO DE COTIZACIÓN";
+                barClass = styles.orange;
             }
-        } else if (status === "en proceso" || status === "en espera") {
+        } else if (status === "en espera") {
+            barClass = styles.yellow;
+            text = "EN ESPERA DE ASIGNACIÓN";
+        } else if (status === "en proceso") {
             barClass = styles.blue;
             text = "TÉCNICO ACEPTADO";
         } else if (status === "solicitud" || status === "pendiente" || status === "asignado") {
@@ -1162,78 +1162,115 @@ const TrabajoDetalle: React.FC = () => {
         sortedDates.map(date => (
             <div key={date}>
                 {groupedJobs[date].map(trabajo => {
+                    const userRole = user?.role || 'user';
+                    const getAccentForStatus = (estado: string) => {
+                        if (['Solicitud', 'Pendiente'].includes(estado))
+                            return { grad: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', shadow: 'rgba(245,158,11,0.35)', dot: '🟡' };
+                        if (['Cotización Enviada', 'Cotización Aceptada'].includes(estado))
+                            return { grad: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)', shadow: 'rgba(59,130,246,0.35)', dot: '🔵' };
+                        if (['Aceptada', 'Asignado', 'En Espera'].includes(estado))
+                            return { grad: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)', shadow: 'rgba(249,115,22,0.35)', dot: '🟠' };
+                        if (estado === 'En Proceso')
+                            return { grad: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', shadow: 'rgba(16,185,129,0.35)', dot: '🟢' };
+                        if (['Finalizado', 'Completado'].includes(estado))
+                            return { grad: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)', shadow: 'rgba(139,92,246,0.35)', dot: '🟣' };
+                        // default fallback
+                        return { grad: 'linear-gradient(135deg, #64748b 0%, #475569 100%)', shadow: 'rgba(100,116,139,0.35)', dot: '⚪' };
+                    };
+
+                    const seenAccent = getAccentForStatus(trabajo.estado);
+
                     return (
-                        <div
-                            key={trabajo.id}
-                            className={styles.jobCard}
-                            onClick={(e) => {
-                                if (!(e.target as HTMLElement).closest('button')) {
-                                    const basePath = user?.role === 'tecnico' ? '/tecnico' : (user?.role === 'cliente' ? '/cliente' : (['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '') ? '/autonomo' : (user?.role === 'encargado' ? '/encargado' : '/menu')));
-                                    navigate(`${basePath}/trabajo-detalle/${trabajo.id}`);
-                                }
-                            }}
-                        >
-                            {/* BARRA DE ESTADO SUPERIOR */}
-                            {renderStatusBar(trabajo)}
+                            <div
+                                key={trabajo.id}
+                                className={styles.jobCard}
+                                onClick={(e) => {
+                                    if (!(e.target as HTMLElement).closest('button')) {
+                                        markCardAsSeen(userRole, trabajo.id, trabajo.estado);
+                                        const basePath = user?.role === 'tecnico' ? '/tecnico' : (user?.role === 'cliente' ? '/cliente' : (['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '') ? '/autonomo' : (user?.role === 'encargado' ? '/encargado' : '/menu')));
+                                        navigate(`${basePath}/trabajo-detalle/${trabajo.id}`);
+                                    }
+                                }}
+                            >
+                                {/* BARRA DE ESTADO SUPERIOR */}
+                                {renderStatusBar(trabajo)}
 
-                            {/* INDICADOR FLOTANTE DE DIAGNÓSTICO (PREMIUM) */}
-                            {!!trabajo.visitado && (trabajo.estado === 'Solicitud' || trabajo.estado === 'En Espera') && (
-                                <div style={{
-                                    position: 'absolute',
-                                    right: '-10px',
-                                    top: '10px',
-                                    background: '#00a699',
-                                    color: 'white',
-                                    padding: '6px 16px',
-                                    borderRadius: '12px',
-                                    fontSize: '11px',
-                                    fontWeight: '900',
-                                    textTransform: 'uppercase',
-                                    boxShadow: '0 4px 12px rgba(0, 166, 153, 0.4)',
-                                    zIndex: 20,
-                                    letterSpacing: '0.5px'
-                                }}>
-                                    DIAGNÓSTICO LISTO
-                                </div>
-                            )}
-
-                            {/* BANNER DE DIAGNÓSTICO (Opcional - debajo de la barra si se desea mantener) */}
-                            {trabajo.visitado && trabajo.estado === 'Solicitud' && (
-                                <div className={styles.diagnosisBanner}>
-                                    <div className={styles.diagnosisIconWrapper}>🛡️</div>
-                                    <div className={styles.diagnosisTextGroup}>
-                                        <p className={styles.diagnosisTitle}>AVISO DE DIAGNÓSTICO</p>
-                                        <p className={styles.diagnosisText}>Diagnóstico listo para ser revisado.</p>
-                                    </div>
-                                </div>
-                            )}
-
-                            <div className={styles.cardBodyWrapper}>
-                                {parseFotoUrls(trabajo.foto_url).length > 0 && (
-                                    <div 
-                                        className={styles.verticalCarousel}
-                                        onClick={(e) => e.stopPropagation()}
-                                    >
-                                        {parseFotoUrls(trabajo.foto_url).map((url, idx) => (
-                                            <img 
-                                                key={idx}
-                                                src={url}
-                                                alt={`Foto ${idx + 1}`}
-                                                className={styles.carouselImg}
-                                                onClick={() => setSelectedZoomImage(url)}
-                                            />
-                                        ))}
+                                {/* INDICADOR FLOTANTE DE DIAGNÓSTICO (PREMIUM) */}
+                                {!!trabajo.visitado && (trabajo.estado === 'Solicitud' || trabajo.estado === 'En Espera') && (
+                                    <div style={{
+                                        position: 'absolute',
+                                        right: '-10px',
+                                        top: '10px',
+                                        background: '#00a699',
+                                        color: 'white',
+                                        padding: '6px 16px',
+                                        borderRadius: '12px',
+                                        fontSize: '11px',
+                                        fontWeight: '900',
+                                        textTransform: 'uppercase',
+                                        boxShadow: '0 4px 12px rgba(0, 166, 153, 0.4)',
+                                        zIndex: 20,
+                                        letterSpacing: '0.5px'
+                                    }}>
+                                        DIAGNÓSTICO LISTO
                                     </div>
                                 )}
 
-                                <div className={styles.cardContent}>
-                                    <div className={styles.cardLeftDetails}>
-                                        {/* FILA SUPERIOR: FECHA Y MENU */}
-                                        <div className={styles.headerRow}>
-                                            <div className={styles.dateGroup}>
-                                                <p className={styles.strikingDate}>
-                                                    📅 Cita solicitada: {trabajo.fechaAsignada || trabajo.fecha}
-                                                </p>
+                                {/* BANNER DE DIAGNÓSTICO (Opcional - debajo de la barra si se desea mantener) */}
+                                {trabajo.visitado && trabajo.estado === 'Solicitud' && (
+                                    <div className={styles.diagnosisBanner}>
+                                        <div className={styles.diagnosisIconWrapper}>🛡️</div>
+                                        <div className={styles.diagnosisTextGroup}>
+                                            <p className={styles.diagnosisTitle}>AVISO DE DIAGNÓSTICO</p>
+                                            <p className={styles.diagnosisText}>Diagnóstico listo para ser revisado.</p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className={styles.cardBodyWrapper}>
+                                    {parseFotoUrls(trabajo.foto_url).length > 0 && (
+                                        <div 
+                                            className={styles.verticalCarousel}
+                                            onClick={(e) => e.stopPropagation()}
+                                        >
+                                            {parseFotoUrls(trabajo.foto_url).map((url, idx) => (
+                                                <img 
+                                                    key={idx}
+                                                    src={url}
+                                                    alt={`Foto ${idx + 1}`}
+                                                    className={styles.carouselImg}
+                                                    onClick={() => setSelectedZoomImage(url)}
+                                                />
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    <div className={styles.cardContent}>
+                                        <div className={styles.cardLeftDetails}>
+                                            {/* FILA SUPERIOR: FECHA Y MENU */}
+                                            <div className={styles.headerRow}>
+                                                <div className={styles.dateGroup} style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                                    {!isCardSeen(userRole, trabajo.id, trabajo.estado) && (
+                                                        <span style={{
+                                                            background: seenAccent.grad,
+                                                            color: '#ffffff',
+                                                            fontSize: '10px',
+                                                            fontWeight: '900',
+                                                            padding: '3px 8px',
+                                                            borderRadius: '20px',
+                                                            boxShadow: `0 2px 8px ${seenAccent.shadow}`,
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center',
+                                                            gap: '3px',
+                                                            textTransform: 'uppercase',
+                                                            letterSpacing: '0.5px'
+                                                        }}>
+                                                            {seenAccent.dot} NUEVO
+                                                        </span>
+                                                    )}
+                                                    <p className={styles.strikingDate}>
+                                                        📅 Cita solicitada: {trabajo.fechaAsignada || trabajo.fecha}
+                                                    </p>
                                                 {trabajo.hora_llegada && (
                                                     <p className={styles.strikingDate} style={{ color: '#059669', marginTop: '4px', background: '#ecfdf5', display: 'inline-block', padding: '2px 8px', borderRadius: '8px' }}>
                                                         ⏰ Llegada aprox: {trabajo.hora_llegada}
@@ -1910,18 +1947,51 @@ const TrabajoDetalle: React.FC = () => {
                                             <div style={{ flex: 1 }}>
                                                 <input
                                                     type="date"
+                                                    min={new Date().toISOString().split('T')[0]}
                                                     value={asig.fechaAsignada}
                                                     onChange={(e) => handleUpdateAssignmentDate(asig.tecnicoId, 'fechaAsignada', e.target.value)}
-                                                    style={{ width: '100%', padding: '8px', borderRadius: '5px', border: '1px solid #ddd' }}
+                                                    style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none' }}
                                                 />
                                             </div>
                                             <div style={{ flex: 1 }}>
-                                                <input
-                                                    type="time"
+                                                <select
                                                     value={asig.horaAsignada}
                                                     onChange={(e) => handleUpdateAssignmentDate(asig.tecnicoId, 'horaAsignada', e.target.value)}
-                                                    style={{ width: '100%', padding: '8px', borderRadius: '5px', border: '1px solid #ddd' }}
-                                                />
+                                                    style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none', background: '#fff', cursor: 'pointer' }}
+                                                >
+                                                    <option value="">-- Hora --</option>
+                                                    {[
+                                                        { val: '07:00', lbl: '07:00 AM' },
+                                                        { val: '07:30', lbl: '07:30 AM' },
+                                                        { val: '08:00', lbl: '08:00 AM' },
+                                                        { val: '08:30', lbl: '08:30 AM' },
+                                                        { val: '09:00', lbl: '09:00 AM' },
+                                                        { val: '09:30', lbl: '09:30 AM' },
+                                                        { val: '10:00', lbl: '10:00 AM' },
+                                                        { val: '10:30', lbl: '10:30 AM' },
+                                                        { val: '11:00', lbl: '11:00 AM' },
+                                                        { val: '11:30', lbl: '11:30 AM' },
+                                                        { val: '12:00', lbl: '12:00 PM' },
+                                                        { val: '12:30', lbl: '12:30 PM' },
+                                                        { val: '13:00', lbl: '01:00 PM' },
+                                                        { val: '13:30', lbl: '01:30 PM' },
+                                                        { val: '14:00', lbl: '02:00 PM' },
+                                                        { val: '14:30', lbl: '02:30 PM' },
+                                                        { val: '15:00', lbl: '03:00 PM' },
+                                                        { val: '15:30', lbl: '03:30 PM' },
+                                                        { val: '16:00', lbl: '04:00 PM' },
+                                                        { val: '16:30', lbl: '04:30 PM' },
+                                                        { val: '17:00', lbl: '05:00 PM' },
+                                                        { val: '17:30', lbl: '05:30 PM' },
+                                                        { val: '18:00', lbl: '06:00 PM' },
+                                                        { val: '18:30', lbl: '06:30 PM' },
+                                                        { val: '19:00', lbl: '07:00 PM' },
+                                                        { val: '19:30', lbl: '07:30 PM' },
+                                                        { val: '20:00', lbl: '08:00 PM' }
+                                                    ].map(slot => (
+                                                        <option key={slot.val} value={slot.val}>{slot.lbl}</option>
+                                                    ))}
+                                                </select>
                                             </div>
                                         </div>
                                     ))}
@@ -2077,31 +2147,33 @@ const TrabajoDetalle: React.FC = () => {
                                 />
                             </div>
 
-                            <div className={styles.formField}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <label className={styles.formLabel} style={{ marginBottom: 0 }}>Técnico Sugerido/Asignado (Opcional)</label>
-                                    <span 
-                                        style={{ color: '#f26522', fontSize: '11px', cursor: 'pointer', fontWeight: 'bold' }}
-                                        onClick={() => setIsTechRequestModalOpen(true)}
-                                    >
-                                        ¿Necesitas técnicos?
-                                    </span>
+                            {user?.role !== 'encargado' && user?.role !== 'cliente' && (
+                                <div className={styles.formField}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <label className={styles.formLabel} style={{ marginBottom: 0 }}>Técnico Sugerido/Asignado (Opcional)</label>
+                                        <span 
+                                            style={{ color: '#f26522', fontSize: '11px', cursor: 'pointer', fontWeight: 'bold' }}
+                                            onClick={() => setIsTechRequestModalOpen(true)}
+                                        >
+                                            ¿Necesitas técnicos?
+                                        </span>
+                                    </div>
+                                    <div className={styles.selectWrapper} style={{ marginTop: '5px' }}>
+                                        <select
+                                            className={`${styles.newServiceInput} ${isSOSRequest ? styles.newServiceInputSos : ''}`}
+                                            value={newRequestData.trabajador_id || ""}
+                                            onChange={(e) => setNewRequestData({ ...newRequestData, trabajador_id: e.target.value })}
+                                        >
+                                            <option value="">-- Seleccionar Técnico --</option>
+                                            {tecnicosData.map(tecnico => (
+                                                <option key={tecnico.id} value={tecnico.id}>
+                                                    {tecnico.nombre}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
                                 </div>
-                                <div className={styles.selectWrapper} style={{ marginTop: '5px' }}>
-                                    <select
-                                        className={`${styles.newServiceInput} ${isSOSRequest ? styles.newServiceInputSos : ''}`}
-                                        value={newRequestData.trabajador_id || ""}
-                                        onChange={(e) => setNewRequestData({ ...newRequestData, trabajador_id: e.target.value })}
-                                    >
-                                        <option value="">-- Seleccionar Técnico --</option>
-                                        {tecnicosData.map(tecnico => (
-                                            <option key={tecnico.id} value={tecnico.id}>
-                                                {tecnico.nombre}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </div>
+                            )}
 
                             <div className={styles.formField}>
                                 <label className={styles.formLabel}>Descripción del problema</label>

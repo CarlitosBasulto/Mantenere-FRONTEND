@@ -30,7 +30,7 @@ import { getTrabajo, updateEstadoTrabajo, assignTrabajador, updateTrabajo } from
 import { createActividad, getActividadesByTrabajo, deleteActividad, updateActividad } from "../../../services/actividadesService";
 import { getTrabajadores } from "../../../services/trabajadoresService";
 import { saveCotizacion, updateCotizacion, deleteCotizacion, updateCotizacionStatus, getCotizacionesByTrabajoId, type Cotizacion } from "../../../services/cotizacionesService";
-import { createNotificacion, createNotificacionEcosistema } from "../../../services/notificacionesService";
+import { createNotificacion, createNotificacionEcosistema, createNotificacionNegocio, createNotificacionByRole } from "../../../services/notificacionesService";
 import { getReporteByTrabajoId } from "../../../services/reportesService";
 import { useModal } from "../../../context/ModalContext";
 import { getNegocio } from "../../../services/negociosService";
@@ -38,6 +38,7 @@ import LevantamientoModal from "../../../components/LevantamientoModal";
 import CotizacionPDFPreview from "../../../components/modals/CotizacionPDFPreview";
 import ReportePDFPreview from "../../../components/modals/ReportePDFPreview";
 import ChatTrabajo from "../../../components/ChatTrabajo";
+import NegotiationChatWidget from "../../../components/chat/NegotiationChatWidget";
 
 
 export interface CotizacionData {
@@ -58,6 +59,8 @@ interface Trabajo {
     estado: "En Espera" | "Finalizado" | "En Proceso" | "Asignado" | "Solicitud" | "Cotización Enviada" | "Cotización Aceptada" | "Cotización Rechazada" | "Cotización Aprobada" | "Pendiente de Cotizar";
     tipo?: "Visita" | "Trabajo" | "Nueva Solicitud" | "SOS";
     visitado?: boolean;
+    latitud_llegada?: string;
+    longitud_llegada?: string;
     descripcion?: string;
     sucursal?: string;
     encargado?: string;
@@ -213,6 +216,7 @@ const AutonomoDetalleTrabajo: React.FC = () => {
 
     // Modal Imagen Full-Screen
     const [showZoomModal, setShowZoomModal] = useState<boolean>(false);
+    const [showMapModal, setShowMapModal] = useState<boolean>(false);
     
     // Modal PDF Preview
     const [showPDFPreview, setShowPDFPreview] = useState<boolean>(false);
@@ -378,6 +382,8 @@ const AutonomoDetalleTrabajo: React.FC = () => {
                     cp: data.negocio?.cp || "S/N",
                     manzana: data.negocio?.manzana || "Por definir",
                     lote: data.negocio?.lote || "Por definir",
+                    latitud_llegada: data.latitud_llegada,
+                    longitud_llegada: data.longitud_llegada,
                     referencias: data.negocio?.referencias || "Por definir",
                     fechaSolicitud: data.created_at ? new Date(data.created_at).toLocaleDateString('es-MX') : "No registrada",
                     businessId: data.negocio_id || data.negocio?.id,
@@ -581,6 +587,13 @@ const AutonomoDetalleTrabajo: React.FC = () => {
             setSelectedTechnicians([trabajo.trabajador_id]);
         }
         
+        if (!asignarFecha) {
+            setAsignarFecha(new Date().toISOString().split('T')[0]);
+        }
+        if (!asignarHora) {
+            setAsignarHora("09:00");
+        }
+        
         setIsModalOpen(true);
     };
     const [selectedHistoryTask, setSelectedHistoryTask] = useState<SubTarea | null>(null);
@@ -598,9 +611,13 @@ const AutonomoDetalleTrabajo: React.FC = () => {
     // ADD NEW TASK MODAL STATE
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [showActivityPDFPreview, setShowActivityPDFPreview] = useState(false);
+    const [showSendConfirmModal, setShowSendConfirmModal] = useState(false);
     const [activityPDFData, setActivityPDFData] = useState<any>(null);
     const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
     const [newTaskDescription, setNewTaskDescription] = useState("");
+    const [taskItems, setTaskItems] = useState<{ id: string; descripcion: string; foto: string }[]>([
+        { id: '1', descripcion: '', foto: '' }
+    ]);
     const [isQuoteIncluded, setIsQuoteIncluded] = useState(false);
     const [newQuoteAmount, setNewQuoteAmount] = useState("");
     const [newQuoteMaterials, setNewQuoteMaterials] = useState<{material: string, piezas: string, precio?: string}[]>([]);
@@ -694,7 +711,7 @@ const AutonomoDetalleTrabajo: React.FC = () => {
                     // Update in Backend
                     await assignTrabajador(trabajo.id, selectedTechnicians[0]);
 
-                    const needsStateUpdate = trabajo.estado === "Pendiente" || trabajo.estado === "Solicitud" || trabajo.estado === "Cotización Aceptada" || trabajo.estado === "Cotización Aprobada";
+                    const needsStateUpdate = trabajo.estado === "Pendiente" || trabajo.estado === "Solicitud" || trabajo.estado === "Cotización Aceptada" || trabajo.estado === "Cotización Aprobada" || trabajo.estado === "En Espera";
                     const newEstado = needsStateUpdate ? "Asignado" : trabajo.estado;
 
                     let nuevoTitulo = trabajo.titulo || "";
@@ -730,10 +747,15 @@ const AutonomoDetalleTrabajo: React.FC = () => {
 
                     // Notificaciones al técnico (backend + localStorage fallback)
                     const esSOS = trabajo.tipo === "SOS" || trabajo.titulo?.includes("SOS");
-                    const notifTitulo = esSOS ? '🚨 Trabajo de Emergencia SOS' : 'Nuevo Trabajo Asignado';
+                    const isVisita = selectedType === "Visita";
+                    const notifTitulo = esSOS
+                        ? '🚨 Trabajo de Emergencia SOS'
+                        : (isVisita ? '📋 Nueva Visita Asignada' : '🛠️ Nuevo Trabajo Asignado');
                     const notifMensaje = esSOS
                         ? `⚠️ EMERGENCIA: Se te ha asignado un trabajo urgente en ${trabajo.sucursal}. Atender de inmediato: "${trabajo.titulo}".`
-                        : `Te han asignado un nuevo trabajo: ${trabajo.titulo} en ${trabajo.sucursal}.`;
+                        : (isVisita
+                            ? `Se te ha asignado una nueva visita de evaluación para: ${trabajo.titulo} en ${trabajo.sucursal}.`
+                            : `Te han asignado un nuevo trabajo: ${trabajo.titulo} en ${trabajo.sucursal}.`);
 
                     for (const id of selectedTechnicians) {
                         const tech = tecnicosData.find(t => t.id === id);
@@ -838,9 +860,65 @@ const AutonomoDetalleTrabajo: React.FC = () => {
         }
     };
 
+    const handleGeneratePreview = () => {
+        const refaccionesList = refacciones.map(r => ({
+            pieza: r.pieza,
+            cantidad: Number(r.cantidad) || 1,
+            costo_estimado: r.costo_estimado ? String(r.costo_estimado) : ''
+        })).concat(
+            isQuoteIncluded ? quoteMateriales.map(m => ({
+                pieza: m.nombre,
+                cantidad: m.cantidad ? Number(m.cantidad) || 1 : 1,
+                costo_estimado: m.precio ? String(m.precio) : ''
+            })) : []
+        );
+
+        const combinedMateriales = isQuoteIncluded ? quoteComentarios : '';
+
+        const preparedData = {
+            id: trabajo?.id || 'SD',
+            folio: `COT-${trabajo?.id?.toString().padStart(5, '0')}`,
+            sucursal: trabajo?.sucursal || '---',
+            encargado: trabajo?.encargado || '---',
+            tecnico: user?.name || trabajo?.tecnico || 'Técnico',
+            isVisita: !trabajo?.visitado,
+            reporteTienda: activeServiceType === 'Otro' ? (customServiceType || 'Otro') : activeServiceType,
+            descripcion: newTaskDescription,
+            materiales: combinedMateriales,
+            refaccionesList: refaccionesList,
+            observaciones: '',
+            imagenes: {
+                antes: activityPhotos[0] || null,
+                durante: activityPhotos[1] || null,
+                despues: activityPhotos[2] || null
+            },
+            imagenObservacion: activityPhotos[3] || null,
+            imagenesObservacion: activityPhotos[3] ? [activityPhotos[3]] : [],
+            firmaEmpresa: null,
+            involucraEquipo: !!serviceMarca || !!serviceModelo,
+            equipoInfo: (serviceMarca || serviceModelo) ? {
+                tipo: activeServiceType,
+                marca: serviceMarca || 'N/A',
+                modelo: serviceModelo || 'N/A',
+                piezas: servicePieza || 'N/A',
+                garantia: serviceGarantia || 'N/A'
+            } : null,
+            fecha: new Date().toLocaleDateString('es-MX')
+        };
+
+        setActivityPDFData(preparedData);
+        setShowActivityPDFPreview(true);
+    };
+
     const handleAddTask = async (generatePDF = false) => {
         try {
-            let desc = newTaskDescription;
+            const activeItems = taskItems.filter(t => t.descripcion.trim() || t.foto);
+            const combinedDesc = activeItems.length > 0
+                ? activeItems.map((item, idx) => activeItems.length > 1 ? `${idx + 1}. ${item.descripcion.trim()}` : item.descripcion.trim()).filter(Boolean).join('\n\n')
+                : newTaskDescription;
+            const combinedPhotos = activeItems.map(t => t.foto).filter(Boolean);
+
+            let desc = combinedDesc;
 
             // Serializar datos técnicos (Marca, Modelo, etc.)
             const serviceData = {
@@ -865,6 +943,10 @@ const AutonomoDetalleTrabajo: React.FC = () => {
 
             const techNamePayload = user?.name || "Sin Asignar";
             desc += ` \n|||TECH_NAME||| ${techNamePayload}`;
+
+            if (combinedPhotos.length > 0) {
+                desc += ` \n|||PHOTOS_DATA||| ${JSON.stringify(combinedPhotos)}`;
+            }
 
             const payloadRefacciones = refacciones
                 .filter(r => r.pieza && r.pieza.trim() !== '')
@@ -997,19 +1079,35 @@ const AutonomoDetalleTrabajo: React.FC = () => {
 
                     const combinedMateriales = isQuoteIncluded ? newQuoteDetails : '';
 
+                    const activeItems = taskItems.filter(t => t.descripcion.trim() || t.foto);
+                    const combinedDescText = activeItems.length > 0
+                        ? activeItems.map((item, idx) => activeItems.length > 1 ? `${idx + 1}. ${item.descripcion.trim()}` : item.descripcion.trim()).filter(Boolean).join('\n\n')
+                        : newTaskDescription;
+
                     const preparedData = {
                         id: trabajo?.id || 'SD',
+                        folio: `TRB-${trabajo?.id?.toString().padStart(5, '0')}`,
+                        sucursal: trabajo?.sucursal || '---',
+                        encargado: trabajo?.encargado || '---',
+                        tecnico: user?.name || trabajo?.tecnico || 'Técnico',
+                        isVisita: trabajo?.tipo === 'Visita' || trabajo?.originalTipo === 'Visita',
                         reporteTienda: activeServiceType === 'Otro' ? (customServiceType || 'Otro') : activeServiceType,
-                        descripcion: newTaskDescription,
+                        descripcion: combinedDescText,
                         materiales: combinedMateriales,
                         refaccionesList: refaccionesList,
                         observaciones: '',
+                        observacionesList: activeItems.map((item, index) => ({
+                            id: String(index + 1),
+                            texto: item.descripcion,
+                            imagenes: item.foto ? [item.foto] : []
+                        })),
                         imagenes: {
-                            antes: null,
-                            durante: null,
-                            despues: null
+                            antes: activeItems[0]?.foto || null,
+                            durante: activeItems[1]?.foto || null,
+                            despues: activeItems[2]?.foto || null
                         },
-                        imagenObservacion: null,
+                        imagenObservacion: activeItems[3]?.foto || null,
+                        imagenesObservacion: activeItems[3]?.foto ? [activeItems[3].foto] : [],
                         firmaEmpresa: null,
                         involucraEquipo: !!serviceMarca || !!serviceModelo,
                         equipoInfo: (serviceMarca || serviceModelo) ? {
@@ -1285,6 +1383,24 @@ const AutonomoDetalleTrabajo: React.FC = () => {
             setNewQuoteMaterials([]);
             setNewQuoteDetails("");
         }
+        
+        // 6. Fotos y tareas de la actividad
+        const photosList = tarea.photos || [];
+        
+        const cleanDescText = tarea.cleanDescripcion || tarea.descripcion || '';
+        const descParts = cleanDescText.split('\n\n');
+        const items = [];
+        const maxLen = Math.max(descParts.length, photosList.length);
+        for (let i = 0; i < Math.min(maxLen, 3); i++) {
+            const raw = descParts[i] || '';
+            const cleaned = raw.replace(/^\d+\.\s*/, '');
+            items.push({
+                id: String(i + 1),
+                descripcion: cleaned,
+                foto: photosList[i] || ''
+            });
+        }
+        setTaskItems(items.length > 0 ? items : [{ id: '1', descripcion: cleanDescText, foto: '' }]);
         
         setIsAddModalOpen(true);
     };
@@ -2183,6 +2299,9 @@ const AutonomoDetalleTrabajo: React.FC = () => {
                     <div className={styles.tabsContainer}>
                         {['Datos', 'Trabajo', 'Registro', 'Historial', 'Cotización']
                             .filter(tabName => {
+                                // Encargado never sees Registro tab
+                                if (user?.role === 'encargado' && tabName === 'Registro') return false;
+
                                 if (user?.role === 'cliente') {
                                     if (tabName === 'Cotización' && trabajo.estado === 'Cotización Enviada' && trabajo.cotizacion) {
                                         return true;
@@ -2212,7 +2331,19 @@ const AutonomoDetalleTrabajo: React.FC = () => {
                                     className={`${styles.tabButton} ${activeTab === tabName ? styles.activeTab : styles.inactiveTab}`}
                                     onClick={() => setActiveTab(tabName as any)}
                                     title={tabName}
-                                    style={{ position: 'relative' }}
+                                    style={{
+                                        position: 'relative',
+                                        ...(tabName === 'Cotización' && activeTab !== 'Cotización' && [
+                                            'Cotización Enviada',
+                                            'Cotización Aceptada',
+                                        ].includes(trabajo?.estado) ? {
+                                            background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                                            color: '#fff',
+                                            border: '2px solid #d97706',
+                                            boxShadow: '0 4px 14px rgba(245,158,11,0.4)',
+                                            fontWeight: '800',
+                                        } : {})
+                                    }}
                                 >
                                     <span className={styles.tabIcon}>
                                         {tabName === 'Datos' ? <HiOutlineBuildingOffice2 size={22} /> :
@@ -2281,7 +2412,18 @@ const AutonomoDetalleTrabajo: React.FC = () => {
                                             <span className={styles.bentoValue} style={{ fontSize: '20px' }}>{trabajo.sucursal || "No registrado"}</span>
                                             <span className={styles.badge} style={{ marginTop: '5px' }}>{trabajo.tipo || "Trabajo"}</span>
                                         </div>
-                                        <div style={{ textAlign: 'right' }}>
+                                        <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end', justifyContent: 'center' }}>
+                                             {trabajo.latitud_llegada &&
+                                              !['Cotización Enviada', 'Cotización Aceptada', 'En Proceso', 'Finalizado', 'Completado'].includes(trabajo.estado) && (
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); setShowMapModal(true); }}
+                                                    style={{ padding: '6px 12px', background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0', borderRadius: '8px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', transition: 'all 0.2s' }}
+                                                    onMouseEnter={e => { e.currentTarget.style.background = '#d1fae5'; }}
+                                                    onMouseLeave={e => { e.currentTarget.style.background = '#ecfdf5'; }}
+                                                >
+                                                    📍 Ver Llegada
+                                                </button>
+                                             )}
                                         </div>
                                     </div>
 
@@ -2438,7 +2580,58 @@ const AutonomoDetalleTrabajo: React.FC = () => {
                                                     );
                                                 })()
                                             ) : null
-                                        ) : null
+                                        ) : (
+                                            (trabajo.estado === 'En Espera' || trabajo.estado === 'Cotización Aceptada' || trabajo.estado === 'Cotización Aprobada') ? (
+                                                (() => {
+                                                    const isAssigned = (trabajo.tecnico && trabajo.tecnico !== 'Sin asignar' && trabajo.tecnico !== 'Sin Asignar');
+                                                    if (isAssigned) {
+                                                        return (
+                                                            <div style={{ marginTop: '12px', padding: '10px 15px', borderRadius: '12px', background: '#f8fafc', border: '1px solid #e2e8f0', color: '#475569', fontSize: '13px', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                                                                <span style={{ fontSize: '16px' }}>👤</span> Técnico: {trabajo.tecnico}
+                                                            </div>
+                                                        );
+                                                    }
+                                                    
+                                                    const match = (trabajo.descripcion || "").match(/^\[Técnico sugerido:\s*([^\]]+)\]\s*/i);
+                                                    const tecnicoSugeridoName = match ? match[1] : null;
+                                                    
+                                                    return (
+                                                        <button
+                                                            onClick={() => {
+                                                                if (tecnicoSugeridoName) {
+                                                                    handleAceptarSolicitudPreasignada(tecnicoSugeridoName);
+                                                                } else {
+                                                                    handleOpenAssignModal();
+                                                                }
+                                                            }}
+                                                            style={{
+                                                                marginTop: '8px',
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                gap: '8px',
+                                                                background: 'linear-gradient(135deg, #2563eb 0%, #3b82f6 100%)',
+                                                                color: 'white',
+                                                                border: 'none',
+                                                                padding: '10px 20px',
+                                                                borderRadius: '25px',
+                                                                fontSize: '13px',
+                                                                fontWeight: '700',
+                                                                cursor: 'pointer',
+                                                                transition: 'all 0.2s ease',
+                                                                boxShadow: '0 4px 12px rgba(59, 130, 246, 0.35)',
+                                                                whiteSpace: 'nowrap',
+                                                                width: '100%',
+                                                                justifyContent: 'center'
+                                                            }}
+                                                            onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-1px)')}
+                                                            onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}
+                                                        >
+                                                            {match ? `✅ Confirmar Sugerido` : '👤 Asignar Técnico'}
+                                                        </button>
+                                                    );
+                                                })()
+                                            ) : null
+                                        )
                                     )}
 
                                     {/* BOTONES PARA TÉCNICO: Aceptar, Rechazar, Empezar */}
@@ -2889,6 +3082,16 @@ const AutonomoDetalleTrabajo: React.FC = () => {
                                                 </div>
                                             )}
 
+                                            {/* CHAT DE NEGOCIACIÓN EMBEBIDO EN LA CARD */}
+                                            {trabajo && user?.role !== 'cliente' && (
+                                                <div style={{ marginTop: '0', paddingTop: '0' }}>
+                                                    <NegotiationChatWidget 
+                                                        trabajoId={trabajo.id} 
+                                                        currentUser={user} 
+                                                        inlineMode={true}
+                                                    />
+                                                </div>
+                                            )}
 
                                         </div>
                                     </div>
@@ -2958,7 +3161,7 @@ const AutonomoDetalleTrabajo: React.FC = () => {
                     {
                         activeTab === 'Registro' && (
                             <div>
-                                {(user?.role === 'tecnico' || user?.role === 'admin') && trabajo.tipo === 'Visita' && (
+                                {(user?.role === 'tecnico' || user?.role === 'admin') && trabajo.tipo === 'Visita' && !trabajo.visitado && trabajo.estado === 'En Proceso' && (
                                     <button
                                         onClick={() => setIsAddModalOpen(true)}
                                         className={styles.addTaskButton}
@@ -2975,14 +3178,39 @@ const AutonomoDetalleTrabajo: React.FC = () => {
                                     </div>
                                 )}
 
-                                {(user?.role === 'tecnico' || user?.role === 'admin') && subTareas.length > 0 && trabajo.tipo === 'Visita' && (
-                                    <div style={{ marginTop: '50px', textAlign: 'center' }}>
-                                        <button
-                                            onClick={handleFinishVisit}
-                                            style={{ background: '#333', color: 'white', border: 'none', padding: '15px 40px', borderRadius: '30px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', width: '100%', maxWidth: '400px' }}
-                                        >
-                                            Confirmar y Guardar
-                                        </button>
+                                {user?.role === 'tecnico' && subTareas.length > 0 && (
+                                    <div style={{ marginTop: '25px', display: 'flex', justifyContent: 'center', width: '100%' }}>
+                                        {trabajo?.estado === 'Cotización Enviada' || trabajo?.visitado ? (
+                                            <div style={{ background: '#f0fdf4', border: '1.5px solid #86efac', borderRadius: '16px', padding: '16px 24px', display: 'flex', alignItems: 'center', gap: '10px', color: '#166534', fontWeight: '800', fontSize: '14px', boxShadow: '0 4px 12px rgba(34, 197, 94, 0.15)' }}>
+                                                <span style={{ fontSize: '20px' }}>✓</span> Información Enviada al Encargado de Sucursal
+                                            </div>
+                                        ) : (
+                                            <button
+                                                onClick={() => setShowSendConfirmModal(true)}
+                                                style={{
+                                                    width: '100%',
+                                                    maxWidth: '400px',
+                                                    padding: '16px 28px',
+                                                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                                    color: '#ffffff',
+                                                    border: 'none',
+                                                    borderRadius: '16px',
+                                                    fontSize: '15px',
+                                                    fontWeight: '800',
+                                                    cursor: 'pointer',
+                                                    boxShadow: '0 8px 24px rgba(16, 185, 129, 0.35)',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    gap: '10px',
+                                                    transition: 'all 0.2s ease'
+                                                }}
+                                                onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+                                                onMouseLeave={e => e.currentTarget.style.transform = 'none'}
+                                            >
+                                                🚀 Enviar al Encargado de Sucursal
+                                            </button>
+                                        )}
                                     </div>
                                 )}
                             </div>
@@ -3182,24 +3410,156 @@ const AutonomoDetalleTrabajo: React.FC = () => {
                                 ))}
                             </div>
 
-                            <div style={{ display: 'flex', gap: '20px', marginTop: '20px' }}>
-                                <div style={{ flex: 1 }}>
-                                    <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px', fontSize: '14px' }}>Fecha Asignada</label>
-                                    <input
-                                        type="date"
-                                        value={asignarFecha}
-                                        onChange={(e) => setAsignarFecha(e.target.value)}
-                                        style={{ width: '100%', padding: '10px', borderRadius: '10px', border: '1px solid #ddd' }}
-                                    />
-                                </div>
-                                <div style={{ flex: 1 }}>
-                                    <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px', fontSize: '14px' }}>Hora Estimada</label>
-                                    <input
-                                        type="time"
-                                        value={asignarHora}
-                                        onChange={(e) => setAsignarHora(e.target.value)}
-                                        style={{ width: '100%', padding: '10px', borderRadius: '10px', border: '1px solid #ddd' }}
-                                    />
+                            <div style={{ marginTop: '20px', background: '#f8fafc', padding: '16px', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
+                                <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+                                    {/* FECHA */}
+                                    <div style={{ flex: '1 1 200px' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                            <label style={{ fontWeight: '700', fontSize: '13px', color: '#1e293b' }}>📅 Fecha Asignada</label>
+                                            <div style={{ display: 'flex', gap: '4px' }}>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setAsignarFecha(new Date().toISOString().split('T')[0])}
+                                                    style={{
+                                                        fontSize: '11px',
+                                                        fontWeight: '600',
+                                                        padding: '2px 7px',
+                                                        borderRadius: '6px',
+                                                        border: '1px solid #cbd5e1',
+                                                        background: asignarFecha === new Date().toISOString().split('T')[0] ? '#f26522' : '#fff',
+                                                        color: asignarFecha === new Date().toISOString().split('T')[0] ? '#fff' : '#475569',
+                                                        cursor: 'pointer'
+                                                    }}
+                                                >
+                                                    Hoy
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const tom = new Date();
+                                                        tom.setDate(tom.getDate() + 1);
+                                                        setAsignarFecha(tom.toISOString().split('T')[0]);
+                                                    }}
+                                                    style={{
+                                                        fontSize: '11px',
+                                                        fontWeight: '600',
+                                                        padding: '2px 7px',
+                                                        borderRadius: '6px',
+                                                        border: '1px solid #cbd5e1',
+                                                        background: '#fff',
+                                                        color: '#475569',
+                                                        cursor: 'pointer'
+                                                    }}
+                                                >
+                                                    Mañana
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <input
+                                            type="date"
+                                            min={new Date().toISOString().split('T')[0]}
+                                            value={asignarFecha}
+                                            onChange={(e) => setAsignarFecha(e.target.value)}
+                                            style={{
+                                                width: '100%',
+                                                padding: '10px 12px',
+                                                borderRadius: '10px',
+                                                border: '1.5px solid #cbd5e1',
+                                                fontSize: '14px',
+                                                fontWeight: '600',
+                                                color: '#0f172a',
+                                                background: '#fff',
+                                                outline: 'none'
+                                            }}
+                                        />
+                                    </div>
+
+                                    {/* HORA */}
+                                    <div style={{ flex: '1 1 200px' }}>
+                                        <label style={{ display: 'block', fontWeight: '700', fontSize: '13px', color: '#1e293b', marginBottom: '6px' }}>
+                                            🕒 Hora Estimada
+                                        </label>
+                                        <select
+                                            value={asignarHora}
+                                            onChange={(e) => setAsignarHora(e.target.value)}
+                                            style={{
+                                                width: '100%',
+                                                padding: '10px 12px',
+                                                borderRadius: '10px',
+                                                border: '1.5px solid #cbd5e1',
+                                                fontSize: '14px',
+                                                fontWeight: '600',
+                                                color: '#0f172a',
+                                                background: '#fff',
+                                                outline: 'none',
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            <option value="">-- Seleccionar Hora --</option>
+                                            {[
+                                                { val: '07:00', lbl: '07:00 AM' },
+                                                { val: '07:30', lbl: '07:30 AM' },
+                                                { val: '08:00', lbl: '08:00 AM' },
+                                                { val: '08:30', lbl: '08:30 AM' },
+                                                { val: '09:00', lbl: '09:00 AM (Mañana)' },
+                                                { val: '09:30', lbl: '09:30 AM' },
+                                                { val: '10:00', lbl: '10:00 AM' },
+                                                { val: '10:30', lbl: '10:30 AM' },
+                                                { val: '11:00', lbl: '11:00 AM' },
+                                                { val: '11:30', lbl: '11:30 AM' },
+                                                { val: '12:00', lbl: '12:00 PM (Mediodía)' },
+                                                { val: '12:30', lbl: '12:30 PM' },
+                                                { val: '13:00', lbl: '01:00 PM' },
+                                                { val: '13:30', lbl: '01:30 PM' },
+                                                { val: '14:00', lbl: '02:00 PM' },
+                                                { val: '14:30', lbl: '02:30 PM' },
+                                                { val: '15:00', lbl: '03:00 PM (Tarde)' },
+                                                { val: '15:30', lbl: '03:30 PM' },
+                                                { val: '16:00', lbl: '04:00 PM' },
+                                                { val: '16:30', lbl: '04:30 PM' },
+                                                { val: '17:00', lbl: '05:00 PM' },
+                                                { val: '17:30', lbl: '05:30 PM' },
+                                                { val: '18:00', lbl: '06:00 PM' },
+                                                { val: '18:30', lbl: '06:30 PM' },
+                                                { val: '19:00', lbl: '07:00 PM' },
+                                                { val: '19:30', lbl: '07:30 PM' },
+                                                { val: '20:00', lbl: '08:00 PM' }
+                                            ].map(slot => (
+                                                <option key={slot.val} value={slot.val}>{slot.lbl}</option>
+                                            ))}
+                                        </select>
+                                        <div style={{ display: 'flex', gap: '4px', marginTop: '6px', flexWrap: 'wrap' }}>
+                                            {['09:00', '11:00', '13:00', '15:00', '17:00'].map(hVal => {
+                                                const labels: Record<string, string> = {
+                                                    '09:00': '9 AM',
+                                                    '11:00': '11 AM',
+                                                    '13:00': '1 PM',
+                                                    '15:00': '3 PM',
+                                                    '17:00': '5 PM'
+                                                };
+                                                const isSel = asignarHora === hVal;
+                                                return (
+                                                    <button
+                                                        key={hVal}
+                                                        type="button"
+                                                        onClick={() => setAsignarHora(hVal)}
+                                                        style={{
+                                                            fontSize: '11px',
+                                                            fontWeight: '700',
+                                                            padding: '2px 8px',
+                                                            borderRadius: '6px',
+                                                            border: isSel ? '1px solid #f26522' : '1px solid #cbd5e1',
+                                                            background: isSel ? '#fff3ed' : '#fff',
+                                                            color: isSel ? '#f26522' : '#64748b',
+                                                            cursor: 'pointer'
+                                                        }}
+                                                    >
+                                                        {labels[hVal]}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
@@ -3364,14 +3724,207 @@ const AutonomoDetalleTrabajo: React.FC = () => {
                                     </div>
                                 )}
 
-                                <div style={{ marginBottom: '20px' }}>
-                                    <textarea
-                                        placeholder="Especifica tarea"
-                                        value={newTaskDescription}
-                                        onChange={(e) => setNewTaskDescription(e.target.value)}
-                                        style={{ width: '100%', height: '100px', padding: '15px', borderRadius: '10px', border: '1px solid #ddd', fontSize: '16px', color: '#666', resize: 'none' }}
-                                    />
-                                </div>
+                                 {/* DETALLES DE LA ACTIVIDAD Y EVIDENCIAS (HASTA 3 BLOQUES) */}
+                                 <div style={{ marginBottom: '25px' }}>
+                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                                         <label style={{ fontSize: '13px', fontWeight: 'bold', color: '#475569' }}>
+                                             Detalles de la Visita y Evidencias ({taskItems.length}/3)
+                                         </label>
+                                         {taskItems.length < 3 && (
+                                             <button
+                                                 type="button"
+                                                 onClick={() => setTaskItems([...taskItems, { id: String(Date.now()), descripcion: '', foto: '' }])}
+                                                 style={{
+                                                     background: '#fff3ed',
+                                                     color: '#f26522',
+                                                     border: '1px solid #ffcca8',
+                                                     padding: '5px 12px',
+                                                     borderRadius: '8px',
+                                                     fontSize: '12px',
+                                                     fontWeight: '800',
+                                                     cursor: 'pointer',
+                                                     display: 'flex',
+                                                     alignItems: 'center',
+                                                     gap: '4px'
+                                                 }}
+                                             >
+                                                 + Añadir otra evidencia ({taskItems.length}/3)
+                                             </button>
+                                         )}
+                                     </div>
+
+                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                         {taskItems.map((item, index) => (
+                                             <div
+                                                 key={item.id || index}
+                                                 style={{
+                                                     background: '#f8fafc',
+                                                     border: '1.5px solid #e2e8f0',
+                                                     borderRadius: '14px',
+                                                     padding: '16px',
+                                                     position: 'relative'
+                                                 }}
+                                             >
+                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                                     <span style={{ fontSize: '12px', fontWeight: '800', color: '#f26522', textTransform: 'uppercase' }}>
+                                                         Punto de Revisión / Evidencia {index + 1}
+                                                     </span>
+                                                     {taskItems.length > 1 && (
+                                                         <button
+                                                             type="button"
+                                                             onClick={() => setTaskItems(taskItems.filter((_, i) => i !== index))}
+                                                             style={{
+                                                                 background: '#fef2f2',
+                                                                 color: '#ef4444',
+                                                                 border: '1px solid #fecaca',
+                                                                 borderRadius: '6px',
+                                                                 padding: '3px 8px',
+                                                                 fontSize: '11px',
+                                                                 fontWeight: '700',
+                                                                 cursor: 'pointer'
+                                                             }}
+                                                         >
+                                                             🗑️ Eliminar
+                                                         </button>
+                                                     )}
+                                                 </div>
+
+                                                 <textarea
+                                                     placeholder={`Describe el detalle o trabajo realizado (Punto ${index + 1})...`}
+                                                     value={item.descripcion}
+                                                     onChange={(e) => {
+                                                         const val = e.target.value;
+                                                         setTaskItems(prev => prev.map((it, i) => i === index ? { ...it, descripcion: val } : it));
+                                                     }}
+                                                     style={{
+                                                         width: '100%',
+                                                         height: '75px',
+                                                         padding: '10px 12px',
+                                                         borderRadius: '10px',
+                                                         border: '1px solid #cbd5e1',
+                                                         fontSize: '14px',
+                                                         color: '#0f172a',
+                                                         resize: 'none',
+                                                         marginBottom: '12px',
+                                                         outline: 'none',
+                                                         boxSizing: 'border-box'
+                                                     }}
+                                                 />
+
+                                                 {/* FOTO PARA ESTE PUNTO */}
+                                                 <div>
+                                                     <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#64748b', marginBottom: '6px' }}>
+                                                         Foto de evidencia (Punto {index + 1})
+                                                     </label>
+                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                         {item.foto ? (
+                                                             <div style={{ position: 'relative', width: '80px', height: '80px' }}>
+                                                                 <img
+                                                                     src={item.foto}
+                                                                     alt={`Foto Tarea ${index + 1}`}
+                                                                     style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '10px', border: '1.5px solid #cbd5e1' }}
+                                                                 />
+                                                                 <button
+                                                                     type="button"
+                                                                     onClick={() => setTaskItems(prev => prev.map((it, i) => i === index ? { ...it, foto: '' } : it))}
+                                                                     style={{
+                                                                         position: 'absolute',
+                                                                         top: '-6px',
+                                                                         right: '-6px',
+                                                                         background: '#ef4444',
+                                                                         color: 'white',
+                                                                         border: 'none',
+                                                                         borderRadius: '50%',
+                                                                         width: '20px',
+                                                                         height: '20px',
+                                                                         display: 'flex',
+                                                                         alignItems: 'center',
+                                                                         justifyContent: 'center',
+                                                                         fontSize: '11px',
+                                                                         fontWeight: 'bold',
+                                                                         cursor: 'pointer'
+                                                                     }}
+                                                                     title="Eliminar foto"
+                                                                 >
+                                                                     ✕
+                                                                 </button>
+                                                             </div>
+                                                         ) : (
+                                                             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                                                 {/* OPCIÓN 1: ABRIR CÁMARA */}
+                                                                 <input
+                                                                     type="file"
+                                                                     accept="image/*"
+                                                                     capture="environment"
+                                                                     id={`autonomo-camera-uploader-${index}`}
+                                                                     style={{ display: 'none' }}
+                                                                     onChange={(e) => {
+                                                                         if (e.target.files && e.target.files[0]) {
+                                                                             compressImage(e.target.files[0], (base64) => {
+                                                                                 setTaskItems(prev => prev.map((it, i) => i === index ? { ...it, foto: base64 } : it));
+                                                                             });
+                                                                         }
+                                                                     }}
+                                                                 />
+                                                                 <label
+                                                                     htmlFor={`autonomo-camera-uploader-${index}`}
+                                                                     style={{
+                                                                         padding: '8px 12px',
+                                                                         borderRadius: '8px',
+                                                                         border: '1.5px solid #f26522',
+                                                                         background: '#fff3ed',
+                                                                         color: '#f26522',
+                                                                         fontSize: '12px',
+                                                                         fontWeight: '700',
+                                                                         cursor: 'pointer',
+                                                                         display: 'inline-flex',
+                                                                         alignItems: 'center',
+                                                                         gap: '5px'
+                                                                     }}
+                                                                 >
+                                                                     📸 Abrir Cámara
+                                                                 </label>
+
+                                                                 {/* OPCIÓN 2: ELEGIR DE GALERÍA */}
+                                                                 <input
+                                                                     type="file"
+                                                                     accept="image/*"
+                                                                     id={`autonomo-gallery-uploader-${index}`}
+                                                                     style={{ display: 'none' }}
+                                                                     onChange={(e) => {
+                                                                         if (e.target.files && e.target.files[0]) {
+                                                                             compressImage(e.target.files[0], (base64) => {
+                                                                                 setTaskItems(prev => prev.map((it, i) => i === index ? { ...it, foto: base64 } : it));
+                                                                             });
+                                                                         }
+                                                                     }}
+                                                                 />
+                                                                 <label
+                                                                     htmlFor={`autonomo-gallery-uploader-${index}`}
+                                                                     style={{
+                                                                         padding: '8px 12px',
+                                                                         borderRadius: '8px',
+                                                                         border: '1.5px solid #cbd5e1',
+                                                                         background: '#fff',
+                                                                         color: '#475569',
+                                                                         fontSize: '12px',
+                                                                         fontWeight: '700',
+                                                                         cursor: 'pointer',
+                                                                         display: 'inline-flex',
+                                                                         alignItems: 'center',
+                                                                         gap: '5px'
+                                                                     }}
+                                                                 >
+                                                                     🖼️ Galería
+                                                                 </label>
+                                                             </div>
+                                                         )}
+                                                     </div>
+                                                 </div>
+                                             </div>
+                                         ))}
+                                     </div>
+                                 </div>
 
                                 { (
                                     <div style={{ marginTop: '20px', background: '#f9f9f9', padding: '15px', borderRadius: '15px', border: '1px solid #eee' }}>
@@ -3482,17 +4035,17 @@ const AutonomoDetalleTrabajo: React.FC = () => {
                             <div className={styles.modalActionsContainer}>
                                 {!editingTaskId && (
                                     <button
-                                        onClick={() => handleAddTask(true)}
+                                        onClick={handleGeneratePreview}
                                         className={styles.btnSavePdf}
                                     >
-                                        Guardar y generar PDF
+                                        Previsualizar PDF
                                     </button>
                                 )}
                                 <button
                                     onClick={() => handleAddTask(false)}
                                     className={styles.btnSaveSend}
                                 >
-                                    {editingTaskId ? "Actualizar" : "Guardar y enviar"}
+                                    {editingTaskId ? "Actualizar" : "Guardar"}
                                 </button>
                                 <button
                                     onClick={() => { 
@@ -3670,20 +4223,20 @@ const AutonomoDetalleTrabajo: React.FC = () => {
                         )}
 
                         {/* Botón de Acción para Admin/Gerente dentro del Modal */}
-                        {(['admin', 'autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '')) && trabajo?.estado !== 'Finalizado' && trabajo?.estado !== 'Asignado' && trabajo?.estado !== 'En Proceso' && trabajo?.estado !== 'Cancelado' && (
+                        {(['admin', 'autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '')) && (trabajo?.estado === 'Solicitud' || trabajo?.estado === 'Pendiente') && (
                             <div style={{ width: '100%', marginTop: '40px', paddingTop: '30px', borderTop: '2px solid #f1f5f9', display: 'flex', justifyContent: 'center', gap: '20px', flexWrap: 'wrap' }}>
                                 {(() => {
                                     const match = (trabajo?.descripcion || "").match(/^\[Técnico sugerido:\s*([^\]]+)\]\s*/i);
                                     const tecnicoSugeridoName = match ? match[1] : null;
-                                    const isPreassigned = tecnicoSugeridoName || (trabajo?.tecnico && trabajo.tecnico !== 'Sin asignar' && trabajo.tecnico !== 'Sin Asignar');
                                     return (
                                         <button
-                                            onClick={() => {
-                                                if (isPreassigned) {
-                                                    handleAceptarSolicitudPreasignada(tecnicoSugeridoName);
-                                                } else {
+                                            onClick={async () => {
+                                                try {
+                                                    await updateEstadoTrabajo(trabajo.id, { estado: "En Espera" });
+                                                    setTrabajo(prev => prev ? { ...prev, estado: "En Espera" } : prev);
                                                     setShowZoomModal(false);
-                                                    handleOpenAssignModal();
+                                                } catch (error: any) {
+                                                    console.error("Error accepting job:", error);
                                                 }
                                             }}
                                             style={{
@@ -3704,10 +4257,11 @@ const AutonomoDetalleTrabajo: React.FC = () => {
                                             onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 15px 25px -5px rgba(59, 130, 246, 0.6), inset 0 1px 1px rgba(255,255,255,0.2)'; }}
                                             onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 10px 20px -5px rgba(59, 130, 246, 0.5), inset 0 1px 1px rgba(255,255,255,0.2)'; }}
                                         >
-                                            {isPreassigned ? `✅ Confirmar y Aceptar` : '👤 Asignar Técnico'}
+                                            {tecnicoSugeridoName ? `✅ Aceptar Solicitud (Sugerido: ${tecnicoSugeridoName})` : '✅ Aceptar Solicitud'}
                                         </button>
                                     );
                                 })()}
+
                                 <button
                                     onClick={handleAdminRechazarSolicitud}
                                     style={{
@@ -3963,6 +4517,118 @@ const AutonomoDetalleTrabajo: React.FC = () => {
                         setActivityPDFData(null);
                     }}
                 />
+            )}
+            {/* MODAL DE CONFIRMACIÓN DE ENVÍO A ENCARGADO */}
+            {showSendConfirmModal && (
+                <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(15, 23, 42, 0.75)', backdropFilter: 'blur(8px)', zIndex: 99999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
+                    <div style={{ background: '#ffffff', borderRadius: '24px', padding: '32px', maxWidth: '460px', width: '100%', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', textAlign: 'center' }}>
+                        <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: '#ecfdf5', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px auto', fontSize: '32px' }}>
+                            🚀
+                        </div>
+                        <h3 style={{ margin: '0 0 12px 0', fontSize: '20px', fontWeight: '800', color: '#0f172a' }}>¿Enviar al Encargado de Sucursal?</h3>
+                        <p style={{ margin: '0 0 25px 0', fontSize: '14px', color: '#64748b', lineHeight: '1.6' }}>
+                            ¿Estás seguro de que deseas enviar la información? Una vez enviada al Encargado de Sucursal, la información se mandará y no se podrán realizar más cambios ni ediciones.
+                        </p>
+                        <div style={{ display: 'flex', gap: '12px' }}>
+                            <button
+                                onClick={() => setShowSendConfirmModal(false)}
+                                style={{ flex: 1, padding: '13px', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '14px', fontWeight: '700', fontSize: '14px', cursor: 'pointer' }}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={async () => {
+                                    setShowSendConfirmModal(false);
+                                    try {
+                                        await updateEstadoTrabajo(Number(id), { estado: 'Cotización Enviada', visitado: true });
+                                        setTrabajo((prev: any) => prev ? { ...prev, estado: 'Cotización Enviada', visitado: true } : prev);
+
+                                        const techName = user?.name || 'Técnico';
+                                        const sucursalName = trabajo?.sucursal || trabajo?.negocio?.nombre || 'tu sucursal';
+
+                                        // Notificar al Encargado de Sucursal
+                                        if (trabajo?.negocio_id) {
+                                            try {
+                                                await createNotificacionNegocio({
+                                                    negocio_id: trabajo.negocio_id,
+                                                    titulo: '📍 Visita Finalizada',
+                                                    mensaje: `El técnico ${techName} ha concluido la visita en tu sucursal.`,
+                                                    enlace: `/encargado/resumen`
+                                                });
+                                            } catch (notiErr) {
+                                                console.error("Error notificando al Encargado:", notiErr);
+                                            }
+                                        }
+
+                                        // Notificar al Admin General
+                                        try {
+                                            await createNotificacionByRole({
+                                                role: 'admin',
+                                                titulo: '📍 Visita Finalizada',
+                                                mensaje: `El técnico ${techName} ha concluido la visita en ${sucursalName}.`,
+                                                enlace: `/menu/trabajo-detalle/${id}`
+                                            });
+                                        } catch (notiErr) {
+                                            console.error("Error notificando al Admin:", notiErr);
+                                        }
+
+                                        // Notificar al Admin Autónomo / Subgerente
+                                        if (trabajo?.admin_autonomo_id) {
+                                            try {
+                                                await createNotificacion({
+                                                    user_id: trabajo.admin_autonomo_id,
+                                                    titulo: '📍 Visita Finalizada',
+                                                    mensaje: `El técnico ${techName} ha concluido la visita en la sucursal ${sucursalName}.`,
+                                                    enlace: `/autonomo/trabajo-detalle/${id}`
+                                                });
+                                            } catch (notiErr) {
+                                                console.error("Error notificando al Admin Autónomo:", notiErr);
+                                            }
+                                        }
+
+                                        showAlert('Información Enviada', 'La información ha sido enviada al Encargado de Sucursal correctamente.', 'success');
+                                    } catch (err: any) {
+                                        showAlert('Error', err?.message || 'No se pudo enviar la información', 'error');
+                                    }
+                                }}
+                                style={{ flex: 1.5, padding: '13px', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#ffffff', border: 'none', borderRadius: '14px', fontWeight: '800', fontSize: '14px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)' }}
+                            >
+                                Sí, Enviar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showMapModal && trabajo && trabajo.latitud_llegada && trabajo.longitud_llegada && (
+                <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(15, 23, 42, 0.75)', backdropFilter: 'blur(8px)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center', animation: 'fadeIn 0.2s ease' }} onClick={() => setShowMapModal(false)}>
+                    <div style={{ background: '#fff', borderRadius: '24px', width: '90%', maxWidth: '800px', height: '80%', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }} onClick={e => e.stopPropagation()}>
+                        <div style={{ padding: '20px 24px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc' }}>
+                            <div>
+                                <h3 style={{ margin: 0, fontSize: '18px', color: '#0f172a', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span style={{ fontSize: '24px' }}>📍</span> Ubicación de Llegada del Técnico
+                                </h3>
+                                <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: '#64748b' }}>Confirmada en el sitio del cliente</p>
+                            </div>
+                            <button onClick={() => setShowMapModal(false)} style={{ background: '#e2e8f0', border: 'none', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer', transition: 'all 0.2s' }} onMouseEnter={e => { e.currentTarget.style.background = '#cbd5e1'; }} onMouseLeave={e => { e.currentTarget.style.background = '#e2e8f0'; }}>
+                                <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#0f172a', lineHeight: 1 }}>✕</span>
+                            </button>
+                        </div>
+                        <div style={{ flex: 1, position: 'relative' }}>
+                            <iframe
+                                width="100%"
+                                height="100%"
+                                frameBorder="0"
+                                style={{ border: 0 }}
+                                src={`https://www.google.com/maps/embed/v1/place?key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}&q=${trabajo.latitud_llegada},${trabajo.longitud_llegada}&zoom=17`}
+                                allowFullScreen
+                            ></iframe>
+                        </div>
+                        <div style={{ padding: '16px 24px', background: '#fff', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+                            <button onClick={() => setShowMapModal(false)} style={{ padding: '10px 20px', borderRadius: '10px', background: '#f1f5f9', color: '#334155', border: 'none', fontWeight: 'bold', cursor: 'pointer' }}>Cerrar Mapa</button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );

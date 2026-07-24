@@ -179,10 +179,20 @@ export default function ListaUsuarios() {
         }
     };
 
+    const isAutonomo = (u: User) => {
+        const role = getRoleName(u.role).toLowerCase();
+        return role === 'admin-autonomo' || role === 'autonomo';
+    };
+
     const filteredUsers = users.filter(u => {
         const roleName = getRoleName(u.role);
 
         if ((u.name || "").toLowerCase() === "root" || (u.email || "").toLowerCase().includes("root@") || u.id === 1) return false;
+
+        // Ocultar al Admin Autónomo si el usuario logueado es Encargado (gerente-general) o Encargado de Sucursal
+        if ((user?.role === 'gerente-general' || user?.role === 'encargado') && isAutonomo(u)) {
+            return false;
+        }
 
         const matchesSearch =
             (u.name || "").toLowerCase().includes(searchText.toLowerCase()) ||
@@ -200,11 +210,6 @@ export default function ListaUsuarios() {
 
         return matchesSearch && matchesRole;
     });
-
-    const isAutonomo = (u: User) => {
-        const role = getRoleName(u.role).toLowerCase();
-        return role === 'admin-autonomo' || role === 'autonomo';
-    };
 
     return (
         <div className={styles.container}>

@@ -6,6 +6,7 @@ import { getUsers } from '../../services/usersService';
 
 import { HiOutlineBuildingOffice, HiOutlineUser, HiOutlineClock, HiOutlineBriefcase, HiOutlineCheckCircle, HiArrowPath } from 'react-icons/hi2';
 import { useAuth } from '../../context/AuthContext';
+import { isCardSeen, markCardAsSeen } from '../../utils/seenCards';
 
 interface Trabajo {
     id: number;
@@ -104,14 +105,53 @@ const EncargadoTablero: React.FC = () => {
     const colProceso = trabajos.filter(t => t.estado === 'En Proceso');
     const colFinalizadas = trabajos.filter(t => ['Finalizado', 'Completado'].includes(t.estado));
 
-    const renderCard = (t: Trabajo) => (
-        <div key={t.id} className={styles.card} onClick={() => navigate(`/encargado/trabajo-detalle/${t.id}`)}>
-            <div className={styles.cardHeader}>
-                <span className={styles.jobId}>#{t.id}</span>
-                <span className={`${styles.priorityBadge} ${t.prioridad === 'Alta' ? styles.priorityAlta : (t.prioridad === 'Media' ? styles.priorityMedia : styles.priorityBaja)}`}>
-                    {t.prioridad}
-                </span>
-            </div>
+    // Column accent colors: [gradient, shadow color, dot color]
+    const COL_COLORS = {
+        yellow:  { grad: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', shadow: 'rgba(245,158,11,0.35)', dot: '🟡' },
+        blue:    { grad: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)', shadow: 'rgba(59,130,246,0.35)',  dot: '🔵' },
+        orange:  { grad: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)', shadow: 'rgba(249,115,22,0.35)', dot: '🟠' },
+        green:   { grad: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', shadow: 'rgba(16,185,129,0.35)', dot: '🟢' },
+        purple:  { grad: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)', shadow: 'rgba(139,92,246,0.35)', dot: '🟣' },
+    };
+
+    const renderCard = (t: Trabajo, colKey: keyof typeof COL_COLORS = 'yellow') => {
+        const userRole = user?.role || 'encargado';
+        const isSeen = isCardSeen(userRole, t.id, t.estado);
+        const accent = COL_COLORS[colKey];
+
+        const handleCardClick = () => {
+            markCardAsSeen(userRole, t.id, t.estado);
+            navigate(`/encargado/trabajo-detalle/${t.id}`);
+        };
+
+        return (
+            <div key={t.id} className={styles.card} onClick={handleCardClick}>
+                <div className={styles.cardHeader}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span className={styles.jobId}>#{t.id}</span>
+                        {!isSeen && (
+                            <span style={{
+                                background: accent.grad,
+                                color: '#ffffff',
+                                fontSize: '10px',
+                                fontWeight: '900',
+                                padding: '3px 8px',
+                                borderRadius: '20px',
+                                boxShadow: `0 2px 8px ${accent.shadow}`,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '3px',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.5px'
+                            }}>
+                                {accent.dot} NUEVO
+                            </span>
+                        )}
+                    </div>
+                    <span className={`${styles.priorityBadge} ${t.prioridad === 'Alta' ? styles.priorityAlta : (t.prioridad === 'Media' ? styles.priorityMedia : styles.priorityBaja)}`}>
+                        {t.prioridad}
+                    </span>
+                </div>
             
             <h4 className={styles.cardTitle}>{t.titulo}</h4>
             
@@ -159,7 +199,8 @@ const EncargadoTablero: React.FC = () => {
                 <span className={styles.dateText}>{new Date(t.created_at).toLocaleDateString()}</span>
             </div>
         </div>
-    );
+        );
+    };
 
     return (
         <div className={styles.tableroContainer}>
@@ -193,7 +234,7 @@ const EncargadoTablero: React.FC = () => {
                         <span className={styles.countBadge}>{colSolicitudes.length}</span>
                     </div>
                     <div className={styles.cardList}>
-                        {colSolicitudes.map(renderCard)}
+                        {colSolicitudes.map(t => renderCard(t, 'yellow'))}
                         {colSolicitudes.length === 0 && <div className={styles.emptyState}>No hay trabajos pendientes</div>}
                     </div>
                 </div>
@@ -205,7 +246,7 @@ const EncargadoTablero: React.FC = () => {
                         <span className={styles.countBadge}>{colCotizaciones.length}</span>
                     </div>
                     <div className={styles.cardList}>
-                        {colCotizaciones.map(renderCard)}
+                        {colCotizaciones.map(t => renderCard(t, 'blue'))}
                         {colCotizaciones.length === 0 && <div className={styles.emptyState}>No hay cotizaciones activas</div>}
                     </div>
                 </div>
@@ -217,7 +258,7 @@ const EncargadoTablero: React.FC = () => {
                         <span className={styles.countBadge}>{colEnEspera.length}</span>
                     </div>
                     <div className={styles.cardList}>
-                        {colEnEspera.map(renderCard)}
+                        {colEnEspera.map(t => renderCard(t, 'orange'))}
                         {colEnEspera.length === 0 && <div className={styles.emptyState}>No hay técnicos en espera</div>}
                     </div>
                 </div>
@@ -229,7 +270,7 @@ const EncargadoTablero: React.FC = () => {
                         <span className={styles.countBadge}>{colProceso.length}</span>
                     </div>
                     <div className={styles.cardList}>
-                        {colProceso.map(renderCard)}
+                        {colProceso.map(t => renderCard(t, 'green'))}
                         {colProceso.length === 0 && <div className={styles.emptyState}>No hay trabajos en proceso</div>}
                     </div>
                 </div>
@@ -241,7 +282,7 @@ const EncargadoTablero: React.FC = () => {
                         <span className={styles.countBadge}>{colFinalizadas.length}</span>
                     </div>
                     <div className={styles.cardList}>
-                        {colFinalizadas.map(renderCard)}
+                        {colFinalizadas.map(t => renderCard(t, 'purple'))}
                         {colFinalizadas.length === 0 && <div className={styles.emptyState}>No hay trabajos finalizados</div>}
                     </div>
                 </div>

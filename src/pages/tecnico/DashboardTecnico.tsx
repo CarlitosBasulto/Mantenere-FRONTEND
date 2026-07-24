@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import styles from './DashboardTecnico.module.css';
 import { getTrabajos } from '../../services/trabajosService';
 import { getUsers } from '../../services/usersService';
-import { HiOutlineUser, HiOutlineClock, HiArrowPath } from 'react-icons/hi2';
+import { HiOutlineUser, HiOutlineClock, HiArrowPath, HiOutlineBuildingOffice } from 'react-icons/hi2';
 import { useAuth } from '../../context/AuthContext';
+import { isCardSeen, markCardAsSeen } from '../../utils/seenCards';
 
 interface Trabajo {
     id: number;
@@ -27,6 +28,7 @@ interface Trabajo {
     // Extra fields fetched
     subgerenteName?: string;
     horaLlegada?: string;
+    hora_llegada?: string;
 }
 
 const DashboardTecnico: React.FC = () => {
@@ -35,6 +37,7 @@ const DashboardTecnico: React.FC = () => {
     const [trabajos, setTrabajos] = useState<Trabajo[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [lastUpdated, setLastUpdated] = useState(new Date());
 
 
     const fetchData = async (isSilent = false) => {
@@ -48,10 +51,10 @@ const DashboardTecnico: React.FC = () => {
                 getUsers()
             ]);
 
-            // 2. Map subgerentes
+            // 2. Map subgerentes / encargados
             const subgerentesMap = new Map<number, string>();
             usersData.forEach((u: any) => {
-                if (u.role?.name === 'admin-autonomo') {
+                if (u.role?.name === 'admin-autonomo' || u.role?.name === 'encargado' || u.role?.name === 'subgerente') {
                     subgerentesMap.set(u.id, u.name);
                 }
             });
@@ -59,13 +62,15 @@ const DashboardTecnico: React.FC = () => {
             // 3. Process and filter jobs for this technician
             let processedJobs: Trabajo[] = trabajosData
                 .filter((t: any) => {
-                    // Only keep jobs assigned to this technician
                     return t.trabajador?.user_id === user?.id || t.trabajador_id === user?.id;
                 })
-                .map((t: any) => ({
-                    ...t,
-                    subgerenteName: t.admin_autonomo_id ? (subgerentesMap.get(t.admin_autonomo_id) || 'Asignado') : 'Sin Asignar'
-                }));
+                .map((t: any) => {
+                    const encName = t.encargado || t.negocio?.encargado || (t.admin_autonomo_id ? subgerentesMap.get(t.admin_autonomo_id) : null);
+                    return {
+                        ...t,
+                        subgerenteName: (encName && encName !== 'Asignado') ? encName : (t.encargado || t.negocio?.encargado || '')
+                    };
+                });
 
             // 4. hora_llegada is natively present in the 'hora_llegada' column
 
@@ -110,46 +115,93 @@ const DashboardTecnico: React.FC = () => {
     // 4. Trabajos finalizados
     const colFinalizadas = trabajos.filter(t => ['Finalizado', 'Completado'].includes(t.estado));
 
-    const renderCard = (t: Trabajo) => (
-        <div key={t.id} className={styles.card} onClick={() => navigate(`/tecnico/trabajo-detalle/${t.id}`)}>
-            <div className={styles.cardHeader}>
-                <span className={styles.jobId}>#{t.id}</span>
-                <span className={`${styles.priorityBadge} ${t.prioridad === 'Alta' ? styles.priorityAlta : (t.prioridad === 'Media' ? styles.priorityMedia : styles.priorityBaja)}`}>
-                    {t.prioridad}
-                </span>
-            </div>
-            
-            <h4 className={styles.cardTitle}>{t.titulo}</h4>
-            
-            <div className={styles.infoRow}>
-                <HiOutlineBuildingOffice size={16} />
-                <span className={styles.strongText}>{t.negocio?.nombre || 'Sin sucursal'}</span>
-            </div>
-            
-            {t.subgerenteName && t.subgerenteName !== 'Sin Asignar' && (
+    // Column accent colors
+    const COL_COLORS = {
+        yellow:  { grad: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', shadow: 'rgba(245,158,11,0.35)', dot: '🟡' },
+        orange:  { grad: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)', shadow: 'rgba(249,115,22,0.35)', dot: '🟠' },
+        green:   { grad: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', shadow: 'rgba(16,185,129,0.35)', dot: '🟢' },
+        purple:  { grad: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)', shadow: 'rgba(139,92,246,0.35)', dot: '🟣' },
+    };
+
+    const renderCard = (t: Trabajo, colKey: keyof typeof COL_COLORS = 'yellow') => {
+        const problemaReportado = t.descripcion_problema || (t as any).descripcion || (t as any).problema || (t as any).reporteTienda || '';
+        const userRole = user?.role || 'tecnico';
+        const isSeen = isCardSeen(userRole, t.id, t.estado);
+        const accent = COL_COLORS[colKey];
+
+        const handleCardClick = () => {
+            markCardAsSeen(userRole, t.id, t.estado);
+            navigate(`/tecnico/trabajo-detalle/${t.id}`);
+        };
+
+        return (
+            <div key={t.id} className={styles.card} onClick={handleCardClick}>
+                <div className={styles.cardHeader}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span className={styles.jobId}>#{t.id}</span>
+                        {!isSeen && (
+                            <span style={{
+                                background: accent.grad,
+                                color: '#ffffff',
+                                fontSize: '10px',
+                                fontWeight: '900',
+                                padding: '3px 8px',
+                                borderRadius: '20px',
+                                boxShadow: `0 2px 8px ${accent.shadow}`,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '3px',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.5px'
+                            }}>
+                                {accent.dot} NUEVO
+                            </span>
+                        )}
+                    </div>
+                    <span className={`${styles.priorityBadge} ${t.prioridad === 'Alta' ? styles.priorityAlta : (t.prioridad === 'Media' ? styles.priorityMedia : styles.priorityBaja)}`}>
+                        {t.prioridad}
+                    </span>
+                </div>
+                
+                <h4 className={styles.cardTitle}>{t.titulo}</h4>
+                
                 <div className={styles.infoRow}>
-                    <HiOutlineUser size={16} />
-                    <span>Subgerente: <span className={styles.strongText}>{t.subgerenteName}</span></span>
+                    <HiOutlineBuildingOffice size={16} />
+                    <span className={styles.strongText}>{t.negocio?.nombre || 'Sin sucursal'}</span>
                 </div>
-            )}
 
-            {t.hora_llegada && (
-                <div style={{ background: '#ecfdf5', color: '#059669', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', marginBottom: '8px', display: 'inline-block' }}>
-                    ⏰ Llegada confirmada: {t.hora_llegada}
-                </div>
-            )}
+                {problemaReportado && problemaReportado !== '—' && (
+                    <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '8px 10px', marginTop: '6px', marginBottom: '6px', fontSize: '12px', color: '#334155' }}>
+                        <span style={{ fontWeight: '800', color: '#f26522', display: 'block', marginBottom: '2px', fontSize: '11px', textTransform: 'uppercase' }}>📝 Problema Reportado:</span>
+                        "{problemaReportado}"
+                    </div>
+                )}
+                
+                {t.subgerenteName && t.subgerenteName !== 'Sin Asignar' && t.subgerenteName !== 'Asignado' && (
+                    <div className={styles.infoRow}>
+                        <HiOutlineUser size={16} />
+                        <span>Encargado: <span className={styles.strongText}>{t.subgerenteName}</span></span>
+                    </div>
+                )}
 
-            <div className={styles.cardFooter}>
-                <div className={styles.dateText}>
-                    <HiOutlineClock size={14} />
-                    {new Date(t.created_at).toLocaleDateString()}
+                {t.hora_llegada && (
+                    <div style={{ background: '#ecfdf5', color: '#059669', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', marginBottom: '8px', display: 'inline-block' }}>
+                        ⏰ Llegada confirmada: {t.hora_llegada}
+                    </div>
+                )}
+
+                <div className={styles.cardFooter}>
+                    <div className={styles.dateText}>
+                        <HiOutlineClock size={14} />
+                        {new Date(t.created_at).toLocaleDateString()}
+                    </div>
+                    <span style={{ fontWeight: '600', color: '#0ea5e9' }}>
+                        {t.tipo === 'Visita' ? 'Visita' : 'Trabajo'}
+                    </span>
                 </div>
-                <span style={{ fontWeight: '600', color: '#0ea5e9' }}>
-                    {t.tipo === 'Visita' ? 'Visita' : 'Trabajo'}
-                </span>
             </div>
-        </div>
-    );
+        );
+    };
 
     return (
         <div className={styles.tableroContainer}>
@@ -173,7 +225,7 @@ const DashboardTecnico: React.FC = () => {
                         <span className={styles.columnBadge}>{colSolicitudes.length}</span>
                     </div>
                     <div className={styles.cardList}>
-                        {colSolicitudes.map(renderCard)}
+                        {colSolicitudes.map(t => renderCard(t, 'yellow'))}
                     </div>
                 </div>
 
@@ -184,7 +236,7 @@ const DashboardTecnico: React.FC = () => {
                         <span className={styles.columnBadge}>{colVisita.length}</span>
                     </div>
                     <div className={styles.cardList}>
-                        {colVisita.map(renderCard)}
+                        {colVisita.map(t => renderCard(t, 'orange'))}
                     </div>
                 </div>
 
@@ -195,7 +247,7 @@ const DashboardTecnico: React.FC = () => {
                         <span className={styles.columnBadge}>{colProceso.length}</span>
                     </div>
                     <div className={styles.cardList}>
-                        {colProceso.map(renderCard)}
+                        {colProceso.map(t => renderCard(t, 'green'))}
                     </div>
                 </div>
 
@@ -206,7 +258,7 @@ const DashboardTecnico: React.FC = () => {
                         <span className={styles.columnBadge}>{colFinalizadas.length}</span>
                     </div>
                     <div className={styles.cardList}>
-                        {colFinalizadas.map(renderCard)}
+                        {colFinalizadas.map(t => renderCard(t, 'purple'))}
                     </div>
                 </div>
             </div>
