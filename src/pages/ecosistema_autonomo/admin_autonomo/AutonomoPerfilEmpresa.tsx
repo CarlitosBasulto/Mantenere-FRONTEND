@@ -881,7 +881,7 @@ const AutonomoPerfilEmpresa: React.FC = () => {
                                     type="button"
                                 >
                                     <HiOutlineBolt size={18} />
-                                    {canEdit ? "Gestionar Levantamientos" : "Ver Catálogo"}
+                                    {canEdit ? "Iniciar levantamiento" : "Ver Catálogo"}
                                 </button>
                             </div>
 
