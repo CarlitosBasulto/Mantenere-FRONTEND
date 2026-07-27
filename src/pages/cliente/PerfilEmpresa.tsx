@@ -48,11 +48,20 @@ export interface Equipment {
     fotoPlacaFile?: File;
     categoria_id?: number | string | null;
     categoria?: { id: number; nombre: string } | null;
+    subAreaId?: string;
+    nombreSubArea?: string;
+}
+
+export interface LevantamientoSubArea {
+    id: string;
+    nombreSubArea: string;
+    equipos: Equipment[];
 }
 
 export interface LevantamientoSeccion {
     id: string;
     nombreArea: string;
+    subAreas?: LevantamientoSubArea[];
     equipos: Equipment[];
 }
 
@@ -605,7 +614,7 @@ const PerfilEmpresa: React.FC = () => {
                                 onClick={() => setActiveTab('levantamiento')}
                                 className={`${styles.tab} ${activeTab === 'levantamiento' ? styles.activeTab : ''}`}
                             >
-                                Levantamiento de Equipos
+                                Levantamientos
                             </button>
                             <button
                                 type="button"
@@ -844,13 +853,13 @@ const PerfilEmpresa: React.FC = () => {
                     <div className={styles.contentWrapper}>
                         {/* SECCIÓN LEVANTAMIENTO PREMIUM */}
                         <div className={styles.infoCard}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px', flexWrap: 'wrap', gap: '15px' }}>
                                 <div>
-                                    <h2 className={styles.sectionTitle} style={{ marginBottom: '8px' }}>
-                                        <HiOutlineBolt /> Levantamiento Técnico
+                                    <h2 className={styles.sectionTitle} style={{ marginBottom: '6px' }}>
+                                        <HiOutlineBolt /> Levantamientos por Áreas y Sub-áreas
                                     </h2>
                                     <p style={{ color: '#64748b', fontSize: '14px', margin: 0 }}>
-                                        Gestiona el catálogo de equipos de climatización, refrigeración y cocina.
+                                        Estructura de áreas, sub-áreas y catálogo de equipos y activos de la sucursal.
                                     </p>
                                 </div>
                                 <button
@@ -859,71 +868,85 @@ const PerfilEmpresa: React.FC = () => {
                                     type="button"
                                 >
                                     <HiOutlineBolt size={18} />
-                                    {canEdit ? "Gestionar Equipos" : "Ver Catálogo"}
+                                    {canEdit ? "Gestionar Levantamientos" : "Ver Catálogo"}
                                 </button>
                             </div>
 
                             <div className={styles.levantamientoPreview}>
                                 {(formData.levantamiento?.length || 0) > 0 ? (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
-                                        {formData.levantamiento?.map((seccion) => (
-                                            <div key={seccion.id}>
-                                                <div className={styles.areaBadge}>
-                                                    📂 {seccion.nombreArea}
-                                                </div>
-                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-                                                    {seccion.equipos.length === 0 ? (
-                                                        <span style={{ fontSize: '13px', color: '#94a3b8', fontStyle: 'italic' }}>No hay equipos registrados en esta área.</span>
-                                                    ) : (
-                                                        seccion.equipos.map((item, idx) => (
-                                                            <div
-                                                                key={item.id || idx}
-                                                                className={styles.equipoChip}
-                                                            >
-                                                                <span 
-                                                                    className={styles.chipName}
-                                                                    onClick={() => {
-                                                                        setSelectedEquipment(item);
-                                                                        setSelectedSectionId(seccion.id);
-                                                                    }}
-                                                                >
-                                                                    {item.nombre}
-                                                                </span>
-                                                                <div className={styles.chipActions}>
-                                                                    <button onClick={() => { setSelectedEquipment(item); setSelectedSectionId(seccion.id); }} title="Ver Ficha"><HiOutlineEye size={16} color="#2563eb" /></button>
-                                                                    <button onClick={() => setReportingEquipment(item)} title="Reportar"><HiOutlineExclamationTriangle size={16} color="#f59e0b" /></button>
-                                                                    {canEdit && (
-                                                                        <>
-                                                                            <button onClick={() => { 
-                                                                                setActiveSectionId(seccion.id); 
-                                                                                setActiveEquipmentId(item.id!);
-                                                                                setIsLevantamientoModalOpen(true); 
-                                                                            }} title="Editar"><HiOutlinePencilSquare size={16} color="#64748b" /></button>
-                                                                            <button onClick={() => handleDeleteEquipment(item.id!, seccion.id)} title="Borrar" className={styles.deleteBtn}><HiOutlineTrash size={16} color="#ef4444" /></button>
-                                                                        </>
-                                                                    )}
+                                        {formData.levantamiento?.map((seccion) => {
+                                            const subAreas = seccion.subAreas && seccion.subAreas.length > 0 
+                                                ? seccion.subAreas 
+                                                : [{ id: `sub_gen_${seccion.id}`, nombreSubArea: 'GENERAL', equipos: seccion.equipos || [] }];
+
+                                            return (
+                                                <div key={seccion.id} style={{ background: '#f8fafc', padding: '18px 22px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
+                                                    <div className={styles.areaBadge} style={{ fontSize: '15px', fontWeight: '800', color: '#0f172a', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                        📂 {seccion.nombreArea}
+                                                    </div>
+
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                                        {subAreas.map((sub) => (
+                                                            <div key={sub.id} style={{ background: '#ffffff', padding: '14px 18px', borderRadius: '14px', border: '1px solid #cbd5e1' }}>
+                                                                <div style={{ fontSize: '12px', fontWeight: '800', color: '#2563eb', textTransform: 'uppercase', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                    🔹 Sub-área: {sub.nombreSubArea}
                                                                 </div>
 
-                                                                <button 
-                                                                    onClick={() => {
-                                                                        setSelectedEqForBitacora(item);
-                                                                        setBitacoraModalOpen(true);
-                                                                    }} 
-                                                                    className={styles.bitacoraBtn}
-                                                                >
-                                                                    <HiOutlineClipboardDocumentList size={14} />
-                                                                    Ver Bitácora
-                                                                </button>
+                                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                                                                    {sub.equipos.length === 0 ? (
+                                                                        <span style={{ fontSize: '12px', color: '#94a3b8', fontStyle: 'italic' }}>No hay equipos registrados en esta sub-área.</span>
+                                                                    ) : (
+                                                                        sub.equipos.map((item, idx) => (
+                                                                            <div key={item.id || idx} className={styles.equipoChip}>
+                                                                                <span 
+                                                                                    className={styles.chipName}
+                                                                                    onClick={() => {
+                                                                                        setSelectedEquipment(item);
+                                                                                        setSelectedSectionId(seccion.id);
+                                                                                    }}
+                                                                                >
+                                                                                    {item.nombre}
+                                                                                </span>
+                                                                                <div className={styles.chipActions}>
+                                                                                    <button onClick={() => { setSelectedEquipment(item); setSelectedSectionId(seccion.id); }} title="Ver Ficha"><HiOutlineEye size={16} color="#2563eb" /></button>
+                                                                                    <button onClick={() => setReportingEquipment(item)} title="Reportar"><HiOutlineExclamationTriangle size={16} color="#f59e0b" /></button>
+                                                                                    {canEdit && (
+                                                                                        <>
+                                                                                            <button onClick={() => { 
+                                                                                                setActiveSectionId(seccion.id); 
+                                                                                                setActiveEquipmentId(item.id!);
+                                                                                                setIsLevantamientoModalOpen(true); 
+                                                                                            }} title="Editar"><HiOutlinePencilSquare size={16} color="#64748b" /></button>
+                                                                                            <button onClick={() => handleDeleteEquipment(item.id!, seccion.id)} title="Borrar" className={styles.deleteBtn}><HiOutlineTrash size={16} color="#ef4444" /></button>
+                                                                                        </>
+                                                                                    )}
+                                                                                </div>
+
+                                                                                <button 
+                                                                                    onClick={() => {
+                                                                                        setSelectedEqForBitacora(item);
+                                                                                        setBitacoraModalOpen(true);
+                                                                                    }} 
+                                                                                    className={styles.bitacoraBtn}
+                                                                                >
+                                                                                    <HiOutlineClipboardDocumentList size={14} />
+                                                                                    Ver Bitácora
+                                                                                </button>
+                                                                            </div>
+                                                                        ))
+                                                                    )}
+                                                                </div>
                                                             </div>
-                                                        ))
-                                                    )}
+                                                        ))}
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
                                 ) : (
-                                    <div style={{ textAlign: 'center', padding: '20px' }}>
-                                        <p style={{ color: '#94a3b8', fontSize: '14px' }}>Aún no has realizado el levantamiento técnico de esta sucursal.</p>
+                                    <div style={{ textAlign: 'center', padding: '30px' }}>
+                                        <p style={{ color: '#94a3b8', fontSize: '14px' }}>Aún no has realizado el levantamiento de áreas y equipos de esta sucursal.</p>
                                     </div>
                                 )}
                             </div>
