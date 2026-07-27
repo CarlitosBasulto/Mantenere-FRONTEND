@@ -150,11 +150,12 @@ export const generateMaintenanceReportPDF = async (data: PDFReportData, returnBl
         if (data.isVisita && data.refaccionesList && data.refaccionesList.length > 0) {
             doc.setFontSize(8);
             data.refaccionesList.forEach((ref) => {
-                const qty = ref.amount || ref.cantidad || 1;
-                const totalPrice = parseFloat(ref.costo_estimado) || 0;
-                totalAmount += totalPrice;
+                const qty = Number((ref as any).amount || ref.cantidad || 1);
+                const unitPrice = parseFloat(ref.costo_estimado) || 0;
+                const lineTotal = qty * unitPrice;
+                totalAmount += lineTotal;
                 
-                const lineText = `- ${qty}x ${ref.pieza.toUpperCase()}: $${totalPrice.toFixed(2)}`;
+                const lineText = `- ${qty}x ${ref.pieza.toUpperCase()}: $${lineTotal.toFixed(2)}`;
                 const splitLine = doc.splitTextToSize(lineText, colWidthHalf - 4);
                 doc.text(splitLine, leftX + 2, leftY + 3);
                 leftY += (splitLine.length * 3.5) + 1;

@@ -326,9 +326,10 @@ export default function ReportePDFPreview({ trabajo, reporteData, subTareas, isV
                     {/* Refacciones y Piezas Table */}
                     {(() => {
                         const isVisita = trabajo?.tipo === 'Visita' || trabajo?.originalTipo === 'Visita';
-                        const totalAmount = reporteData.refaccionesList.reduce((acc, ref) => {
-                            const totalPrice = parseFloat(ref.costo_estimado) || 0;
-                            return acc + totalPrice;
+                        const totalAmount = (reporteData.refaccionesList || []).reduce((acc: number, ref: any) => {
+                            const qty = Number(ref.cantidad || 1);
+                            const unitPrice = parseFloat(ref.costo_estimado) || 0;
+                            return acc + (qty * unitPrice);
                         }, 0);
                         const subtotal = totalAmount / 1.16;
                         const iva = totalAmount - subtotal;
@@ -352,9 +353,9 @@ export default function ReportePDFPreview({ trabajo, reporteData, subTareas, isV
                                             </thead>
                                             <tbody>
                                                 {reporteData.refaccionesList.map((ref, idx) => {
-                                                    const qty = ref.cantidad || 1;
-                                                    const totalPrice = parseFloat(ref.costo_estimado) || 0;
-                                                    const unitPrice = qty > 0 ? totalPrice / qty : totalPrice;
+                                                    const qty = Number(ref.cantidad || 1);
+                                                    const unitPrice = parseFloat(ref.costo_estimado) || 0;
+                                                    const totalPrice = qty * unitPrice;
                                                     return (
                                                         <tr key={idx} style={{ borderBottom: '1px solid #e2e8f0', background: idx % 2 === 0 ? '#f8fafc' : '#fff' }}>
                                                             <td style={{ padding: '8px 12px', fontWeight: 'bold' }}>{idx + 1}</td>

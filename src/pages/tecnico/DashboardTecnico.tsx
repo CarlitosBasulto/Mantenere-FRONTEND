@@ -62,7 +62,13 @@ const DashboardTecnico: React.FC = () => {
             // 3. Process and filter jobs for this technician
             let processedJobs: Trabajo[] = trabajosData
                 .filter((t: any) => {
-                    return t.trabajador?.user_id === user?.id || t.trabajador_id === user?.id;
+                    const isUserMatch = 
+                        t.trabajador?.user_id === user?.id || 
+                        t.trabajador_id === user?.id ||
+                        t.trabajador_id === (user as any)?.trabajador?.id ||
+                        t.trabajador?.id === (user as any)?.trabajador?.id ||
+                        (t.tecnico && user?.name && t.tecnico.toLowerCase() === user.name.toLowerCase());
+                    return isUserMatch;
                 })
                 .map((t: any) => {
                     const encName = t.encargado || t.negocio?.encargado || (t.admin_autonomo_id ? subgerentesMap.get(t.admin_autonomo_id) : null);
@@ -105,12 +111,18 @@ const DashboardTecnico: React.FC = () => {
     // 1. Solicitudes pendientes
     const colSolicitudes = trabajos.filter(t => ['Solicitud', 'Pendiente'].includes(t.estado));
     
-    // 2. Asignaciones de visitas (En proceso + Visita, or maybe Aceptada/Asignada + Visita)
-    // Assuming "En Proceso" or "Asignado" means the tech is working on it or about to.
-    const colVisita = trabajos.filter(t => ['En Proceso', 'Asignado', 'Aceptada', 'En Espera'].includes(t.estado) && t.tipo === 'Visita');
+    // 2. Asignaciones de visitas (Visitas pendientes de evaluación/cotización)
+    const colVisita = trabajos.filter(t => 
+        ['En Proceso', 'Asignado', 'Aceptada', 'En Espera', 'Cotización Enviada', 'Cotización Rechazada'].includes(t.estado) && 
+        t.tipo === 'Visita' && 
+        !['Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución'].includes(t.estado)
+    );
     
-    // 3. Asignaciones de trabajo (En proceso + not Visita)
-    const colProceso = trabajos.filter(t => ['En Proceso', 'Asignado', 'Aceptada', 'En Espera'].includes(t.estado) && t.tipo !== 'Visita');
+    // 3. Asignaciones de trabajo (Cotización Aceptada, En Ejecución, Trabajos Aceptados)
+    const colProceso = trabajos.filter(t => 
+        ['Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución', 'En Proceso', 'Asignado', 'Aceptada', 'En Espera'].includes(t.estado) && 
+        (t.tipo !== 'Visita' || ['Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución'].includes(t.estado))
+    );
     
     // 4. Trabajos finalizados
     const colFinalizadas = trabajos.filter(t => ['Finalizado', 'Completado'].includes(t.estado));

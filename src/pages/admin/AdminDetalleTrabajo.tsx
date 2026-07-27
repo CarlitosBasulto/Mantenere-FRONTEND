@@ -206,16 +206,54 @@ const AdminDetalleTrabajo: React.FC = () => {
 
     // Permitir abrir la pestaña de cotización directamente vía URL
     const searchParams = new URLSearchParams(location.search);
-    const initialTab = searchParams.get('tab') === 'cotizacion' ? 'Cotización' : (searchParams.get('tab') === 'historial' ? 'Historial' : 'Datos');
+    const rawTabParam = (searchParams.get('tab') || '').toLowerCase();
+    const initialTab = (rawTabParam === 'cotizacion' || rawTabParam === 'cotización') ? 'Cotización' : 
+                       (rawTabParam === 'historial') ? 'Historial' : 
+                       (rawTabParam === 'registro') ? 'Registro' : 
+                       (rawTabParam === 'trabajo') ? 'Trabajo' : 'Datos';
     const [activeTab, setActiveTab] = useState<"Datos" | "Trabajo" | "Registro" | "Historial" | "Cotización">(initialTab);
 
-    // Sincronizar pestaña activa con parámetro de URL (Deep Linking)
+    // MOCK DATA
+    const [trabajo, setTrabajo] = useState<Trabajo | null>(null);
+    const [latestChatQuote, setLatestChatQuote] = useState<any>(null);
+    const [subTareas, setSubTareas] = useState<SubTarea[]>([]);
+    const [reporteFinal, setReporteFinal] = useState<any>(null);
+    const [cotizaciones, setCotizaciones] = useState<Cotizacion[]>([]);
+
+    // Historial de Cotizaciones (Evidencia)
+    const [quoteHistory, setQuoteHistory] = useState<any[]>(() => {
+        if (id) {
+            const saved = localStorage.getItem(`quote_history_${id}`);
+            if (saved) {
+                try { return JSON.parse(saved); } catch (e) {}
+            }
+        }
+        return [];
+    });
+    const [showHistoryDropdown, setShowHistoryDropdown] = useState<boolean>(false);
+
     useEffect(() => {
-        const tabParam = new URLSearchParams(location.search).get('tab');
-        if (tabParam === 'cotizacion') {
+        if (id) {
+            const saved = localStorage.getItem(`quote_history_${id}`);
+            if (saved) {
+                try { setQuoteHistory(JSON.parse(saved)); } catch (e) {}
+            }
+        }
+    }, [id]);
+
+    // Sincronizar pestaña activa solo al cambiar parámetro de URL (Deep Linking)
+    useEffect(() => {
+        const tabParam = (new URLSearchParams(location.search).get('tab') || '').toLowerCase();
+        if (tabParam === 'cotizacion' || tabParam === 'cotización') {
             setActiveTab('Cotización');
         } else if (tabParam === 'historial') {
             setActiveTab('Historial');
+        } else if (tabParam === 'registro') {
+            setActiveTab('Registro');
+        } else if (tabParam === 'trabajo') {
+            setActiveTab('Trabajo');
+        } else if (tabParam === 'datos') {
+            setActiveTab('Datos');
         }
     }, [location.search]);
 
@@ -266,12 +304,6 @@ const AdminDetalleTrabajo: React.FC = () => {
     
     // Modal PDF Preview
     const [showPDFPreview, setShowPDFPreview] = useState<boolean>(false);
-
-    // MOCK DATA
-    const [trabajo, setTrabajo] = useState<Trabajo | null>(null);
-    const [latestChatQuote, setLatestChatQuote] = useState<any>(null);
-    const [subTareas, setSubTareas] = useState<SubTarea[]>([]);
-    const [reporteFinal, setReporteFinal] = useState<any>(null);
     // const [isFromNewReq, setIsFromNewReq] = useState(false);
     
     // Historial Tab State
@@ -359,9 +391,6 @@ const AdminDetalleTrabajo: React.FC = () => {
     const [nombreArchivo, setNombreArchivo] = useState<string>("");
     const fileInputRef = useRef<HTMLInputElement>(null);
     const addFileInputRef = useRef<HTMLInputElement>(null);
-
-    // ESTADO: lista de cotizaciones del trabajo
-    const [cotizaciones, setCotizaciones] = useState<Cotizacion[]>([]);
 
     // ESTADO: edición de cotización existente
     const [editingCotizacion, setEditingCotizacion] = useState<Cotizacion | null>(null);
@@ -735,6 +764,27 @@ const AdminDetalleTrabajo: React.FC = () => {
                                 fecha: first.updated_at ? new Date(first.updated_at).toLocaleDateString('es-MX') : ""
                             }
                         } : prev);
+
+                        // Recuperar historial de cotizaciones desde el campo descripcion del backend
+                        const HISTORY_MARKER = '|||QUOTE_HISTORY|||';
+                        let backendHistory: any[] = [];
+                        for (const cot of cotizs) {
+                            if (cot.descripcion && cot.descripcion.includes(HISTORY_MARKER)) {
+                                try {
+                                    const historyJson = cot.descripcion.split(HISTORY_MARKER)[1].trim();
+                                    const parsed = JSON.parse(historyJson);
+                                    if (Array.isArray(parsed)) {
+                                        backendHistory = parsed;
+                                        break;
+                                    }
+                                } catch (e) { /* ignore */ }
+                            }
+                        }
+                        if (backendHistory.length > 0) {
+                            setQuoteHistory(backendHistory);
+                            // Sincronizar también localStorage como caché local
+                            localStorage.setItem(`quote_history_${id}`, JSON.stringify(backendHistory));
+                        }
                     }
                 } catch (e) { console.log('Sin cotizaciones previas'); }
 
@@ -845,6 +895,127 @@ const AdminDetalleTrabajo: React.FC = () => {
     const [longitudLlegada, setLongitudLlegada] = useState<string | null>(null);
     const [showMapModal, setShowMapModal] = useState(false);
     const [horaLlegada, setHoraLlegada] = useState("");
+
+    // REASSIGNMENT / CAMBIO DE PROVEEDOR STATES
+    const [isReassignModalOpen, setIsReassignModalOpen] = useState(false);
+    const [reassignReason, setReassignReason] = useState("");
+    const [isSubmittingReassign, setIsSubmittingReassign] = useState(false);
+
+    const handleReassignSubmit = async () => {
+        if (!reassignReason.trim()) {
+            showAlert("Atención", "Por favor ingresa el motivo del cambio de técnico.", "warning");
+            return;
+        }
+        setIsSubmittingReassign(true);
+        try {
+            if (trabajo?.id) {
+                await updateTrabajo(trabajo.id, {
+                    trabajador_id: null,
+                    tecnico: 'Sin asignar',
+                    estado: 'Reasignación Solicitada',
+                    motivo_reasignacion: reassignReason
+                });
+
+                try {
+                    await createNotificacionByRole({
+                        role: 'admin',
+                        titulo: '🚨 Solicitud de Cambio de Técnico',
+                        mensaje: `El usuario ${user?.name || 'Encargado'} ha solicitado cambiar de técnico para la sucursal ${trabajo.sucursal || ''}. Motivo: ${reassignReason}`,
+                        enlace: `/menu/trabajo-detalle/${trabajo.id}`
+                    });
+                } catch (e) {}
+
+                localStorage.setItem(`reassign_reason_${trabajo.id}`, reassignReason);
+
+                setTrabajo(prev => prev ? {
+                    ...prev,
+                    trabajador_id: null,
+                    tecnico: 'Sin asignar',
+                    estado: 'Reasignación Solicitada',
+                    motivo_reasignacion: reassignReason
+                } : prev);
+
+                showAlert("Solicitud Enviada", "Se ha retirado la asignación al técnico. Ahora puedes seleccionar un nuevo técnico.", "success");
+                setIsReassignModalOpen(false);
+                setReassignReason("");
+            }
+        } catch (error) {
+            showAlert("Error", "Hubo un problema al procesar la solicitud de reasignación.", "error");
+        } finally {
+            setIsSubmittingReassign(false);
+        }
+    };
+
+    // EXECUTION DATE & TIME STATES (TÉCNICO - MÁXIMO 1 MODIFICACIÓN)
+    const [isEditingExecutionTime, setIsEditingExecutionTime] = useState(false);
+    const [execFecha, setExecFecha] = useState("");
+    const [execHora, setExecHora] = useState("");
+    const [isSavingExecTime, setIsSavingExecTime] = useState(false);
+    const [execModCount, setExecModCount] = useState<number>(0);
+
+    useEffect(() => {
+        if (trabajo?.id) {
+            const savedCount = localStorage.getItem(`exec_time_mod_count_${trabajo.id}`);
+            if (savedCount !== null) {
+                setExecModCount(Number(savedCount));
+            }
+        }
+    }, [trabajo?.id]);
+
+    const handleSaveExecutionTime = async () => {
+        if (!execFecha) {
+            showAlert("Atención", "Por favor selecciona la fecha de ejecución.", "warning");
+            return;
+        }
+        setIsSavingExecTime(true);
+        try {
+            if (trabajo?.id) {
+                await updateTrabajo(trabajo.id, {
+                    fecha_programada: execFecha,
+                    horaAsignada: execHora || '09:00'
+                });
+
+                const newCount = execModCount + 1;
+                localStorage.setItem(`exec_time_mod_count_${trabajo.id}`, newCount.toString());
+                setExecModCount(newCount);
+
+                try {
+                    await createNotificacionByRole({
+                        role: 'encargado',
+                        titulo: '📅 Fecha de Ejecución Confirmada',
+                        mensaje: `El técnico ${user?.name || ''} ha confirmado la fecha de ejecución para el ${execFecha} a las ${execHora || '09:00'} en ${trabajo?.sucursal || ''}.`,
+                        enlace: `/encargado/trabajo-detalle/${trabajo.id}`
+                    });
+                    await createNotificacionByRole({
+                        role: 'admin',
+                        titulo: '📅 Fecha de Ejecución Confirmada',
+                        mensaje: `El técnico ${user?.name || ''} ha confirmado la fecha de ejecución para el ${execFecha} a las ${execHora || '09:00'} en ${trabajo?.sucursal || ''}.`,
+                        enlace: `/menu/trabajo-detalle/${trabajo.id}`
+                    });
+                } catch (e) {}
+
+                setTrabajo(prev => prev ? {
+                    ...prev,
+                    fecha_programada: execFecha,
+                    horaAsignada: execHora || '09:00',
+                    hora_programada: execHora || '09:00'
+                } : prev);
+
+                setIsEditingExecutionTime(false);
+                showAlert(
+                    "Horario Confirmado", 
+                    newCount >= 2 
+                        ? "Has utilizado tu única modificación permitida. La fecha y hora han quedado confirmadas de manera definitiva." 
+                        : "Has guardado la fecha y hora de ejecución del trabajo.", 
+                    "success"
+                );
+            }
+        } catch (error) {
+            showAlert("Error", "No se pudo guardar la fecha y hora de ejecución.", "error");
+        } finally {
+            setIsSavingExecTime(false);
+        }
+    };
 
 
     const handleNewQuoteFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1316,17 +1487,33 @@ const AdminDetalleTrabajo: React.FC = () => {
                 });
                 setSubTareas(mappedSubTareas as any);
                 if (generatePDF) {
-                    const refaccionesList = refacciones.map(r => ({
+                    // Conceptos de servicio (Mano de obra / servicios)
+                    const conceptosPDF = isQuoteIncluded ? quoteConceptos
+                        .filter(c => c.descripcion && c.descripcion.trim())
+                        .map(c => ({
+                            pieza: c.descripcion,
+                            cantidad: Number(c.cantidad) || 1,
+                            costo_estimado: c.precio ? String(c.precio) : '0'
+                        })) : [];
+
+                    // Materiales físicos
+                    const materialesPDF = isQuoteIncluded ? quoteMateriales
+                        .filter(m => m.nombre && m.nombre.trim())
+                        .map(m => ({
+                            pieza: m.nombre,
+                            cantidad: Number(m.cantidad) || 1,
+                            costo_estimado: m.precio ? String(m.precio) : '0'
+                        })) : [];
+
+                    // Refacciones adicionales del técnico
+                    const refaccionesBase = refacciones.map(r => ({
                         pieza: r.pieza,
                         cantidad: Number(r.cantidad) || 1,
-                        costo_estimado: r.costo_estimado ? String(r.costo_estimado) : ''
-                    })).concat(
-                        isQuoteIncluded ? quoteMateriales.map(m => ({
-                            pieza: m.nombre,
-                            cantidad: m.cantidad ? Number(m.cantidad) || 1 : 1,
-                            costo_estimado: m.precio ? String(m.precio) : ''
-                        })) : []
-                    );
+                        costo_estimado: r.costo_estimado ? String(r.costo_estimado) : '0'
+                    }));
+
+                    // Combinar todos: conceptos + materiales + refacciones
+                    const refaccionesList = [...conceptosPDF, ...materialesPDF, ...refaccionesBase];
 
 
                     const combinedMateriales = isQuoteIncluded ? quoteComentarios : '';
@@ -1939,18 +2126,34 @@ const AdminDetalleTrabajo: React.FC = () => {
             await updateEstadoTrabajo(trabajo.id, { estado: "Cotización Aprobada" });
             setCotizaciones(prev => prev.map(c => c.id === cotizId ? { ...c, estado: "Aprobada" as const } : c));
             setTrabajo((prev: any) => prev ? { ...prev, estado: "Cotización Aprobada" } : prev);
-            // Notificar al Admin
+            // Notificar al Admin y al Técnico
             try {
                 await createNotificacionByRole({
                     role: 'admin',
                     titulo: '📄 Cotización Aceptada',
-                    mensaje: `El cliente aceptó la propuesta de presupuesto para "${trabajo.sucursal || 'la sucursal'}". Ya puede asignar un técnico para el trabajo.`,
+                    mensaje: `El cliente/encargado aceptó la propuesta de presupuesto para "${trabajo.sucursal || 'la sucursal'}".`,
                     enlace: `/menu/trabajo-detalle/${trabajo.id}`
                 });
+
+                await createNotificacionByRole({
+                    role: 'tecnico',
+                    titulo: '🎉 Cotización Aceptada',
+                    mensaje: `El cliente/encargado ha aceptado la propuesta de cotización para la sucursal "${trabajo.sucursal || ''}". Se te ha asignado como trabajo.`,
+                    enlace: `/tecnico/trabajo-detalle/${trabajo.id}`
+                });
+
+                if (trabajo.trabajador_id) {
+                    await createNotificacion({
+                        user_id: trabajo.trabajador_id,
+                        titulo: '🎉 Cotización Aceptada',
+                        mensaje: `¡Se ha aceptado tu propuesta de cotización para la sucursal "${trabajo.sucursal || ''}"! El trabajo te ha sido asignado.`,
+                        enlace: `/tecnico/trabajo-detalle/${trabajo.id}`
+                    });
+                }
             } catch (notiErr) {
                 console.error("Error enviando notificación de cotización aceptada:", notiErr);
             }
-            showAlert('Cotización Aceptada', 'Propuesta aceptada. El administrador será notificado para asignar al técnico.', 'success');
+            showAlert('Cotización Aceptada', 'Propuesta aceptada. Se ha notificado al técnico asignado.', 'success');
         } catch (error: any) {
             showAlert('Error', error.response?.data?.message || error.message, 'error');
         }
@@ -2517,30 +2720,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                         </div>
                     )}
 
-                    {tarea.refacciones && tarea.refacciones.length > 0 && (
-                        <div style={{
-                            marginTop: '15px',
-                            background: '#f8fafc',
-                            padding: '12px 15px',
-                            borderRadius: '12px',
-                            border: '1px solid #e2e8f0'
-                        }}>
-                            <span style={{ display: 'block', fontSize: '11px', textTransform: 'uppercase', color: '#64748b', fontWeight: '800', marginBottom: '8px' }}>Refacciones Registradas</span>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                {tarea.refacciones.map((ref, idx) => (
-                                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff', padding: '8px 12px', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
-                                        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                                            <span style={{ background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold' }}>x{ref.cantidad}</span>
-                                            <span style={{ fontSize: '13px', color: '#334155', fontWeight: '600' }}>{ref.pieza}</span>
-                                        </div>
-                                        {ref.costo_estimado && (
-                                            <span style={{ fontSize: '13px', color: '#059669', fontWeight: '700' }}>${ref.costo_estimado}</span>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
+
 
                     {canEdit && isInteractive && (
                         <div style={{ display: 'flex', gap: '10px', marginTop: '15px' }}>
@@ -2757,6 +2937,8 @@ const AdminDetalleTrabajo: React.FC = () => {
                                     return true;
                                 }
                                 if (tabName === 'Registro') {
+                                    const cotizacionYaEnviada = ['Cotización Enviada', 'Cotización Rechazada', 'Cotización Aceptada', 'Cotización Aprobada'].includes(trabajo?.estado) || cotizaciones.length > 0 || subTareas.some(t => t.esCotizacion);
+                                    if (cotizacionYaEnviada) return false;
                                     return trabajo.tipo === 'Visita';
                                 }
                                 if (tabName === 'Trabajo') {
@@ -2833,6 +3015,198 @@ const AdminDetalleTrabajo: React.FC = () => {
                 <div className={styles.scrollableContent}>
                     {activeTab === 'Datos' && (
                         <div className={styles.bentoGrid}>
+                            {/* BANNER 1: CONFIRMACIÓN DE FECHA Y HORA DE EJECUCIÓN (COTIZACIÓN ACEPTADA) */}
+                            {['Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución', 'En Proceso'].includes(trabajo.estado) && (
+                                <div style={{
+                                    gridColumn: 'span 12',
+                                    background: 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)',
+                                    border: '2px solid #10b981',
+                                    borderRadius: '20px',
+                                    padding: '16px 20px',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '12px',
+                                    boxShadow: '0 4px 16px rgba(16, 185, 129, 0.12)'
+                                }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                            <div style={{ background: '#10b981', color: 'white', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', fontWeight: 'bold' }}>
+                                                ✓
+                                            </div>
+                                            <div>
+                                                <h4 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#065f46' }}>
+                                                    Cotización Aceptada — Confirmación de Ejecución de Trabajo
+                                                </h4>
+                                                <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#047857' }}>
+                                                    El trabajo ha sido confirmado para su ejecución por el técnico asignado.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {isEditingExecutionTime ? (
+                                        <div style={{ background: 'white', padding: '16px 20px', borderRadius: '14px', border: '1.5px solid #10b981', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <h4 style={{ margin: 0, fontSize: '13px', fontWeight: '800', color: '#065f46', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                                    📅 Definir / Confirmar Horario de Ejecución
+                                                </h4>
+                                                <span style={{ fontSize: '11px', color: '#64748b' }}>Ingresa el día y la hora en que realizarás el trabajo.</span>
+                                            </div>
+
+                                            {/* AVISO DE ÚLTIMA MODIFICACIÓN PERMITIDA */}
+                                            {execModCount > 0 && (
+                                                <div style={{ background: '#fffbeb', border: '1.5px solid #fde68a', padding: '10px 14px', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                    <span style={{ fontSize: '18px' }}>⚠️</span>
+                                                    <div>
+                                                        <strong style={{ fontSize: '12px', color: '#92400e', display: 'block' }}>¡ÚLTIMA MODIFICACIÓN PERMITIDA!</strong>
+                                                        <span style={{ fontSize: '11px', color: '#b45309' }}>
+                                                            Solo dispones de esta modificación para corregir la fecha y hora de ejecución. Por favor verifica atentamente que los datos ingresados sean correctos antes de confirmar.
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '14px' }}>
+                                                <div>
+                                                    <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>Fecha de Ejecución *</label>
+                                                    <input 
+                                                        type="date" 
+                                                        value={execFecha} 
+                                                        onChange={e => setExecFecha(e.target.value)}
+                                                        style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none', background: '#f8fafc', fontWeight: '600', color: '#0f172a' }}
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>Hora Confirmada *</label>
+                                                    <input 
+                                                        type="time" 
+                                                        value={execHora} 
+                                                        onChange={e => setExecHora(e.target.value)}
+                                                        style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none', background: '#f8fafc', fontWeight: '600', color: '#0f172a' }}
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '4px' }}>
+                                                <button
+                                                    onClick={() => setIsEditingExecutionTime(false)}
+                                                    style={{ padding: '9px 16px', background: '#f1f5f9', color: '#64748b', border: 'none', borderRadius: '10px', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }}
+                                                >
+                                                    Cancelar
+                                                </button>
+                                                <button
+                                                    onClick={handleSaveExecutionTime}
+                                                    disabled={isSavingExecTime}
+                                                    style={{ padding: '9px 20px', background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', color: 'white', border: 'none', borderRadius: '10px', fontSize: '12px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 3px 10px rgba(16, 185, 129, 0.25)', opacity: isSavingExecTime ? 0.7 : 1 }}
+                                                >
+                                                    {isSavingExecTime ? 'Guardando...' : '✓ Guardar y Confirmar Horario'}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div style={{ display: 'flex', gap: '24px', background: 'white', padding: '14px 18px', borderRadius: '14px', border: '1px solid #a7f3d0', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
+                                            <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', alignItems: 'center' }}>
+                                                <div>
+                                                    <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', display: 'block' }}>📅 Fecha de Ejecución</span>
+                                                    <span style={{ fontSize: '14px', fontWeight: '800', color: '#0f172a' }}>
+                                                        {trabajo.fecha_programada ? (trabajo.fecha_programada.includes('-') ? trabajo.fecha_programada.split('-').reverse().join('/') : trabajo.fecha_programada) : trabajo.fecha}
+                                                    </span>
+                                                </div>
+                                                <div>
+                                                    <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', display: 'block' }}>⏰ Hora Confirmada</span>
+                                                    <span style={{ fontSize: '14px', fontWeight: '800', color: '#0f172a' }}>
+                                                        {trabajo.horaAsignada || trabajo.hora_programada || '09:00 AM'}
+                                                    </span>
+                                                </div>
+                                                <div>
+                                                    <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', display: 'block' }}>👷 Técnico Asignado</span>
+                                                    <span style={{ fontSize: '14px', fontWeight: '800', color: '#059669' }}>
+                                                        {trabajo.tecnico || 'Técnico de Servicio'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            {user?.role === 'tecnico' && (
+                                                execModCount >= 2 ? (
+                                                    <span style={{ padding: '6px 12px', background: '#f1f5f9', color: '#64748b', border: '1px solid #cbd5e1', borderRadius: '10px', fontSize: '11px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                        🔒 Horario Definitivo Confirmado
+                                                    </span>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => {
+                                                            setExecFecha(trabajo.fecha_programada || new Date().toISOString().split('T')[0]);
+                                                            setExecHora(trabajo.horaAsignada || trabajo.hora_programada || '09:00');
+                                                            setIsEditingExecutionTime(true);
+                                                        }}
+                                                        style={{ padding: '8px 14px', background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0', borderRadius: '10px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '6px' }}
+                                                        onMouseEnter={e => e.currentTarget.style.background = '#d1fae5'}
+                                                        onMouseLeave={e => e.currentTarget.style.background = '#ecfdf5'}
+                                                    >
+                                                        ✏️ Modificar / Confirmar Horario {execModCount > 0 ? '(1 cambio restante)' : ''}
+                                                    </button>
+                                                )
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* BANNER 2: REASIGNACIÓN DE TÉCNICO SOLICITADA */}
+                            {(trabajo.estado === 'Reasignación Solicitada' || trabajo.motivo_reasignacion || localStorage.getItem(`reassign_reason_${trabajo.id}`)) && (
+                                <div style={{
+                                    gridColumn: 'span 12',
+                                    background: 'linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%)',
+                                    border: '2px solid #f43f5e',
+                                    borderRadius: '20px',
+                                    padding: '16px 20px',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '12px',
+                                    boxShadow: '0 4px 16px rgba(244, 63, 94, 0.12)'
+                                }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                            <div style={{ background: '#f43f5e', color: 'white', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', fontWeight: 'bold' }}>
+                                                🚨
+                                            </div>
+                                            <div>
+                                                <h4 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#9f1239' }}>
+                                                    Cambio de Técnico / Proveedor Solicitado
+                                                </h4>
+                                                <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#be123c' }}>
+                                                    Se ha retirado la asignación al técnico anterior. Se requiere asignar un nuevo proveedor.
+                                                </p>
+                                            </div>
+                                        </div>
+                                        {(user?.role === 'encargado' || user?.role === 'admin' || user?.role === 'autonomo' || user?.role === 'cliente') && (
+                                            <button
+                                                onClick={handleOpenAssignModal}
+                                                style={{
+                                                    padding: '10px 18px',
+                                                    background: 'linear-gradient(135deg, #e11d48, #be123c)',
+                                                    color: 'white',
+                                                    border: 'none',
+                                                    borderRadius: '12px',
+                                                    fontSize: '13px',
+                                                    fontWeight: '800',
+                                                    cursor: 'pointer',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '6px',
+                                                    boxShadow: '0 3px 10px rgba(225, 29, 72, 0.25)'
+                                                }}
+                                            >
+                                                👤 Reasignar a Nuevo Técnico
+                                            </button>
+                                        )}
+                                    </div>
+                                    <div style={{ background: 'white', padding: '12px 18px', borderRadius: '14px', border: '1px solid #fecdd3' }}>
+                                        <span style={{ fontSize: '11px', fontWeight: '700', color: '#9f1239', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>💬 Motivo de la Solicitud</span>
+                                        <p style={{ margin: 0, fontSize: '13px', color: '#475569', fontStyle: 'italic' }}>
+                                            "{trabajo.motivo_reasignacion || localStorage.getItem(`reassign_reason_${trabajo.id}`)}"
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Card 1: Información General (8/12) */}
                             <div className={`${styles.bentoCard} ${styles.colSpan8}`}>
                                 <div 
@@ -3755,10 +4129,47 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                                                         <button
                                                                                             onClick={async () => {
                                                                                                 try {
+                                                                                                    const targetTechName = tarea.tecnicoNombre || trabajo?.tecnico || subTareas[0]?.tecnicoNombre || 'Técnico';
+                                                                                                    
+                                                                                                    await updateTrabajo(trabajo!.id, {
+                                                                                                        estado: 'Cotización Aceptada',
+                                                                                                        tecnico: targetTechName
+                                                                                                    });
                                                                                                     await updateEstadoTrabajo(trabajo!.id, { estado: 'Cotización Aceptada' });
+
+                                                                                                     // Notificar al técnico
+                                                                                                     try {
+                                                                                                         await createNotificacionByRole({
+                                                                                                             role: 'tecnico',
+                                                                                                             titulo: '🎉 Cotización Aceptada',
+                                                                                                             mensaje: `El encargado de la sucursal ${trabajo?.sucursal || ''} ha aceptado tu cotización. Se te ha asignado este trabajo para su ejecución.`,
+                                                                                                             enlace: `/tecnico/trabajo-detalle/${trabajo!.id}`
+                                                                                                         });
+
+                                                                                                         if (trabajo?.trabajador_id) {
+                                                                                                             await createNotificacion({
+                                                                                                                 user_id: trabajo.trabajador_id,
+                                                                                                                 titulo: '🎉 Cotización Aceptada',
+                                                                                                                 mensaje: `¡Se ha aceptado tu cotización para la sucursal ${trabajo?.sucursal || ''}! Se te ha asignado oficialmente el trabajo.`,
+                                                                                                                 enlace: `/tecnico/trabajo-detalle/${trabajo!.id}`
+                                                                                                             });
+                                                                                                         }
+                                                                                                     } catch (notiErr) {
+                                                                                                         console.error("Error enviando notificación al técnico:", notiErr);
+                                                                                                     }
+
                                                                                                     setSubTareas(prev => prev.map(t => t.id === tarea.id ? { ...t, cotizacionEstado: 'Aprobada' as any } : t));
-                                                                                                    setTrabajo(prev => prev ? { ...prev, estado: 'Cotización Aceptada' } : prev);
-                                                                                                    showAlert('Cotización Aceptada', `Has aceptado la cotización de ${tarea.tecnicoNombre || 'el técnico'} por $${showMonto}. Debes asignar la fecha/hora del trabajo.`, 'success');
+                                                                                                    setTrabajo(prev => prev ? {
+                                                                                                        ...prev,
+                                                                                                        estado: 'Cotización Aceptada',
+                                                                                                        tecnico: targetTechName
+                                                                                                    } : prev);
+
+                                                                                                    if (activeTab === 'Registro') {
+                                                                                                        setActiveTab('Datos');
+                                                                                                    }
+
+                                                                                                    showAlert('Cotización Aceptada', `Has aceptado la cotización de ${targetTechName} por $${showMonto}. Se ha asignado automáticamente al técnico y verificado la fecha de ejecución.`, 'success');
                                                                                                 } catch (error) {
                                                                                                     showAlert('Error', 'Hubo un problema al actualizar el estado del trabajo.', 'error');
                                                                                                 }
@@ -3772,6 +4183,39 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                                                         <button
                                                                                             onClick={async () => {
                                                                                                 try {
+                                                                                                    const currentEvidence = {
+                                                                                                        id: Date.now(),
+                                                                                                        version: quoteHistory.length + 1,
+                                                                                                        fecha: new Date().toLocaleString('es-MX'),
+                                                                                                        tecnicoNombre: tarea.tecnicoNombre || trabajo?.tecnico || 'Técnico',
+                                                                                                        quoteData: tarea.quoteData || null,
+                                                                                                        refacciones: tarea.refacciones || null,
+                                                                                                        comentarios: tarea.cotizacionNotas || '',
+                                                                                                        monto: showMonto
+                                                                                                    };
+                                                                                                    const updatedHistory = [currentEvidence, ...quoteHistory];
+                                                                                                    setQuoteHistory(updatedHistory);
+                                                                                                    if (trabajo?.id) {
+                                                                                                        // Guardar en localStorage como caché local
+                                                                                                        localStorage.setItem(`quote_history_${trabajo.id}`, JSON.stringify(updatedHistory));
+                                                                                                        // Guardar en backend (en el campo descripcion de la cotización más reciente)
+                                                                                                        const HISTORY_MARKER = '|||QUOTE_HISTORY|||';
+                                                                                                        const historyPayload = JSON.stringify(updatedHistory);
+                                                                                                        const cotizacionActual = cotizaciones.length > 0 ? cotizaciones[0] : null;
+                                                                                                        if (cotizacionActual?.id) {
+                                                                                                            try {
+                                                                                                                // Limpiar descripcion anterior de marcadores de historial y agregar el nuevo
+                                                                                                                const baseDesc = (cotizacionActual.descripcion || '').split(HISTORY_MARKER)[0].trimEnd();
+                                                                                                                await updateCotizacion(cotizacionActual.id, {
+                                                                                                                    descripcion: `${baseDesc}\n${HISTORY_MARKER} ${historyPayload}`,
+                                                                                                                    monto: cotizacionActual.monto
+                                                                                                                });
+                                                                                                            } catch (saveErr) {
+                                                                                                                console.warn('No se pudo guardar historial en backend, solo en localStorage', saveErr);
+                                                                                                            }
+                                                                                                        }
+                                                                                                    }
+
                                                                                                     await updateEstadoTrabajo(trabajo!.id, { estado: 'Cotización Rechazada' });
                                                                                                     setSubTareas(prev => prev.map(t => t.id === tarea.id ? { ...t, cotizacionEstado: 'Rechazada' as any } : t));
                                                                                                     setTrabajo(prev => prev ? { ...prev, estado: 'Cotización Rechazada' } : prev);
@@ -3809,6 +4253,139 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                                         </div>
                                                                     )})}
                                                                 </div>
+
+                                                                {/* PESTAÑA DESPLEGABLE DE EVIDENCIA DE COTIZACIONES ANTERIORES */}
+                                                                {quoteHistory.length > 0 && (
+                                                                    <div style={{ marginTop: '20px', borderTop: '2px dashed #e2e8f0', paddingTop: '16px' }}>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => setShowHistoryDropdown(prev => !prev)}
+                                                                            style={{
+                                                                                width: '100%',
+                                                                                padding: '12px 18px',
+                                                                                background: 'linear-gradient(135deg, #fff8f0 0%, #fef3c7 100%)',
+                                                                                border: '1.5px solid #fcd34d',
+                                                                                borderRadius: '14px',
+                                                                                display: 'flex',
+                                                                                alignItems: 'center',
+                                                                                justifyContent: 'space-between',
+                                                                                cursor: 'pointer',
+                                                                                transition: 'all 0.2s ease',
+                                                                                boxShadow: '0 2px 8px rgba(245, 158, 11, 0.12)'
+                                                                            }}
+                                                                            onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
+                                                                            onMouseLeave={e => e.currentTarget.style.transform = 'none'}
+                                                                        >
+                                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                                                <span style={{ fontSize: '18px' }}>📜</span>
+                                                                                <div style={{ textAlign: 'left' }}>
+                                                                                    <span style={{ fontSize: '13px', fontWeight: '800', color: '#92400e', display: 'block' }}>
+                                                                                        Evidencia de Cotizaciones Anteriores (Historial)
+                                                                                    </span>
+                                                                                    <span style={{ fontSize: '11px', color: '#b45309', fontWeight: '600' }}>
+                                                                                        {quoteHistory.length} {quoteHistory.length === 1 ? 'versión previa guardada' : 'versiones previas guardadas'}
+                                                                                    </span>
+                                                                                </div>
+                                                                            </div>
+                                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                                <span style={{ background: '#d97706', color: '#fff', fontSize: '11px', fontWeight: '800', padding: '3px 10px', borderRadius: '20px' }}>
+                                                                                    {showHistoryDropdown ? '▲ Ocultar' : '▼ Ver Evidencia'}
+                                                                                </span>
+                                                                            </div>
+                                                                        </button>
+
+                                                                        {showHistoryDropdown && (
+                                                                            <div style={{ marginTop: '14px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                                                                                {quoteHistory.map((item: any, idx: number) => (
+                                                                                    <div 
+                                                                                        key={item.id || idx} 
+                                                                                        style={{ 
+                                                                                            background: '#fafafa', 
+                                                                                            border: '1.5px solid #fde68a', 
+                                                                                            borderRadius: '14px', 
+                                                                                            padding: '16px', 
+                                                                                            boxShadow: '0 4px 12px rgba(245, 158, 11, 0.08)'
+                                                                                        }}
+                                                                                    >
+                                                                                        {/* Header of evidence card */}
+                                                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #fef3c7', paddingBottom: '10px', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+                                                                                            <div>
+                                                                                                <span style={{ background: '#fef3c7', color: '#b45309', fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '20px', display: 'inline-block', marginBottom: '4px' }}>
+                                                                                                    📋 Cotización Versión {item.version || (quoteHistory.length - idx)} (Evidencia)
+                                                                                                </span>
+                                                                                                <p style={{ margin: 0, fontSize: '12px', fontWeight: '700', color: '#475569' }}>
+                                                                                                    Técnico: {item.tecnicoNombre} • <span style={{ color: '#94a3b8' }}>{item.fecha}</span>
+                                                                                                </p>
+                                                                                            </div>
+                                                                                            <span style={{ fontSize: '11px', fontWeight: '800', color: '#dc2626', background: '#fef2f2', border: '1px solid #fca5a5', padding: '4px 12px', borderRadius: '12px' }}>
+                                                                                                🚫 Re-cotización Solicitada
+                                                                                            </span>
+                                                                                        </div>
+
+                                                                                        {/* Conceptos */}
+                                                                                        {item.quoteData?.conceptos && item.quoteData.conceptos.length > 0 && (
+                                                                                            <div style={{ marginBottom: '12px' }}>
+                                                                                                <h4 style={{ color: '#d97706', fontSize: '13px', fontWeight: '800', borderBottom: '1px solid #fde68a', paddingBottom: '4px', marginBottom: '8px', textTransform: 'uppercase' }}>1. Conceptos de Servicio</h4>
+                                                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                                                                                    {item.quoteData.conceptos.map((c: any, cIdx: number) => (
+                                                                                                        <div key={cIdx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', background: '#fff', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', color: '#334155' }}>
+                                                                                                            <span>{c.descripcion} (x{c.cantidad || 1})</span>
+                                                                                                            <strong style={{ color: '#0f172a' }}>${(Number(c.cantidad || 1) * Number(c.precio || 0)).toLocaleString('es-MX')}</strong>
+                                                                                                        </div>
+                                                                                                    ))}
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        )}
+
+                                                                                        {/* Materiales */}
+                                                                                        {item.quoteData?.materiales && item.quoteData.materiales.length > 0 && (
+                                                                                            <div style={{ marginBottom: '12px' }}>
+                                                                                                <h4 style={{ color: '#d97706', fontSize: '13px', fontWeight: '800', borderBottom: '1px solid #fde68a', paddingBottom: '4px', marginBottom: '8px', textTransform: 'uppercase' }}>2. Materiales</h4>
+                                                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                                                                                    {item.quoteData.materiales.map((m: any, mIdx: number) => (
+                                                                                                        <div key={mIdx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', background: '#fff', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', color: '#334155' }}>
+                                                                                                            <span>{m.nombre} (x{m.cantidad || 1})</span>
+                                                                                                            <strong style={{ color: '#0f172a' }}>${(Number(m.cantidad || 1) * Number(m.precio || 0)).toLocaleString('es-MX')}</strong>
+                                                                                                        </div>
+                                                                                                    ))}
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        )}
+
+                                                                                        {/* Refacciones if present */}
+                                                                                        {item.refacciones && item.refacciones.length > 0 && (!item.quoteData?.materiales || item.quoteData.materiales.length === 0) && (
+                                                                                            <div style={{ marginBottom: '12px' }}>
+                                                                                                <h4 style={{ color: '#64748b', fontSize: '13px', fontWeight: '800', borderBottom: '1px solid #cbd5e1', paddingBottom: '4px', marginBottom: '8px', textTransform: 'uppercase' }}>Detalle de Refacciones</h4>
+                                                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                                                                                    {item.refacciones.map((r: any, rIdx: number) => (
+                                                                                                        <div key={rIdx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', background: '#fff', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', color: '#334155' }}>
+                                                                                                            <span>{r.pieza} (x{r.cantidad || 1})</span>
+                                                                                                            <strong style={{ color: '#0f172a' }}>{r.costo_estimado ? `$${Number(r.costo_estimado).toLocaleString('es-MX')}` : '---'}</strong>
+                                                                                                        </div>
+                                                                                                    ))}
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        )}
+
+                                                                                        {/* Comentarios */}
+                                                                                        {item.comentarios && (
+                                                                                            <div style={{ background: '#fffbeb', borderRadius: '8px', padding: '8px 12px', border: '1px solid #fde68a', marginBottom: '10px' }}>
+                                                                                                <span style={{ fontSize: '10px', fontWeight: '800', color: '#92400e', textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>Comentarios del Técnico</span>
+                                                                                                <p style={{ margin: 0, fontSize: '12px', color: '#78350f' }}>{item.comentarios}</p>
+                                                                                            </div>
+                                                                                        )}
+
+                                                                                        {/* Monto Total Evidencia */}
+                                                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'linear-gradient(135deg, #fff7ed 0%, #fef3c7 100%)', padding: '12px 16px', borderRadius: '12px', border: '1.5px solid #f59e0b' }}>
+                                                                                            <span style={{ fontSize: '12px', fontWeight: '800', color: '#92400e', textTransform: 'uppercase' }}>💰 Monto Total (Evidencia)</span>
+                                                                                            <span style={{ fontSize: '18px', fontWeight: '900', color: '#f26522' }}>${item.monto}</span>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                ))}
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         )}
 
@@ -3816,6 +4393,40 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                             <button
                                                                 onClick={async () => {
                                                                     try {
+                                                                        let updatedRefacciones: any[] = [];
+                                                                        subTareas.forEach((st: any) => {
+                                                                            if (st.quoteData?.conceptos && st.quoteData.conceptos.length > 0) {
+                                                                                st.quoteData.conceptos.forEach((c: any) => {
+                                                                                    updatedRefacciones.push({
+                                                                                        pieza: c.descripcion,
+                                                                                        cantidad: Number(c.cantidad || 1),
+                                                                                        costo_estimado: Number(c.precio || 0).toString()
+                                                                                    });
+                                                                                });
+                                                                            }
+                                                                            if (st.quoteData?.materiales && st.quoteData.materiales.length > 0) {
+                                                                                st.quoteData.materiales.forEach((m: any) => {
+                                                                                    updatedRefacciones.push({
+                                                                                        pieza: m.nombre,
+                                                                                        cantidad: Number(m.cantidad || 1),
+                                                                                        costo_estimado: Number(m.precio || 0).toString()
+                                                                                    });
+                                                                                });
+                                                                            }
+                                                                            if (updatedRefacciones.length === 0 && st.refacciones && st.refacciones.length > 0) {
+                                                                                st.refacciones.forEach((r: any) => {
+                                                                                    updatedRefacciones.push({
+                                                                                        pieza: r.pieza,
+                                                                                        cantidad: r.cantidad || 1,
+                                                                                        costo_estimado: r.costo_estimado
+                                                                                    });
+                                                                                });
+                                                                            }
+                                                                        });
+                                                                        if (updatedRefacciones.length === 0 && actualReporte?.refaccionesList) {
+                                                                            updatedRefacciones = actualReporte.refaccionesList;
+                                                                        }
+
                                                                         await generateMaintenanceReportPDF({
                                                                             id: actualReporte.dbId || actualReporte.id || trabajo?.id || 'SD',
                                                                             fecha: actualReporte.fecha || new Date().toLocaleDateString(),
@@ -3842,7 +4453,9 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                                                 tipo: 'Servicio',
                                                                                 marca: 'N/A',
                                                                                 modelo: 'N/A'
-                                                                            } : null)
+                                                                            } : null),
+                                                                            refaccionesList: updatedRefacciones,
+                                                                            isVisita: true
                                                                         });
                                                                     } catch (err) {
                                                                         console.error("Error al descargar PDF del técnico:", err);
@@ -3863,7 +4476,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                                 {/* BOTÓN DE ENVIAR AL ENCARGADO DE SUCURSAL PARA EL TÉCNICO */}
                                 {user?.role === 'tecnico' && subTareas.length > 0 && (
                                     <div style={{ marginTop: '25px', display: 'flex', justifyContent: 'center', width: '100%' }}>
-                                        {trabajo?.estado === 'Cotización Enviada' || trabajo?.visitado ? (
+                                        {(['Cotización Enviada', 'Cotización Rechazada', 'Cotización Aceptada', 'Cotización Aprobada', 'Trabajo', 'Finalizado'].includes(trabajo?.estado || '') || trabajo?.visitado || subTareas.some(t => t.esCotizacion) || cotizaciones.length > 0) ? (
                                             <div style={{ background: '#f0fdf4', border: '1.5px solid #86efac', borderRadius: '16px', padding: '16px 24px', display: 'flex', alignItems: 'center', gap: '10px', color: '#166534', fontWeight: '800', fontSize: '14px', boxShadow: '0 4px 12px rgba(34, 197, 94, 0.15)' }}>
                                                 <span style={{ fontSize: '20px' }}>✓</span> Información Enviada al Encargado de Sucursal
                                             </div>
@@ -5781,10 +6394,11 @@ const AdminDetalleTrabajo: React.FC = () => {
                         try {
                             const pdfFile = await generateMaintenanceReportPDF(cotizacionPreviewData);
                             
-                            // Calculate total amount from the preview data
+                            // Calculate total amount from the preview data (cantidad × precio_unitario)
                             const totalAmount = (cotizacionPreviewData.refaccionesList || []).reduce((acc: number, ref: any) => {
-                                const totalPrice = parseFloat(ref.costo_estimado) || 0;
-                                return acc + totalPrice;
+                                const qty = Number(ref.cantidad || 1);
+                                const unitPrice = parseFloat(ref.costo_estimado) || 0;
+                                return acc + (qty * unitPrice);
                             }, 0);
                             
                             const formData = new FormData();
@@ -5814,6 +6428,112 @@ const AdminDetalleTrabajo: React.FC = () => {
                         }
                     }}
                 />
+            )}
+
+            {/* MODAL SOLICITAR CAMBIO DE PROVEEDOR / REASIGNAR */}
+            {isReassignModalOpen && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    width: '100vw',
+                    height: '100vh',
+                    background: 'rgba(15, 23, 42, 0.5)',
+                    backdropFilter: 'blur(8px)',
+                    zIndex: 99999,
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    padding: '20px'
+                }}>
+                    <div style={{
+                        background: '#ffffff',
+                        borderRadius: '24px',
+                        width: '100%',
+                        maxWidth: '480px',
+                        padding: '30px',
+                        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '20px'
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <div style={{ width: '44px', height: '44px', borderRadius: '14px', background: '#fff1f2', border: '1px solid #fecdd3', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px' }}>
+                                🚨
+                            </div>
+                            <div>
+                                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>
+                                    Solicitar Cambio de Proveedor
+                                </h3>
+                                <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#64748b' }}>
+                                    Retirar asignación a {trabajo?.tecnico || 'técnico actual'} y registrar motivo
+                                </p>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label style={{ display: 'block', fontSize: '12px', fontWeight: '800', color: '#334155', textTransform: 'uppercase', marginBottom: '8px' }}>
+                                Motivo / Comentarios del Cambio *
+                            </label>
+                            <textarea
+                                rows={4}
+                                value={reassignReason}
+                                onChange={e => setReassignReason(e.target.value)}
+                                placeholder="Describe los motivos por los cuales solicitas cambiar de técnico o proveedor..."
+                                style={{
+                                    width: '100%',
+                                    padding: '12px',
+                                    borderRadius: '12px',
+                                    border: '1.5px solid #cbd5e1',
+                                    fontSize: '14px',
+                                    outline: 'none',
+                                    resize: 'none',
+                                    background: '#f8fafc',
+                                    color: '#0f172a'
+                                }}
+                            />
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '12px' }}>
+                            <button
+                                onClick={() => { setIsReassignModalOpen(false); setReassignReason(""); }}
+                                disabled={isSubmittingReassign}
+                                style={{
+                                    flex: 1,
+                                    padding: '12px',
+                                    background: '#f1f5f9',
+                                    color: '#64748b',
+                                    border: 'none',
+                                    borderRadius: '12px',
+                                    fontSize: '14px',
+                                    fontWeight: '700',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={handleReassignSubmit}
+                                disabled={isSubmittingReassign}
+                                style={{
+                                    flex: 1,
+                                    padding: '12px',
+                                    background: 'linear-gradient(135deg, #e11d48 0%, #be123c 100%)',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '12px',
+                                    fontSize: '14px',
+                                    fontWeight: '800',
+                                    cursor: 'pointer',
+                                    boxShadow: '0 4px 12px rgba(225, 29, 72, 0.25)',
+                                    opacity: isSubmittingReassign ? 0.7 : 1
+                                }}
+                            >
+                                {isSubmittingReassign ? 'Procesando...' : 'Confirmar Cambio'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );

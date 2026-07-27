@@ -441,15 +441,30 @@ const MenuLayout: React.FC = () => {
                                             {notificaciones.length > 0 ? (
                                                 notificaciones.map((noti: Notificacion) => (
                                                     <div key={noti.id} className={`${styles.notificationItem} ${!noti.leido ? styles.notificationUnread : ''}`} onClick={() => {
-                                                        if (noti.enlace) {
-                                                            marcarUnaComoLeida(noti.id);
-                                                            let targetUrl = noti.enlace;
-                                                            if (user?.role && targetUrl.startsWith('/menu/')) {
-                                                                if (user.role === 'autonomo' || user.role === 'admin-autonomo' || user.role === 'gerente-general') targetUrl = targetUrl.replace('/menu/', '/autonomo/');
-                                                                else if (user.role === 'tecnico') targetUrl = targetUrl.replace('/menu/', '/tecnico/');
-                                                                else if (user.role === 'encargado') targetUrl = targetUrl.replace('/menu/', '/encargado/');
-                                                                else if (user.role === 'cliente') targetUrl = targetUrl.replace('/menu/', '/cliente/');
+                                                        marcarUnaComoLeida(noti.id);
+                                                        let targetUrl = noti.enlace || '';
+                                                        
+                                                        // Fallback: Si no hay enlace directo, buscar el ID del trabajo en el texto (ej. "solicitud #38")
+                                                        if (!targetUrl) {
+                                                            const text = `${noti.titulo || ''} ${noti.mensaje || ''}`;
+                                                            const match = text.match(/#(\d+)/);
+                                                            if (match && match[1]) {
+                                                                targetUrl = `/menu/trabajo-detalle/${match[1]}?tab=cotizacion`;
                                                             }
+                                                        }
+
+                                                        if (targetUrl) {
+                                                            const rolePrefix = user?.role === 'tecnico' ? '/tecnico/' :
+                                                                               user?.role === 'encargado' ? '/encargado/' :
+                                                                               user?.role === 'cliente' ? '/cliente/' :
+                                                                               (user?.role === 'autonomo' || user?.role === 'admin-autonomo' || user?.role === 'gerente-general') ? '/autonomo/' : '/menu/';
+
+                                                            if (targetUrl.startsWith('/menu/')) targetUrl = targetUrl.replace('/menu/', rolePrefix);
+                                                            else if (targetUrl.startsWith('/tecnico/')) targetUrl = targetUrl.replace('/tecnico/', rolePrefix);
+                                                            else if (targetUrl.startsWith('/encargado/')) targetUrl = targetUrl.replace('/encargado/', rolePrefix);
+                                                            else if (targetUrl.startsWith('/cliente/')) targetUrl = targetUrl.replace('/cliente/', rolePrefix);
+                                                            else if (targetUrl.startsWith('/autonomo/')) targetUrl = targetUrl.replace('/autonomo/', rolePrefix);
+
                                                             navigate(targetUrl);
                                                         }
                                                         setMostrarNotificaciones(false);

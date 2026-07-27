@@ -265,6 +265,18 @@ const AutonomoDetalleTrabajo: React.FC = () => {
     const [adminManoObra, setAdminManoObra] = useState("0");
     const [previewQuote, setPreviewQuote] = useState<any | null>(null);
 
+    // Historial de Cotizaciones (Evidencia)
+    const [quoteHistory, setQuoteHistory] = useState<any[]>(() => {
+        if (id) {
+            const saved = localStorage.getItem(`quote_history_${id}`);
+            if (saved) {
+                try { return JSON.parse(saved); } catch (e) {}
+            }
+        }
+        return [];
+    });
+    const [showHistoryDropdown, setShowHistoryDropdown] = useState<boolean>(false);
+
     const parseQuoteMaterials = (description: string) => {
         if (!description) return { materials: [], manoObra: 0, notes: "" };
         const lines = description.split('\n');
@@ -555,6 +567,26 @@ const AutonomoDetalleTrabajo: React.FC = () => {
                                 fecha: first.updated_at ? new Date(first.updated_at).toLocaleDateString('es-MX') : ""
                             }
                         } : prev);
+
+                        // Recuperar historial de cotizaciones desde el campo descripcion del backend
+                        const HISTORY_MARKER = '|||QUOTE_HISTORY|||';
+                        let backendHistory: any[] = [];
+                        for (const cot of cotizs) {
+                            if (cot.descripcion && cot.descripcion.includes(HISTORY_MARKER)) {
+                                try {
+                                    const historyJson = cot.descripcion.split(HISTORY_MARKER)[1].trim();
+                                    const parsed = JSON.parse(historyJson);
+                                    if (Array.isArray(parsed)) {
+                                        backendHistory = parsed;
+                                        break;
+                                    }
+                                } catch (e) { /* ignore */ }
+                            }
+                        }
+                        if (backendHistory.length > 0) {
+                            setQuoteHistory(backendHistory);
+                            localStorage.setItem(`quote_history_${id}`, JSON.stringify(backendHistory));
+                        }
                     }
                 } catch (e) { console.log('Sin cotizaciones previas'); }
 
@@ -2075,30 +2107,7 @@ const AutonomoDetalleTrabajo: React.FC = () => {
                         </div>
                     )}
 
-                    {tarea.refacciones && tarea.refacciones.length > 0 && (
-                        <div style={{
-                            marginTop: '15px',
-                            background: '#f8fafc',
-                            padding: '12px 15px',
-                            borderRadius: '12px',
-                            border: '1px solid #e2e8f0'
-                        }}>
-                            <span style={{ display: 'block', fontSize: '11px', textTransform: 'uppercase', color: '#64748b', fontWeight: '800', marginBottom: '8px' }}>Refacciones Registradas</span>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                {tarea.refacciones.map((ref, idx) => (
-                                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff', padding: '8px 12px', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
-                                        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                                            <span style={{ background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold' }}>x{ref.cantidad}</span>
-                                            <span style={{ fontSize: '13px', color: '#334155', fontWeight: '600' }}>{ref.pieza}</span>
-                                        </div>
-                                        {ref.costo_estimado && (
-                                            <span style={{ fontSize: '13px', color: '#059669', fontWeight: '700' }}>${ref.costo_estimado}</span>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
+
 
                     {canEdit && isInteractive && (
                         <div style={{ display: 'flex', gap: '10px', marginTop: '15px' }}>
@@ -2318,6 +2327,8 @@ const AutonomoDetalleTrabajo: React.FC = () => {
                                     return user?.role === 'admin' || user?.role === 'autonomo';
                                 }
                                 if (tabName === 'Registro') {
+                                    const cotizacionYaEnviada = ['Cotización Enviada', 'Cotización Rechazada', 'Cotización Aceptada', 'Cotización Aprobada'].includes(trabajo?.estado) || cotizaciones.length > 0 || subTareas.some(t => t.esCotizacion);
+                                    if (cotizacionYaEnviada) return false;
                                     return trabajo.tipo === 'Visita';
                                 }
                                 if (tabName === 'Trabajo') {
