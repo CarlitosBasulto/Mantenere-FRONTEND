@@ -36,16 +36,37 @@
     height: auto;
     margin-bottom: 15px;
     filter: drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.08));
+    transform: scale(1.5);
+    transform-origin: center top;
     transition: transform 0.3s ease;
 }
 
 .cardLogo:hover {
-    transform: scale(1.05);
+    transform: scale(1.55);
+}
+
+.cardLogoLogin {
+    width: 220px;
+    height: auto;
+    margin-bottom: 15px;
+    object-fit: contain;
+    transform: scale(1.5);
+    transform-origin: center top;
+    transition: transform 0.3s ease;
+}
+
+.cardLogoLogin:hover {
+    transform: scale(1.55);
 }
 
 @media (max-width: 480px) {
     .cardLogo {
         width: 170px;
+        margin-bottom: 10px;
+    }
+
+    .cardLogoLogin {
+        width: 180px;
         margin-bottom: 10px;
     }
 }
@@ -221,6 +242,12 @@
     height: 100%;
     text-align: center;
     overflow-y: auto;
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge */
+}
+
+.form::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
 }
 
 .form::before,
@@ -546,6 +573,12 @@
     padding: 25px;
     overflow-y: auto;
     background: #f8fafc;
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge */
+}
+
+.legalModalBody::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
 }
 
 .legalText {

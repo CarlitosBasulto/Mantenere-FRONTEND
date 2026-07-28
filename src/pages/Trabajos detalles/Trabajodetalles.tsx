@@ -1278,7 +1278,7 @@ const TrabajoDetalle: React.FC = () => {
                                                 )}
                                             </div>
                                             {/* ACCIONES - Solo Admin o Cliente en la parte derecha del header */}
-                                            {user?.role === 'cliente' && (
+                                            {user?.role === 'cliente' && trabajo.estado !== 'Finalizado' && trabajo.estado !== 'Completado' && (
                                                 <div className={`${styles.menuContainer} ${styles.desktopOnlyEditContainer}`} onClick={(e) => e.stopPropagation()}>
                                                     <button
                                                         className={styles.editBtnSmall}
@@ -1393,7 +1393,7 @@ const TrabajoDetalle: React.FC = () => {
                                                     );
                                                 })()}
                                                 {/* Botón Editar para Móvil */}
-                                                {user?.role === 'cliente' && (
+                                                {user?.role === 'cliente' && trabajo.estado !== 'Finalizado' && trabajo.estado !== 'Completado' && (
                                                     <button
                                                         className={`${styles.editBtnSmall} ${styles.mobileOnlyEditBtn}`}
                                                         onClick={(e) => { e.stopPropagation(); handleOpenEditRequest(e, trabajo); }}
@@ -1415,7 +1415,7 @@ const TrabajoDetalle: React.FC = () => {
                                                     </div>
                                                 )}
                                                 {/* Botones de cliente */}
-                                                {user?.role === 'cliente' && (
+                                                {user?.role === 'cliente' && trabajo.estado !== 'Finalizado' && trabajo.estado !== 'Completado' && (
                                                     <button
                                                         className={styles.trashBtn}
                                                         onClick={(e) => handleDeleteRequest(e, trabajo.id)}
@@ -1706,6 +1706,18 @@ const TrabajoDetalle: React.FC = () => {
                                     className={styles.newRequestBtn}
                                     onClick={() => {
                                         setIsSOSRequest(false);
+                                        setIsEditingRequest(false);
+                                        setEditingRequestId(null);
+                                        setNewRequestData({
+                                            categoria: "Electricidad",
+                                            cliente: businessName,
+                                            fecha: new Date().toISOString().split('T')[0],
+                                            descripcion: "",
+                                            equipoSeleccionado: "",
+                                            trabajador_id: ""
+                                        });
+                                        setFotosSOS([]);
+                                        setFotosPreviewUrls([]);
                                         setIsRequestModalOpen(true);
                                     }}
                                 >
@@ -2287,6 +2299,16 @@ const TrabajoDetalle: React.FC = () => {
                                 onClick={() => {
                                     setIsRequestModalOpen(false);
                                     setIsSOSRequest(false);
+                                    setIsEditingRequest(false);
+                                    setEditingRequestId(null);
+                                    setNewRequestData({
+                                        categoria: "Electricidad",
+                                        cliente: businessName,
+                                        fecha: new Date().toISOString().split('T')[0],
+                                        descripcion: "",
+                                        equipoSeleccionado: "",
+                                        trabajador_id: ""
+                                    });
                                     setFotosSOS([]);
                                     setFotosPreviewUrls([]);
                                 }}

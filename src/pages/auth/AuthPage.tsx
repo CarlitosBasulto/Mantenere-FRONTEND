@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import styles from './AuthPage.module.css';
 import logoAgente from '../../assets/imagenes/logo-agente-business.png';
+import logoCliente from '../../assets/imagenes/cliente1.png';
 import { useAuth } from '../../context/AuthContext';
 import { useModal } from '../../context/ModalContext';
 import { loginUser, registerUser, forgotPassword } from '../../services/authService';
@@ -197,7 +198,7 @@ const AuthPage: React.FC = () => {
                 {/* SIGN UP FORM */}
                 <div className={`${styles.formContainer} ${styles.signUpContainer}`}>
                     <form className={styles.form} onSubmit={handleRegisterSubmit}>
-                        <img src={logoAgente} alt="Agente Business" className={styles.cardLogo} />
+                        <img src={logoCliente} alt="Agente Business" className={styles.cardLogo} />
                         <h1 className={styles.title}>Crear Cuenta</h1>
                         <span className={styles.span}>Crea una cuenta para tu empresa hoy mismo</span>
                         <input type="text" placeholder="Nombre(s)" className={styles.input} value={regName} onChange={(e) => setRegName(e.target.value)} />
@@ -266,7 +267,7 @@ const AuthPage: React.FC = () => {
                 {/* SIGN IN FORM */}
                 <div className={`${styles.formContainer} ${styles.signInContainer}`}>
                     <form className={styles.form} onSubmit={handleLoginSubmit}>
-                        <img src={logoAgente} alt="Agente Business" className={styles.cardLogo} />
+                        <img src={logoCliente} alt="Agente Business" className={styles.cardLogoLogin} />
                         <h1 className={styles.title}>Iniciar Sesión</h1>
                         <span className={styles.span}>o usa tu cuenta existente</span>
                         <input

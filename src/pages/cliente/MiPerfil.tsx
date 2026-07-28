@@ -257,7 +257,7 @@ const MiPerfil: React.FC = () => {
                             title="Toca para cambiar tu foto"
                             style={{
                                 position: 'relative', cursor: isUploading ? 'wait' : 'pointer',
-                                width: '120px', height: '120px', borderRadius: '50%',
+                                width: '110px', height: '110px', borderRadius: '50%',
                                 overflow: 'hidden',
                                 border: '4px solid #fff', boxShadow: '0 6px 18px rgba(0,0,0,0.12)'
                             }}
@@ -274,7 +274,7 @@ const MiPerfil: React.FC = () => {
                             {formData.imagenPerfil
                                 ? <img src={formData.imagenPerfil} alt="Perfil" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: isUploading ? 0.5 : 1 }} />
                                 : <div style={{ width: '100%', height: '100%', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: isUploading ? 0.5 : 1 }}>
-                                    <HiOutlineUser size={52} color="#94a3b8" />
+                                    <HiOutlineUser size={48} color="#94a3b8" />
                                 </div>
                             }
                             {/* Overlay de cámara */}
@@ -290,7 +290,7 @@ const MiPerfil: React.FC = () => {
                                     <span style={{ fontSize: '11px', fontWeight: '700' }}>SUBIENDO...</span>
                                 ) : (
                                     <>
-                                        <HiOutlineCamera size={26} />
+                                        <HiOutlineCamera size={24} />
                                         <span style={{ fontSize: '10px', fontWeight: '700' }}>CAMBIAR</span>
                                     </>
                                 )}
@@ -320,8 +320,8 @@ const MiPerfil: React.FC = () => {
                     <button
                         onClick={handleSave}
                         style={{
-                            width: '100%', padding: '16px', background: 'linear-gradient(135deg, #f26522, #ff8c42)',
-                            color: 'white', border: 'none', borderRadius: '18px', fontSize: '15px',
+                            width: '100%', padding: '14px', background: 'linear-gradient(135deg, #f26522, #ff8c42)',
+                            color: 'white', border: 'none', borderRadius: '12px', fontSize: '14px',
                             fontWeight: '800', cursor: 'pointer', boxShadow: '0 8px 18px rgba(242,101,34,0.3)',
                             transition: 'all 0.3s ease'
                         }}
@@ -336,13 +336,13 @@ const MiPerfil: React.FC = () => {
                 {/* ── COLUMNA DERECHA: Formularios ── */}
                 <div className="perfil-right-column">
 
-                    {/* DATOS DE CONTACTO */}
+                    {/* TARJETA UNIFICADA DE INFORMACIÓN */}
                     <div className="perfil-card">
-                        <p style={{ fontSize: '12px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 20px' }}>
+                        {/* DATOS DE CONTACTO */}
+                        <p style={{ fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 12px' }}>
                             📋 Datos de contacto
                         </p>
-                        <div className="perfil-grid">
-
+                        <div className="perfil-grid" style={{ marginBottom: user?.role !== 'tecnico' ? '16px' : '0' }}>
                             <div style={{ gridColumn: user?.role === 'tecnico' ? 'span 2' : 'span 1' }}>
                                 <Label>Nombre Completo</Label>
                                 <Input name="nombre" value={formData.nombre} onChange={handleChange} />
@@ -380,7 +380,7 @@ const MiPerfil: React.FC = () => {
                                         }}
                                         title={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
                                     >
-                                        {showPassword ? <HiOutlineEyeSlash size={20} /> : <HiOutlineEye size={20} />}
+                                        {showPassword ? <HiOutlineEyeSlash size={18} /> : <HiOutlineEye size={18} />}
                                     </button>
                                 </div>
                             </div>
@@ -389,39 +389,39 @@ const MiPerfil: React.FC = () => {
                                 <Input name="telefono" value={formData.telefono} onChange={handleChange} />
                             </div>
                         </div>
+
+                        {/* DATOS FISCALES (solo si no es técnico) */}
+                        {user?.role !== 'tecnico' && (
+                            <>
+                                <hr style={{ border: 'none', borderTop: '2px solid #e2e8f0', margin: '20px 0' }} />
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                                    <p style={{ fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
+                                        🧾 Información Fiscal (Facturación)
+                                    </p>
+                                    <span style={{ fontSize: '10px', background: '#e3f2fd', color: '#1565c0', padding: '2px 8px', borderRadius: '8px', fontWeight: 'bold' }}>
+                                        Solo dueños
+                                    </span>
+                                </div>
+                                <div className="perfil-grid">
+                                    <div>
+                                        <Label>RFC</Label>
+                                        <Input name="rfc" placeholder="Ej: ABC123456XYZ" value={formData.rfc} onChange={handleChange} />
+                                    </div>
+                                    <div>
+                                        <Label>Razón Social</Label>
+                                        <Input name="razonSocial" placeholder="Nombre Legal de la Empresa" value={formData.razonSocial} onChange={handleChange} />
+                                    </div>
+                                    <div style={{ gridColumn: 'span 2' }}>
+                                        <Label>Dirección Fiscal Completa</Label>
+                                        <Input name="direccionFiscal" placeholder="Calle, Número, Colonia, CP, Mérida, Yucatán" value={formData.direccionFiscal} onChange={handleChange} />
+                                    </div>
+                                </div>
+                            </>
+                        )}
                     </div>
+
                 </div>
             </div>
-
-            {/* DATOS FISCALES (solo clientes) */}
-            {user?.role !== 'tecnico' && (
-                <div className="perfil-fiscal-container">
-                    <div className="perfil-card">
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
-                            <p style={{ fontSize: '12px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
-                                🧾 Información Fiscal (Facturación)
-                            </p>
-                            <span style={{ fontSize: '11px', background: '#e3f2fd', color: '#1565c0', padding: '3px 10px', borderRadius: '10px', fontWeight: 'bold' }}>
-                                Solo dueños
-                            </span>
-                        </div>
-                        <div className="perfil-grid">
-                            <div>
-                                <Label>RFC</Label>
-                                <Input name="rfc" placeholder="Ej: ABC123456XYZ" value={formData.rfc} onChange={handleChange} />
-                            </div>
-                            <div style={{ gridColumn: 'span 2' }}>
-                                <Label>Razón Social</Label>
-                                <Input name="razonSocial" placeholder="Nombre Legal de la Empresa" value={formData.razonSocial} onChange={handleChange} />
-                            </div>
-                            <div style={{ gridColumn: 'span 2' }}>
-                                <Label>Dirección Fiscal Completa</Label>
-                                <Input name="direccionFiscal" placeholder="Calle, Número, Colonia, CP, Mérida, Yucatán" value={formData.direccionFiscal} onChange={handleChange} />
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
 
             {/* MIS SUCURSALES (en cuadrícula responsiva a lo ancho) */}
             {misNegocios.length > 0 && (
@@ -528,22 +528,24 @@ const MiPerfil: React.FC = () => {
             <style>
                 {`
                 .perfil-outer-container {
-                    padding: 24px 30px;
+                    padding: 24px 0;
                     font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
                 }
                 .perfil-flex-container {
-                    max-width: 1100px;
+                    max-width: 100%;
                     margin: 0 auto;
                     display: flex;
                     gap: 24px;
-                    align-items: flex-start;
+                    align-items: stretch;
                 }
                 .perfil-left-column {
-                    width: 260px;
+                    width: 250px;
                     flex-shrink: 0;
                     display: flex;
                     flex-direction: column;
+                    justify-content: center;
                     gap: 16px;
+                    box-sizing: border-box;
                 }
                 .perfil-right-column {
                     flex: 1;
@@ -551,39 +553,37 @@ const MiPerfil: React.FC = () => {
                     flex-direction: column;
                     gap: 16px;
                     min-width: 0;
+                    box-sizing: border-box;
                 }
                 .perfil-grid {
                     display: grid;
                     grid-template-columns: 1fr 1fr;
                     gap: 16px;
                 }
-                .perfil-fiscal-container {
-                    max-width: 1100px;
-                    margin: 24px auto 0;
-                    width: 100%;
-                }
                 .perfil-card {
                     background: #ffffff;
-                    border-radius: 24px;
-                    padding: 28px 30px;
-                    box-shadow: 0 6px 20px rgba(0,0,0,0.04);
-                    border: 1.5px solid #cbd5e1;
+                    border-radius: 16px;
+                    padding: 24px 28px;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+                    border: 2.5px solid #cbd5e1;
+                    box-sizing: border-box;
                 }
                 .perfil-avatar-card {
                     background: #ffffff;
-                    border-radius: 24px;
-                    padding: 28px 24px;
-                    box-shadow: 0 6px 20px rgba(0,0,0,0.06);
-                    border: 1.5px solid #cbd5e1;
+                    border-radius: 16px;
+                    padding: 24px 20px;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+                    border: 2.5px solid #cbd5e1;
                     display: flex;
                     flex-direction: column;
                     align-items: center;
                     gap: 16px;
                     text-align: center;
+                    box-sizing: border-box;
                 }
                 .perfil-sucursales-container {
-                    max-width: 1100px;
-                    margin: 32px auto 0;
+                    max-width: 100%;
+                    margin: 28px auto 0;
                     width: 100%;
                 }
                 .perfil-sucursales-title {
@@ -592,7 +592,7 @@ const MiPerfil: React.FC = () => {
                     color: #94a3b8;
                     text-transform: uppercase;
                     letter-spacing: 0.05em;
-                    margin: 0 0 16px;
+                    margin: 0 0 12px;
                 }
                 .perfil-sucursales-grid {
                     display: grid;
@@ -601,15 +601,15 @@ const MiPerfil: React.FC = () => {
                 }
                 .perfil-sucursal-card-new {
                     background: #ffffff;
-                    border-radius: 20px;
-                    padding: 20px 24px;
-                    border: 1.5px solid #cbd5e1;
+                    border-radius: 16px;
+                    padding: 16px 20px;
+                    border: 2.5px solid #cbd5e1;
                     box-shadow: 0 4px 12px rgba(0,0,0,0.02);
                     cursor: pointer;
                     transition: all 0.2s ease-in-out;
                     display: flex;
                     flex-direction: column;
-                    gap: 8px;
+                    gap: 6px;
                     text-align: left;
                 }
                 .perfil-sucursal-card-new:hover {
@@ -621,20 +621,20 @@ const MiPerfil: React.FC = () => {
                     display: flex;
                     justify-content: space-between;
                     align-items: flex-start;
-                    gap: 12px;
+                    gap: 10px;
                 }
                 .perfil-sucursal-card-new .card-header h3 {
                     margin: 0;
-                    font-size: 15px;
+                    font-size: 14px;
                     font-weight: 800;
                     color: #0f172a;
                     line-height: 1.3;
                 }
                 .perfil-sucursal-card-new .type-badge {
-                    font-size: 11px;
+                    font-size: 10px;
                     font-weight: 700;
-                    padding: 3px 10px;
-                    border-radius: 8px;
+                    padding: 2px 8px;
+                    border-radius: 6px;
                     flex-shrink: 0;
                     text-transform: uppercase;
                 }
@@ -661,7 +661,7 @@ const MiPerfil: React.FC = () => {
                 }
                 .perfil-sucursal-card-new .address-line {
                     margin: 0;
-                    font-size: 12px;
+                    font-size: 11px;
                     color: #475569;
                     line-height: 1.4;
                     font-weight: 500;
@@ -672,7 +672,7 @@ const MiPerfil: React.FC = () => {
                 }
                 .perfil-sucursal-card-new .city-line {
                     margin: 0;
-                    font-size: 11px;
+                    font-size: 10px;
                     color: #94a3b8;
                     font-weight: 600;
                 }
@@ -686,12 +686,12 @@ const MiPerfil: React.FC = () => {
                 }
                 @media (max-width: 768px) {
                     .perfil-outer-container {
-                        padding: 16px 12px;
+                        padding: 12px 10px;
                     }
                     .perfil-flex-container {
                         flex-direction: column;
                         align-items: stretch;
-                        gap: 20px;
+                        gap: 16px;
                     }
                     .perfil-left-column {
                         width: 100% !important;
@@ -705,10 +705,6 @@ const MiPerfil: React.FC = () => {
                     .perfil-grid > div {
                         grid-column: span 1 !important;
                     }
-                    .perfil-fiscal-container {
-                        margin: 20px auto 0;
-                        width: 100%;
-                    }
                 }
                 `}
             </style>
@@ -718,7 +714,7 @@ const MiPerfil: React.FC = () => {
 
 // ─── Sub-componentes reutilizables ───────────────────────────────────────────
 const Label: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-    <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '7px' }}>
+    <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
         {children}
     </label>
 );
@@ -727,8 +723,8 @@ const Input: React.FC<React.InputHTMLAttributes<HTMLInputElement>> = (props) => 
     <input
         {...props}
         style={{
-            width: '100%', boxSizing: 'border-box', padding: '13px 16px',
-            background: '#f8fafc', border: '1.5px solid #cbd5e1', borderRadius: '14px',
+            width: '100%', boxSizing: 'border-box', padding: '12px 16px',
+            background: '#f8fafc', border: '1.5px solid #cbd5e1', borderRadius: '12px',
             fontSize: '14px', color: '#1e293b', fontWeight: '500', outline: 'none',
             transition: 'border-color 0.2s ease',
             ...props.style

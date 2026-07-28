@@ -9,7 +9,9 @@ import {
     HiOutlineClock,
     HiOutlineBuildingOffice2,
     HiOutlineUser,
-    HiOutlineWrench
+    HiOutlineWrench,
+    HiOutlineCheckBadge,
+    HiOutlineCheckCircle
 } from "react-icons/hi2";
 
 // Interfaz para el Trabajo
@@ -24,6 +26,44 @@ interface TareaHistorial {
     trabajoId: number;
     monthYear?: string;
 }
+
+const parseJobDate = (fechaStr?: string, createdAt?: string): Date => {
+    if (fechaStr) {
+        if (fechaStr.includes('-')) {
+            const parts = fechaStr.split('-');
+            if (parts.length === 3) {
+                const year = parseInt(parts[0], 10);
+                const month = parseInt(parts[1], 10) - 1;
+                const day = parseInt(parts[2], 10);
+                return new Date(year, month, day);
+            }
+        }
+        if (fechaStr.includes('/')) {
+            const parts = fechaStr.split('/');
+            if (parts.length === 3) {
+                const day = parseInt(parts[0], 10);
+                const month = parseInt(parts[1], 10) - 1;
+                const year = parseInt(parts[2], 10);
+                return new Date(year, month, day);
+            }
+        }
+        const dateObj = new Date(fechaStr);
+        if (!isNaN(dateObj.getTime())) return dateObj;
+    }
+    if (createdAt) {
+        const dateObj = new Date(createdAt);
+        if (!isNaN(dateObj.getTime())) return dateObj;
+    }
+    return new Date();
+};
+
+const getMonthYearString = (date: Date): string => {
+    const months = [
+        "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+        "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+    ];
+    return `${months[date.getMonth()]} de ${date.getFullYear()}`;
+};
 
 const AdminHistorial: React.FC = () => {
     const { user } = useAuth();
@@ -50,10 +90,7 @@ const AdminHistorial: React.FC = () => {
                 }
 
                 const mappedTareas = terminados.map((job: any) => {
-                    const dateObj = job.fecha_programada ? new Date(`${job.fecha_programada}T00:00:00`) : new Date(job.created_at);
-                    const isInvalid = isNaN(dateObj.getTime());
-                    const finalDate = isInvalid ? new Date() : dateObj;
-                    const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+                    const finalDate = parseJobDate(job.fecha_programada, job.created_at);
                     return {
                         id: job.id,
                         titulo: job.titulo,
@@ -61,7 +98,7 @@ const AdminHistorial: React.FC = () => {
                         estado: job.estado,
                         ubicacion: job.negocio?.ubicacion || job.negocio?.nombre || "Sucursal",
                         fecha: finalDate.toLocaleDateString('es-MX'),
-                        monthYear: capitalize(finalDate.toLocaleString('es-MX', { month: 'long', year: 'numeric' })),
+                        monthYear: getMonthYearString(finalDate),
                         tecnico: job.trabajador?.nombre || "Sin Asignar",
                         trabajoId: job.id
                     };
@@ -140,8 +177,9 @@ const AdminHistorial: React.FC = () => {
                                                             <div className={`${styles.cardIndicator} ${styles.borderSuccess}`}></div>
                                                             <div className={styles.cardContent}>
                                                                 <div className={styles.cardIcon}>
-                                                                    <span className={styles.iconHistory}>📋</span>
+                                                                    <HiOutlineCheckBadge className={styles.iconHistory} size={32} />
                                                                 </div>
+
                                                                 <div className={styles.cardInfo}>
                                                                     <div className={styles.cardHeader}>
                                                                         <div>
@@ -151,12 +189,14 @@ const AdminHistorial: React.FC = () => {
                                                                             <h3 className={styles.concepto} style={{ marginTop: '0' }}>{tarea.titulo}</h3>
                                                                         </div>
                                                                         <div className={`${styles.statusBadge} ${styles.badgeSuccess}`}>
-                                                                            <span className={styles.statusIcon}>✓</span> Completado
+                                                                            <HiOutlineCheckCircle className={styles.statusIcon} /> Completado
                                                                         </div>
                                                                     </div>
+
                                                                     <p className={styles.descripcion}>{tarea.descripcion}</p>
+
                                                                     <div className={styles.cardFooter}>
-                                                                        {tarea.tecnico && tarea.tecnico !== "Sin Asignar" ? (
+                                                                        {tarea.tecnico && tarea.tecnico !== "Sin Asignar" && tarea.tecnico !== "Sin asignar" ? (
                                                                             <span className={styles.tecnicoBadge}>🧑‍🔧 {tarea.tecnico}</span>
                                                                         ) : <span></span>}
                                                                         <span className={styles.fecha}>{tarea.fecha}</span>

@@ -6,7 +6,7 @@
     gap: 20px;
     height: 100%;
     width: 100%;
-    max-width: 1000px;
+    max-width: 1350px;
     margin: 0 auto;
 }
 
@@ -84,12 +84,30 @@
 
 .listGrid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    grid-template-columns: repeat(4, 1fr);
     gap: 20px;
     overflow-y: auto;
     padding-bottom: 30px;
     -ms-overflow-style: none;  /* IE y Edge */
     scrollbar-width: none;  /* Firefox */
+}
+
+@media (max-width: 1200px) {
+    .listGrid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (max-width: 900px) {
+    .listGrid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 600px) {
+    .listGrid {
+        grid-template-columns: 1fr;
+    }
 }
 
 .listGrid::-webkit-scrollbar {
@@ -201,9 +219,6 @@
     .searchCard, .filterWrapper {
         max-width: none;
         width: 100% !important;
-    }
-    .listGrid {
-        grid-template-columns: 1fr;
     }
 }
 
@@ -393,4 +408,232 @@
     .filterWrapper {
         width: 100% !important;
     }
+}
+
+/* ── FLIP CARD ANIMATION ── */
+.flipCard {
+    background: transparent;
+    perspective: 1000px;
+    width: 100%;
+    height: 250px;
+    border: none;
+    outline: none;
+}
+
+.flipCardInner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    text-align: center;
+    transition: transform 0.65s cubic-bezier(0.4, 0, 0.2, 1);
+    transform-style: preserve-3d;
+}
+
+.flipCard:hover .flipCardInner,
+.flipCard.isFlipped .flipCardInner {
+    transform: rotateY(180deg);
+}
+
+.flipCardFront,
+.flipCardBack {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    border-radius: 20px;
+    border: 2px solid #a7f3d0; /* Soft green frame for Activos */
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+    overflow: hidden;
+    background: white;
+    box-sizing: border-box;
+}
+
+.flipCard.cardBlocked .flipCardFront,
+.flipCard.cardBlocked .flipCardBack {
+    border: 2px solid #fecaca; /* Soft red frame for Blocked */
+}
+
+.flipCard.cardAutonomo .flipCardFront,
+.flipCard.cardAutonomo .flipCardBack {
+    border: 2px solid #ffe4d6; /* Soft orange/coral border for admin autonomo */
+}
+
+.flipCardFront {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 0;
+    pointer-events: auto;
+}
+
+.flipCardBack {
+    transform: rotateY(180deg);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 24px;
+    background: #fafafb;
+    border: 1px solid #eef2f6;
+    pointer-events: none;
+}
+
+.flipCard:hover .flipCardFront,
+.flipCard.isFlipped .flipCardFront {
+    pointer-events: none;
+}
+
+.flipCard:hover .flipCardBack,
+.flipCard.isFlipped .flipCardBack {
+    pointer-events: auto;
+}
+
+.cardCoverWrapper {
+    width: 100%;
+    height: 120px;
+    position: relative;
+    overflow: hidden;
+    background: #e2e8f0;
+}
+
+.cardCoverImage {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.cardCoverPlaceholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #ffffff;
+}
+
+.cardInfoWrapper {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    justify-content: center;
+    flex: 1;
+    z-index: 1;
+    position: relative;
+    background: #ecfdf5; /* Soft active green background */
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.flipCard.cardBlocked .cardInfoWrapper {
+    background: #fef2f2; /* Soft blocked red background */
+}
+
+.flipCard.cardAutonomo .cardInfoWrapper {
+    background: #fffaf7; /* Soft orange/coral background for admin autonomo */
+}
+
+.cardName {
+    font-size: 15px;
+    font-weight: 800;
+    color: #1e293b;
+    margin: 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.25;
+    height: 2.5em;
+}
+
+.statusPill {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.statusPill.active {
+    background: #e6fcf5;
+    color: #10b981;
+}
+
+.statusPill.blocked {
+    background: #ffebeb;
+    color: #ef4444;
+}
+
+.statusDot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.cardContentBack {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    position: relative;
+    z-index: 1;
+    justify-content: space-between;
+}
+
+.detailsList {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 8px;
+    width: 100%;
+}
+
+.detailItem {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 13px;
+    color: #475569;
+    font-weight: 600;
+    padding: 6px 12px;
+    background: #ffffff;
+    border-radius: 12px;
+    border: 1px solid #f1f5f9;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+    transition: all 0.2s ease;
+    text-align: left;
+}
+
+.detailItem:hover {
+    transform: translateX(4px);
+    background: #f8fafc;
+    border-color: #e2e8f0;
+}
+
+.detailIcon {
+    color: #f26522;
+    width: 28px;
+    height: 28px;
+    background: rgba(242, 101, 34, 0.08);
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.actionButtonsBack {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin-top: auto;
+    border-top: 1px solid #f1f5f9;
+    padding-top: 10px;
+    width: 100%;
 }

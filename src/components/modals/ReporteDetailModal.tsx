@@ -7,8 +7,7 @@ import {
     HiOutlineBuildingOffice2, 
     HiOutlineWrench, 
     HiOutlineCurrencyDollar,
-    HiOutlineArrowDownTray,
-    HiOutlineXMark
+    HiOutlineArrowDownTray
 } from "react-icons/hi2";
 import { createPortal } from "react-dom";
 import styles from "./ReporteDetailModal.module.css";
@@ -151,7 +150,7 @@ const ReporteDetailModal: React.FC<ReporteDetailModalProps> = ({
                             </button>
                         )}
                         <button onClick={onClose} className={styles.closeHeaderBtn} title="Cerrar">
-                            <HiOutlineXMark size={20} />
+                            <span style={{ fontSize: '24px', fontWeight: 'bold', lineHeight: 1 }}>✕</span>
                         </button>
                     </div>
                 </div>

@@ -218,7 +218,9 @@ const AdminPerfilTrabajador: React.FC = () => {
                                 style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: isUploading ? 0.5 : 1 }}
                             />
                         ) : (
-                            <span style={{ opacity: isUploading ? 0.5 : 1 }}>👤</span>
+                            <div className={styles.fallbackContainer}>
+                                <HiOutlineUser size={42} color="#94a3b8" />
+                            </div>
                         )}
                         <div className={styles.editOverlay}>
                             <HiOutlineCamera size={22} />
@@ -227,12 +229,15 @@ const AdminPerfilTrabajador: React.FC = () => {
                     </div>
 
                     <h2 className={styles.workerName}>{worker.nombre}</h2>
-                    <span className={styles.workerRole}>{displayPuesto}</span>
-                    <span className={`${styles.statusBadge} ${worker.estado === 'Activo' ? styles.activo : styles.baja}`}>
-                        {worker.estado}
-                    </span>
                     
-                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                    <div className={styles.badgesWrapper}>
+                        <span className={styles.workerRole}>{displayPuesto}</span>
+                        <span className={`${styles.statusBadge} ${worker.estado === 'Activo' ? styles.activo : styles.baja}`}>
+                            {worker.estado}
+                        </span>
+                    </div>
+                    
+                    <div className={styles.actionsWrapper}>
                         <button 
                             className={styles.shareBtn} 
                             onClick={() => {

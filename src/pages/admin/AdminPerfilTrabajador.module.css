@@ -5,8 +5,9 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 20px 20px 20px;
+    padding: 24px;
     background: transparent;
+    font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
 }
 
 /* ============================
@@ -14,12 +15,14 @@
    ============================ */
 .mainCard {
     background: white;
-    border-radius: 28px;
-    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.08);
+    border-radius: 24px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.05);
     width: 100%;
     max-width: 860px;
     overflow: hidden;
     position: relative;
+    border: 2.5px solid #cbd5e1;
+    box-sizing: border-box;
 }
 
 /* ============================
@@ -27,8 +30,9 @@
    ============================ */
 .heroBanner {
     width: 100%;
-    height: 110px;
-    background: linear-gradient(135deg, #f26522 0%, #ff8c42 50%, #ffb347 100%);
+    height: 120px;
+    background: linear-gradient(135deg, #0d192b 0%, #1e293b 100%);
+    border-bottom: 4px solid #f26522;
     position: relative;
     overflow: hidden;
 }
@@ -40,7 +44,7 @@
     right: -60px;
     width: 220px;
     height: 220px;
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(242, 101, 34, 0.08);
     border-radius: 50%;
 }
 
@@ -51,7 +55,7 @@
     left: -40px;
     width: 260px;
     height: 260px;
-    background: rgba(255, 255, 255, 0.07);
+    background: rgba(255, 255, 255, 0.04);
     border-radius: 50%;
 }
 
@@ -61,7 +65,7 @@
     left: 40px;
     width: 80px;
     height: 80px;
-    background: rgba(255, 255, 255, 0.12);
+    background: rgba(242, 101, 34, 0.05);
     border-radius: 50%;
 }
 
@@ -72,49 +76,58 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    margin-top: -46px;
+    margin-top: -55px;
     position: relative;
     z-index: 2;
+    box-sizing: border-box;
 }
 
 .avatarCircle {
-    width: 92px;
-    height: 92px;
+    width: 110px;
+    height: 110px;
     background: white;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 36px;
-    color: #888;
     border: 4px solid white;
-    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.13);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
     overflow: hidden;
     position: relative;
     cursor: pointer;
-    transition: box-shadow 0.2s;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .avatarCircle:hover {
-    box-shadow: 0 10px 36px rgba(242, 101, 34, 0.3);
+    box-shadow: 0 12px 32px rgba(242, 101, 34, 0.25);
+    transform: scale(1.02);
 }
 
 .avatarCircle:hover .editOverlay {
     opacity: 1;
 }
 
+.fallbackContainer {
+    width: 100%;
+    height: 100%;
+    background: #f1f5f9;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
 .editOverlay {
     position: absolute;
     inset: 0;
-    background: rgba(0, 0, 0, 0.45);
+    background: rgba(0, 0, 0, 0.5);
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     color: white;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.5px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.05em;
     gap: 4px;
     opacity: 0;
     transition: opacity 0.2s ease;
@@ -122,48 +135,67 @@
 }
 
 .workerName {
-    margin: 10px 0 3px;
-    font-size: 17px;
+    margin: 14px 0 4px;
+    font-size: 20px;
     font-weight: 800;
-    color: #111;
+    color: #0f172a;
     text-align: center;
+    letter-spacing: -0.02em;
+}
+
+.badgesWrapper {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-top: 4px;
 }
 
 .workerRole {
-    font-size: 12px;
+    font-size: 11px;
     color: #f26522;
-    font-weight: 600;
-    background: rgba(242, 101, 34, 0.1);
-    padding: 2px 12px;
-    border-radius: 20px;
-    margin-bottom: 4px;
+    font-weight: 700;
+    background: #fff3eb;
+    padding: 4px 10px;
+    border-radius: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
 }
 
 .statusBadge {
     font-size: 11px;
     font-weight: 700;
-    padding: 3px 12px;
-    border-radius: 20px;
-    letter-spacing: 0.3px;
+    padding: 4px 10px;
+    border-radius: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
 }
 
 .statusBadge.activo {
-    background: #dcfce7;
-    color: #16a34a;
+    background: #e8fbf0;
+    color: #10b981;
 }
 
 .statusBadge.baja {
-    background: #fee2e2;
-    color: #dc2626;
+    background: #fdf2f2;
+    color: #ef4444;
+}
+
+.actionsWrapper {
+    display: flex;
+    gap: 12px;
+    margin-top: 18px;
+    justify-content: center;
+    flex-wrap: wrap;
+    box-sizing: border-box;
 }
 
 /* ============================
    SEPARADOR
    ============================ */
 .divider {
-    height: 1px;
-    background: #f0f0f0;
-    margin: 16px 24px 0;
+    height: 2px;
+    background: #e2e8f0;
+    margin: 20px 28px 0;
 }
 
 /* ============================
@@ -172,30 +204,34 @@
 .infoGrid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    padding: 16px 24px;
+    gap: 16px;
+    padding: 24px 28px;
+    box-sizing: border-box;
 }
 
 .infoCard {
     display: flex;
     align-items: center;
-    gap: 12px;
-    background: #f8f9fc;
-    border-radius: 14px;
-    padding: 12px 14px;
-    border: 1px solid #eef0f5;
-    transition: border-color 0.2s, box-shadow 0.2s;
+    gap: 16px;
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 16px 20px;
+    border: 2.5px solid #cbd5e1;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    box-sizing: border-box;
 }
 
 .infoCard:hover {
     border-color: #f26522;
-    box-shadow: 0 3px 10px rgba(242, 101, 34, 0.08);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(242, 101, 34, 0.1);
 }
 
 .infoIcon {
-    width: 38px;
-    height: 38px;
-    border-radius: 11px;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -204,24 +240,24 @@
 }
 
 .infoIcon.orange  {
-    background: rgba(242, 101, 34, 0.08);
+    background: #fff3eb;
     color: #f26522;
-    border-color: rgba(242, 101, 34, 0.2);
+    border-color: #ffe1cc;
 }
 .infoIcon.blue    {
-    background: rgba(59, 130, 246, 0.08);
+    background: #eff6ff;
     color: #3b82f6;
-    border-color: rgba(59, 130, 246, 0.2);
+    border-color: #dbeafe;
 }
 .infoIcon.green   {
-    background: rgba(16, 185, 129, 0.08);
+    background: #ecfdf5;
     color: #10b981;
-    border-color: rgba(16, 185, 129, 0.2);
+    border-color: #d1fae5;
 }
 .infoIcon.purple  {
-    background: rgba(139, 92, 246, 0.08);
+    background: #f5f3ff;
     color: #8b5cf6;
-    border-color: rgba(139, 92, 246, 0.2);
+    border-color: #ede9fe;
 }
 
 .infoTextBlock {
@@ -232,16 +268,16 @@
 
 .infoLabel {
     font-size: 10px;
-    font-weight: 600;
-    color: #aaa;
+    font-weight: 800;
+    color: #94a3b8;
     text-transform: uppercase;
-    letter-spacing: 0.6px;
-    margin-bottom: 2px;
+    letter-spacing: 0.05em;
+    margin-bottom: 4px;
 }
 
 .infoValue {
-    font-size: 13px;
-    font-weight: 700;
+    font-size: 14px;
+    font-weight: 600;
     color: #1e293b;
     white-space: nowrap;
     overflow: hidden;
@@ -249,156 +285,97 @@
 }
 
 /* ============================
-   STATS BAR
+   STATS GRID
    ============================ */
 .statsSection {
-    display: flex;
-    gap: 0;
-    border-top: 1px solid #f0f0f0;
-    margin: 0 24px;
-    padding: 14px 0 22px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 0 28px 28px;
+    box-sizing: border-box;
 }
 
 .statItem {
-    flex: 1;
+    background: #ffffff;
+    border-radius: 16px;
+    border: 2.5px solid #cbd5e1;
+    padding: 20px;
     text-align: center;
-    padding: 0 10px;
-    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    box-sizing: border-box;
 }
 
-.statItem:not(:last-child)::after {
-    content: '';
-    position: absolute;
-    right: 0;
-    top: 10%;
-    height: 80%;
-    width: 1px;
-    background: #f0f0f0;
+.statItem:hover {
+    border-color: #f26522;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(242, 101, 34, 0.1);
 }
 
 .statValue {
     display: block;
-    font-size: 20px;
+    font-size: 22px;
     font-weight: 800;
     color: #f26522;
-    line-height: 1;
-    margin-bottom: 4px;
+    line-height: 1.2;
+    margin-bottom: 6px;
 }
 
 .statLabel {
     font-size: 11px;
-    color: #94a3b8;
-    font-weight: 500;
-    letter-spacing: 0.3px;
+    color: #64748b;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
 }
 
 /* ============================
-   ELEMENTOS LEGACY (ocultos)
-   ============================ */
-.bgShape1, .bgShape2, .sideDecoration,
-.contentWrapper, .profileHeader,
-.infoRow, .label, .value,
-.editLabel, .backButton {
-    display: none;
-}
-
-/* ============================
-   RESPONSIVE
-   ============================ */
-@media (max-width: 600px) {
-    .dashboardLayout {
-        padding: 0 0 30px;
-    }
-
-    .mainCard {
-        border-radius: 0;
-        box-shadow: none;
-    }
-
-    .heroBanner {
-        height: 130px;
-    }
-
-    .avatarCircle {
-        width: 100px;
-        height: 100px;
-        font-size: 36px;
-        border-width: 4px;
-    }
-
-    .avatarZone {
-        margin-top: -50px;
-    }
-
-    .workerName {
-        font-size: 18px;
-    }
-
-    .infoGrid {
-        grid-template-columns: 1fr;
-        padding: 16px 18px;
-        gap: 12px;
-    }
-
-    .statsSection {
-        margin: 0 18px;
-        padding: 16px 0 24px;
-    }
-
-    .statValue {
-        font-size: 22px;
-    }
-
-    .divider {
-        margin: 20px 18px 0;
-    }
-}
-
-/* ============================
-   BOTÓN COMPARTIR
+   BOTONES
    ============================ */
 .shareBtn {
     display: flex;
     align-items: center;
-    gap: 6px;
-    background: #0ea5e9;
+    gap: 8px;
+    background: linear-gradient(135deg, #0ea5e9, #0284c7);
     color: white;
     border: none;
-    padding: 8px 16px;
-    border-radius: 20px;
+    padding: 10px 20px;
+    border-radius: 12px;
     font-size: 13px;
-    font-weight: 600;
-    margin-top: 15px;
+    font-weight: 700;
     cursor: pointer;
-    transition: all 0.2s;
-    box-shadow: 0 4px 10px rgba(14, 165, 233, 0.3);
+    transition: all 0.25s ease-in-out;
+    box-shadow: 0 4px 12px rgba(14, 165, 233, 0.25);
 }
 
 .shareBtn:hover {
-    background: #0284c7;
+    background: linear-gradient(135deg, #0284c7, #0369a1);
     transform: translateY(-2px);
-    box-shadow: 0 6px 15px rgba(14, 165, 233, 0.4);
+    box-shadow: 0 8px 20px rgba(14, 165, 233, 0.35);
 }
 
 .statusToggleBtn {
     display: flex;
     align-items: center;
-    gap: 6px;
-    border: 1px solid transparent;
-    padding: 8px 16px;
-    border-radius: 20px;
+    gap: 8px;
+    border: 1.5px solid transparent;
+    padding: 10px 20px;
+    border-radius: 12px;
     font-size: 13px;
-    font-weight: 600;
-    margin-top: 15px;
+    font-weight: 700;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.25s ease-in-out;
 }
 
 .statusToggleBtn.deactivate {
     background: #fff5f5;
     color: #ef4444;
     border-color: #fee2e2;
-    box-shadow: 0 4px 10px rgba(239, 68, 68, 0.1);
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.08);
 }
 
 .statusToggleBtn.deactivate:hover {
@@ -406,14 +383,14 @@
     color: white;
     border-color: #ef4444;
     transform: translateY(-2px);
-    box-shadow: 0 6px 15px rgba(239, 68, 68, 0.3);
+    box-shadow: 0 8px 20px rgba(239, 68, 68, 0.3);
 }
 
 .statusToggleBtn.activate {
     background: #f0fdf4;
     color: #10b981;
     border-color: #dcfce7;
-    box-shadow: 0 4px 10px rgba(16, 185, 129, 0.1);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.08);
 }
 
 .statusToggleBtn.activate:hover {
@@ -421,7 +398,7 @@
     color: white;
     border-color: #10b981;
     transform: translateY(-2px);
-    box-shadow: 0 6px 15px rgba(16, 185, 129, 0.3);
+    box-shadow: 0 8px 20px rgba(16, 185, 129, 0.3);
 }
 
 /* ============================
@@ -450,6 +427,8 @@
     max-width: 500px;
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
     animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    border: 2.5px solid #cbd5e1;
+    box-sizing: border-box;
 }
 
 .modalHeader {
@@ -461,6 +440,7 @@
 
 .modalHeader h2 {
     font-size: 18px;
+    font-weight: 800;
     color: #1e293b;
     margin: 0;
 }
@@ -486,7 +466,7 @@
 .inputField {
     width: 100%;
     padding: 12px 16px;
-    border: 1px solid #e2e8f0;
+    border: 2.5px solid #cbd5e1;
     border-radius: 12px;
     font-size: 14px;
     color: #334155;
@@ -494,6 +474,7 @@
     transition: all 0.2s;
     outline: none;
     font-family: inherit;
+    box-sizing: border-box;
 }
 
 .inputField:focus {
@@ -505,15 +486,16 @@
 .formActions {
     display: flex;
     justify-content: flex-end;
+    box-sizing: border-box;
 }
 
 .cancelBtn {
     padding: 10px 20px;
     background: white;
-    border: 1px solid #cbd5e1;
+    border: 2.5px solid #cbd5e1;
     color: #64748b;
-    border-radius: 10px;
-    font-weight: 600;
+    border-radius: 12px;
+    font-weight: 700;
     cursor: pointer;
     transition: all 0.2s;
 }
@@ -529,8 +511,8 @@
     background: #0ea5e9;
     color: white;
     border: none;
-    border-radius: 10px;
-    font-weight: 600;
+    border-radius: 12px;
+    font-weight: 700;
     cursor: pointer;
     transition: all 0.2s;
     box-shadow: 0 4px 10px rgba(14, 165, 233, 0.3);
@@ -542,12 +524,54 @@
     box-shadow: 0 6px 12px rgba(14, 165, 233, 0.4);
 }
 
-@keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-}
+/* ============================
+   RESPONSIVE
+   ============================ */
+@media (max-width: 600px) {
+    .dashboardLayout {
+        padding: 12px;
+    }
 
-@keyframes slideUp {
-    from { opacity: 0; transform: translateY(20px) scale(0.95); }
-    to { opacity: 1; transform: translateY(0) scale(1); }
+    .mainCard {
+        border-radius: 16px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+    }
+
+    .heroBanner {
+        height: 100px;
+    }
+
+    .avatarCircle {
+        width: 90px;
+        height: 90px;
+        border-width: 3px;
+    }
+
+    .avatarZone {
+        margin-top: -45px;
+    }
+
+    .workerName {
+        font-size: 18px;
+    }
+
+    .infoGrid {
+        grid-template-columns: 1fr;
+        padding: 16px;
+        gap: 12px;
+    }
+
+    .statsSection {
+        grid-template-columns: 1fr;
+        margin: 0 16px 16px;
+        gap: 12px;
+    }
+
+    .statItem {
+        padding: 16px;
+    }
+
+    .divider {
+        margin: 16px 16px 0;
+    }
 }

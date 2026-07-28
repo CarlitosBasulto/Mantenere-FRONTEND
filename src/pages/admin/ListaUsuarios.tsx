@@ -14,6 +14,7 @@ interface User {
     role: any;
     created_at: string;
     status: string;
+    active?: number | boolean;
     telefono?: string;
     avatar?: string;
 }
@@ -26,6 +27,13 @@ export default function ListaUsuarios() {
     const [loading, setLoading] = useState(true);
     const [searchText, setSearchText] = useState("");
     const [filterRole, setFilterRole] = useState("Todos");
+    const [flippedCardId, setFlippedCardId] = useState<number | null>(null);
+
+    useEffect(() => {
+        const handleGlobalClick = () => setFlippedCardId(null);
+        document.addEventListener("click", handleGlobalClick);
+        return () => document.removeEventListener("click", handleGlobalClick);
+    }, []);
 
     // Estados para edición
     const [editingUserId, setEditingUserId] = useState<number | null>(null);
@@ -129,15 +137,15 @@ export default function ListaUsuarios() {
     };
 
     const handleToggleBlock = (user: User) => {
-        const isBlocked = user.status === 'blocked';
+        const isBlocked = !user.active || user.active === 0;
         showConfirm(
             `¿Confirmar ${isBlocked ? 'desbloquear' : 'bloquear'}?`,
             `¿Estás seguro de que deseas ${isBlocked ? 'desbloquear' : 'bloquear'} a ${user.name}?`,
             async () => {
                 try {
-                    const newStatus = isBlocked ? 'active' : 'blocked';
-                    await updateUser(user.id, { status: newStatus });
-                    setUsers(users.map(u => u.id === user.id ? { ...u, status: newStatus } : u));
+                    const newActive = isBlocked ? 1 : 0;
+                    await updateUser(user.id, { active: newActive });
+                    setUsers(users.map(u => u.id === user.id ? { ...u, active: newActive } : u));
                     showAlert("Éxito", `Usuario ${isBlocked ? 'desbloqueado' : 'bloqueado'} con éxito.`, "success");
                 } catch {
                     showAlert("Error", "No se pudo cambiar el estado del usuario.", "error");
@@ -270,83 +278,108 @@ export default function ListaUsuarios() {
                 {loading ? (
                     <div className={styles.loading}>Cargando usuarios...</div>
                 ) : filteredUsers.length > 0 ? (
-                    filteredUsers.map((u) => (
-                        <div key={u.id} className={`${styles.userCard} ${u.status === 'blocked' ? styles.blocked : ''}`}
-                            style={isAutonomo(u) ? { borderTop: '3px solid #f26522', background: '#fffaf7' } : {}}>
-                            <div className={styles.cardHeader}>
-                                <div className={styles.avatar}>
-                                    {u.avatar ? (
-                                        <img src={u.avatar} alt={u.name} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
-                                    ) : (
-                                        <HiOutlineUser size={24} />
-                                    )}
-                                </div>
-                                <div className={styles.mainInfo}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <h3>{u.name}</h3>
-                                        <div className={styles.actionButtons}>
-                                            {(!isAutonomo(u) || user?.role !== 'gerente-general') && (
-                                                <>
-                                                    <button className={`${styles.iconBtn} ${styles.editBtn}`} title="Editar Correo" onClick={() => handleEditStart(u)}>
-                                                        <HiOutlinePencil size={18} />
-                                                    </button>
-                                                    <button className={`${styles.iconBtn}`} title="Cambiar Contraseña" onClick={() => handlePasswordResetStart(u)} style={{ color: '#eab308' }}>
-                                                        <HiOutlineKey size={18} />
-                                                    </button>
-                                                    <button className={`${styles.iconBtn} ${u.status === 'blocked' ? styles.unblockBtn : styles.blockBtn}`} title={u.status === 'blocked' ? "Desbloquear" : "Bloquear"} onClick={() => handleToggleBlock(u)}>
-                                                        {u.status === 'blocked' ? <HiOutlineLockOpen size={18} /> : <HiOutlineLockClosed size={18} />}
-                                                    </button>
-                                                </>
-                                            )}
-                                            {/* 👁 VER SISTEMA — solo para Admin Autónomo */}
-                                            {isAutonomo(u) && (
-                                                <button
-                                                    className={styles.iconBtn}
-                                                    title="Ver su sistema"
-                                                    onClick={() => navigate(`/menu/admin-autonomo/${u.id}`)}
-                                                    style={{ color: '#f26522' }}
-                                                >
-                                                    <HiOutlineEye size={18} />
-                                                </button>
+                    filteredUsers.map((u) => {
+                        const isAutonomoUser = isAutonomo(u);
+                        return (
+                            <div
+                                key={u.id}
+                                className={`${styles.flipCard} ${(!u.active || u.active === 0) ? styles.cardBlocked : ''} ${isAutonomoUser ? styles.cardAutonomo : ''} ${flippedCardId === u.id ? styles.isFlipped : ''}`}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    const isMobile = window.innerWidth <= 768;
+                                    if (isMobile) {
+                                        if (flippedCardId !== u.id) {
+                                            setFlippedCardId(u.id);
+                                        } else {
+                                            setFlippedCardId(null);
+                                        }
+                                    }
+                                }}
+                            >
+                                <div className={styles.flipCardInner}>
+                                    {/* FRONT SIDE */}
+                                    <div className={styles.flipCardFront}>
+                                        <div className={styles.cardCoverWrapper}>
+                                            {u.avatar ? (
+                                                <img 
+                                                    src={u.avatar} 
+                                                    alt={u.name} 
+                                                    className={styles.cardCoverImage}
+                                                />
+                                            ) : (
+                                                <div className={styles.cardCoverPlaceholder}>
+                                                    <HiOutlineUser size={48} color="#94a3b8" />
+                                                </div>
                                             )}
                                         </div>
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', marginTop: '4px', gap: 6 }}>
-                                        {u.status && (
-                                            <span className={`${styles.statusLabel} ${u.status === 'active' ? styles.statusActive : styles.statusBlocked}`}>
-                                                {u.status === 'active' ? 'ACTIVO' : 'BLOQUEADO'}
+                                        <div className={styles.cardInfoWrapper}>
+                                            <h3 className={styles.cardName} title={u.name}>{u.name}</h3>
+                                            <span className={styles.roleBadge}
+                                                style={isAutonomoUser ? { background: '#fff0e8', color: '#f26522', fontWeight: 800 } : {}}>
+                                                {isAutonomoUser ? '🏢 Admin Autónomo' : getRoleName(u.role)}
                                             </span>
-                                        )}
-                                        <span className={styles.roleBadge}
-                                            style={isAutonomo(u) ? { background: '#fff0e8', color: '#f26522', fontWeight: 800 } : {}}>
-                                            {isAutonomo(u) ? '🏢 Admin Autónomo' : getRoleName(u.role)}
-                                        </span>
+                                            <span className={`${styles.statusPill} ${(u.active && u.active !== 0) ? styles.active : styles.blocked}`} style={{ marginTop: '8px' }}>
+                                                <span className={styles.statusDot}></span>
+                                                {(u.active && u.active !== 0) ? 'ACTIVO' : 'BLOQUEADO'}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* BACK SIDE */}
+                                    <div className={styles.flipCardBack}>
+                                        <div className={styles.cardContentBack}>
+                                            <div className={styles.detailsList}>
+                                                <div className={styles.detailItem} title={u.email} onClick={(e) => e.stopPropagation()}>
+                                                    <span className={styles.detailIcon}><HiOutlineEnvelope size={14} /></span>
+                                                    {editingUserId === u.id ? (
+                                                        <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
+                                                            <input className={styles.editInput} value={editEmail} onChange={(e) => setEditEmail(e.target.value)} style={{ width: '100%', padding: '4px 8px', borderRadius: '4px', border: '1px solid #ccc' }} />
+                                                            <button className={styles.saveBtn} onClick={() => handleSaveEmail(u.id)} style={{ padding: '4px 8px', background: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}><HiCheck /></button>
+                                                            <button className={styles.cancelBtn} onClick={() => setEditingUserId(null)} style={{ padding: '4px 8px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}><HiXMark /></button>
+                                                        </div>
+                                                    ) : <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{u.email}</span>}
+                                                </div>
+                                                <div className={styles.detailItem}>
+                                                    <span className={styles.detailIcon}><HiOutlineFingerPrint size={14} /></span>
+                                                    <span>ID: {u.id}</span>
+                                                </div>
+                                                <div className={styles.detailItem}>
+                                                    <span className={styles.detailIcon}><HiOutlineUsers size={14} /></span>
+                                                    <span style={{ fontSize: '12px' }}>Registrado: {u.created_at ? new Date(u.created_at).toLocaleDateString() : 'N/A'}</span>
+                                                </div>
+                                            </div>
+
+                                            <div className={styles.actionButtonsBack} onClick={(e) => e.stopPropagation()}>
+                                                {(!isAutonomoUser || user?.role !== 'gerente-general') && (
+                                                    <>
+                                                        <button className={`${styles.iconBtn} ${styles.editBtn}`} title="Editar Correo" onClick={() => handleEditStart(u)}>
+                                                            <HiOutlinePencil size={18} />
+                                                        </button>
+                                                        <button className={`${styles.iconBtn}`} title="Cambiar Contraseña" onClick={() => handlePasswordResetStart(u)} style={{ color: '#eab308' }}>
+                                                            <HiOutlineKey size={18} />
+                                                        </button>
+                                                        <button className={`${styles.iconBtn} ${(!u.active || u.active === 0) ? styles.unblockBtn : styles.blockBtn}`} title={(!u.active || u.active === 0) ? "Desbloquear" : "Bloquear"} onClick={() => handleToggleBlock(u)}>
+                                                            {(!u.active || u.active === 0) ? <HiOutlineLockOpen size={18} /> : <HiOutlineLockClosed size={18} />}
+                                                        </button>
+                                                    </>
+                                                )}
+                                                {isAutonomoUser && (
+                                                    <button
+                                                        className={styles.iconBtn}
+                                                        title="Ver su sistema"
+                                                        onClick={() => navigate(`/menu/admin-autonomo/${u.id}`)}
+                                                        style={{ color: '#f26522' }}
+                                                    >
+                                                        <HiOutlineEye size={18} />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-
-                            <div className={styles.cardBody}>
-                                <div className={styles.infoRow}>
-                                    <HiOutlineEnvelope className={styles.icon} />
-                                    {editingUserId === u.id ? (
-                                        <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
-                                            <input className={styles.editInput} value={editEmail} onChange={(e) => setEditEmail(e.target.value)} />
-                                            <button className={styles.saveBtn} onClick={() => handleSaveEmail(u.id)}><HiCheck /></button>
-                                            <button className={styles.cancelBtn} onClick={() => setEditingUserId(null)}><HiXMark /></button>
-                                        </div>
-                                    ) : <span>{u.email}</span>}
-                                </div>
-                                <div className={styles.infoRow}>
-                                    <HiOutlineFingerPrint className={styles.icon} />
-                                    <span>ID: {u.id}</span>
-                                </div>
-                            </div>
-
-                            <div className={styles.cardFooter}>
-                                <span>Registrado: {u.created_at ? new Date(u.created_at).toLocaleDateString() : 'N/A'}</span>
-                            </div>
-                        </div>
-                    ))
+                        );
+                    })
                 ) : (
                     <div className={styles.noResults}>No se encontraron usuarios.</div>
                 )}

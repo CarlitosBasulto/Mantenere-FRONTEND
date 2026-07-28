@@ -28,10 +28,49 @@ interface TareaHistorial {
     fecha: string;
     tecnico?: string;
     trabajoId: number;
+    monthYear?: string;
 }
 interface HistorialProps {
     businessId?: number;
 }
+
+const parseJobDate = (fechaStr?: string, createdAt?: string): Date => {
+    if (fechaStr) {
+        if (fechaStr.includes('-')) {
+            const parts = fechaStr.split('-');
+            if (parts.length === 3) {
+                const year = parseInt(parts[0], 10);
+                const month = parseInt(parts[1], 10) - 1;
+                const day = parseInt(parts[2], 10);
+                return new Date(year, month, day);
+            }
+        }
+        if (fechaStr.includes('/')) {
+            const parts = fechaStr.split('/');
+            if (parts.length === 3) {
+                const day = parseInt(parts[0], 10);
+                const month = parseInt(parts[1], 10) - 1;
+                const year = parseInt(parts[2], 10);
+                return new Date(year, month, day);
+            }
+        }
+        const dateObj = new Date(fechaStr);
+        if (!isNaN(dateObj.getTime())) return dateObj;
+    }
+    if (createdAt) {
+        const dateObj = new Date(createdAt);
+        if (!isNaN(dateObj.getTime())) return dateObj;
+    }
+    return new Date();
+};
+
+const getMonthYearString = (date: Date): string => {
+    const months = [
+        "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+        "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+    ];
+    return `${months[date.getMonth()]} de ${date.getFullYear()}`;
+};
 
 const Historial: React.FC<HistorialProps> = ({ businessId }) => {
     const { user } = useAuth();
@@ -41,6 +80,7 @@ const Historial: React.FC<HistorialProps> = ({ businessId }) => {
     const [searchText, setSearchText] = useState("");
     const [reportData, setReportData] = useState<any>(null);
     const [loadingReport, setLoadingReport] = useState(false);
+    const [expandedMonths, setExpandedMonths] = useState<Record<string, boolean>>({});
 
     useEffect(() => {
         if (!user) return;
@@ -76,16 +116,20 @@ const Historial: React.FC<HistorialProps> = ({ businessId }) => {
                     return negociosIds.has(job.negocio_id) || job.negocio?.user_id === user.id || (user.role === 'encargado' && job.negocio_id === user.negocio_id);
                 });
 
-                const mappedTareas = filteredJobs.map((job: any) => ({
-                    id: job.id,
-                    titulo: job.titulo,
-                    descripcion: job.descripcion || "Trabajo completado exitosamente.",
-                    estado: job.estado,
-                    ubicacion: job.negocio?.ubicacion || job.negocio?.nombre || "Sucursal",
-                    fecha: job.fecha_programada ? (job.fecha_programada.includes('-') ? job.fecha_programada.split('-').reverse().join('/') : job.fecha_programada) : new Date(job.created_at).toLocaleDateString('es-MX'),
-                    tecnico: job.trabajador?.nombre || "Sin Asignar",
-                    trabajoId: job.id
-                }));
+                const mappedTareas = filteredJobs.map((job: any) => {
+                    const finalDate = parseJobDate(job.fecha_programada, job.created_at);
+                    return {
+                        id: job.id,
+                        titulo: job.titulo,
+                        descripcion: job.descripcion || "Trabajo completado exitosamente.",
+                        estado: job.estado,
+                        ubicacion: job.negocio?.ubicacion || job.negocio?.nombre || "Sucursal",
+                        fecha: finalDate.toLocaleDateString('es-MX'),
+                        monthYear: getMonthYearString(finalDate),
+                        tecnico: job.trabajador?.nombre || "Sin Asignar",
+                        trabajoId: job.id
+                    };
+                });
 
                 mappedTareas.sort((a: any, b: any) => b.id - a.id);
                 setRawTareas(mappedTareas);
@@ -187,54 +231,89 @@ const Historial: React.FC<HistorialProps> = ({ businessId }) => {
 
             <div className={styles.list}>
                 {Object.keys(tareasAgrupadas).length > 0 ? (
-                    Object.keys(tareasAgrupadas).map((empresa) => (
-                        <div key={empresa} style={{ marginBottom: '40px' }}>
-                            <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: '#333', marginBottom: '20px', borderBottom: '2px solid #eaeaea', paddingBottom: '10px' }}>
-                                Sucursal: {empresa}
-                            </h2>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                                {tareasAgrupadas[empresa].map((tarea, index) => {
-                                    return (
-                                        <div
-                                            key={`${tarea.id}-${index}`}
-                                            className={styles.card}
-                                            onClick={() => handleSelectTask(tarea)}
-                                        >
-                                            <div className={styles.cardContent}>
-                                                <div className={styles.cardIcon}>
-                                                    <HiOutlineCheckBadge className={styles.iconHistory} />
-                                                </div>
+                    Object.keys(tareasAgrupadas).map((empresa) => {
+                        const tareasDeEmpresa = tareasAgrupadas[empresa];
+                        // Agrupar por mes/año dentro de esta sucursal
+                        const groupedByMonth = tareasDeEmpresa.reduce((acc, tarea) => {
+                            const key = tarea.monthYear || 'Desconocido';
+                            if (!acc[key]) acc[key] = [];
+                            acc[key].push(tarea);
+                            return acc;
+                        }, {} as Record<string, TareaHistorial[]>);
 
-                                                <div className={styles.cardInfo}>
-                                                    <div className={styles.cardHeader}>
-                                                        <div>
-                                                            <h3 className={styles.concepto}>{tarea.titulo}</h3>
-                                                            {tarea.tecnico && tarea.tecnico !== "Sin asignar" && (
-                                                                <span className={styles.tecnicoBadge}>🧑‍🔧 {tarea.tecnico}</span>
-                                                            )}
-                                                        </div>
+                        return (
+                            <div key={empresa} style={{ marginBottom: '40px' }}>
+                                <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: '#333', marginBottom: '20px', borderBottom: '2px solid #eaeaea', paddingBottom: '10px' }}>
+                                    Sucursal: {empresa}
+                                </h2>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                    {Object.entries(groupedByMonth).map(([monthYear, tareasGroup]) => {
+                                        const stateKey = `${empresa}-${monthYear}`;
+                                        const isExpanded = expandedMonths[stateKey] !== false; // Default true
+                                        return (
+                                            <div key={monthYear} style={{ marginBottom: '10px' }}>
+                                                <div 
+                                                    onClick={() => setExpandedMonths(prev => ({ ...prev, [stateKey]: !isExpanded }))} 
+                                                    className={styles.accordionHeader}
+                                                >
+                                                    <div className={styles.accordionLeft}>
+                                                        <span style={{ fontSize: '22px' }}>{isExpanded ? '📂' : '📁'}</span>
+                                                        <span style={{ textTransform: 'capitalize' }}>{monthYear}</span>
+                                                        <span className={styles.accordionCount}>{tareasGroup.length} reporte{tareasGroup.length !== 1 ? 's' : ''}</span>
                                                     </div>
-
-                                                    <p className={styles.descripcion}>{tarea.descripcion}</p>
-
-                                                    <div className={styles.cardFooter}>
-                                                        <span className={styles.fecha}>Finalizado el: {tarea.fecha}</span>
-
-                                                        <div className={`${styles.statusBadge} ${styles.badgeSuccess}`}>
-                                                            <HiOutlineCheckCircle className={styles.statusIcon} />
-                                                            Completado
-                                                        </div>
-                                                    </div>
+                                                    <span className={`${styles.accordionArrow} ${isExpanded ? styles.accordionArrowExpanded : ''}`}>▼</span>
                                                 </div>
+                                                {isExpanded && (
+                                                    <div className={styles.groupContentList}>
+                                                        {tareasGroup.map((tarea, index) => {
+                                                            return (
+                                                                <div
+                                                                    key={`${tarea.id}-${index}`}
+                                                                    className={styles.card}
+                                                                    onClick={() => handleSelectTask(tarea)}
+                                                                    title="Haz clic para ver más detalles"
+                                                                >
+                                                                    <div className={`${styles.cardIndicator} ${styles.borderSuccess}`}></div>
+                                                                    <div className={styles.cardContent}>
+                                                                        <div className={styles.cardIcon}>
+                                                                            <HiOutlineCheckBadge className={styles.iconHistory} size={32} />
+                                                                        </div>
+
+                                                                        <div className={styles.cardInfo}>
+                                                                            <div className={styles.cardHeader}>
+                                                                                <div>
+                                                                                    <span style={{ background: '#e3f2fd', color: '#1565c0', padding: '4px 8px', borderRadius: '8px', fontSize: '11px', fontWeight: 'bold', display: 'inline-block', marginBottom: '8px' }}>
+                                                                                        🏢 {tarea.ubicacion}
+                                                                                    </span>
+                                                                                    <h3 className={styles.concepto} style={{ marginTop: '0' }}>{tarea.titulo}</h3>
+                                                                                </div>
+                                                                                <div className={`${styles.statusBadge} ${styles.badgeSuccess}`}>
+                                                                                    <HiOutlineCheckCircle className={styles.statusIcon} /> Completado
+                                                                                </div>
+                                                                            </div>
+
+                                                                            <p className={styles.descripcion}>{tarea.descripcion}</p>
+
+                                                                            <div className={styles.cardFooter}>
+                                                                                {tarea.tecnico && tarea.tecnico !== "Sin Asignar" && tarea.tecnico !== "Sin asignar" ? (
+                                                                                    <span className={styles.tecnicoBadge}>🧑‍🔧 {tarea.tecnico}</span>
+                                                                                ) : <span></span>}
+                                                                                <span className={styles.fecha}>{tarea.fecha}</span>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
                                             </div>
-
-                                            <div className={`${styles.cardIndicator} ${styles.borderSuccess}`}></div>
-                                        </div>
-                                    );
-                                })}
+                                        );
+                                    })}
+                                </div>
                             </div>
-                        </div>
-                    ))
+                        );
+                    })
                 ) : (
                     <div style={{ textAlign: 'center', padding: '40px', background: '#fff', borderRadius: '30px', border: '1px solid #eee' }}>
                         <p style={{ color: '#666', fontSize: '16px' }}>No hay labores o diagnósticos finalizados en el historial.</p>

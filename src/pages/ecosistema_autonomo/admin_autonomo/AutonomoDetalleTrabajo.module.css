@@ -961,9 +961,15 @@
     background: #ffffff;
     border-radius: 20px;
     padding: 20px;
-    border: 1.5px solid #f1f5f9;
+    border: 1.5px solid #cbd5e1;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
     margin-bottom: 20px;
+    transition: all 0.2s ease;
+}
+
+.reportDetailCard:hover {
+    border-color: #f26522;
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.05);
 }
 
 .detailSectionTitle {
