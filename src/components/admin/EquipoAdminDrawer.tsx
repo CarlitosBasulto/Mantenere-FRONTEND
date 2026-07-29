@@ -236,7 +236,7 @@ const EquipoAdminDrawer: React.FC<EquipoAdminDrawerProps> = ({ isOpen, onClose, 
 
                             {loadingHistorial ? (
                                 <div className={styles.loadingState}>
-                                    <div className={styles.spinner} />
+                                    <div className="loader-mantenere" />
                                     <p>Cargando bitácora...</p>
                                 </div>
                             ) : (historial.length === 0 && refaccionesBitacora.length === 0) ? (

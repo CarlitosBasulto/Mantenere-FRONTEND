@@ -686,7 +686,7 @@ const MiPerfil: React.FC = () => {
                 }
                 @media (max-width: 768px) {
                     .perfil-outer-container {
-                        padding: 12px 10px;
+                        padding: 12px 10px 100px 10px;
                     }
                     .perfil-flex-container {
                         flex-direction: column;

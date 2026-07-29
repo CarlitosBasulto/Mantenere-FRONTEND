@@ -21,13 +21,8 @@ const EncargadoHome: React.FC = () => {
             display: 'flex', flexDirection: 'column', alignItems: 'center',
             justifyContent: 'center', height: '60vh', gap: '16px', color: '#64748b'
         }}>
-            <div style={{
-                width: '48px', height: '48px', border: '4px solid #f59e0b',
-                borderTopColor: 'transparent', borderRadius: '50%',
-                animation: 'spin 0.8s linear infinite'
-            }} />
+            <div className="loader-mantenere" />
             <p style={{ fontSize: '15px', fontWeight: 500 }}>Cargando tu sucursal...</p>
-            <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
         </div>
     );
 };

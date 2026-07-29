@@ -24,6 +24,23 @@ const Home: React.FC = () => {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [scrolled, setScrolled] = useState(false);
 
+    // Block scroll on landing-page-container when mobile menu is open
+    useEffect(() => {
+        const scrollContainer = document.querySelector('.landing-page-container') as HTMLElement;
+        if (scrollContainer) {
+            if (isMobileMenuOpen) {
+                scrollContainer.style.overflowY = 'hidden';
+            } else {
+                scrollContainer.style.overflowY = 'auto';
+            }
+        }
+        return () => {
+            if (scrollContainer) {
+                scrollContainer.style.overflowY = 'auto';
+            }
+        };
+    }, [isMobileMenuOpen]);
+
     // Observer setup for scroll animations
     useEffect(() => {
         const observerOptions = {
@@ -85,7 +102,6 @@ const Home: React.FC = () => {
                 <div className="navbar-content">
                     <div className="logo-container" onClick={() => scrollToSection('inicio')}>
                         <img src={logoAgente} alt="Agente Business Logo" className="navbar-logo" />
-                        <span className="logo-text">Agente <span className="highlight">Business</span></span>
                     </div>
 
                     {/* Desktop Menu */}
@@ -338,7 +354,6 @@ const Home: React.FC = () => {
                     <div className="footer-top">
                         <div className="footer-brand">
                             <img src={logoAgente} alt="Logo Agente Business" className="footer-logo" />
-                            <span>Agente <span className="highlight">Business</span></span>
                             <p>Plataforma líder en el control, planificación y ejecución de mantenimiento integral para empresas exigentes.</p>
                         </div>
                         <div className="footer-links-col">

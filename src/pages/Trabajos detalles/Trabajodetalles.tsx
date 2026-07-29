@@ -1096,15 +1096,47 @@ const TrabajoDetalle: React.FC = () => {
 
     if (isHistorialTab) {
         return (
-            <div className={styles.dashboardLayout} style={{ background: '#f8fafc', padding: '24px', borderRadius: '24px', minHeight: '80vh', border: '1px solid #e2e8f0', boxShadow: 'inset 0 0 20px rgba(0,0,0,0.01)', boxSizing: 'border-box' }}>
-                <div style={{ width: '100%', maxWidth: '900px', margin: '0 auto' }}>
-                    <div className={styles.headerWrapper} style={{ marginBottom: '20px' }}>
-                        <div>
-                            <p className={styles.subTitle}>Historial de la sucursal:</p>
-                            <h2 className={styles.businessName}>{businessName}</h2>
-                        </div>
+            <div className={styles.dashboardLayout}>
+                <div className={styles.mainContainer} style={{ minHeight: '80vh', boxSizing: 'border-box' }}>
+                    
+                    {/* HEADER / BANNER PREMIUM */}
+                    <div className={styles.premiumHeader} style={{ marginBottom: '25px' }}>
+                        {businessImage ? (
+                            <div className={styles.bannerWrapper} style={{ position: 'relative' }}>
+                                <img 
+                                    src={businessImage} 
+                                    alt={businessName} 
+                                    className={styles.bannerImg} 
+                                    style={{ objectPosition: `center ${bannerY}%` }}
+                                />
+                                <div className={styles.bannerOverlay}>
+                                    <div className={styles.bannerContent}>
+                                        <span className={styles.bannerLabel}>HISTORIAL DE LA SUCURSAL</span>
+                                        <h1 className={styles.bannerTitle}>{businessName}</h1>
+                                        {businessDetails && (
+                                            <p className={styles.bannerStats} style={{ margin: '4px 0 0 0' }}>
+                                                📍 {getBusinessAddress()}
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className={styles.simpleHeader} style={{ position: 'relative' }}>
+                                <span className={styles.bannerLabel} style={{ color: '#d14d13', display: 'block', marginBottom: '5px' }}>HISTORIAL DE LA SUCURSAL</span>
+                                <h1 className={styles.businessTitle}>{businessName}</h1>
+                                {businessDetails && (
+                                    <p className={styles.businessSubtitle} style={{ margin: '8px 0 0 0', color: '#64748b' }}>
+                                        📍 {getBusinessAddress()}
+                                    </p>
+                                )}
+                            </div>
+                        )}
                     </div>
-                    <Historial businessId={Number(id)} />
+
+                    <div style={{ width: '100%', maxWidth: '900px', margin: '0 auto' }}>
+                        <Historial businessId={Number(id)} />
+                    </div>
                 </div>
             </div>
         );
@@ -1112,13 +1144,47 @@ const TrabajoDetalle: React.FC = () => {
 
     if (isCotizacionesTab) {
         return (
-            <div className={styles.dashboardLayout} style={{ background: '#f8fafc', padding: '24px', borderRadius: '24px', minHeight: '80vh', border: '1px solid #e2e8f0', boxShadow: 'inset 0 0 20px rgba(0,0,0,0.01)', boxSizing: 'border-box' }}>
-                <div style={{ width: '100%', maxWidth: '900px', margin: '0 auto' }}>
-                    <div className={styles.headerWrapper} style={{ marginBottom: '20px' }}>
-                        <p className={styles.subTitle}>Cotizaciones de la sucursal:</p>
-                        <h2 className={styles.businessName}>{businessName}</h2>
+            <div className={styles.dashboardLayout}>
+                <div className={styles.mainContainer} style={{ minHeight: '80vh', boxSizing: 'border-box' }}>
+                    
+                    {/* HEADER / BANNER PREMIUM */}
+                    <div className={styles.premiumHeader} style={{ marginBottom: '25px' }}>
+                        {businessImage ? (
+                            <div className={styles.bannerWrapper} style={{ position: 'relative' }}>
+                                <img 
+                                    src={businessImage} 
+                                    alt={businessName} 
+                                    className={styles.bannerImg} 
+                                    style={{ objectPosition: `center ${bannerY}%` }}
+                                />
+                                <div className={styles.bannerOverlay}>
+                                    <div className={styles.bannerContent}>
+                                        <span className={styles.bannerLabel}>COTIZACIONES DE LA SUCURSAL</span>
+                                        <h1 className={styles.bannerTitle}>{businessName}</h1>
+                                        {businessDetails && (
+                                            <p className={styles.bannerStats} style={{ margin: '4px 0 0 0' }}>
+                                                📍 {getBusinessAddress()}
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className={styles.simpleHeader} style={{ position: 'relative' }}>
+                                <span className={styles.bannerLabel} style={{ color: '#d14d13', display: 'block', marginBottom: '5px' }}>COTIZACIONES DE LA SUCURSAL</span>
+                                <h1 className={styles.businessTitle}>{businessName}</h1>
+                                {businessDetails && (
+                                    <p className={styles.businessSubtitle} style={{ margin: '8px 0 0 0', color: '#64748b' }}>
+                                        📍 {getBusinessAddress()}
+                                    </p>
+                                )}
+                            </div>
+                        )}
                     </div>
-                    <Cotizaciones businessId={Number(id)} />
+
+                    <div style={{ width: '100%', maxWidth: '900px', margin: '0 auto' }}>
+                        <Cotizaciones businessId={Number(id)} />
+                    </div>
                 </div>
             </div>
         );
@@ -1126,42 +1192,74 @@ const TrabajoDetalle: React.FC = () => {
 
     if (isEquiposTab) {
         return (
-            <div className={styles.dashboardLayout} style={{ background: '#f8fafc', padding: '24px', borderRadius: '24px', minHeight: '80vh', border: '1px solid #e2e8f0', boxShadow: 'inset 0 0 20px rgba(0,0,0,0.01)', boxSizing: 'border-box' }}>
-                <div style={{ width: '100%', maxWidth: '900px', margin: '0 auto' }}>
-                    <div className={styles.headerWrapper} style={{ marginBottom: '20px' }}>
-                        <div>
-                            <p className={styles.subTitle}>Equipos en la sucursal:</p>
-                            <h2 className={styles.businessName}>{businessName}</h2>
-                        </div>
+            <div className={styles.dashboardLayout}>
+                <div className={styles.mainContainer} style={{ minHeight: '80vh', boxSizing: 'border-box' }}>
+                    
+                    {/* HEADER / BANNER PREMIUM */}
+                    <div className={styles.premiumHeader} style={{ marginBottom: '25px' }}>
+                        {businessImage ? (
+                            <div className={styles.bannerWrapper} style={{ position: 'relative' }}>
+                                <img 
+                                    src={businessImage} 
+                                    alt={businessName} 
+                                    className={styles.bannerImg} 
+                                    style={{ objectPosition: `center ${bannerY}%` }}
+                                />
+                                <div className={styles.bannerOverlay}>
+                                    <div className={styles.bannerContent}>
+                                        <span className={styles.bannerLabel}>EQUIPOS EN LA SUCURSAL</span>
+                                        <h1 className={styles.bannerTitle}>{businessName}</h1>
+                                        {businessDetails && (
+                                            <p className={styles.bannerStats} style={{ margin: '4px 0 0 0' }}>
+                                                📍 {getBusinessAddress()}
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className={styles.simpleHeader} style={{ position: 'relative' }}>
+                                <span className={styles.bannerLabel} style={{ color: '#d14d13', display: 'block', marginBottom: '5px' }}>EQUIPOS EN LA SUCURSAL</span>
+                                <h1 className={styles.businessTitle}>{businessName}</h1>
+                                {businessDetails && (
+                                    <p className={styles.businessSubtitle} style={{ margin: '8px 0 0 0', color: '#64748b' }}>
+                                        📍 {getBusinessAddress()}
+                                    </p>
+                                )}
+                            </div>
+                        )}
                     </div>
-                    <EquiposNegocio
-                        businessId={Number(id)}
-                        onViewReport={handleOpenReportDetail}
-                    />
+
+                    <div style={{ width: '100%', maxWidth: '900px', margin: '0 auto' }}>
+                        <EquiposNegocio
+                            businessId={Number(id)}
+                            onViewReport={handleOpenReportDetail}
+                        />
+                    </div>
+                    {/* MODAL DE REPORTE DETALLES (USA PORTAL) */}
+                    {reporteModalOpen && (
+                        <ReporteDetailModal
+                            isOpen={reporteModalOpen}
+                            onClose={() => setReporteModalOpen(false)}
+                            trabajo={reporteTrabajo}
+                            task={reporteTaskInfo}
+                            reporte={reporteData}
+                            userRole={user?.role ?? undefined}
+                        />
+                    )}
                 </div>
-                {/* MODAL DE REPORTE DETALLES (USA PORTAL) */}
-                {reporteModalOpen && (
-                    <ReporteDetailModal
-                        isOpen={reporteModalOpen}
-                        onClose={() => setReporteModalOpen(false)}
-                        trabajo={reporteTrabajo}
-                        task={reporteTaskInfo}
-                        reporte={reporteData}
-                        userRole={user?.role ?? undefined}
-                    />
-                )}
             </div>
         );
     }
 
-    const jobsListContent = sortedDates.length === 0 ? (
+    const flatJobs = sortedDates.flatMap(date => groupedJobs[date]);
+
+    const jobsListContent = flatJobs.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '40px', background: 'white', borderRadius: '24px', border: '1px solid #e2e8f0', color: '#64748b', fontWeight: 600 }}>
             No se encontraron trabajos para este filtro.
         </div>
     ) : (
-        sortedDates.map(date => (
-            <div key={date}>
-                {groupedJobs[date].map(trabajo => {
+        flatJobs.map((trabajo, index) => {
                     const userRole = user?.role || 'user';
                     const getAccentForStatus = (estado: string) => {
                         if (['Solicitud', 'Pendiente'].includes(estado))
@@ -1184,6 +1282,7 @@ const TrabajoDetalle: React.FC = () => {
                             <div
                                 key={trabajo.id}
                                 className={styles.jobCard}
+                                style={{ '--index': index } as React.CSSProperties}
                                 onClick={(e) => {
                                     if (!(e.target as HTMLElement).closest('button')) {
                                         markCardAsSeen(userRole, trabajo.id, trabajo.estado);
@@ -1460,9 +1559,7 @@ const TrabajoDetalle: React.FC = () => {
                             </div>
                         </div>
                     );
-                })}
-            </div>
-        ))
+                })
     );
 
     const renderSummaryGrid = () => {

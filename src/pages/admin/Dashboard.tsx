@@ -210,7 +210,14 @@ const Dashboard: React.FC = () => {
         fetchStats();
     }, []);
 
-    if (loading) return <div className={styles.loading}>Cargando Dashboard...</div>;
+    if (loading) {
+        return (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '80vh', gap: '16px' }}>
+                <div className="loader-mantenere"></div>
+                <p style={{ color: '#64748b', fontWeight: '500', fontSize: '15px' }}>Cargando Dashboard...</p>
+            </div>
+        );
+    }
 
     return (
         <div className={styles.dashboardContainer}>

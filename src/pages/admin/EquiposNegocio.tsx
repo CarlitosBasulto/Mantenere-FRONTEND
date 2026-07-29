@@ -144,22 +144,9 @@ const EquiposNegocio: React.FC<EquiposNegocioProps> = ({ businessId, onViewRepor
 
     if (loading) {
         return (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '100px 0' }}>
-                <div className="loader-premium"></div>
-                <p style={{ marginTop: '20px', color: '#64748b', fontWeight: '500', letterSpacing: '0.5px' }}>Cargando inventario registrado...</p>
-                <style>{`
-                    .loader-premium {
-                        width: 48px;
-                        height: 48px;
-                        border: 5px solid #f1f5f9;
-                        border-bottom-color: #fbbf24;
-                        border-radius: 50%;
-                        display: inline-block;
-                        box-sizing: border-box;
-                        animation: rotation 1s linear infinite;
-                    }
-                    @keyframes rotation { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-                `}</style>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '100px 0', gap: '15px' }}>
+                <div className="loader-mantenere"></div>
+                <p style={{ margin: 0, color: '#64748b', fontWeight: '500', letterSpacing: '0.5px' }}>Cargando inventario registrado...</p>
             </div>
         );
     }
@@ -187,7 +174,7 @@ const EquiposNegocio: React.FC<EquiposNegocioProps> = ({ businessId, onViewRepor
                         onClick={() => handleCardClick(equipo)}
                         style={{ 
                             background: '#ffffff', 
-                            border: '1px solid #e2e8f0', 
+                            border: '1px solid #4d4c5590', 
                             borderRadius: '24px', 
                             padding: '24px',
                             boxShadow: '0 10px 30px rgba(15, 23, 42, 0.03)',
@@ -205,7 +192,7 @@ const EquiposNegocio: React.FC<EquiposNegocioProps> = ({ businessId, onViewRepor
                         onMouseLeave={(e) => {
                             e.currentTarget.style.transform = 'translateY(0)';
                             e.currentTarget.style.boxShadow = '0 10px 30px rgba(15, 23, 42, 0.03)';
-                            e.currentTarget.style.borderColor = '#e2e8f0';
+                            e.currentTarget.style.borderColor = '#4d4c5590';
                         }}
                         >
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>

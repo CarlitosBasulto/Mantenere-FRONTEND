@@ -227,7 +227,7 @@ const InventarioGeneral: React.FC = () => {
     if (loading) {
         return (
             <div className={styles.loadingContainer}>
-                <div className={styles.spinner}></div>
+                <div className="loader-mantenere"></div>
                 <p>Cargando información del inventario técnico...</p>
             </div>
         );

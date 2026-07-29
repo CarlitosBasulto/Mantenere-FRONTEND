@@ -76,11 +76,10 @@ const DetalleReporteModal: React.FC<DetalleReporteModalProps> = ({ isOpen, onClo
     if (loading) {
         return (
             <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <div style={{ background: 'white', padding: '30px', borderRadius: '15px', textAlign: 'center' }}>
-                    <div style={{ width: '40px', height: '40px', border: '4px solid #f3f3f3', borderTop: '4px solid #3b82f6', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 15px' }}></div>
-                    <p style={{ color: '#64748b' }}>Cargando reporte técnico...</p>
+                <div style={{ background: 'white', padding: '30px', borderRadius: '15px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px' }}>
+                    <div className="loader-mantenere"></div>
+                    <p style={{ color: '#64748b', margin: 0 }}>Cargando reporte técnico...</p>
                 </div>
-                <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
             </div>
         );
     }

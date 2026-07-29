@@ -42,31 +42,24 @@ const HistorialEquipoModal: React.FC<HistorialEquipoModalProps> = ({ isOpen, onC
             <div className="modal-card-no-scrollbar" style={{
                 background: '#fff', borderRadius: '32px', maxWidth: '700px', width: '100%',
                 maxHeight: '85vh', overflowY: 'auto', position: 'relative',
-                boxShadow: '0 30px 60px -15px rgba(15, 23, 42, 0.25)', border: '1px solid #e2e8f0', padding: '35px'
+                boxShadow: '0 30px 60px -15px rgba(15, 23, 42, 0.25)', border: '1px solid #cbd5e1', padding: '35px'
             }} onClick={e => e.stopPropagation()}>
 
-                <button onClick={onClose} style={{
-                    position: 'absolute', top: '25px', right: '25px', background: '#f1f5f9', border: 'none',
-                    width: '36px', height: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center',
-                    justifyContent: 'center', cursor: 'pointer', color: '#64748b', transition: 'all 0.2s ease'
-                }}
-                    onMouseEnter={e => { e.currentTarget.style.background = '#fee2e2'; e.currentTarget.style.color = '#ef4444'; }}
-                    onMouseLeave={e => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#64748b'; }}
-                >
-                    <span style={{ fontSize: '20px', fontWeight: 'bold', color: 'inherit' }}>✕</span>
+                <button onClick={onClose} className="modal-close-btn">
+                    <span style={{ fontSize: '18px', fontWeight: 'bold', color: 'inherit', display: 'block', lineHeight: 1 }}>✕</span>
                 </button>
 
                 <div style={{ display: 'flex', gap: '25px', flexWrap: 'wrap', marginBottom: '30px' }}>
                     {equipo.foto ? (
                         <img
-                            src={equipo.foto}
-                            alt={equipo.nombre}
-                            onError={(e) => {
-                                e.currentTarget.style.display = 'none';
-                                const sibling = e.currentTarget.nextSibling as HTMLElement;
-                                if (sibling) sibling.style.display = 'flex';
-                            }}
-                            style={{ width: '130px', height: '130px', objectFit: 'cover', borderRadius: '20px', border: '2px solid #e2e8f0' }}
+                             src={equipo.foto}
+                             alt={equipo.nombre}
+                             onError={(e) => {
+                                 e.currentTarget.style.display = 'none';
+                                 const sibling = e.currentTarget.nextSibling as HTMLElement;
+                                 if (sibling) sibling.style.display = 'flex';
+                             }}
+                             style={{ width: '130px', height: '130px', objectFit: 'cover', borderRadius: '20px', border: '2px solid #cbd5e1' }}
                         />
                     ) : null}
                     <div className="img-placeholder" style={{ 
@@ -75,7 +68,7 @@ const HistorialEquipoModal: React.FC<HistorialEquipoModalProps> = ({ isOpen, onC
                         height: '130px', 
                         borderRadius: '20px', 
                         background: '#f1f5f9', 
-                        border: '2px solid #e2e8f0',
+                        border: '2px solid #cbd5e1',
                         alignItems: 'center', 
                         justifyContent: 'center', 
                         color: '#0f172a' 
@@ -89,12 +82,12 @@ const HistorialEquipoModal: React.FC<HistorialEquipoModalProps> = ({ isOpen, onC
                         <h3 style={{ margin: '0 0 15px', fontSize: '26px', color: '#0f172a', fontWeight: '900', lineHeight: '1.2' }}>
                             {equipo.marca} {equipo.modelo}
                         </h3>
-                        <div style={{ display: 'flex', gap: '15px' }}>
-                            <div style={{ background: '#f8fafc', padding: '10px 15px', borderRadius: '12px', flex: 1, border: '1px solid #e2e8f0' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '15px', width: '100%' }}>
+                            <div style={{ background: '#f8fafc', padding: '10px 15px', borderRadius: '12px', border: '1px solid #cbd5e1' }}>
                                 <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 'bold' }}>NÚM. DE SERIE</span>
                                 <p style={{ margin: 0, fontWeight: '700', color: '#0f172a', fontSize: '14px' }}>{equipo.serie}</p>
                             </div>
-                            <div style={{ background: '#f8fafc', padding: '10px 15px', borderRadius: '12px', flex: 1, border: '1px solid #e2e8f0' }}>
+                            <div style={{ background: '#f8fafc', padding: '10px 15px', borderRadius: '12px', border: '1px solid #cbd5e1' }}>
                                 <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 'bold' }}>FABRICACIÓN / USO</span>
                                 <p style={{ margin: 0, fontWeight: '700', color: '#0f172a', fontSize: '14px' }}>
                                     {equipo.anioFabricacion} <span style={{ color: '#cbd5e1' }}>/</span> {equipo.anioUso}
@@ -104,7 +97,7 @@ const HistorialEquipoModal: React.FC<HistorialEquipoModalProps> = ({ isOpen, onC
                     </div>
                 </div>
 
-                <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '30px' }}>
+                <div style={{ borderTop: '1px solid #cbd5e1', paddingTop: '30px' }}>
                     <h4 style={{ fontSize: '18px', color: '#0f172a', fontWeight: '800', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
                         Bitácora de Mantenimiento
                         <span style={{ background: '#0f172a', color: '#ffffff', padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: '800' }}>
@@ -157,7 +150,7 @@ const HistorialEquipoModal: React.FC<HistorialEquipoModalProps> = ({ isOpen, onC
                                         onClick={() => toggleExpand(idx)}
                                         style={{
                                             padding: '24px',
-                                            border: '1px solid #e2e8f0',
+                                            border: '1px solid #cbd5e1',
                                             borderRadius: '20px',
                                             background: '#ffffff',
                                             position: 'relative',
@@ -170,7 +163,7 @@ const HistorialEquipoModal: React.FC<HistorialEquipoModalProps> = ({ isOpen, onC
                                             e.currentTarget.style.borderColor = '#f26522';
                                         }}
                                         onMouseLeave={(e) => {
-                                            e.currentTarget.style.borderColor = isExpanded ? '#f26522' : '#e2e8f0';
+                                            e.currentTarget.style.borderColor = isExpanded ? '#f26522' : '#cbd5e1';
                                         }}
                                     >
                                         <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '4px', background: req.estado === 'Finalizado' || req.estado?.includes('Aceptada') ? '#10b981' : '#f26522' }}></div>
@@ -201,7 +194,7 @@ const HistorialEquipoModal: React.FC<HistorialEquipoModalProps> = ({ isOpen, onC
                                         </div>
 
                                         {isExpanded && (
-                                            <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px dashed #e2e8f0' }}>
+                                            <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px dashed #cbd5e1' }}>
 
                                                     {/* Detalle Técnico */}
                                                     {!finalReports.length && (!req.visitas || req.visitas.length === 0) ? (
@@ -260,7 +253,7 @@ const HistorialEquipoModal: React.FC<HistorialEquipoModalProps> = ({ isOpen, onC
                                                                                         )}
                                                                                     </div>
                                                                                     {rep.materiales && (
-                                                                                        <div style={{ fontSize: '13px', padding: '12px 15px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', gap: '8px' }}>
+                                                                                        <div style={{ fontSize: '13px', padding: '12px 15px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #cbd5e1', display: 'flex', gap: '8px' }}>
                                                                                             <strong style={{ color: '#475569', minWidth: '130px', flexShrink: 0 }}>Materiales usados:</strong>
                                                                                             <span style={{ color: '#334155' }}>{rep.materiales}</span>
                                                                                         </div>
@@ -286,7 +279,7 @@ const HistorialEquipoModal: React.FC<HistorialEquipoModalProps> = ({ isOpen, onC
                                                                                     marginTop: '15px',
                                                                                     padding: '12px',
                                                                                     background: 'linear-gradient(135deg, #f26522, #d14d13)',
-                                                                                    color: '#0f172a',
+                                                                                    color: '#ffffff',
                                                                                     border: 'none',
                                                                                     borderRadius: '12px',
                                                                                     fontWeight: '800',
@@ -333,6 +326,40 @@ const HistorialEquipoModal: React.FC<HistorialEquipoModalProps> = ({ isOpen, onC
                 .modal-card-no-scrollbar::-webkit-scrollbar {
                     display: none; /* Chrome, Safari, Opera */
                 }
+                .modal-close-btn {
+                    position: absolute;
+                    top: 25px;
+                    right: 25px;
+                    background: #f1f5f9;
+                    border: 1px solid #cbd5e1;
+                    width: 36px;
+                    height: 36px;
+                    border-radius: 50%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    cursor: pointer;
+                    color: #475569;
+                    transition: all 0.2s ease;
+                    padding: 0;
+                    box-sizing: border-box;
+                    z-index: 100;
+                }
+                .modal-close-btn:hover {
+                    background: #fee2e2 !important;
+                    color: #ef4444 !important;
+                    border-color: #fca5a5 !important;
+                }
+                @media (max-width: 600px) {
+                    .modal-card-no-scrollbar {
+                        padding: 20px !important;
+                        border-radius: 24px !important;
+                    }
+                    .modal-close-btn {
+                        top: 15px !important;
+                        right: 15px !important;
+                    }
+                }
                 @keyframes fadeIn {
                     from { opacity: 0; transform: translateY(-5px); }
                     to { opacity: 1; transform: translateY(0); }
@@ -343,4 +370,4 @@ const HistorialEquipoModal: React.FC<HistorialEquipoModalProps> = ({ isOpen, onC
     );
 };
 
-export default HistorialEquipoModal;;;
+export default HistorialEquipoModal;

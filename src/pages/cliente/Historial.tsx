@@ -413,7 +413,7 @@ const Historial: React.FC<HistorialProps> = ({ businessId }) => {
 
                             {loadingReport ? (
                                 <div style={{ textAlign: 'center', padding: '40px', background: '#fff', borderRadius: '25px', border: '1.5px solid #f1f5f9' }}>
-                                    <div style={{ width: '40px', height: '40px', border: '4px solid #f3f3f3', borderTop: '4px solid #3b82f6', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 15px' }}></div>
+                                    <div className="loader-mantenere" style={{ margin: '0 auto 15px' }}></div>
                                     <p style={{ color: '#64748b', fontWeight: '600' }}>Cargando reporte técnico...</p>
                                 </div>
                             ) : reportData ? (

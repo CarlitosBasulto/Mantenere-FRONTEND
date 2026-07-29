@@ -566,38 +566,18 @@ const MenuLayout: React.FC = () => {
             {/* MODAL DE SOPORTE Y CONTACTO */}
             {showSupportModal && (
                 <div className={styles.modalOverlay} onClick={() => setShowSupportModal(false)}>
-                    <div className={styles.modalContent} onClick={(e) => e.stopPropagation()} style={{ background: '#0d192b', padding: 0, overflow: 'hidden' }}>
-                        <div className={styles.adCard} style={{ marginTop: 0, marginBottom: 0, border: 'none', boxShadow: 'none' }}>
+                    <div className={styles.modalContent} onClick={(e) => e.stopPropagation()} style={{ background: '#0d192b', padding: 0, overflow: 'hidden', position: 'relative', width: '90%', maxWidth: '440px' }}>
+                        <div className={styles.adCard} style={{ marginTop: 0, marginBottom: 0, border: 'none', boxShadow: 'none', position: 'relative', padding: '24px 20px 20px 20px' }}>
                             <div className={styles.adGlow}></div>
-                            <div className={styles.adLogoContainer}>
-                                <img src={logo} alt="Agente Solutions" className={styles.adLogo} style={{ width: 160, marginBottom: 10 }} />
-                            </div>
-                            <h4 className={styles.adTitle} style={{ fontSize: 18, marginBottom: 15 }}>Soporte y Atención</h4>
                             
-                            <div className={styles.adCarousel} style={{ minHeight: 60, marginBottom: 25 }}>
-                                {adSlide === 0 && <p className={styles.adSlideText} style={{ fontSize: 14 }}>Resolviendo tus necesidades al instante.</p>}
-                                {adSlide === 1 && <p className={styles.adSlideText} style={{ fontSize: 14 }}>Mantenimiento a subestaciones, climas, y más.</p>}
-                                {adSlide === 2 && <p className={styles.adSlideText} style={{ fontSize: 14 }}>Garantía de satisfacción en cada trabajo.</p>}
-                            </div>
-
-                            <div className={styles.adActions} style={{ gap: 12 }}>
-                                <a href="https://wa.me/529992426030" target="_blank" rel="noreferrer" className={`${styles.adBtn} ${styles.btnWhatsapp}`} style={{ padding: '12px', fontSize: 15 }}>
-                                    <FaWhatsapp size={20} /> Contactar por WhatsApp
-                                </a>
-                                <a href="mailto:Ernestososa2022@hotmail.com" className={`${styles.adBtn} ${styles.btnEmail}`} style={{ padding: '12px', fontSize: 15 }}>
-                                    <FaEnvelope size={20} /> Enviar Correo Electrónico
-                                </a>
-                                <a href={cvUrl || "#"} onClick={(e) => !cvUrl && e.preventDefault()} target={cvUrl ? "_blank" : undefined} rel="noreferrer" className={`${styles.adBtn} ${styles.btnCv}`} style={{ padding: '12px', fontSize: 15, opacity: cvUrl ? 1 : 0.5, cursor: cvUrl ? 'pointer' : 'not-allowed' }}>
-                                    <HiOutlineDocumentText size={20} /> {cvUrl ? 'Ver Nuestro Currículum' : 'Currículum No Disponible'}
-                                </a>
-                            </div>
-                        </div>
-
-                        {/* BOTÓN CERRAR CON Z-INDEX ALTO */}
-                        <div style={{ position: 'absolute', top: 15, right: 15, zIndex: 9999 }}>
+                            {/* BOTÓN CERRAR CON Z-INDEX ALTO Y POSICIONAMIENTO EN ESQUINA CON ICONO SVG INLINE */}
                             <button 
                                 onClick={() => setShowSupportModal(false)} 
                                 style={{ 
+                                    position: 'absolute',
+                                    top: 15,
+                                    right: 15,
+                                    zIndex: 9999,
                                     background: 'rgba(255, 255, 255, 0.15)', 
                                     border: 'none', 
                                     color: '#fff', 
@@ -609,11 +589,40 @@ const MenuLayout: React.FC = () => {
                                     alignItems: 'center',
                                     justifyContent: 'center',
                                     backdropFilter: 'blur(4px)',
-                                    transition: 'background 0.2s'
+                                    transition: 'background 0.2s',
+                                    padding: 0,
+                                    boxSizing: 'border-box',
+                                    flexShrink: 0
                                 }}
                             >
-                                <HiXMark size={20} />
+                                <svg viewBox="0 0 24 24" style={{ width: 18, height: 18, display: 'block', flexShrink: 0 }} stroke="#ffffff" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                                </svg>
                             </button>
+
+                            <div className={styles.adLogoContainer} style={{ marginBottom: 5 }}>
+                                <img src={logo} alt="Agente Solutions" className={styles.adLogo} style={{ width: 200, marginBottom: 5, transform: 'scale(1.3)', transformOrigin: 'center' }} />
+                            </div>
+                            <h4 className={styles.adTitle} style={{ fontSize: 16, marginBottom: 8, marginTop: 10 }}>Soporte y Atención</h4>
+                            
+                            <div className={styles.adCarousel} style={{ minHeight: 30, marginBottom: 15 }}>
+                                {adSlide === 0 && <p className={styles.adSlideText} style={{ fontSize: 13 }}>Resolviendo tus necesidades al instante.</p>}
+                                {adSlide === 1 && <p className={styles.adSlideText} style={{ fontSize: 13 }}>Mantenimiento a subestaciones, climas, y más.</p>}
+                                {adSlide === 2 && <p className={styles.adSlideText} style={{ fontSize: 13 }}>Garantía de satisfacción en cada trabajo.</p>}
+                            </div>
+
+                            <div className={styles.adActions} style={{ gap: 10 }}>
+                                <a href="https://wa.me/529992426030" target="_blank" rel="noreferrer" className={`${styles.adBtn} ${styles.btnWhatsapp}`} style={{ padding: '10px', fontSize: 14 }}>
+                                    <FaWhatsapp size={18} /> Contactar por WhatsApp
+                                </a>
+                                <a href="mailto:Ernestososa2022@hotmail.com" className={`${styles.adBtn} ${styles.btnEmail}`} style={{ padding: '10px', fontSize: 14 }}>
+                                    <FaEnvelope size={18} /> Enviar Correo Electrónico
+                                </a>
+                                <a href={cvUrl || "#"} onClick={(e) => !cvUrl && e.preventDefault()} target={cvUrl ? "_blank" : undefined} rel="noreferrer" className={`${styles.adBtn} ${styles.btnCv}`} style={{ padding: '10px', fontSize: 14, opacity: cvUrl ? 1 : 0.5, cursor: cvUrl ? 'pointer' : 'not-allowed' }}>
+                                    <HiOutlineDocumentText size={18} /> {cvUrl ? 'Ver Nuestro Currículum' : 'Currículum No Disponible'}
+                                </a>
+                            </div>
                         </div>
                     </div>
                 </div>

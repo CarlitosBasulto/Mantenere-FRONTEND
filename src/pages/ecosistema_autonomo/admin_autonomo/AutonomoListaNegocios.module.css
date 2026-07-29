@@ -330,10 +330,10 @@
     .jobCard {
         padding: 15px;
         border-radius: 16px;
-        border: 1px solid #eef2f6;
+        border: 1px solid #070621;
         background: white;
         margin: 10px 15px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
         width: auto !important;
         /* Allow margins to work without overflow */
     }
