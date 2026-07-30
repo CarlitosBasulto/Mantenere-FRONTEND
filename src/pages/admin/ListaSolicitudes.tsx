@@ -22,6 +22,8 @@ interface Trabajo {
     sucursal?: string;
     fechaAsignada?: string;
     horaAsignada?: string;
+    imagenPerfil?: string | null;
+    imagenPortada?: string | null;
 }
 
 const ListaSolicitudes: React.FC = () => {
@@ -84,6 +86,8 @@ const ListaSolicitudes: React.FC = () => {
                     tipo: (["Cotización Enviada", "Cotización Aceptada", "Cotización Aprobada", "Cotización Rechazada", "En Proceso", "Finalizado"].includes(j.estado) || j.visitado) ? "Trabajo" : "Visita",
                     sucursal: j.negocio?.nombre || "Por definir",
                     visitado: !!j.visitado,
+                    imagenPerfil: j.negocio?.imagen_perfil || null,
+                    imagenPortada: j.negocio?.imagen_portada || null,
                 }));
 
                 // ORDENAMIENTO AUTOMÁTICO: SOS primero, luego Fecha Descendente
@@ -283,85 +287,107 @@ const ListaSolicitudes: React.FC = () => {
                                 </div>
                             )}
 
-                            {/* BANNER DE DIAGNÓSTICO (Opcional) */}
+                             <div className={styles.cardContent}>
+                                 <div className={styles.cardContentMainRow}>
+                                     {/* Left Column: Info */}
+                                     <div className={styles.cardInfoCol}>
+                                         {/* FILA SUPERIOR: FECHA */}
+                                         <div className={styles.headerRow}>
+                                             <div className={styles.dateGroup}>
+                                                 <p className={styles.strikingDate}>
+                                                     {req.fechaAsignada || req.fecha}
+                                                 </p>
+                                             </div>
+                                         </div>
 
+                                         {/* INFO PRINCIPAL */}
+                                         <div className={styles.cardInfo}>
+                                             <h3>{(req.estado === 'Finalizado') ? req.titulo.replace('🚨 SOS: ', '').replace('SOS: ', '') : req.titulo}</h3>
+                                             
+                                             {/* CAJA DE DESCRIPCIÓN ELEGANTE */}
+                                             {req.descripcion && (() => {
+                                                 const desc = req.descripcion;
+                                                 const bracketMatch = desc.match(/\[(.*?)\]/);
+                                                 const mainText = desc.replace(/\[.*?\]/, '').trim();
+                                                 const extraInfo = bracketMatch ? bracketMatch[1] : null;
 
+                                                 return (
+                                                     <div className={styles.descriptionBox}>
+                                                         <p>{mainText || "Servicio solicitado sin descripción adicional."}</p>
+                                                         {extraInfo && (
+                                                             <div className={styles.equipmentBadge}>
+                                                                 📦 {extraInfo}
+                                                             </div>
+                                                         )}
+                                                     </div>
+                                                 );
+                                             })()}
+                                         </div>
+                                     </div>
 
-                            <div className={styles.cardContent}>
-                                {/* FILA SUPERIOR: FECHA */}
-                                <div className={styles.headerRow}>
-                                    <div className={styles.dateGroup}>
-                                        <p className={styles.strikingDate}>
-                                            📅 {req.fechaAsignada || req.fecha}
-                                        </p>
-                                    </div>
-                                </div>
+                                     {/* Right Column: Business Logo */}
+                                     <div className={styles.businessLogoWrapper}>
+                                         {req.imagenPerfil ? (
+                                             <img
+                                                 src={req.imagenPerfil}
+                                                 alt={req.sucursal}
+                                                 className={styles.businessAvatar}
+                                             />
+                                         ) : req.imagenPortada ? (
+                                             <img
+                                                 src={req.imagenPortada}
+                                                 alt={req.sucursal}
+                                                 className={styles.businessAvatar}
+                                             />
+                                         ) : (
+                                             <div className={styles.businessAvatarPlaceholder}>
+                                                 {req.sucursal ? req.sucursal.substring(0, 2).toUpperCase() : 'SU'}
+                                             </div>
+                                         )}
+                                     </div>
+                                 </div>
 
-                                {/* INFO PRINCIPAL */}
-                                <div className={styles.cardInfo}>
-                                    <h3>{(req.estado === 'Finalizado') ? req.titulo.replace('🚨 SOS: ', '').replace('SOS: ', '') : req.titulo}</h3>
-                                    
-                                    {/* CAJA DE DESCRIPCIÓN ELEGANTE */}
-                                    {req.descripcion && (() => {
-                                        const desc = req.descripcion;
-                                        const bracketMatch = desc.match(/\[(.*?)\]/);
-                                        const mainText = desc.replace(/\[.*?\]/, '').trim();
-                                        const extraInfo = bracketMatch ? bracketMatch[1] : null;
-
-                                        return (
-                                            <div className={styles.descriptionBox}>
-                                                <p>{mainText || "Servicio solicitado sin descripción adicional."}</p>
-                                                {extraInfo && (
-                                                    <div className={styles.equipmentBadge}>
-                                                        📦 {extraInfo}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        );
-                                    })()}
-                                </div>
-
-                                {/* FOOTER DE LA TARJETA */}
-                                <div className={styles.footerRow}>
-                                    <span className={styles.tecnicoInfo}>
-                                        {req.tecnico !== "Sin asignar" ? `Técnico: ${req.tecnico}` : `Dueño: ${req.sucursal || "No registrado"}`}
-                                    </span>
-                                    <div className={styles.footerActions}>
-                                        {req.tecnico && 
-                                         !req.tecnico.toLowerCase().includes("sin asignar") && 
-                                         !req.tecnico.toLowerCase().includes("pendiente") && 
-                                         req.tecnico !== "" && (
-                                            <span className={styles.tipoBadge}>
-                                                {req.estado === 'Finalizado' && req.tipo === 'SOS' ? 'Finalizado' : req.tipo}
-                                            </span>
-                                        )}
-                                        {user?.role === 'admin' && (
-                                            <div className={styles.actionBtns} onClick={(e) => e.stopPropagation()}>
-                                                <button
-                                                    className={styles.assignBtn}
-                                                    onClick={(e) => { 
-                                                        e.stopPropagation(); 
-                                                        const isAutonomoContext = ['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '');
-                                                        const basePath = user?.role === 'tecnico' ? '/tecnico' : (isAutonomoContext ? '/autonomo' : '/menu');
-                                                        navigate(`${basePath}/trabajo-detalle/${req.id}`); 
-                                                    }}
-                                                    title="Asignar Técnico"
-                                                >
-                                                    <HiOutlineUserPlus size={15} />
-                                                    Asignar Técnico
-                                                </button>
-                                                <button
-                                                    className={styles.trashBtn}
-                                                    onClick={(e) => { e.stopPropagation(); handleDeleteRequest(req.id); }}
-                                                    title="Eliminar"
-                                                >
-                                                    <HiOutlineTrash size={15} />
-                                                </button>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
+                                 {/* FOOTER DE LA TARJETA */}
+                                 <div className={styles.footerRow}>
+                                     <span className={styles.tecnicoInfo}>
+                                         {req.tecnico !== "Sin asignar" ? `Técnico: ${req.tecnico}` : `Dueño: ${req.sucursal || "No registrado"}`}
+                                     </span>
+                                     <div className={styles.footerActions}>
+                                         {req.tecnico && 
+                                          !req.tecnico.toLowerCase().includes("sin asignar") && 
+                                          !req.tecnico.toLowerCase().includes("pendiente") && 
+                                          req.tecnico !== "" && (
+                                             <span className={styles.tipoBadge}>
+                                                 {req.estado === 'Finalizado' && req.tipo === 'SOS' ? 'Finalizado' : req.tipo}
+                                             </span>
+                                         )}
+                                         {user?.role === 'admin' && (
+                                             <div className={styles.actionBtns} onClick={(e) => e.stopPropagation()}>
+                                                 <button
+                                                     className={styles.assignBtn}
+                                                     onClick={(e) => { 
+                                                         e.stopPropagation(); 
+                                                         const isAutonomoContext = ['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '');
+                                                         const basePath = user?.role === 'tecnico' ? '/tecnico' : (isAutonomoContext ? '/autonomo' : '/menu');
+                                                         navigate(`${basePath}/trabajo-detalle/${req.id}`); 
+                                                     }}
+                                                     title="Asignar Técnico"
+                                                 >
+                                                     <HiOutlineUserPlus size={15} />
+                                                     Asignar Técnico
+                                                 </button>
+                                                 <button
+                                                     className={styles.trashBtn}
+                                                     onClick={(e) => { e.stopPropagation(); handleDeleteRequest(req.id); }}
+                                                     title="Eliminar"
+                                                 >
+                                                     <HiOutlineTrash size={15} />
+                                                 </button>
+                                             </div>
+                                         )}
+                                     </div>
+                                 </div>
+                             </div>
                         </div>
                     </div>
                 );

@@ -99,7 +99,7 @@
     border-radius: 30px;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
     width: 100%;
-    border: 2px solid #eaeaea;
+    border: 1.5px solid #cbd5e1;
     min-height: 100px;
     display: flex;
     flex-direction: column;
@@ -331,7 +331,7 @@
     }
 
     .jobsSection {
-        padding: 0;
+        padding: 0 0 100px 0;
         gap: 0;
     }
 
@@ -339,7 +339,7 @@
     .jobCard {
         padding: 15px;
         border-radius: 16px;
-        border: 1px solid #070621;
+        border: 1.5px solid #070621;
         background: white;
         margin: 10px 15px;
         box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);

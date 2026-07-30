@@ -10,6 +10,17 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+  /* Ocultar barra de scroll en Firefox, IE y Edge */
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
+/* Ocultar barra de scroll en Chrome, Safari y Opera */
+::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
 }
 
 a {
@@ -22,11 +33,16 @@ a:hover {
   color: #535bf2;
 }
 
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100% !important;
+  overflow: hidden !important;
+}
+
 body {
   font-size: 16px;
   background-color: #f1f5f9;
-  min-height: 100vh;
-  overflow: hidden;
 }
 
 h1 {

@@ -82,7 +82,7 @@
     border-radius: 24px;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
     width: 100%;
-    border: 2px solid #eaeaea;
+    border: 1.5px solid #cbd5e1;
     min-height: 80px;
     display: flex;
     flex-direction: column;
@@ -158,9 +158,9 @@
 }
 
 .strikingDate {
-    color: #ffffff;
-    font-weight: 800;
-    font-size: 15px;
+    color: #64748b;
+    font-weight: 700;
+    font-size: 12px;
     margin: 0;
 }
 
@@ -241,7 +241,7 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+    background: linear-gradient(135deg, #f26522 0%, #ff8c42 100%);
     color: white;
     border: none;
     padding: 6px 14px;
@@ -250,14 +250,14 @@
     font-weight: 700;
     cursor: pointer;
     transition: all 0.2s ease;
-    box-shadow: 0 3px 8px rgba(59, 130, 246, 0.25);
+    box-shadow: 0 3px 8px rgba(242, 101, 34, 0.2);
     white-space: nowrap;
 }
 
 .assignBtn:hover {
     transform: translateY(-1px);
-    box-shadow: 0 5px 14px rgba(59, 130, 246, 0.4);
-    background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
+    box-shadow: 0 5px 14px rgba(242, 101, 34, 0.35);
+    background: linear-gradient(135deg, #e05510 0%, #f26522 100%);
 }
 
 .trashBtn {
@@ -331,9 +331,52 @@
     line-height: 1.4;
 }
 
+.cardContentMainRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 15px;
+    width: 100%;
+}
+
+.cardInfoCol {
+    flex: 1;
+    min-width: 0;
+}
+
+.businessLogoWrapper {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.businessAvatar {
+    width: 55px;
+    height: 55px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1.5px solid #cbd5e1;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.businessAvatarPlaceholder {
+    width: 55px;
+    height: 55px;
+    border-radius: 50%;
+    background: #f1f5f9;
+    color: #475569;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 14px;
+    border: 1.5px solid #cbd5e1;
+}
+
 /* ===========================
    RESPONISVE / MOBILE
-=========================== */
+   =========================== */
 
 @media (max-width: 768px) {
     .dashboardLayout {
@@ -346,16 +389,17 @@
     }
 
     .jobsSection {
-        padding: 0;
+        padding: 0 0 100px 0;
         gap: 0;
     }
 
     .jobCard {
         padding: 0 0 15px 0;
-        border-radius: 0;
-        border-bottom: 1px solid #f0f0f0;
-        margin: 0;
-        box-shadow: none;
+        border-radius: 16px;
+        border: 1.5px solid #070621;
+        margin: 10px 15px;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+        width: auto !important;
     }
 
     .statusBar {
@@ -363,6 +407,8 @@
         font-size: 9px;
         padding: 0 15px;
         margin-bottom: 10px;
+        border-top-left-radius: 14px;
+        border-top-right-radius: 14px;
     }
 
     .cardContent {
@@ -370,11 +416,41 @@
     }
 
     .cardInfo h3 {
-        font-size: 17px;
+        font-size: 14px;
+        line-height: 1.35;
+        margin-bottom: 6px;
     }
 
     .strikingDate {
         font-size: 13px;
+    }
+
+    .footerRow {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+        width: 100%;
+        margin-top: 10px;
+    }
+
+    .footerActions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+        gap: 10px;
+    }
+
+    .businessAvatar {
+        width: 45px;
+        height: 45px;
+    }
+
+    .businessAvatarPlaceholder {
+        width: 45px;
+        height: 45px;
+        font-size: 12px;
     }
 
     .modalContent {

@@ -5,6 +5,7 @@
 .container {
     display: flex;
     height: 100vh;
+    height: 100dvh;
     position: relative;
     overflow: hidden;
     background-color: #f1f5f9;
@@ -178,6 +179,7 @@
     padding: 5px 50px;
     overflow-y: auto;
     overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
     /* board scrolls within itself, page never scrolls horizontally */
     -ms-overflow-style: none;
     /* IE y Edge */
@@ -800,6 +802,7 @@
     .container {
         flex-direction: column;
         height: 100vh;
+        height: 100dvh;
         overflow: hidden;
     }
 
@@ -810,6 +813,7 @@
 
     .header {
         order: 1;
+        flex-shrink: 0;
         height: auto;
         min-height: 60px;
         padding: 15px 20px;
@@ -834,6 +838,7 @@
 
     .sidebar {
         order: 2;
+        flex-shrink: 0;
         position: relative;
         width: 100%;
         height: auto;
@@ -924,10 +929,14 @@
 
     .content {
         order: 3;
+        flex: 1 1 auto;
+        min-height: 0;
         padding: 0;
         /* Remove lateral padding so lines touch edges */
         background: transparent;
         overflow-x: hidden;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
     }
 
     .notificationDropdown {

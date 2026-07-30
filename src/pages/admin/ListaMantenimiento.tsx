@@ -88,24 +88,83 @@ const ListaMantenimiento: React.FC = () => {
                                     >
                                         {renderStatusBar(req)}
                                         <div className={styles.cardContent}>
-                                            <div className={styles.headerRow}>
-                                                <div className={styles.dateGroup}>
-                                                    <p className={styles.strikingDate}>
-                                                        📅 {new Date(req.created_at).toLocaleDateString()}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                            <div className={styles.cardInfo}>
-                                                <h3 style={{ marginBottom: '5px' }}>{req.negocio?.nombre || 'Negocio desconocido'}</h3>
-                                                <div className={styles.descriptionBox}>
-                                                    <div className={styles.equipmentBadge} style={{ marginBottom: '10px' }}>
-                                                        📦 Equipo: {req.levantamiento_equipo?.nombre || 'Desconocido'} ({req.levantamiento_equipo?.marca})
+                                            <div className={styles.cardContentMainRow}>
+                                                {/* Left Column: Info */}
+                                                <div className={styles.cardInfoCol}>
+                                                    <div className={styles.headerRow}>
+                                                        <div className={styles.dateGroup}>
+                                                            <p className={styles.strikingDate}>
+                                                                {new Date(req.created_at).toLocaleDateString()}
+                                                            </p>
+                                                        </div>
                                                     </div>
-                                                    <p style={{ fontStyle: 'italic', color: '#dc2626' }}>
-                                                        " {req.descripcion_problema} "
-                                                    </p>
+                                                    <div className={styles.cardInfo}>
+                                                        <h3 style={{ marginBottom: '5px' }}>{req.negocio?.nombre || 'Negocio desconocido'}</h3>
+                                                        
+                                                        <div className={styles.descriptionBox} style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                                                            {req.levantamiento_equipo?.foto ? (
+                                                                <img
+                                                                    src={req.levantamiento_equipo.foto}
+                                                                    alt={req.levantamiento_equipo.nombre}
+                                                                    style={{
+                                                                        width: '50px',
+                                                                        height: '50px',
+                                                                        borderRadius: '8px',
+                                                                        objectFit: 'cover',
+                                                                        border: '1px solid #cbd5e1',
+                                                                        flexShrink: 0
+                                                                    }}
+                                                                />
+                                                            ) : (
+                                                                <div style={{
+                                                                    width: '50px',
+                                                                    height: '50px',
+                                                                    borderRadius: '8px',
+                                                                    background: '#f1f5f9',
+                                                                    border: '1px solid #cbd5e1',
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'center',
+                                                                    color: '#64748b',
+                                                                    flexShrink: 0
+                                                                }}>
+                                                                    📦
+                                                                </div>
+                                                            )}
+                                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                                <div className={styles.equipmentBadge} style={{ marginBottom: '6px', marginTop: 0 }}>
+                                                                    Equipo: {req.levantamiento_equipo?.nombre || 'Desconocido'} ({req.levantamiento_equipo?.marca})
+                                                                </div>
+                                                                <p style={{ fontStyle: 'italic', color: '#dc2626', margin: 0, fontSize: '13px' }}>
+                                                                    " {req.descripcion_problema} "
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Right Column: Business Logo */}
+                                                <div className={styles.businessLogoWrapper}>
+                                                    {req.negocio?.imagen_perfil ? (
+                                                        <img
+                                                            src={req.negocio?.imagen_perfil}
+                                                            alt={req.negocio?.nombre}
+                                                            className={styles.businessAvatar}
+                                                        />
+                                                    ) : req.negocio?.imagen_portada ? (
+                                                        <img
+                                                            src={req.negocio?.imagen_portada}
+                                                            alt={req.negocio?.nombre}
+                                                            className={styles.businessAvatar}
+                                                        />
+                                                    ) : (
+                                                        <div className={styles.businessAvatarPlaceholder}>
+                                                            {req.negocio?.nombre ? req.negocio.nombre.substring(0, 2).toUpperCase() : 'SU'}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
+
                                             <div className={styles.footerRow}>
                                                 <span className={styles.tecnicoInfo}>
                                                     Cliente: {req.cliente?.name || 'Cliente desconocido'}

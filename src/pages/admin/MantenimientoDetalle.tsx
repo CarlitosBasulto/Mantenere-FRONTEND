@@ -2,8 +2,11 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { getMantenimientoSolicitud, asignarMantenimientoVisita, asignarMantenimientoReparacion } from "../../services/mantenimientoService";
 import { getTrabajadores } from "../../services/trabajadoresService";
+import { getTrabajos } from "../../services/trabajosService";
 import { useAuth } from "../../context/AuthContext";
 import { useModal } from "../../context/ModalContext";
+import HistorialEquipoModal from "../../components/modals/HistorialEquipoModal";
+import DetalleReporteModal from "../../components/modals/DetalleReporteModal";
 
 import styles from "./MantenimientoDetalle.module.css";
 import { FaArrowLeft, FaTools, FaWrench, FaInfoCircle, FaClipboardCheck } from "react-icons/fa";
@@ -18,6 +21,12 @@ const MantenimientoDetalle = () => {
     const [loading, setLoading] = useState(true);
     const [tecnicos, setTecnicos] = useState<any[]>([]);
 
+    // History & Report Modal States
+    const [historial, setHistorial] = useState<any[]>([]);
+    const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+    const [selectedTrabajoId, setSelectedTrabajoId] = useState<number | null>(null);
+    const [reporteModalOpen, setReporteModalOpen] = useState(false);
+
     // Form inputs para asignar técnico
     const [selectedTecnico, setSelectedTecnico] = useState("");
     const [fechaProgramada, setFechaProgramada] = useState("");
@@ -29,6 +38,20 @@ const MantenimientoDetalle = () => {
                 if (id) {
                     const sol = await getMantenimientoSolicitud(Number(id));
                     setData(sol);
+
+                    const eq = sol.equipo || sol.levantamiento_equipo;
+                    if (eq) {
+                        try {
+                            const allJobs = await getTrabajos();
+                            const eqJobs = allJobs.filter((job: any) => 
+                                String(job.levantamiento_equipo_id) === String(eq.id) ||
+                                String(job.levantamiento_equipo?.id) === String(eq.id)
+                            );
+                            setHistorial(eqJobs);
+                        } catch (errJobs) {
+                            console.error("Error al obtener historial de trabajos:", errJobs);
+                        }
+                    }
                 }
                 const trabs = await getTrabajadores();
                 // Filtramos aquellos que están activos (siguiendo la estructura del API)
@@ -91,7 +114,8 @@ const MantenimientoDetalle = () => {
     if (loading) return <div style={{ padding: '40px', textAlign: 'center' }}>Cargando información...</div>;
     if (!data) return <div style={{ padding: '40px', textAlign: 'center' }}>No se encontró la solicitud.</div>;
 
-    const { equipo, negocio, cliente } = data;
+    const equipo = data.equipo || data.levantamiento_equipo;
+    const { negocio, cliente } = data;
 
     const getStatusStyle = (status: string) => {
         switch(status) {
@@ -127,7 +151,7 @@ const MantenimientoDetalle = () => {
                 <div className={`${styles.bentoContainer} ${styles.animateSlideUp} ${styles.delay1}`}>
                     
                     {/* Left Column (Main Content) */}
-                    <div className={`${styles.cardGlass} ${styles.colSpan8}`}>
+                    <div className={styles.colSpan8}>
                         <div className={styles.sectionHeader}>
                             <div className={`${styles.sectionIcon} ${styles.iconBlue}`}><FaInfoCircle /></div>
                             <h2 className={styles.sectionTitle}>Información del Problema</h2>
@@ -149,18 +173,40 @@ const MantenimientoDetalle = () => {
                                         {equipo.modelo && <span className={styles.detailPill}>Mod: {equipo.modelo}</span>}
                                         {equipo.serie && <span className={styles.detailPill}>S/N: {equipo.serie}</span>}
                                     </div>
+                                    <div style={{ marginTop: '15px' }}>
+                                        <button 
+                                            onClick={() => setIsHistoryModalOpen(true)}
+                                            style={{
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '8px',
+                                                background: 'linear-gradient(135deg, #f26522 0%, #ff8c42 100%)',
+                                                color: 'white',
+                                                border: 'none',
+                                                padding: '8px 16px',
+                                                borderRadius: '20px',
+                                                fontSize: '12px',
+                                                fontWeight: 'bold',
+                                                cursor: 'pointer',
+                                                boxShadow: '0 3px 8px rgba(242, 101, 34, 0.2)',
+                                                transition: 'all 0.2s'
+                                            }}
+                                        >
+                                            📂 Ver Historial de Intervenciones ({historial.length})
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         )}
 
-                        <div style={{ marginTop: '25px' }}>
+                        <div style={{ marginTop: '15px' }}>
                             <div className={styles.infoLabel} style={{ marginBottom: '10px' }}>Descripción reportada por el cliente</div>
                             <div className={styles.problemBox}>
                                 "{data.descripcion_problema}"
                             </div>
                         </div>
 
-                        <div className={styles.infoGrid} style={{ marginTop: '25px' }}>
+                        <div className={styles.infoGrid} style={{ marginTop: '15px' }}>
                             <div className={styles.infoItem}>
                                 <span className={styles.infoLabel}>Negocio / Sucursal</span>
                                 <span className={styles.infoValue}>{negocio?.nombre || 'N/A'}</span>
@@ -173,7 +219,7 @@ const MantenimientoDetalle = () => {
                     </div>
 
                     {/* Right Column (Actions based on status) */}
-                    <div className={`${styles.cardGlass} ${styles.colSpan4} ${styles.animateSlideUp} ${styles.delay2}`}>
+                    <div className={`${styles.rightColumnCard} ${styles.colSpan4} ${styles.animateSlideUp} ${styles.delay2}`}>
                         
                         {data.estado === 'Pendiente' && (
                             <>
@@ -181,7 +227,7 @@ const MantenimientoDetalle = () => {
                                     <div className={`${styles.sectionIcon} ${styles.iconOrange}`}><FaWrench /></div>
                                     <h2 className={styles.sectionTitle}>Asignar Visita</h2>
                                 </div>
-                                <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '25px', lineHeight: '1.5' }}>
+                                <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '12px', lineHeight: '1.5' }}>
                                     Envía a un técnico para que supervise el equipo y levante una cotización.
                                 </p>
                                 
@@ -230,7 +276,7 @@ const MantenimientoDetalle = () => {
                                     <div className={`${styles.sectionIcon} ${styles.iconGreen}`}><FaClipboardCheck /></div>
                                     <h2 className={styles.sectionTitle}>Mantenimiento Aprobado</h2>
                                 </div>
-                                <p style={{ fontSize: '14px', color: '#15803d', marginBottom: '25px', lineHeight: '1.5', background:'#dcfce7', padding:'15px', borderRadius:'12px', border:'1px solid #bbf7d0' }}>
+                                <p style={{ fontSize: '14px', color: '#15803d', marginBottom: '12px', lineHeight: '1.5', background:'#dcfce7', padding:'10px 12px', borderRadius:'12px', border:'1px solid #bbf7d0' }}>
                                     El cliente ha pagado/aprobado la cotización. Asigna a un técnico para el Trabajo de Reparación Final.
                                 </p>
 
@@ -301,6 +347,27 @@ const MantenimientoDetalle = () => {
                     </div>
                 </div>
             </div>
+
+            {equipo && (
+                <HistorialEquipoModal 
+                    isOpen={isHistoryModalOpen}
+                    onClose={() => setIsHistoryModalOpen(false)}
+                    equipo={equipo}
+                    historial={historial}
+                    onViewReport={(trabajoId) => {
+                        setSelectedTrabajoId(trabajoId);
+                        setReporteModalOpen(true);
+                    }}
+                />
+            )}
+
+            {selectedTrabajoId && (
+                <DetalleReporteModal 
+                    isOpen={reporteModalOpen}
+                    onClose={() => setReporteModalOpen(false)}
+                    trabajoId={selectedTrabajoId}
+                />
+            )}
         </div>
     );
 };

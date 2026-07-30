@@ -106,7 +106,46 @@
 
 @media (max-width: 600px) {
     .listGrid {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 10px !important;
+        padding-bottom: 100px !important;
+    }
+
+    .flipCard {
+        height: 220px !important;
+    }
+
+    .cardCoverWrapper {
+        height: 90px !important;
+    }
+
+    .cardInfoWrapper {
+        padding: 8px !important;
+    }
+
+    .cardName {
+        font-size: 11.5px !important;
+    }
+
+    .roleBadge {
+        font-size: 9px !important;
+        padding: 2px 6px !important;
+    }
+
+    .statusPill {
+        font-size: 9px !important;
+        padding: 2px 6px !important;
+    }
+
+    .detailItem {
+        padding: 5px 6px !important;
+        gap: 6px !important;
+        font-size: 9.5px !important;
+    }
+
+    .detailIcon {
+        width: 18px !important;
+        height: 18px !important;
     }
 }
 
