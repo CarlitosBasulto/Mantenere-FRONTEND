@@ -39,6 +39,7 @@ import CotizacionPDFPreview from "../../../components/modals/CotizacionPDFPrevie
 import ReportePDFPreview from "../../../components/modals/ReportePDFPreview";
 import ChatTrabajo from "../../../components/ChatTrabajo";
 import NegotiationChatWidget from "../../../components/chat/NegotiationChatWidget";
+import UbicacionMapaModal from "../../../components/modals/UbicacionMapaModal";
 
 
 export interface CotizacionData {
@@ -236,6 +237,37 @@ const AutonomoDetalleTrabajo: React.FC = () => {
 
     // MODAL DATOS SUCURSAL
     const [isSucursalModalOpen, setIsSucursalModalOpen] = useState(false);
+
+    // ESTADOS Y HANDLERS PARA MAPA GPS Y CONFIRMAR LLEGADA
+    const [isGpsModalOpen, setIsGpsModalOpen] = useState(false);
+    const [tecnicoGpsCoords, setTecnicoGpsCoords] = useState<{ lat: number; lng: number } | null>(null);
+    const [llegadaConfirmadaAt, setLlegadaConfirmadaAt] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (id) {
+            const savedGps = localStorage.getItem(`gps_llegada_${id}`);
+            if (savedGps) {
+                try {
+                    const parsed = JSON.parse(savedGps);
+                    setTecnicoGpsCoords(parsed.coords);
+                    setLlegadaConfirmadaAt(parsed.at);
+                } catch (e) {}
+            }
+        }
+    }, [id]);
+
+    const handleConfirmLlegadaGps = (coords: { lat: number; lng: number }) => {
+        setTecnicoGpsCoords(coords);
+        const nowIso = new Date().toISOString();
+        setLlegadaConfirmadaAt(nowIso);
+        if (id) {
+            localStorage.setItem(`gps_llegada_${id}`, JSON.stringify({
+                coords,
+                at: nowIso
+            }));
+        }
+        showAlert("Llegada Confirmada", "¡Has confirmado exitosamente tu llegada a la sucursal en el GPS!", "success");
+    };
 
     // MODAL EQUIPOS = LEVANTAMIENTO TÉCNICO
     const [isAdminLevantamientoModalOpen, setIsAdminLevantamientoModalOpen] = useState(false);
@@ -2424,8 +2456,8 @@ const AutonomoDetalleTrabajo: React.FC = () => {
                                             <span className={styles.badge} style={{ marginTop: '5px' }}>{trabajo.tipo || "Trabajo"}</span>
                                         </div>
                                         <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end', justifyContent: 'center' }}>
-                                             {trabajo.latitud_llegada &&
-                                              !['Cotización Enviada', 'Cotización Aceptada', 'En Proceso', 'Finalizado', 'Completado'].includes(trabajo.estado) && (
+                                            {trabajo.latitud_llegada &&
+                                            !['Cotización Enviada', 'Cotización Aceptada', 'En Proceso', 'Finalizado', 'Completado'].includes(trabajo.estado) && (
                                                 <button 
                                                     onClick={(e) => { e.stopPropagation(); setShowMapModal(true); }}
                                                     style={{ padding: '6px 12px', background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0', borderRadius: '8px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', transition: 'all 0.2s' }}
@@ -2434,70 +2466,47 @@ const AutonomoDetalleTrabajo: React.FC = () => {
                                                 >
                                                     📍 Ver Llegada
                                                 </button>
-                                             )}
+                                            )}
                                         </div>
                                     </div>
 
-                                    {(trabajo.descripcion || trabajo.foto_url) && (
-                                        <div 
-                                            className={styles.descriptionBox}
-                                            onClick={() => setShowZoomModal(true)}
-                                            style={{ cursor: 'pointer', transition: 'transform 0.2s', ':hover': { transform: 'scale(1.02)' } } as any}
-                                            title="Ver detalles del problema"
-                                        >
-                                            {trabajo.descripcion && (
-                                                <>
-                                                    <span className={styles.bentoLabel} style={{ marginBottom: '4px', color: '#334155' }}>Problema Reportado</span>
-                                                    {(() => {
-                                                        let desc = trabajo.descripcion || "";
-                                                        let tecnicoSugerido = null;
-                                                        const match = desc.match(/^\[Técnico sugerido:\s*([^\]]+)\]\s*/i);
-                                                        if (match) {
-                                                            tecnicoSugerido = match[1];
-                                                            desc = desc.substring(match[0].length).trim();
-                                                        }
-                                                        return (
-                                                            <>
-                                                                {tecnicoSugerido && (
-                                                                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#e0f2fe', color: '#0369a1', padding: '4px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: '700', marginBottom: '8px' }}>
-                                                                        <span style={{ fontSize: '14px' }}>👷</span> Técnico sugerido: {tecnicoSugerido}
-                                                                    </div>
-                                                                )}
-                                                                <p className={styles.descriptionQuote}>"{desc}"</p>
-                                                            </>
-                                                        );
-                                                    })()}
-                                                </>
-                                            )}
-                                            {trabajo.foto_url && (
-                                                <div style={{ marginTop: '10px' }}>
-                                                    <span className={styles.bentoLabel} style={{ marginBottom: '4px', color: '#334155', display: 'block' }}>Evidencia(s) Adjunta(s):</span>
-                                                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                                                        {(() => {
-                                                            let fotos: string[] = [];
-                                                            try {
-                                                                if (typeof trabajo.foto_url === 'string' && trabajo.foto_url.trim().startsWith('[')) {
-                                                                    fotos = JSON.parse(trabajo.foto_url);
-                                                                } else if (trabajo.foto_url) {
-                                                                    fotos = [trabajo.foto_url];
-                                                                }
-                                                            } catch(e) {
-                                                                if (typeof trabajo.foto_url === 'string') fotos = [trabajo.foto_url];
-                                                            }
-                                                            return Array.isArray(fotos) ? fotos.map((f, i) => (
-                                                                <img 
-                                                                    key={i}
-                                                                    src={f} 
-                                                                    alt="Evidencia" 
-                                                                    style={{ width: '120px', height: '120px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }} 
-                                                                />
-                                                            )) : null;
-                                                        })()}
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
+                                    {(() => {
+                                        const problemText = trabajo.descripcion || trabajo.descripcion_problema || (trabajo as any).detalles || (trabajo as any).observaciones || (trabajo as any).problema || "";
+                                        if (!problemText && !trabajo.foto_url) return null;
+
+                                        let desc = problemText;
+                                        let tecnicoSugerido = null;
+                                        const match = desc.match(/^\[Técnico sugerido:\s*([^\]]+)\]\s*/i);
+                                        if (match) {
+                                            tecnicoSugerido = match[1];
+                                            desc = desc.substring(match[0].length).trim();
+                                        }
+
+                                        return (
+                                            <div 
+                                                className={styles.descriptionBox}
+                                                onClick={() => setShowZoomModal(true)}
+                                                style={{ cursor: 'pointer', transition: 'transform 0.2s', background: '#fffbeb', border: '1px solid #fde68a', marginTop: '16px', padding: '16px', borderRadius: '12px' }}
+                                                title="Ver detalles del problema"
+                                            >
+                                                {problemText && (
+                                                    <>
+                                                        <span className={styles.bentoLabel} style={{ marginBottom: '6px', color: '#b45309', fontWeight: '800', display: 'block', fontSize: '11px', textTransform: 'uppercase' }}>
+                                                            📝 Problema Especificado por Encargado
+                                                        </span>
+                                                        {tecnicoSugerido && (
+                                                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#e0f2fe', color: '#0369a1', padding: '4px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: '700', marginBottom: '8px' }}>
+                                                                <span style={{ fontSize: '14px' }}>👷</span> Técnico sugerido: {tecnicoSugerido}
+                                                            </div>
+                                                        )}
+                                                        <p className={styles.descriptionQuote} style={{ fontSize: '14px', color: '#1e293b', fontWeight: '600', lineHeight: '1.5', margin: 0 }}>
+                                                            "{desc}"
+                                                        </p>
+                                                    </>
+                                                )}
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
                             </div>
 
@@ -4442,13 +4451,35 @@ const AutonomoDetalleTrabajo: React.FC = () => {
 
                             {/* Ubicación */}
                             <div className={styles.bentoCard} style={{ margin: 0, border: '1.5px solid #e2e8f0', boxShadow: '0 4px 20px rgba(0,0,0,0.03)', height: '100%', display: 'flex', flexDirection: 'column' }}>
-                                <div className={styles.cardHeader}>
-                                    <div className={`${styles.iconBox} ${styles.bgGreen}`}>
-                                        <HiOutlineMapPin size={18} />
+                                <div className={styles.cardHeader} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', flexWrap: 'wrap', gap: '8px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <div className={`${styles.iconBox} ${styles.bgGreen}`}>
+                                            <HiOutlineMapPin size={18} />
+                                        </div>
+                                        <h3 className={styles.cardTitle}>Ubicación</h3>
                                     </div>
-                                    <h3 className={styles.cardTitle}>Ubicación</h3>
+                                    <button
+                                        onClick={() => setIsGpsModalOpen(true)}
+                                        style={{
+                                            padding: '7px 14px',
+                                            background: 'linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%)',
+                                            color: '#ffffff',
+                                            border: 'none',
+                                            borderRadius: '10px',
+                                            fontSize: '12px',
+                                            fontWeight: '800',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '6px',
+                                            boxShadow: '0 3px 10px rgba(37, 99, 235, 0.25)',
+                                            transition: 'all 0.2s'
+                                        }}
+                                    >
+                                        🗺️ Ver Mapa GPS
+                                    </button>
                                 </div>
-                                <div className={styles.addressGrid} style={{ display: 'flex', flexDirection: 'column', gap: '16px', flex: 1 }}>
+                                <div className={styles.addressGrid} style={{ display: 'flex', flexDirection: 'column', gap: '16px', flex: 1, marginTop: '12px' }}>
                                     <div className={styles.addressItem}>
                                         <span className={styles.bentoLabel} style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '2px' }}>Plaza</span>
                                         <span className={styles.bentoValue} style={{ fontSize: '15px', color: '#1e293b', fontWeight: '700' }}>{trabajo.plaza || "---"}</span>
@@ -4473,10 +4504,74 @@ const AutonomoDetalleTrabajo: React.FC = () => {
                                         <p style={{ margin: 0, fontSize: '13px', color: '#14532d', fontWeight: '600', lineHeight: '1.5' }}>{trabajo.referencias}</p>
                                     </div>
                                 )}
+
+                                {/* BOTÓN TÉCNICO CONFIRMAR LLEGADA */}
+                                <button
+                                    onClick={() => {
+                                        if (!navigator.geolocation) {
+                                            showAlert("GPS No Disponible", "Tu navegador no soporta geolocalización.", "error");
+                                            return;
+                                        }
+                                        navigator.geolocation.getCurrentPosition(
+                                            (pos) => {
+                                                handleConfirmLlegadaGps({
+                                                    lat: pos.coords.latitude,
+                                                    lng: pos.coords.longitude
+                                                });
+                                                setIsGpsModalOpen(true);
+                                            },
+                                            (err) => {
+                                                showAlert("Permiso GPS", "Por favor permite el acceso a tu ubicación para confirmar llegada.", "warning");
+                                            },
+                                            { enableHighAccuracy: true }
+                                        );
+                                    }}
+                                    style={{
+                                        marginTop: '16px',
+                                        width: '100%',
+                                        padding: '12px 16px',
+                                        background: tecnicoGpsCoords ? '#ecfdf5' : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                        color: tecnicoGpsCoords ? '#047857' : '#ffffff',
+                                        border: tecnicoGpsCoords ? '1px solid #a7f3d0' : 'none',
+                                        borderRadius: '12px',
+                                        fontSize: '13px',
+                                        fontWeight: '800',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: '8px',
+                                        boxShadow: tecnicoGpsCoords ? 'none' : '0 4px 12px rgba(16, 185, 129, 0.25)'
+                                    }}
+                                >
+                                    {tecnicoGpsCoords ? '✓ Llegada Confirmada en GPS (Ver en Mapa)' : '📍 Confirmar Llegada a Sucursal (GPS)'}
+                                </button>
                             </div>
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* MODAL MAPA GPS */}
+            {isGpsModalOpen && trabajo && (
+                <UbicacionMapaModal
+                    isOpen={isGpsModalOpen}
+                    onClose={() => setIsGpsModalOpen(false)}
+                    sucursalName={trabajo.sucursal || trabajo.negocio?.nombre || 'Sucursal'}
+                    direccion={{
+                        calle: trabajo.calle,
+                        numero: trabajo.numero,
+                        colonia: trabajo.colonia,
+                        ciudad: trabajo.ciudad,
+                        estado: trabajo.estado_republica || trabajo.estado,
+                        plaza: trabajo.plaza
+                    }}
+                    tecnicoName={trabajo.tecnico || 'Técnico de Servicio'}
+                    tecnicoCoords={tecnicoGpsCoords}
+                    llegadaConfirmadaAt={llegadaConfirmadaAt}
+                    onConfirmLlegada={handleConfirmLlegadaGps}
+                    userRole={user?.role || 'autonomo'}
+                />
             )}
 
             {isAdminLevantamientoModalOpen && (

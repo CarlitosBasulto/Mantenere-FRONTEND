@@ -549,8 +549,9 @@ const MenuLayout: React.FC = () => {
                                                 if (user?.role === 'cliente') navigate("/cliente/mi-perfil");
                                                 else if (user?.role === 'admin') navigate("/menu/mi-perfil");
                                                 else if (user?.role === 'tecnico') navigate("/tecnico/mi-perfil");
+                                                else if (user?.role === 'encargado') navigate("/encargado/mi-perfil");
                                                 else if (user?.role === 'autonomo' || user?.role === 'admin-autonomo' || user?.role === 'gerente-general') navigate("/autonomo/mi-perfil");
-                                                // encargado: no tiene perfil propio, se queda en su sucursal
+                                                else navigate("/cliente/mi-perfil");
                                             }}
                                         >
                                             Ver Perfil

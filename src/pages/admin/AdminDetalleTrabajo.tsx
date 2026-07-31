@@ -5135,6 +5135,11 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                     try {
                                                         // Guardar de inmediato en la base de datos la ubicación
                                                         if (trabajo) {
+                                                            localStorage.setItem(`gps_llegada_${trabajo.id}`, JSON.stringify({
+                                                                coords: { lat: parseFloat(lat), lng: parseFloat(lng) },
+                                                                at: now.toISOString()
+                                                            }));
+
                                                             await updateEstadoTrabajo(trabajo.id, { 
                                                                 estado: 'En Espera', // O el estado que corresponda, pero 'En Espera' si es llegada
                                                                 hora_llegada: timeString,

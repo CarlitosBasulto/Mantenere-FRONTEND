@@ -7,6 +7,8 @@ import { getActividadesByTrabajo } from '../../services/actividadesService';
 import { HiOutlineBuildingOffice, HiOutlineUser, HiOutlineClock, HiOutlineBriefcase, HiOutlineCheckCircle, HiArrowPath } from 'react-icons/hi2';
 import { isCardSeen, markCardAsSeen } from '../../utils/seenCards';
 
+import UbicacionMapaModal from '../../components/modals/UbicacionMapaModal';
+
 interface Trabajo {
     id: number;
     titulo: string;
@@ -18,13 +20,24 @@ interface Trabajo {
     fecha_programada?: string;
     admin_autonomo_id?: number;
     negocio_id?: number;
+    calle?: string;
+    numero?: string;
+    colonia?: string;
+    ciudad?: string;
+    estado_republica?: string;
+    plaza?: string;
     negocio?: {
         nombre: string;
+        calle?: string;
+        numero?: string;
+        colonia?: string;
+        ciudad?: string;
+        estado?: string;
+        plaza?: string;
     };
     trabajador?: {
         nombre: string;
     };
-    // Extra fields fetched
     subgerenteName?: string;
     horaLlegada?: string;
     hora_llegada?: string;
@@ -38,6 +51,10 @@ const AutonomoTablero: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+
+    // ESTADO PARA MAPA GPS
+    const [isGpsModalOpen, setIsGpsModalOpen] = useState(false);
+    const [selectedGpsJob, setSelectedGpsJob] = useState<any | null>(null);
 
     const fetchData = async (isSilent = false) => {
         if (!isSilent) setLoading(true);
@@ -142,18 +159,70 @@ const AutonomoTablero: React.FC = () => {
             
             <h4 className={styles.cardTitle}>{t.titulo}</h4>
             
-            {t.hora_llegada && (
-                <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginBottom: '8px' }}>
-                    <div style={{ background: '#ecfdf5', color: '#059669', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', display: 'inline-block' }}>
-                        ⏰ Llegó: {t.hora_llegada}
+            {(() => {
+                const isVisita = colKey === 'orange';
+                if (!isVisita) return null;
+
+                const savedGpsRaw = localStorage.getItem(`gps_llegada_${t.id}`);
+                let localGpsData: any = null;
+                if (savedGpsRaw) {
+                    try { localGpsData = JSON.parse(savedGpsRaw); } catch(e){}
+                }
+                const horaLlegada = t.hora_llegada || (localGpsData?.at ? new Date(localGpsData.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null);
+
+                return (
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap' }}>
+                        {horaLlegada ? (
+                            <div style={{ background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                ⏰ Llegó: {horaLlegada}
+                            </div>
+                        ) : (
+                            <div style={{ background: '#fffbeb', color: '#b45309', border: '1px solid #fde68a', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                🚶 En camino a sucursal
+                            </div>
+                        )}
+
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                const savedGpsRaw = localStorage.getItem(`gps_llegada_${t.id}`);
+                                let localGpsData: any = null;
+                                if (savedGpsRaw) {
+                                    try { localGpsData = JSON.parse(savedGpsRaw); } catch(e){}
+                                }
+                                const liveHora = t.hora_llegada || (localGpsData?.at ? new Date(localGpsData.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null);
+                                const liveCoords = (t.latitud_llegada && t.longitud_llegada)
+                                    ? { lat: parseFloat(t.latitud_llegada), lng: parseFloat(t.longitud_llegada) }
+                                    : localGpsData?.coords || null;
+
+                                setSelectedGpsJob({
+                                    ...t,
+                                    tecnicoCoords: liveCoords,
+                                    horaLlegada: liveHora
+                                });
+                                setIsGpsModalOpen(true);
+                            }}
+                            style={{
+                                background: 'linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%)',
+                                color: '#ffffff',
+                                border: 'none',
+                                borderRadius: '6px',
+                                padding: '4px 10px',
+                                fontSize: '11px',
+                                fontWeight: '800',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                boxShadow: '0 2px 6px rgba(37, 99, 235, 0.25)'
+                            }}
+                            title="Abrir mapa GPS y rastreo de sucursal/técnico"
+                        >
+                            🗺️ GPS
+                        </button>
                     </div>
-                    {t.latitud_llegada && (
-                        <div style={{ background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', padding: '3px 6px', borderRadius: '6px', fontSize: '10px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '2px' }} title="Ubicación registrada">
-                            📍 GPS
-                        </div>
-                    )}
-                </div>
-            )}
+                );
+            })()}
             
             <div className={styles.infoRow}>
                 <HiOutlineBuildingOffice size={16} />
@@ -223,23 +292,23 @@ const AutonomoTablero: React.FC = () => {
 
                 <div className={styles.column}>
                     <div className={`${styles.columnHeader} ${styles.colBlue}`}>
-                        <h3>Cotización / Aceptadas</h3>
-                        <span className={styles.countBadge}>{colAceptadas.length}</span>
+                        <h3>Cotizaciones</h3>
+                        <span className={styles.countBadge}>{colCotizaciones.length}</span>
                     </div>
                     <div className={styles.cardList}>
-                        {colAceptadas.map(t => renderCard(t, 'blue'))}
-                        {colAceptadas.length === 0 && <div className={styles.emptyState}>No hay cotizaciones</div>}
+                        {colCotizaciones.map(t => renderCard(t, 'blue'))}
+                        {colCotizaciones.length === 0 && <div className={styles.emptyState}>No hay cotizaciones activas</div>}
                     </div>
                 </div>
 
                 <div className={styles.column}>
                     <div className={`${styles.columnHeader} ${styles.colOrange}`}>
                         <h3>Técnico en Camino / Visita</h3>
-                        <span className={styles.countBadge}>{colVisita.length}</span>
+                        <span className={styles.countBadge}>{colEnEspera.length}</span>
                     </div>
                     <div className={styles.cardList}>
-                        {colVisita.map(t => renderCard(t, 'orange'))}
-                        {colVisita.length === 0 && <div className={styles.emptyState}>No hay técnicos en camino</div>}
+                        {colEnEspera.map(t => renderCard(t, 'orange'))}
+                        {colEnEspera.length === 0 && <div className={styles.emptyState}>No hay técnicos en espera</div>}
                     </div>
                 </div>
 
@@ -265,6 +334,31 @@ const AutonomoTablero: React.FC = () => {
                     </div>
                 </div>
             </div>
+
+            {/* MODAL RASTREO MAPA GPS */}
+            {isGpsModalOpen && selectedGpsJob && (
+                <UbicacionMapaModal
+                    isOpen={isGpsModalOpen}
+                    onClose={() => {
+                        setIsGpsModalOpen(false);
+                        setSelectedGpsJob(null);
+                    }}
+                    sucursalName={selectedGpsJob.negocio?.nombre || selectedGpsJob.sucursal || 'Sucursal'}
+                    direccion={{
+                        calle: selectedGpsJob.calle || selectedGpsJob.negocio?.calle,
+                        numero: selectedGpsJob.numero || selectedGpsJob.negocio?.numero,
+                        colonia: selectedGpsJob.colonia || selectedGpsJob.negocio?.colonia,
+                        ciudad: selectedGpsJob.ciudad || selectedGpsJob.negocio?.ciudad,
+                        estado: selectedGpsJob.estado_republica || selectedGpsJob.negocio?.estado,
+                        plaza: selectedGpsJob.plaza || selectedGpsJob.negocio?.plaza
+                    }}
+                    tecnicoName={selectedGpsJob.trabajador?.nombre || 'Técnico de Servicio'}
+                    tecnicoCoords={selectedGpsJob.tecnicoCoords}
+                    llegadaConfirmadaAt={selectedGpsJob.horaLlegada}
+                    userRole="autonomo"
+                    jobId={selectedGpsJob.id}
+                />
+            )}
         </div>
     );
 };

@@ -131,6 +131,7 @@ function App() {
                             <Route path="resumen" element={<DashboardEncargado />} />
                             <Route path="negocios" element={<ListaNegocios />} />
                             <Route path="sucursal" element={<PerfilEmpresa />} />
+                            <Route path="mi-perfil" element={<MiPerfil />} />
                             <Route path="cotizaciones" element={<Cotizaciones />} />
                             <Route path="historial" element={<Historial />} />
                             <Route path="trabajo/:id" element={<TrabajoDetalle />} />

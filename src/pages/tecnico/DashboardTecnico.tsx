@@ -136,7 +136,13 @@ const DashboardTecnico: React.FC = () => {
     };
 
     const renderCard = (t: Trabajo, colKey: keyof typeof COL_COLORS = 'yellow') => {
-        const problemaReportado = t.descripcion_problema || (t as any).descripcion || (t as any).problema || (t as any).reporteTienda || '';
+        const rawDesc = t.descripcion_problema || (t as any).descripcion || (t as any).problema || (t as any).detalles || (t as any).observaciones || (t as any).reporteTienda || '';
+        let problemaReportado = rawDesc;
+        const match = problemaReportado.match(/^\[Técnico sugerido:\s*([^\]]+)\]\s*/i);
+        if (match) {
+            problemaReportado = problemaReportado.substring(match[0].length).trim();
+        }
+
         const userRole = user?.role || 'tecnico';
         const isSeen = isCardSeen(userRole, t.id, t.estado);
         const accent = COL_COLORS[colKey];
@@ -182,10 +188,25 @@ const DashboardTecnico: React.FC = () => {
                     <span className={styles.strongText}>{t.negocio?.nombre || 'Sin sucursal'}</span>
                 </div>
 
+                {/* PROBLEMA REPORTADO DESTACADO */}
                 {problemaReportado && problemaReportado !== '—' && (
-                    <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '8px 10px', marginTop: '6px', marginBottom: '6px', fontSize: '12px', color: '#334155' }}>
-                        <span style={{ fontWeight: '800', color: '#f26522', display: 'block', marginBottom: '2px', fontSize: '11px', textTransform: 'uppercase' }}>📝 Problema Reportado:</span>
-                        "{problemaReportado}"
+                    <div style={{
+                        background: '#fefce8',
+                        border: '1.5px solid #fef08a',
+                        borderRadius: '10px',
+                        padding: '10px 12px',
+                        marginTop: '8px',
+                        marginBottom: '8px',
+                        fontSize: '12px',
+                        color: '#713f12',
+                        boxShadow: '0 2px 5px rgba(234, 179, 8, 0.15)'
+                    }}>
+                        <span style={{ fontWeight: '900', color: '#d97706', display: 'block', marginBottom: '4px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+                            📝 Problema Especificado por Encargado:
+                        </span>
+                        <span style={{ fontWeight: '600', color: '#1e293b', fontSize: '13px', lineHeight: '1.4', display: 'block' }}>
+                            "{problemaReportado}"
+                        </span>
                     </div>
                 )}
                 
