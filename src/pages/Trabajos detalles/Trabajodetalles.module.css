@@ -198,7 +198,7 @@
     border-radius: 30px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
     width: 100%;
-    border: 1px solid #4d4c5590 !important;
+    border: none !important;
     min-height: 100px;
     display: flex;
     flex-direction: column;
@@ -259,6 +259,7 @@
     background: #fff0e6;
     color: #f26522;
 }
+
 
 .cardContent {
     display: flex;
@@ -1101,7 +1102,7 @@
         max-width: 100% !important;
         box-sizing: border-box !important;
         overflow: hidden !important;
-        border: 1px solid #4d4c5590 !important;
+        border: none !important;
     }
 
     .statusBar {

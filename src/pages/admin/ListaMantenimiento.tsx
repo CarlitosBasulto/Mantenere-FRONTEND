@@ -13,6 +13,7 @@ const ListaMantenimiento: React.FC = () => {
     const { user } = useAuth();
 
     const [solicitudes, setSolicitudes] = useState<any[]>([]);
+    const [imageErrors, setImageErrors] = useState<Record<number, boolean>>({});
 
     const fetchSolicitudes = async () => {
         try {
@@ -145,17 +146,12 @@ const ListaMantenimiento: React.FC = () => {
 
                                                 {/* Right Column: Business Logo */}
                                                 <div className={styles.businessLogoWrapper}>
-                                                    {req.negocio?.imagen_perfil ? (
+                                                    {(req.negocio?.imagenPerfil || req.negocio?.imagen_perfil) && !imageErrors[req.id] ? (
                                                         <img
-                                                            src={req.negocio?.imagen_perfil}
+                                                            src={req.negocio?.imagenPerfil || req.negocio?.imagen_perfil}
                                                             alt={req.negocio?.nombre}
                                                             className={styles.businessAvatar}
-                                                        />
-                                                    ) : req.negocio?.imagen_portada ? (
-                                                        <img
-                                                            src={req.negocio?.imagen_portada}
-                                                            alt={req.negocio?.nombre}
-                                                            className={styles.businessAvatar}
+                                                            onError={() => setImageErrors(prev => ({...prev, [req.id]: true}))}
                                                         />
                                                     ) : (
                                                         <div className={styles.businessAvatarPlaceholder}>

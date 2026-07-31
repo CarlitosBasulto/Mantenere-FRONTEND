@@ -31,6 +31,7 @@ const ListaSolicitudes: React.FC = () => {
     const [filterStatus, setFilterStatus] = useState<string>("Todos");
     const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
     const [tempFilter, setTempFilter] = useState("Todos");
+    const [imageErrors, setImageErrors] = useState<Record<number, boolean>>({});
 
     const navigate = useNavigate();
     const { user } = useAuth();
@@ -86,8 +87,8 @@ const ListaSolicitudes: React.FC = () => {
                     tipo: (["Cotización Enviada", "Cotización Aceptada", "Cotización Aprobada", "Cotización Rechazada", "En Proceso", "Finalizado"].includes(j.estado) || j.visitado) ? "Trabajo" : "Visita",
                     sucursal: j.negocio?.nombre || "Por definir",
                     visitado: !!j.visitado,
-                    imagenPerfil: j.negocio?.imagen_perfil || null,
-                    imagenPortada: j.negocio?.imagen_portada || null,
+                    imagenPerfil: j.negocio?.imagenPerfil || j.negocio?.imagen_perfil || null,
+                    imagenPortada: j.negocio?.imagen_portada || j.negocio?.imagenPortada || null,
                 }));
 
                 // ORDENAMIENTO AUTOMÁTICO: SOS primero, luego Fecha Descendente
@@ -327,17 +328,12 @@ const ListaSolicitudes: React.FC = () => {
 
                                      {/* Right Column: Business Logo */}
                                      <div className={styles.businessLogoWrapper}>
-                                         {req.imagenPerfil ? (
+                                         {req.imagenPerfil && !imageErrors[req.id] ? (
                                              <img
                                                  src={req.imagenPerfil}
                                                  alt={req.sucursal}
                                                  className={styles.businessAvatar}
-                                             />
-                                         ) : req.imagenPortada ? (
-                                             <img
-                                                 src={req.imagenPortada}
-                                                 alt={req.sucursal}
-                                                 className={styles.businessAvatar}
+                                                 onError={() => setImageErrors(prev => ({...prev, [req.id]: true}))}
                                              />
                                          ) : (
                                              <div className={styles.businessAvatarPlaceholder}>

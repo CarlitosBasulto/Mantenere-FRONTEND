@@ -93,7 +93,8 @@ const LevantamientoModal: React.FC<LevantamientoModalProps> = ({ isOpen, onClose
         if (isOpen) {
             const normalized = normalizeData(data);
             setSections(normalized);
-            const targetSec = initialSectionId ? normalized.find(s => s.id === initialSectionId) : (normalized[0] || null);
+            const isMobile = window.innerWidth <= 768;
+            const targetSec = initialSectionId ? normalized.find(s => s.id === initialSectionId) : (isMobile ? null : (normalized[0] || null));
             if (targetSec) {
                 setActiveSectionId(targetSec.id);
                 if (targetSec.subAreas && targetSec.subAreas.length > 0) {
@@ -304,22 +305,31 @@ const LevantamientoModal: React.FC<LevantamientoModalProps> = ({ isOpen, onClose
         resetEquipmentForm(targetSubId);
     };
 
-    const handleDeleteEquipmentFromSubArea = (eqId: string) => {
-        const updatedSections = sections.map(sec => {
-            if (sec.id === activeSectionId) {
-                const updatedSubAreas = (sec.subAreas || []).map(sub => ({
-                    ...sub,
-                    equipos: sub.equipos.filter(e => e.id !== eqId)
-                }));
-                return {
-                    ...sec,
-                    subAreas: updatedSubAreas,
-                    equipos: updatedSubAreas.flatMap(s => s.equipos)
-                };
-            }
-            return sec;
-        });
-        setSections(updatedSections);
+    const handleDeleteEquipmentFromSubArea = (eqId: string, eqName: string) => {
+        showConfirm(
+            "¿Eliminar equipo?",
+            `¿Estás seguro de borrar esta información? Una vez hecho, ya no se puede recuperar.`,
+            () => {
+                const updatedSections = sections.map(sec => {
+                    if (sec.id === activeSectionId) {
+                        const updatedSubAreas = (sec.subAreas || []).map(sub => ({
+                            ...sub,
+                            equipos: sub.equipos.filter(e => e.id !== eqId)
+                        }));
+                        return {
+                            ...sec,
+                            subAreas: updatedSubAreas,
+                            equipos: updatedSubAreas.flatMap(s => s.equipos)
+                        };
+                    }
+                    return sec;
+                });
+                setSections(updatedSections);
+            },
+            () => {},
+            "Sí, eliminar",
+            "Cancelar"
+        );
     };
 
     const startEditEquipment = (eq: Equipment) => {
@@ -446,6 +456,17 @@ const LevantamientoModal: React.FC<LevantamientoModalProps> = ({ isOpen, onClose
                                 </div>
                             )}
                         </div>
+                        <div className={styles.sidebarFooter}>
+                            {!isReadOnly ? (
+                                <button className={styles.primaryBtn} onClick={handleFinalSave}>
+                                    Guardar Levantamientos Completo
+                                </button>
+                            ) : (
+                                <button className={styles.primaryBtn} onClick={onClose}>
+                                    Cerrar Vista
+                                </button>
+                            )}
+                        </div>
                     </div>
 
                     {/* MAIN: SUB-ÁREAS Y EQUIPOS */}
@@ -568,7 +589,7 @@ const LevantamientoModal: React.FC<LevantamientoModalProps> = ({ isOpen, onClose
                                                             <button
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
-                                                                    handleDeleteEquipmentFromSubArea(eq.id!);
+                                                                    handleDeleteEquipmentFromSubArea(eq.id!, eq.nombre);
                                                                 }}
                                                                 style={{ background: '#fef2f2', border: 'none', borderRadius: '6px', padding: '6px', cursor: 'pointer', color: '#ef4444', display: 'flex' }}
                                                                 title="Eliminar equipo"
@@ -724,6 +745,19 @@ const LevantamientoModal: React.FC<LevantamientoModalProps> = ({ isOpen, onClose
                                         </div>
                                     </div>
                                 )}
+                                
+                                {/* BOTÓN GUARDAR LEVANTAMIENTO EN EL CONTENIDO */}
+                                <div className={styles.contentSaveContainer}>
+                                    {!isReadOnly ? (
+                                        <button className={styles.primaryBtn} onClick={handleFinalSave}>
+                                            Guardar Levantamientos Completo
+                                        </button>
+                                    ) : (
+                                        <button className={styles.primaryBtn} onClick={onClose}>
+                                            Cerrar Vista
+                                        </button>
+                                    )}
+                                </div>
                             </>
                         ) : (
                             <div className={styles.selectPrompt}>
@@ -735,18 +769,6 @@ const LevantamientoModal: React.FC<LevantamientoModalProps> = ({ isOpen, onClose
                             </div>
                         )}
                     </div>
-                </div>
-
-                <div className={styles.modalFooter}>
-                    {!isReadOnly ? (
-                        <button className={styles.primaryBtn} onClick={handleFinalSave}>
-                            Guardar Levantamientos Completo
-                        </button>
-                    ) : (
-                        <button className={styles.primaryBtn} onClick={onClose}>
-                            Cerrar Vista
-                        </button>
-                    )}
                 </div>
                 <DetalleEquipoModal 
                     isOpen={!!viewingEquipment}

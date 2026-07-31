@@ -550,9 +550,6 @@ const AutonomoPerfilEmpresa: React.FC = () => {
                             {editId ? "Editar Sucursal" : "Nueva Sucursal"}
                         </h1>
                     </div>
-                    <p className={styles.pageSubtitle}>
-                        Completa los datos de tu negocio para gestionar mantenimientos y equipos.
-                    </p>
                 </header>
 
                 {/* BUSINESS PROFILE HEADER CARD */}
@@ -611,14 +608,14 @@ const AutonomoPerfilEmpresa: React.FC = () => {
                     <div className={styles.businessHeaderInfo}>
                         <div className={styles.inputGroup}>
                             <label className={styles.label}>Nombre de la Sucursal</label>
-                            <input
-                                type="text"
+                            <textarea
                                 name="nombreSucursal"
                                 placeholder="Ej: Mantenere Center Mérida"
                                 className={styles.businessNameInput}
                                 value={formData.nombreSucursal || ''}
                                 onChange={handleChange}
                                 disabled={!canEdit}
+                                rows={2}
                             />
                         </div>
                     </div>
@@ -1012,6 +1009,10 @@ const AutonomoPerfilEmpresa: React.FC = () => {
                         setActiveSectionId(selectedSectionId);
                         setIsLevantamientoModalOpen(true);
                     } : undefined}
+                    onVerHistorial={() => {
+                        setSelectedEqForBitacora(selectedEquipment);
+                        setBitacoraModalOpen(true);
+                    }}
                 />
 
                 <HistorialEquipoModal 

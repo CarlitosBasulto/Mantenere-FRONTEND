@@ -481,8 +481,8 @@
     -webkit-backface-visibility: hidden;
     backface-visibility: hidden;
     border-radius: 20px;
-    border: 2px solid #a7f3d0; /* Soft green frame for Activos */
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+    border: 2px solid #10b981; /* Solid vibrant green frame for Activos */
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
     overflow: hidden;
     background: white;
     box-sizing: border-box;
@@ -490,12 +490,12 @@
 
 .flipCard.cardBlocked .flipCardFront,
 .flipCard.cardBlocked .flipCardBack {
-    border: 2px solid #fecaca; /* Soft red frame for Blocked */
+    border: 2px solid #ef4444; /* Solid vibrant red frame for Blocked */
 }
 
 .flipCard.cardAutonomo .flipCardFront,
 .flipCard.cardAutonomo .flipCardBack {
-    border: 2px solid #ffe4d6; /* Soft orange/coral border for admin autonomo */
+    border: 2px solid #f26522; /* Brand orange border for admin autonomo */
 }
 
 .flipCardFront {
@@ -636,14 +636,14 @@
 .detailItem {
     display: flex;
     align-items: center;
-    gap: 12px;
-    font-size: 13px;
+    gap: 8px;
+    font-size: 11.5px;
     color: #475569;
     font-weight: 600;
     padding: 6px 12px;
     background: #ffffff;
     border-radius: 12px;
-    border: 1px solid #f1f5f9;
+    border: none;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
     transition: all 0.2s ease;
     text-align: left;
@@ -652,7 +652,6 @@
 .detailItem:hover {
     transform: translateX(4px);
     background: #f8fafc;
-    border-color: #e2e8f0;
 }
 
 .detailIcon {
@@ -675,4 +674,18 @@
     border-top: 1px solid #f1f5f9;
     padding-top: 10px;
     width: 100%;
+}
+
+.emailText {
+    text-overflow: ellipsis;
+    overflow-x: auto;
+    white-space: nowrap;
+    max-width: 100%;
+    font-size: 12.5px;
+    color: #475569;
+    scrollbar-width: none; /* Firefox */
+}
+
+.emailText::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
 }

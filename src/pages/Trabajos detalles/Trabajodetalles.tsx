@@ -1032,56 +1032,63 @@ const TrabajoDetalle: React.FC = () => {
         t.nombre.toLowerCase().includes(technicianSearch.toLowerCase())
     );
 
+    const getBarClass = (job: Trabajo): string => {
+        const status = (job.estado || "").toLowerCase();
+        if (status === "cancelado") return styles.red;
+        if (status === "finalizado") return styles.green;
+        if (status === "rechazado por técnico" || status === "rechazado por tecnico") return styles.red;
+        if (job.tipo === "SOS") return styles.red;
+        if (status.includes("cotizaci")) {
+            if (status.includes("aceptada") || status.includes("aprobada")) return styles.green;
+            if (status.includes("rechazada")) return styles.red;
+            if (status.includes("enviada")) return styles.blue;
+            return styles.orange;
+        }
+        if (status === "en espera") return styles.yellow;
+        if (status === "en proceso") return styles.blue;
+        if (status === "solicitud" || status === "pendiente" || status === "asignado") {
+            const hasTech = job.tecnico && job.tecnico !== "Sin asignar" && job.tecnico !== "Sin Asignar";
+            return hasTech ? styles.orange : styles.yellow;
+        }
+        if (job.tecnico && job.tecnico !== "Sin asignar" && job.tecnico !== "Sin Asignar") {
+            return user?.role === 'tecnico' ? styles.orange : styles.blue;
+        }
+        return styles.yellow;
+    };
+
     const renderStatusBar = (job: Trabajo) => {
         const status = (job.estado || "").toLowerCase();
-        let barClass = styles.yellow;
+        const barClass = getBarClass(job);
         let text: string = job.estado || "Pendiente";
 
         if (status === "cancelado") {
-            barClass = styles.red;
             text = "SOLICITUD CANCELADA";
         } else if (status === "finalizado") {
-            barClass = styles.green;
             text = "Finalizado";
         } else if (status === "rechazado por técnico" || status === "rechazado por tecnico") {
-            barClass = styles.red;
             text = user?.role === 'tecnico' ? "RECHAZASTE ESTA ASIGNACIÓN" : "RECHAZADO POR TÉCNICO";
         } else if (job.tipo === "SOS") {
-            barClass = styles.red;
             text = "¡ALERTA SOS!";
         } else if (status.includes("cotizaci")) {
             if (status.includes("aceptada") || status.includes("aprobada")) {
                 text = "COTIZACIÓN ACEPTADA";
-                barClass = styles.green;
             } else if (status.includes("rechazada")) {
                 text = "COTIZACIÓN RECHAZADA";
-                barClass = styles.red;
             } else if (status.includes("enviada")) {
                 text = "COTIZACIÓN ENVIADA";
-                barClass = styles.blue;
             } else {
                 text = "PROCESO DE COTIZACIÓN";
-                barClass = styles.orange;
             }
         } else if (status === "en espera") {
-            barClass = styles.yellow;
             text = "EN ESPERA DE ASIGNACIÓN";
         } else if (status === "en proceso") {
-            barClass = styles.blue;
             text = "TÉCNICO ACEPTADO";
         } else if (status === "solicitud" || status === "pendiente" || status === "asignado") {
             const hasTech = job.tecnico && job.tecnico !== "Sin asignar" && job.tecnico !== "Sin Asignar";
-            if (hasTech) {
-                barClass = styles.orange;
-                text = "SOLICITUD POR ACEPTAR";
-            } else {
-                barClass = styles.yellow;
-                text = "SOLICITUD";
-            }
+            text = hasTech ? "SOLICITUD POR ACEPTAR" : "SOLICITUD";
         } else if (job.tecnico && job.tecnico !== "Sin asignar" && job.tecnico !== "Sin Asignar") {
-            barClass = user?.role === 'tecnico' ? styles.orange : styles.blue;
-            text = user?.role === 'tecnico' 
-                ? (job.tipo === 'Visita' ? "ASIGNACIÓN DE VISITA" : "SE TE ASIGNÓ ESTE TRABAJO 🛠️") 
+            text = user?.role === 'tecnico'
+                ? (job.tipo === 'Visita' ? "ASIGNACIÓN DE VISITA" : "SE TE ASIGNÓ ESTE TRABAJO 🛠️")
                 : "TÉCNICO ASIGNADO";
         }
 
@@ -1281,7 +1288,7 @@ const TrabajoDetalle: React.FC = () => {
                     return (
                             <div
                                 key={trabajo.id}
-                                className={styles.jobCard}
+                                className={`${styles.jobCard} ${getBarClass(trabajo)}`}
                                 style={{ '--index': index } as React.CSSProperties}
                                 onClick={(e) => {
                                     if (!(e.target as HTMLElement).closest('button')) {

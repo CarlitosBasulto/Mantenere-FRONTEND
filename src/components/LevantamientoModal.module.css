@@ -441,21 +441,26 @@
 
 .formFooter {
     display: flex;
-    justify-content: flex-end;
+    justify-content: center;
     gap: 12px;
+    margin-top: 10px;
+    width: 100%;
 }
 
 .btnAddEq {
     background: linear-gradient(135deg, #f26522 0%, #ff8c42 100%);
     color: #ffffff;
     border: none;
-    padding: 12px 24px;
+    padding: 12px 32px;
     border-radius: 12px;
     font-weight: 800;
     font-size: 13px;
     cursor: pointer;
     box-shadow: 0 4px 12px rgba(242, 101, 34, 0.2);
     transition: all 0.2s ease;
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
 }
 
 .btnAddEq:hover {
@@ -590,13 +595,33 @@
     line-height: 1.5;
 }
 
-.modalFooter {
-    padding: 20px 32px;
-    background: #f8fafc;
-    border-top: 1px solid #e2e8f0;
+.sidebarFooter {
+    padding: 20px;
+    background: #0f172a;
+    border-top: 1px solid #1e293b;
     display: flex;
-    justify-content: flex-end;
-    gap: 12px;
+    justify-content: center;
+    box-sizing: border-box;
+}
+
+.sidebarFooter .primaryBtn {
+    width: 100%;
+    padding: 12px;
+    font-size: 13px;
+}
+
+.contentSaveContainer {
+    margin-top: 24px;
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    padding-bottom: 20px;
+    box-sizing: border-box;
+}
+
+.contentSaveContainer .primaryBtn {
+    width: 100%;
+    max-width: 400px;
 }
 
 .primaryBtn {
@@ -632,12 +657,15 @@
 
 @media (max-width: 768px) {
     .modalContent {
-        width: 100%;
-        height: 100%;
-        max-height: 100%;
-        height: 100vh;
-        border-radius: 0;
-        animation: slideUp 0.3s ease-out;
+        width: 94%;
+        height: 85%;
+        max-height: 85dvh;
+        border-radius: 24px;
+        animation: zoomIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .secDeleteBtn {
+        opacity: 1 !important;
     }
 
     @keyframes slideUp {
@@ -694,8 +722,20 @@
         grid-column: span 1 !important;
     }
 
-    .modalFooter {
+    .sidebarFooter {
+        display: flex;
         padding: 15px 20px;
+        background: #0f172a;
+        border-top: 1px solid #1e293b;
+    }
+    
+    .contentSaveContainer {
+        margin-top: 20px;
+        padding: 0 10px;
+    }
+    
+    .contentSaveContainer .primaryBtn {
+        max-width: 100%;
     }
 
     .primaryBtn {
@@ -713,6 +753,16 @@
     .eqActions {
         width: 100%;
         justify-content: flex-end;
+    }
+
+    .formFooter {
+        justify-content: center;
+    }
+
+    .btnAddEq {
+        width: 100% !important;
+        padding: 12px;
+        font-size: 14px;
     }
 }
 

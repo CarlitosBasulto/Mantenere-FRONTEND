@@ -142,6 +142,9 @@
     width: 100%;
     background: transparent;
     transition: all 0.2s;
+    resize: none;
+    font-family: inherit;
+    overflow-y: hidden;
 }
 
 .businessNameInput:focus {
@@ -249,7 +252,7 @@
     border-radius: 15px;
     font-size: 14px;
     font-weight: 700;
-    border: none;
+    border: 2px solid transparent;
     cursor: pointer;
     background: transparent;
     color: #64748b;
@@ -257,9 +260,10 @@
 }
 
 .activeTab {
-    background: #ffffff;
-    color: #0f172a;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+    background: #e0f2fe !important;
+    border-color: #f97316 !important;
+    color: #0369a1 !important;
+    box-shadow: 0 4px 10px rgba(3, 105, 161, 0.05);
 }
 
 /* LEVANTAMIENTO SECTION REFINEMENT */
@@ -424,7 +428,20 @@
 @media (max-width: 768px) {
     .dashboardLayout {
         padding: 15px;
-        padding-bottom: 180px;
+        padding-bottom: 200px !important;
+    }
+
+    .equipoChip {
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: space-between;
+    }
+
+    .bitacoraBtn {
+        width: 100% !important;
+        margin-left: 0 !important;
+        margin-top: 4px;
+        justify-content: center;
     }
 
     .pageTitle {
@@ -495,6 +512,7 @@
 @media (max-width: 480px) {
     .dashboardLayout {
         padding: 10px;
+        padding-bottom: 200px !important;
     }
 
     .infoCard {

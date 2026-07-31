@@ -14,9 +14,10 @@ interface DetalleEquipoModalProps {
     onClose: () => void;
     equipment: Equipment | null;
     onEdit?: () => void;
+    onVerHistorial?: () => void;
 }
 
-const DetalleEquipoModal: React.FC<DetalleEquipoModalProps> = ({ isOpen, onClose, equipment, onEdit }) => {
+const DetalleEquipoModal: React.FC<DetalleEquipoModalProps> = ({ isOpen, onClose, equipment, onEdit, onVerHistorial }) => {
     React.useEffect(() => {
         if (isOpen && equipment) {
             document.body.style.overflow = 'hidden';
@@ -125,6 +126,12 @@ const DetalleEquipoModal: React.FC<DetalleEquipoModalProps> = ({ isOpen, onClose
                 </div>
 
                 <div className={styles.modalFooter}>
+                    {onVerHistorial && (
+                        <button className={styles.historyBtn} onClick={() => { onClose(); onVerHistorial(); }}>
+                            📂 Ver Historial
+                        </button>
+                    )}
+
                     {onEdit && (
                         <button className={styles.editBtn} onClick={() => { onEdit(); onClose(); }}>
                             <HiOutlinePencilSquare size={18} /> EDITAR INFORMACIÓN

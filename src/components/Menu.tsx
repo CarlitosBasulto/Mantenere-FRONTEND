@@ -88,6 +88,27 @@ const MenuLayout: React.FC = () => {
         return "/";
     };
 
+    // Determinar si mostrar el botón de retroceder
+    const shouldShowBackButton = () => {
+        const path = location.pathname.toLowerCase().replace(/\/$/, "");
+        if (user?.role === 'admin') {
+            return path !== "/menu" && path !== "/menu/negocios";
+        }
+        if (user?.role === 'cliente') {
+            return path !== "/cliente" && path !== "/cliente/negocios";
+        }
+        if (user?.role === 'tecnico') {
+            return path !== "/tecnico";
+        }
+        if (user?.role === 'encargado') {
+            return path !== "/encargado" && path !== "/encargado/resumen";
+        }
+        if (user?.role === 'autonomo' || user?.role === 'admin-autonomo' || user?.role === 'gerente-general') {
+            return path !== "/autonomo" && path !== "/autonomo/dashboard" && path !== "/autonomo/resumen";
+        }
+        return true;
+    };
+
     // Cargar notificaciones
     const cargarNotificaciones = async () => {
         if (!user?.id) return;
@@ -147,7 +168,7 @@ const MenuLayout: React.FC = () => {
         let baseOptions: string[] = [];
 
         if (user.role === 'admin') {
-            baseOptions = ["Negocios", "Dashboard", "Inventario General", "Trabajadores", "Usuarios", "Solicitudes", "Reportes Mantenimiento", "Trabajos Realizados"];
+            baseOptions = ["Negocios", "Dashboard", "Inventario General", "Trabajadores", "Usuarios", "Solicitudes", "Mantenimientos", "Trabajos Realizados"];
         } else if (user.role === 'autonomo' || user.role === 'admin-autonomo' || user.role === 'gerente-general') {
             baseOptions = ["Mi Dashboard", "Mis Sucursales", "Mis Técnicos", "Usuarios", "Solicitudes", "Historial"];
         } else if (user.role === 'cliente') {
@@ -176,7 +197,7 @@ const MenuLayout: React.FC = () => {
                 else if (path.includes("trabajadores")) setActiveOption("Trabajadores");
                 else if (path.includes("usuarios")) setActiveOption("Usuarios");
                 else if (path.includes("solicitudes")) setActiveOption("Solicitudes");
-                else if (path.includes("mantenimiento")) setActiveOption("Reportes Mantenimiento");
+                else if (path.includes("mantenimiento")) setActiveOption("Mantenimientos");
                 else if (path.includes("trabajos-realizados")) setActiveOption("Trabajos Realizados");
                 else setActiveOption("Negocios");
             } else if (path.startsWith("/autonomo")) {
@@ -222,7 +243,7 @@ const MenuLayout: React.FC = () => {
             if (user?.role === 'autonomo' || user?.role === 'admin-autonomo' || user?.role === 'gerente-general') navigate("/autonomo/solicitudes");
             else navigate("/menu/solicitudes");
         }
-        if (option === "Reportes Mantenimiento") navigate("/menu/mantenimiento");
+        if (option === "Mantenimientos") navigate("/menu/mantenimiento");
         if (option === "Trabajos Realizados") navigate("/menu/trabajos-realizados");
 
         // Admin Autónomo
@@ -315,6 +336,7 @@ const MenuLayout: React.FC = () => {
             case "Trabajos":
             case "Mis Trabajos":
             case "Reportes Mantenimiento":
+            case "Mantenimientos":
                 return <HiOutlineWrench size={22} />;
             default:
                 return <HiOutlineDocumentText size={22} />;
@@ -382,7 +404,7 @@ const MenuLayout: React.FC = () => {
                 {!location.pathname.includes("/trabajo-detalle") && !location.pathname.includes("/verificacion-tarea") && !location.pathname.includes("/reporte-tarea") && (
                     <header className={styles.header}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                            {location.pathname !== getBaseRoute() && location.pathname !== getBaseRoute() + "/dashboard" && location.pathname !== getBaseRoute() + "/" && (
+                            {shouldShowBackButton() && (
                                 <button 
                                     onClick={handleBackClick} 
                                     style={{ 

@@ -36,7 +36,7 @@ export default function ListaUsuarios() {
     }, []);
 
     // Estados para edición
-    const [editingUserId, setEditingUserId] = useState<number | null>(null);
+    const [editingUser, setEditingUser] = useState<User | null>(null);
     const [editEmail, setEditEmail] = useState("");
 
     // Estados para resetear contraseña
@@ -100,15 +100,16 @@ export default function ListaUsuarios() {
     };
 
     const handleEditStart = (user: User) => {
-        setEditingUserId(user.id);
+        setEditingUser(user);
         setEditEmail(user.email);
     };
 
-    const handleSaveEmail = async (userId: number) => {
+    const handleSaveEmail = async () => {
+        if (!editingUser) return;
         try {
-            await updateUser(userId, { email: editEmail });
-            setUsers(users.map(u => u.id === userId ? { ...u, email: editEmail } : u));
-            setEditingUserId(null);
+            await updateUser(editingUser.id, { email: editEmail });
+            setUsers(users.map(u => u.id === editingUser.id ? { ...u, email: editEmail } : u));
+            setEditingUser(null);
             showAlert("Éxito", "Correo actualizado correctamente.", "success");
         } catch (error: any) {
             let errorMsg = "No se pudo actualizar el correo.";
@@ -331,13 +332,7 @@ export default function ListaUsuarios() {
                                             <div className={styles.detailsList}>
                                                 <div className={styles.detailItem} title={u.email} onClick={(e) => e.stopPropagation()}>
                                                     <span className={styles.detailIcon}><HiOutlineEnvelope size={14} /></span>
-                                                    {editingUserId === u.id ? (
-                                                        <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
-                                                            <input className={styles.editInput} value={editEmail} onChange={(e) => setEditEmail(e.target.value)} style={{ width: '100%', padding: '4px 8px', borderRadius: '4px', border: '1px solid #ccc' }} />
-                                                            <button className={styles.saveBtn} onClick={() => handleSaveEmail(u.id)} style={{ padding: '4px 8px', background: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}><HiCheck /></button>
-                                                            <button className={styles.cancelBtn} onClick={() => setEditingUserId(null)} style={{ padding: '4px 8px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}><HiXMark /></button>
-                                                        </div>
-                                                    ) : <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{u.email}</span>}
+                                                    <span className={styles.emailText}>{u.email}</span>
                                                 </div>
                                                 <div className={styles.detailItem}>
                                                     <span className={styles.detailIcon}><HiOutlineFingerPrint size={14} /></span>
@@ -395,6 +390,21 @@ export default function ListaUsuarios() {
                         <div className={styles.modalFooter}>
                             <button className={styles.btnSecondary} onClick={() => setResetPasswordUserId(null)}>Cancelar</button>
                             <button className={styles.btnPrimary} onClick={handleSavePassword}>Guardar</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal de Editar Correo */}
+            {editingUser && (
+                <div className={styles.modalOverlay}>
+                    <div className={styles.modalContent}>
+                        <h3>Editar Correo</h3>
+                        <p style={{ fontSize: '14px', color: '#666', marginBottom: '15px' }}>Ingresa el nuevo correo para <strong>{editingUser.name}</strong>.</p>
+                        <input type="email" placeholder="correo@empresa.com" className={styles.modalInput} value={editEmail} onChange={(e) => setEditEmail(e.target.value)} />
+                        <div className={styles.modalFooter}>
+                            <button className={styles.btnSecondary} onClick={() => setEditingUser(null)}>Cancelar</button>
+                            <button className={styles.btnPrimary} onClick={handleSaveEmail}>Guardar</button>
                         </div>
                     </div>
                 </div>
