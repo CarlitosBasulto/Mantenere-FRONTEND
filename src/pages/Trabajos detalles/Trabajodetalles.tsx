@@ -1346,6 +1346,9 @@ const TrabajoDetalle: React.FC = () => {
                                                     alt={`Foto ${idx + 1}`}
                                                     className={styles.carouselImg}
                                                     onClick={() => setSelectedZoomImage(url)}
+                                                    onError={(e) => {
+                                                        (e.currentTarget as HTMLElement).style.display = 'none';
+                                                    }}
                                                 />
                                             ))}
                                         </div>
