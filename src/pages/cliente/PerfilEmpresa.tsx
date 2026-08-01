@@ -469,16 +469,80 @@ const PerfilEmpresa: React.FC = () => {
         }
     };
 
+    const persistLevantamiento = async (newLevantamientoData: LevantamientoData) => {
+        setFormData(prev => ({ ...prev, levantamiento: newLevantamientoData }));
+        
+        if (!editId) return;
+
+        try {
+            const finalLevantamiento = await Promise.all(newLevantamientoData.map(async (section) => {
+                const finalEquipos = await Promise.all(section.equipos.map(async (eq) => {
+                    let eqFoto = eq.foto;
+                    let eqFotoPlaca = eq.fotoPlaca;
+                    if (eq.fotoFile) {
+                        try { eqFoto = await uploadImage(eq.fotoFile); } catch (ign) { }
+                    }
+                    if (eq.fotoPlacaFile) {
+                        try { eqFotoPlaca = await uploadImage(eq.fotoPlacaFile); } catch (ign) { }
+                    }
+                    return { ...eq, foto: eqFoto, fotoPlaca: eqFotoPlaca };
+                }));
+                return { ...section, equipos: finalEquipos };
+            }));
+
+            const finalTipo = formData.tipo === 'Otro' ? (customTipoValue || 'Otro') : formData.tipo;
+            const apiPayload = {
+                nombre: formData.nombreSucursal,
+                tipo: finalTipo,
+                encargado: formData.encargado,
+                estado: formData.estado,
+                ciudad: formData.ciudad,
+                calle: formData.calle,
+                numero: formData.numero,
+                colonia: formData.colonia,
+                cp: formData.cp,
+                referencia: formData.referencia,
+                nombrePlaza: formData.nombrePlaza,
+                gerente: formData.gerente,
+                telefonoGerente: formData.telefonoGerente,
+                subgerente: formData.subgerente,
+                telefonoSubgerente: formData.telefonoSubgerente,
+                manzana: formData.manzana,
+                lote: formData.lote,
+                calleAv: formData.calleAv,
+                levantamiento: finalLevantamiento,
+                imagenPerfil: formData.imagenPerfil,
+                imagen_portada: formData.imagenPortada
+            };
+
+            const updateRes = await updateNegocio(Number(editId), apiPayload);
+            if (updateRes?.data?.areas) {
+                setFormData(prev => ({ ...prev, levantamiento: updateRes.data.areas }));
+            }
+            showAlert("Éxito", "Levantamiento guardado correctamente", "success");
+        } catch (err) {
+            console.error("Error al guardar levantamiento:", err);
+            showAlert("Error", "No se pudo sincronizar el levantamiento con el servidor", "error");
+        }
+    };
+
     const handleDeleteEquipment = (eqId: string, sectionId: string) => {
-        setFormData(prev => {
-            const updatedLevantamiento = (prev.levantamiento || []).map(section => {
-                if (section.id === sectionId) {
-                    return { ...section, equipos: section.equipos.filter(e => e.id !== eqId) };
-                }
-                return section;
-            });
-            return { ...prev, levantamiento: updatedLevantamiento };
-        });
+        showConfirm(
+            "¿Eliminar equipo?",
+            "¿Estás seguro de que deseas eliminar este equipo definitivamente?",
+            () => {
+                const updatedLevantamiento = (formData.levantamiento || []).map(section => {
+                    if (section.id === sectionId) {
+                        return { ...section, equipos: section.equipos.filter(e => e.id !== eqId) };
+                    }
+                    return section;
+                });
+                persistLevantamiento(updatedLevantamiento);
+            },
+            () => {},
+            "Sí, eliminar",
+            "Cancelar"
+        );
     };
 
     const handleReportarProblemaSubmit = async (descripcion: string) => {
@@ -993,7 +1057,7 @@ const PerfilEmpresa: React.FC = () => {
                     data={formData.levantamiento || []}
                     initialSectionId={activeSectionId}
                     initialEquipmentId={activeEquipmentId}
-                    onSave={(newData) => setFormData(prev => ({ ...prev, levantamiento: newData }))}
+                    onSave={(newData) => persistLevantamiento(newData)}
                     isReadOnly={!canEdit}
                 />
 
