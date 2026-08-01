@@ -2,7 +2,7 @@
 
 
 .body {
-    background-image: url('../../assets/imagenes/Fondosesion.png');
+    background-image: url('../../assets/imagenes/Fondosesion.jpg');
     background-size: 115% 115%;
     background-position: center;
     display: flex;
@@ -169,7 +169,7 @@
 
 .overlay {
     background: #ffffff;
-    background-image: url('../../assets/imagenes/imagen.png');
+    background-image: url('../../assets/imagenes/imagen.jpg');
     background-repeat: no-repeat;
     background-size: cover;
     background-position: 0 0;
