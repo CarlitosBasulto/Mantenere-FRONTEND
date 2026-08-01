@@ -891,46 +891,62 @@ const PerfilEmpresa: React.FC = () => {
                                                                     🔹 Sub-área: {sub.nombreSubArea}
                                                                 </div>
 
-                                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                                                     {sub.equipos.length === 0 ? (
                                                                         <span style={{ fontSize: '12px', color: '#94a3b8', fontStyle: 'italic' }}>No hay equipos registrados en esta sub-área.</span>
                                                                     ) : (
-                                                                        sub.equipos.map((item, idx) => (
-                                                                            <div key={item.id || idx} className={styles.equipoChip}>
-                                                                                <span 
-                                                                                    className={styles.chipName}
-                                                                                    onClick={() => {
-                                                                                        setSelectedEquipment(item);
-                                                                                        setSelectedSectionId(seccion.id);
-                                                                                    }}
-                                                                                >
-                                                                                    {item.nombre}
-                                                                                </span>
-                                                                                <div className={styles.chipActions}>
-                                                                                    <button onClick={() => { setSelectedEquipment(item); setSelectedSectionId(seccion.id); }} title="Ver Ficha"><HiOutlineEye size={16} color="#2563eb" /></button>
-                                                                                    <button onClick={() => setReportingEquipment(item)} title="Reportar"><HiOutlineExclamationTriangle size={16} color="#f59e0b" /></button>
-                                                                                    {canEdit && (
-                                                                                        <>
-                                                                                            <button onClick={() => { 
-                                                                                                setActiveSectionId(seccion.id); 
-                                                                                                setActiveEquipmentId(item.id!);
-                                                                                                setIsLevantamientoModalOpen(true); 
-                                                                                            }} title="Editar"><HiOutlinePencilSquare size={16} color="#64748b" /></button>
-                                                                                            <button onClick={() => handleDeleteEquipment(item.id!, seccion.id)} title="Borrar" className={styles.deleteBtn}><HiOutlineTrash size={16} color="#ef4444" /></button>
-                                                                                        </>
-                                                                                    )}
+                                                                        Object.entries(
+                                                                            sub.equipos.reduce((acc: Record<string, Equipment[]>, item) => {
+                                                                                const catName = item.subCategoria || item.categoria?.nombre || 'Aparatos Eléctricos / General';
+                                                                                if (!acc[catName]) acc[catName] = [];
+                                                                                acc[catName].push(item);
+                                                                                return acc;
+                                                                            }, {})
+                                                                        ).map(([catName, items]) => (
+                                                                            <div key={catName} style={{ background: '#fafafa', padding: '10px 14px', borderRadius: '10px', border: '1px solid #f1f5f9' }}>
+                                                                                <div style={{ fontSize: '11px', fontWeight: '800', color: '#b45309', textTransform: 'uppercase', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                                                    🏷️ Subcategoría: <span style={{ color: '#d97706', fontWeight: '800' }}>{catName}</span>
                                                                                 </div>
+                                                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                                                                                    {items.map((item, idx) => (
+                                                                                        <div key={item.id || idx} className={styles.equipoChip}>
+                                                                                            <span 
+                                                                                                className={styles.chipName}
+                                                                                                onClick={() => {
+                                                                                                    setSelectedEquipment(item);
+                                                                                                    setSelectedSectionId(seccion.id);
+                                                                                                }}
+                                                                                            >
+                                                                                                {item.nombre}
+                                                                                            </span>
+                                                                                            <div className={styles.chipActions}>
+                                                                                                <button onClick={() => { setSelectedEquipment(item); setSelectedSectionId(seccion.id); }} title="Ver Ficha"><HiOutlineEye size={16} color="#2563eb" /></button>
+                                                                                                <button onClick={() => setReportingEquipment(item)} title="Reportar"><HiOutlineExclamationTriangle size={16} color="#f59e0b" /></button>
+                                                                                                {canEdit && (
+                                                                                                    <>
+                                                                                                        <button onClick={() => { 
+                                                                                                            setActiveSectionId(seccion.id); 
+                                                                                                            setActiveEquipmentId(item.id!);
+                                                                                                            setIsLevantamientoModalOpen(true); 
+                                                                                                        }} title="Editar"><HiOutlinePencilSquare size={16} color="#64748b" /></button>
+                                                                                                        <button onClick={() => handleDeleteEquipment(item.id!, seccion.id)} title="Borrar" className={styles.deleteBtn}><HiOutlineTrash size={16} color="#ef4444" /></button>
+                                                                                                    </>
+                                                                                                )}
+                                                                                            </div>
 
-                                                                                <button 
-                                                                                    onClick={() => {
-                                                                                        setSelectedEqForBitacora(item);
-                                                                                        setBitacoraModalOpen(true);
-                                                                                    }} 
-                                                                                    className={styles.bitacoraBtn}
-                                                                                >
-                                                                                    <HiOutlineClipboardDocumentList size={14} />
-                                                                                    Ver Bitácora
-                                                                                </button>
+                                                                                            <button 
+                                                                                                onClick={() => {
+                                                                                                    setSelectedEqForBitacora(item);
+                                                                                                    setBitacoraModalOpen(true);
+                                                                                                }} 
+                                                                                                className={styles.bitacoraBtn}
+                                                                                            >
+                                                                                                <HiOutlineClipboardDocumentList size={14} />
+                                                                                                Ver Bitácora
+                                                                                            </button>
+                                                                                        </div>
+                                                                                    ))}
+                                                                                </div>
                                                                             </div>
                                                                         ))
                                                                     )}
