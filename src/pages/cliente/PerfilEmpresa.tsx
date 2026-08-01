@@ -491,7 +491,10 @@ const PerfilEmpresa: React.FC = () => {
             }));
 
             const finalTipo = formData.tipo === 'Otro' ? (customTipoValue || 'Otro') : formData.tipo;
-            const apiPayload = {
+            // Solo enviamos levantamiento + datos básicos (NO imágenes para no sobreescribir con blob URLs)
+            const imagenPerfilSafe = formData.imagenPerfil?.startsWith('blob:') ? undefined : formData.imagenPerfil;
+            const imagenPortadaSafe = (formData as any).imagenPortada?.startsWith('blob:') ? undefined : (formData as any).imagenPortada;
+            const apiPayload: Record<string, unknown> = {
                 nombre: formData.nombreSucursal,
                 tipo: finalTipo,
                 encargado: formData.encargado,
@@ -511,9 +514,9 @@ const PerfilEmpresa: React.FC = () => {
                 lote: formData.lote,
                 calleAv: formData.calleAv,
                 levantamiento: finalLevantamiento,
-                imagenPerfil: formData.imagenPerfil,
-                imagen_portada: formData.imagenPortada
             };
+            if (imagenPerfilSafe) apiPayload.imagenPerfil = imagenPerfilSafe;
+            if (imagenPortadaSafe) apiPayload.imagen_portada = imagenPortadaSafe;
 
             const updateRes = await updateNegocio(Number(editId), apiPayload);
             if (updateRes?.data?.areas) {
