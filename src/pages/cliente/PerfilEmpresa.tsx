@@ -50,6 +50,7 @@ export interface Equipment {
     categoria?: { id: number; nombre: string } | null;
     subAreaId?: string;
     nombreSubArea?: string;
+    subCategoria?: string;
 }
 
 export interface LevantamientoSubArea {

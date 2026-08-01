@@ -266,6 +266,7 @@ const LevantamientoModal: React.FC<LevantamientoModalProps> = ({ isOpen, onClose
             ...equipmentForm,
             subAreaId: targetSubId || `sub_gen_${activeSectionId}`,
             nombreSubArea: targetSub?.nombreSubArea || 'GENERAL',
+            subCategoria: equipmentForm.subCategoria || 'Aparatos Eléctricos',
             categoria: null
         };
 
@@ -567,6 +568,11 @@ const LevantamientoModal: React.FC<LevantamientoModalProps> = ({ isOpen, onClose
                                                             <div className={styles.eqInfo}>
                                                                 <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
                                                                     <strong>{eq.nombre}</strong>
+                                                                    {eq.subCategoria && (
+                                                                        <span className={styles.catBadge} style={{ background: '#fffbe6', color: '#b45309', border: '1px solid #fef08a' }}>
+                                                                            🏷️ {eq.subCategoria}
+                                                                        </span>
+                                                                    )}
                                                                     {eq.nombreSubArea && (
                                                                         <span className={styles.catBadge} style={{ background: '#eff6ff', color: '#1d4ed8' }}>🔹 {eq.nombreSubArea}</span>
                                                                     )}
@@ -617,6 +623,23 @@ const LevantamientoModal: React.FC<LevantamientoModalProps> = ({ isOpen, onClose
                                                             🔹 {sub.nombreSubArea}
                                                         </option>
                                                     ))}
+                                                </select>
+                                            </div>
+
+                                            <div className={styles.inputGroup}>
+                                                <label>Subcategoría del Activo</label>
+                                                <select
+                                                    value={equipmentForm.subCategoria || 'Aparatos Eléctricos'}
+                                                    onChange={e => setEquipmentForm({ ...equipmentForm, subCategoria: e.target.value })}
+                                                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', background: '#ffffff', color: '#0f172a', fontWeight: '600' }}
+                                                >
+                                                    <option value="Aparatos Eléctricos">⚡ Aparatos Eléctricos / Electrónicos</option>
+                                                    <option value="Inmobiliaria">🪑 Inmobiliaria / Muebles</option>
+                                                    <option value="Refrigeración">❄️ Refrigeración y Climas</option>
+                                                    <option value="Equipos de Cocina">🔥 Equipos de Cocina / Operación</option>
+                                                    <option value="Iluminación">💡 Luminaria e Iluminación</option>
+                                                    <option value="Maquinaria">🛠️ Maquinaria y Herramientas</option>
+                                                    <option value="Otros">🏷️ Otros Activos</option>
                                                 </select>
                                             </div>
 
