@@ -98,7 +98,7 @@ const PerfilEmpresa: React.FC = () => {
     // ... (logic remains same until return)
     const navigate = useNavigate();
     const { user } = useAuth();
-    const { showAlert } = useModal();
+    const { showAlert, showConfirm } = useModal();
     const canEdit = user?.role === 'cliente' || user?.role === 'encargado' || user?.role === 'autonomo';
 
     const [formData, setFormData] = useState<BusinessData>({

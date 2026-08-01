@@ -97,7 +97,7 @@ const AutonomoPerfilEmpresa: React.FC = () => {
     // ... (logic remains same until return)
     const navigate = useNavigate();
     const { user } = useAuth();
-    const { showAlert } = useModal();
+    const { showAlert, showConfirm } = useModal();
     const canEdit = ['cliente', 'encargado', 'autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '');
 
     const [formData, setFormData] = useState<BusinessData>({
