@@ -456,17 +456,6 @@ const LevantamientoModal: React.FC<LevantamientoModalProps> = ({ isOpen, onClose
                                 </div>
                             )}
                         </div>
-                        <div className={styles.sidebarFooter}>
-                            {!isReadOnly ? (
-                                <button className={styles.primaryBtn} onClick={handleFinalSave}>
-                                    Guardar Levantamientos Completo
-                                </button>
-                            ) : (
-                                <button className={styles.primaryBtn} onClick={onClose}>
-                                    Cerrar Vista
-                                </button>
-                            )}
-                        </div>
                     </div>
 
                     {/* MAIN: SUB-ÁREAS Y EQUIPOS */}
