@@ -558,7 +558,12 @@ const AutonomoPerfilEmpresa: React.FC = () => {
             () => {
                 const updatedLevantamiento = (formData.levantamiento || []).map(section => {
                     if (section.id === sectionId) {
-                        return { ...section, equipos: section.equipos.filter(e => e.id !== eqId) };
+                        const filteredEquipos = (section.equipos || []).filter(e => e.id !== eqId);
+                        const updatedSubAreas = (section.subAreas || []).map(sub => ({
+                            ...sub,
+                            equipos: (sub.equipos || []).filter(e => e.id !== eqId)
+                        }));
+                        return { ...section, equipos: filteredEquipos, subAreas: updatedSubAreas };
                     }
                     return section;
                 });
@@ -1051,9 +1056,15 @@ const AutonomoPerfilEmpresa: React.FC = () => {
                 )}
 
                 {/* FLOATING ACTION BUTTONS */}
-                {canEdit && activeTab === 'info' && (
+                {canEdit && (activeTab === 'info' || activeTab === 'levantamiento') && (
                     <div className={styles.floatingActions}>
-                        <button className={styles.saveButton} onClick={handleSave}>
+                        <button 
+                            className={styles.saveButton} 
+                            onClick={() => {
+                                if (activeTab === 'info') handleSave();
+                                else persistLevantamiento(formData.levantamiento || []);
+                            }}
+                        >
                             Guardar Cambios
                         </button>
                     </div>
