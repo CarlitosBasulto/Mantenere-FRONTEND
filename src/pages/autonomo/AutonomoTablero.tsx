@@ -105,8 +105,8 @@ const AutonomoTablero: React.FC = () => {
     }
 
     const colSolicitudes = trabajos.filter(t => ['Solicitud', 'Pendiente'].includes(t.estado));
-    const colAceptadas = trabajos.filter(t => ['Cotización Enviada', 'Cotización Aceptada', 'Aceptada'].includes(t.estado));
-    const colVisita = trabajos.filter(t => ['En Espera'].includes(t.estado) || (t.estado === 'En Proceso' && t.tipo === 'Visita'));
+    const colCotizaciones = trabajos.filter(t => ['Cotización Enviada', 'Cotización Aceptada', 'Aceptada'].includes(t.estado));
+    const colEnEspera = trabajos.filter(t => ['En Espera'].includes(t.estado) || (t.estado === 'En Proceso' && t.tipo === 'Visita') || t.estado === 'Visita');
     const colProceso = trabajos.filter(t => t.estado === 'En Proceso' && t.tipo !== 'Visita');
     const colFinalizadas = trabajos.filter(t => ['Finalizado', 'Completado'].includes(t.estado));
 

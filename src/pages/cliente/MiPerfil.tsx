@@ -5,8 +5,10 @@ import { useModal } from "../../context/ModalContext";
 import { getTrabajadores, updateTrabajador } from "../../services/trabajadoresService";
 import { getUserById, updateUser } from "../../services/usersService";
 import { getNegocios } from "../../services/negociosService";
-import { HiOutlineCamera, HiOutlineUser, HiOutlineEye, HiOutlineEyeSlash, HiOutlinePhoto, HiXMark } from "react-icons/hi2";
+import { HiOutlineCamera, HiOutlineUser, HiOutlineEye, HiOutlineEyeSlash, HiOutlinePhoto, HiXMark, HiOutlineBuildingOffice2, HiOutlineSparkles } from "react-icons/hi2";
 import api from "../../services/api";
+import SolicitudProveedorModal from "../../components/modals/SolicitudProveedorModal";
+import { getMiSolicitudProveedor } from "../../services/proveedorService";
 
 interface UserProfile {
     nombre: string;
@@ -41,6 +43,9 @@ const MiPerfil: React.FC = () => {
     const [showPassword, setShowPassword] = useState(false);
     const [showPhotoModal, setShowPhotoModal] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
+
+    const [isProveedorModalOpen, setIsProveedorModalOpen] = useState(false);
+    const [solicitudProveedor, setSolicitudProveedor] = useState<any>(null);
 
     const cameraInputRef = useRef<HTMLInputElement>(null);
     const galleryInputRef = useRef<HTMLInputElement>(null);
@@ -330,6 +335,65 @@ const MiPerfil: React.FC = () => {
                     >
                         Guardar Cambios
                     </button>
+
+                    {/* TARJETA / BANNER DE TÉCNICO PROVEEDOR */}
+                    {(user?.role === 'tecnico' || user?.role === 'tecnico-proveedor') && (
+                        <div style={{
+                            marginTop: '20px',
+                            background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
+                            borderRadius: '16px',
+                            padding: '18px',
+                            color: '#ffffff',
+                            boxShadow: '0 8px 20px rgba(15, 23, 42, 0.25)',
+                            border: '1px solid #334155'
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                                <HiOutlineBuildingOffice2 size={22} color="#38bdf8" />
+                                <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: '#ffffff' }}>
+                                    Técnico Proveedor
+                                </h4>
+                            </div>
+
+                            {user?.role === 'tecnico-proveedor' ? (
+                                <div style={{ background: '#064e3b', color: '#6ee7b7', padding: '8px 12px', borderRadius: '10px', fontSize: '12px', fontWeight: '800', border: '1px solid #047857' }}>
+                                    🎉 ¡Eres Técnico Proveedor! Tienes escuadrón a tu cargo.
+                                </div>
+                            ) : solicitudProveedor?.estado === 'Pendiente' ? (
+                                <div style={{ background: '#78350f', color: '#fde68a', padding: '8px 12px', borderRadius: '10px', fontSize: '12px', fontWeight: '800', border: '1px solid #b45309' }}>
+                                    ⏳ Tu solicitud está en revisión por el Administrador.
+                                </div>
+                            ) : (
+                                <>
+                                    <p style={{ margin: '0 0 12px 0', fontSize: '11px', color: '#94a3b8', lineHeight: '1.4' }}>
+                                        ¿Tienes tu propio equipo de técnicos? Solicita convertirte en Técnico Proveedor para despachar visitas a tu escuadrón.
+                                    </p>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsProveedorModalOpen(true)}
+                                        style={{
+                                            width: '100%',
+                                            padding: '10px',
+                                            background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                                            color: '#ffffff',
+                                            border: 'none',
+                                            borderRadius: '10px',
+                                            fontSize: '12px',
+                                            fontWeight: '800',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            gap: '6px',
+                                            boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)'
+                                        }}
+                                    >
+                                        <HiOutlineSparkles size={16} /> Convertirme en Técnico Proveedor
+                                    </button>
+                                </>
+                            )}
+                        </div>
+                    )}
 
                 </div>
 
@@ -703,12 +767,19 @@ const MiPerfil: React.FC = () => {
                     .perfil-grid {
                         grid-template-columns: 1fr !important;
                     }
-                    .perfil-grid > div {
-                        grid-column: span 1 !important;
-                    }
                 }
                 `}
             </style>
+
+            <SolicitudProveedorModal
+                isOpen={isProveedorModalOpen}
+                onClose={() => setIsProveedorModalOpen(false)}
+                onSuccess={() => {
+                    if (user?.role === 'tecnico') {
+                        getMiSolicitudProveedor().then(data => setSolicitudProveedor(data)).catch(() => {});
+                    }
+                }}
+            />
         </div>
     );
 };

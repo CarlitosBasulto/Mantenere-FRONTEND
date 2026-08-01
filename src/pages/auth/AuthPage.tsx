@@ -253,6 +253,10 @@ const AuthPage: React.FC = () => {
                         </div>
 
                         <button type="submit" className={styles.button}>Registrarse</button>
+
+                        <div style={{ marginTop: '14px', background: '#f8fafc', padding: '10px 14px', borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '11px', color: '#475569', textAlign: 'center' }}>
+                            🏢 <strong>¿Eres Técnico y tienes tu propio equipo?</strong> Regístrate como técnico y solicita tu upgrade a <strong>Técnico Proveedor</strong> en tu perfil.
+                        </div>
                         
                         {/* Mobile view switch */}
                         <div className={styles.mobileSwitch}>

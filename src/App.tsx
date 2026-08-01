@@ -28,6 +28,7 @@ import AdminVerificacionEquipo from "./pages/admin/AdminVerificacionEquipo";
 import AdminReporte from "./pages/admin/AdminReporte";
 import AdminCotizacion from "./pages/admin/AdminCotizacion";
 import AdminPerfilTrabajador from "./pages/admin/AdminPerfilTrabajador";
+import AdminSolicitudesProveedores from "./pages/admin/AdminSolicitudesProveedores";
 import PerfilEmpresa from "./pages/cliente/PerfilEmpresa";
 import MiPerfil from "./pages/cliente/MiPerfil";
 import AutonomoMiPerfil from "./pages/ecosistema_autonomo/admin_autonomo/AutonomoMiPerfil";
@@ -85,6 +86,7 @@ function App() {
                             <Route path="verificacion-tarea/:id" element={<AdminVerificacionEquipo />} />
                             <Route path="reporte-tarea/:id" element={<AdminReporte />} />
                             <Route path="mi-perfil" element={<MiPerfil />} />
+                            <Route path="solicitudes-proveedores" element={<AdminSolicitudesProveedores />} />
                             <Route path="perfil-empresa" element={<PerfilEmpresa />} />
                             <Route path="admin-autonomo/:id" element={<DetalleAdminAutonomo />} />
                         </Route>
