@@ -180,18 +180,12 @@ const AutonomoPerfilEmpresa: React.FC = () => {
                         lote: localInfo.lote || existing.lote || "",
                         calleAv: localInfo.calleAv || existing.calleAv || "",
                         referencia: localInfo.referencia || existing.referencia || "",
-                        levantamiento: Array.isArray(localInfo.areas) && localInfo.areas.length > 0
-                            ? localInfo.areas
-                            : Array.isArray((existing as any).areas) && (existing as any).areas.length > 0
-                                ? (existing as any).areas
-                                : Array.isArray(existing.levantamiento)
-                                    ? existing.levantamiento
-                                    : (existing.levantamiento && typeof existing.levantamiento === 'object')
-                                        ? [
-                                            { id: 'fria', nombreArea: 'Área Fría', equipos: (existing.levantamiento as any).areaFria || [] },
-                                            { id: 'caliente', nombreArea: 'Área Caliente', equipos: (existing.levantamiento as any).areaCaliente || [] }
-                                        ]
-                                        : []
+                        // SIEMPRE priorizamos datos del servidor para el levantamiento (evita mostrar datos stale del localStorage)
+                        levantamiento: Array.isArray((existing as any).areas) && (existing as any).areas.length > 0
+                            ? (existing as any).areas
+                            : Array.isArray(existing.levantamiento)
+                                ? existing.levantamiento
+                                : []
                     }));
                 } catch (error) {
                     console.error("Error fetching negocio:", error);
