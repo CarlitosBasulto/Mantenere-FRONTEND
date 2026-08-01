@@ -1794,68 +1794,84 @@ const TrabajoDetalle: React.FC = () => {
                     </div>
 
                     {/* BOTONES DE ACCIÓN */}
-                    {(user?.role?.toLowerCase() === 'cliente' || user?.role?.toLowerCase() === 'admin' || user?.role?.toLowerCase() === 'encargado' || user?.role?.toLowerCase() === 'tecnico' || user?.role?.toLowerCase() === 'autonomo') && (
-                        <div className={styles.actionButtonsGroup}>
-                            {/* Botón SOS */}
-                            {(user?.role?.toLowerCase() === 'cliente' || user?.role?.toLowerCase() === 'autonomo' || user?.role?.toLowerCase() === 'encargado') && (
-                                <button
-                                    className={styles.sosBtn}
-                                    onClick={handleSOSRequest}
-                                    translate="no"
-                                >
-                                    🚨 SOS
-                                </button>
-                            )}
+                    {(() => {
+                        const roleStr = (typeof user?.role === 'string' ? user.role : (user?.role?.name || '')).toLowerCase();
+                        const isEncargado = roleStr === 'encargado' || roleStr.includes('encargado') || roleStr.includes('subgerente') || roleStr.includes('gerente');
+                        const isCliente = roleStr === 'cliente';
+                        const isAdmin = roleStr === 'admin' || roleStr === 'root' || roleStr === 'sub-admin';
+                        const isAutonomo = roleStr.includes('autonomo');
+                        const isTecnico = roleStr.includes('tecnico');
 
-                            {/* Botón Solicitud */}
-                            {(user?.role?.toLowerCase() === 'cliente' || user?.role?.toLowerCase() === 'autonomo' || user?.role?.toLowerCase() === 'encargado') && (
-                                <button
-                                    className={styles.newRequestBtn}
-                                    onClick={() => {
-                                        setIsSOSRequest(false);
-                                        setIsEditingRequest(false);
-                                        setEditingRequestId(null);
-                                        setNewRequestData({
-                                            categoria: "Electricidad",
-                                            cliente: businessName,
-                                            fecha: new Date().toISOString().split('T')[0],
-                                            descripcion: "",
-                                            equipoSeleccionado: "",
-                                            trabajador_id: ""
-                                        });
-                                        setFotosSOS([]);
-                                        setFotosPreviewUrls([]);
-                                        setIsRequestModalOpen(true);
-                                    }}
-                                >
-                                    <HiOutlineClipboardDocument size={18} />
-                                    Solicitud
-                                </button>
-                            )}
+                        const canSeeActions = isCliente || isAdmin || isEncargado || isAutonomo || isTecnico;
+                        const canSeeSOS = isCliente || isEncargado || isAutonomo || isAdmin;
+                        const canSeeSolicitud = isCliente || isEncargado || isAutonomo || isAdmin;
+                        const canSeeEquipos = isAdmin || isCliente || isEncargado || isAutonomo;
 
-                            {/* Botón Equipos */}
-                            {(user?.role?.toLowerCase() === 'admin' || user?.role?.toLowerCase() === 'cliente' || user?.role?.toLowerCase() === 'encargado' || user?.role?.toLowerCase() === 'autonomo') && (
-                                <button
-                                    className={styles.equiposBtn}
-                                    onClick={() => setSearchParams({ tab: 'equipos' })}
-                                >
-                                    <HiOutlineArchiveBox size={18} />
-                                    Equipos
-                                </button>
-                            )}
+                        if (!canSeeActions) return null;
 
-                            {/* Botón Ver Historial */}
-                            {user?.role?.toLowerCase() === 'tecnico' && (
-                                <button
-                                    className={styles.historialBtn}
-                                    onClick={() => setSearchParams({ tab: 'historial' })}
-                                >
-                                    <HiOutlineClock size={20} />
-                                    Ver Historial
-                                </button>
-                            )}
-                        </div>
-                    )}
+                        return (
+                            <div className={styles.actionButtonsGroup}>
+                                {/* Botón SOS */}
+                                {canSeeSOS && (
+                                    <button
+                                        className={styles.sosBtn}
+                                        onClick={handleSOSRequest}
+                                        translate="no"
+                                    >
+                                        🚨 SOS
+                                    </button>
+                                )}
+
+                                {/* Botón Solicitud */}
+                                {canSeeSolicitud && (
+                                    <button
+                                        className={styles.newRequestBtn}
+                                        onClick={() => {
+                                            setIsSOSRequest(false);
+                                            setIsEditingRequest(false);
+                                            setEditingRequestId(null);
+                                            setNewRequestData({
+                                                categoria: "Electricidad",
+                                                cliente: businessName,
+                                                fecha: new Date().toISOString().split('T')[0],
+                                                descripcion: "",
+                                                equipoSeleccionado: "",
+                                                trabajador_id: ""
+                                            });
+                                            setFotosSOS([]);
+                                            setFotosPreviewUrls([]);
+                                            setIsRequestModalOpen(true);
+                                        }}
+                                    >
+                                        <HiOutlineClipboardDocument size={18} />
+                                        Solicitud
+                                    </button>
+                                )}
+
+                                {/* Botón Equipos */}
+                                {canSeeEquipos && (
+                                    <button
+                                        className={styles.equiposBtn}
+                                        onClick={() => setSearchParams({ tab: 'equipos' })}
+                                    >
+                                        <HiOutlineArchiveBox size={18} />
+                                        Equipos
+                                    </button>
+                                )}
+
+                                {/* Botón Ver Historial */}
+                                {isTecnico && (
+                                    <button
+                                        className={styles.historialBtn}
+                                        onClick={() => setSearchParams({ tab: 'historial' })}
+                                    >
+                                        <HiOutlineClock size={20} />
+                                        Ver Historial
+                                    </button>
+                                )}
+                            </div>
+                        );
+                    })()}
                 </div>
 
                 {/* ESTRUCTURA DE CONTENIDO */}
