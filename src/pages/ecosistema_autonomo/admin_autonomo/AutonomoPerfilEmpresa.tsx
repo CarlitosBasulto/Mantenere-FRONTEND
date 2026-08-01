@@ -971,7 +971,7 @@ const AutonomoPerfilEmpresa: React.FC = () => {
                 )}
 
                 {/* FLOATING ACTION BUTTONS */}
-                {canEdit && (
+                {canEdit && activeTab === 'info' && (
                     <div className={styles.floatingActions}>
                         <button className={styles.saveButton} onClick={handleSave}>
                             Guardar Cambios
