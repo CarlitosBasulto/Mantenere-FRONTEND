@@ -33,7 +33,6 @@ import { createMantenimientoSolicitud, getMantenimientoSolicitudes } from "../..
 import { getTrabajos } from "../../services/trabajosService";
 import { getReporteByTrabajoId } from "../../services/reportesService";
 import LevantamientoFlotaMockup from "../../components/LevantamientoFlotaMockup";
-import FormatoEntregaModal from '../../components/FormatoEntregaModal';
 import AreaVisualGrid from '../../components/AreaVisualGrid';
 import ModalSeleccionEspacio from '../../components/ModalSeleccionEspacio';
 
@@ -1137,11 +1136,6 @@ const PerfilEmpresa: React.FC = () => {
                         trabajoId={selectedTrabajoId}
                     />
                 )}
-
-                <FormatoEntregaModal 
-                    isOpen={false} 
-                    onClose={() => {}} 
-                />
 
                 <ModalSeleccionEspacio 
                     isOpen={isAreaModalOpen}

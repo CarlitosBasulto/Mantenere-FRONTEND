@@ -33,7 +33,6 @@ import { createMantenimientoSolicitud, getMantenimientoSolicitudes } from "../..
 import { getTrabajos } from "../../../services/trabajosService";
 import { getReporteByTrabajoId } from "../../../services/reportesService";
 import LevantamientoFlotaMockup from "../../../components/LevantamientoFlotaMockup";
-import FormatoEntregaModal from '../../../components/FormatoEntregaModal';
 import AreaVisualGrid from '../../../components/AreaVisualGrid';
 import ModalSeleccionEspacio from '../../../components/ModalSeleccionEspacio';
 
@@ -1140,11 +1139,6 @@ const AutonomoPerfilEmpresa: React.FC = () => {
                         setSelectedTrabajoId(trabajoId);
                         setReporteModalOpen(true);
                     }}
-                />
-
-                <FormatoEntregaModal 
-                    isOpen={isFormatoModalOpen} 
-                    onClose={() => setIsFormatoModalOpen(false)} 
                 />
 
                 <ModalSeleccionEspacio 
