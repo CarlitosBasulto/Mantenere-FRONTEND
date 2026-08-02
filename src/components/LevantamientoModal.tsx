@@ -175,6 +175,8 @@ const LevantamientoModal: React.FC<LevantamientoModalProps> = ({ isOpen, onClose
         setActiveSubAreaId(newSubId);
         setNewSectionName('');
         setIsAddingSection(false);
+        // Persistir inmediatamente en el servidor
+        onSave(updated);
     };
 
     const handleDeleteSection = (id: string, nombreArea: string) => {
@@ -189,6 +191,8 @@ const LevantamientoModal: React.FC<LevantamientoModalProps> = ({ isOpen, onClose
                     setActiveSectionId(nextSec ? nextSec.id : null);
                     setActiveSubAreaId(nextSec && nextSec.subAreas && nextSec.subAreas.length > 0 ? nextSec.subAreas[0].id : null);
                 }
+                // Persistir inmediatamente en el servidor
+                onSave(updated);
             },
             () => {},
             "Sí, eliminar",
@@ -219,6 +223,8 @@ const LevantamientoModal: React.FC<LevantamientoModalProps> = ({ isOpen, onClose
         setActiveSubAreaId(newSubId);
         setNewSubAreaName('');
         setIsAddingSubArea(false);
+        // Persistir inmediatamente en el servidor
+        onSave(updatedSections);
     };
 
     const handleDeleteSubArea = (subId: string, nombreSubArea: string) => {
@@ -241,6 +247,8 @@ const LevantamientoModal: React.FC<LevantamientoModalProps> = ({ isOpen, onClose
                 setSections(updatedSections);
                 const activeSec = updatedSections.find(s => s.id === activeSectionId);
                 setActiveSubAreaId(activeSec && activeSec.subAreas && activeSec.subAreas.length > 0 ? activeSec.subAreas[0].id : null);
+                // Persistir inmediatamente en el servidor
+                onSave(updatedSections);
             },
             () => {},
             "Sí, eliminar",
