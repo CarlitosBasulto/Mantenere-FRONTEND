@@ -33,6 +33,9 @@ import { createMantenimientoSolicitud, getMantenimientoSolicitudes } from "../..
 import { getTrabajos } from "../../services/trabajosService";
 import { getReporteByTrabajoId } from "../../services/reportesService";
 import LevantamientoFlotaMockup from "../../components/LevantamientoFlotaMockup";
+import FormatoEntregaModal from '../../components/FormatoEntregaModal';
+import AreaVisualGrid from '../../components/AreaVisualGrid';
+import ModalSeleccionEspacio from '../../components/ModalSeleccionEspacio';
 
 export interface Equipment {
     id?: string;
@@ -124,6 +127,12 @@ const PerfilEmpresa: React.FC = () => {
     const [activeEquipmentId, setActiveEquipmentId] = useState<string | null>(null);
     const [imageError, setImageError] = useState(false);
     const [customTipoValue, setCustomTipoValue] = useState("");
+
+    // Nuevos estados para Grid Visual
+    const [isAreaModalOpen, setIsAreaModalOpen] = useState(false);
+    const [isSubAreaModalOpen, setIsSubAreaModalOpen] = useState(false);
+    const [activeAreaForSub, setActiveAreaForSub] = useState<string | null>(null);
+    const [initialSubAreaId, setInitialSubAreaId] = useState<string | null>(null);
 
     // Bitacora (Historial) states
     const [bitacoraModalOpen, setBitacoraModalOpen] = useState(false);
@@ -463,7 +472,7 @@ const PerfilEmpresa: React.FC = () => {
         }
     };
 
-    const persistLevantamiento = async (newLevantamientoData: LevantamientoData) => {
+    const persistLevantamiento = async (newLevantamientoData: LevantamientoData, showNotification: boolean = false) => {
         setFormData(prev => ({ ...prev, levantamiento: newLevantamientoData }));
         
         if (!editId) return;
@@ -479,7 +488,7 @@ const PerfilEmpresa: React.FC = () => {
                     if (eq.fotoPlacaFile) {
                         try { eqFotoPlaca = await uploadImage(eq.fotoPlacaFile); } catch (ign) { }
                     }
-                    return { ...eq, foto: eqFoto, fotoPlaca: eqFotoPlaca };
+                    return { ...eq, foto: eqFoto, fotoPlaca: eqFotoPlaca, fotoFile: undefined, fotoPlacaFile: undefined };
                 }));
                 return { ...section, equipos: finalEquipos };
             }));
@@ -516,35 +525,105 @@ const PerfilEmpresa: React.FC = () => {
             if (updateRes?.data?.areas) {
                 setFormData(prev => ({ ...prev, levantamiento: updateRes.data.areas }));
             }
-            showAlert("Éxito", "Levantamiento guardado correctamente", "success");
+            if (showNotification) {
+                showAlert("Éxito", "Levantamiento guardado correctamente", "success");
+            }
         } catch (err) {
             console.error("Error al guardar levantamiento:", err);
-            showAlert("Error", "No se pudo sincronizar el levantamiento con el servidor", "error");
+            if (showNotification) {
+                showAlert("Error", "No se pudo sincronizar el levantamiento con el servidor", "error");
+            }
         }
     };
 
     const handleDeleteEquipment = (eqId: string, sectionId: string) => {
         showConfirm(
             "¿Eliminar equipo?",
-            "¿Estás seguro de que deseas eliminar este equipo definitivamente?",
-            () => {
-                const updatedLevantamiento = (formData.levantamiento || []).map(section => {
-                    if (section.id === sectionId) {
-                        const filteredEquipos = (section.equipos || []).filter(e => e.id !== eqId);
-                        const updatedSubAreas = (section.subAreas || []).map(sub => ({
-                            ...sub,
-                            equipos: (sub.equipos || []).filter(e => e.id !== eqId)
-                        }));
-                        return { ...section, equipos: filteredEquipos, subAreas: updatedSubAreas };
+            "¿Estás seguro de que deseas eliminar este equipo permanentemente?",
+            async () => {
+                const currentLevantamiento = formData.levantamiento || [];
+                const updated = currentLevantamiento.map(sec => {
+                    if (sec.id === sectionId) {
+                        return {
+                            ...sec,
+                            equipos: sec.equipos.filter(e => e.id !== eqId),
+                            subAreas: (sec.subAreas || []).map(sub => ({
+                                ...sub,
+                                equipos: sub.equipos.filter(e => e.id !== eqId)
+                            }))
+                        };
                     }
-                    return section;
+                    return sec;
                 });
-                persistLevantamiento(updatedLevantamiento);
+                setFormData(prev => ({ ...prev, levantamiento: updated }));
+                try {
+                    await deleteEquipo(eqId);
+                    showAlert("Eliminado", "Equipo eliminado correctamente", "success");
+                    await persistLevantamiento(updated);
+                } catch (err) {
+                    console.error("Error al borrar equipo:", err);
+                    showAlert("Error", "No se pudo eliminar el equipo en la base de datos", "error");
+                }
             },
             () => {},
             "Sí, eliminar",
             "Cancelar"
         );
+    };
+
+    // Funciones para el Grid Visual
+    const handleAddArea = (nombreArea: string) => {
+        const newSecId = `sec_${Date.now()}`;
+        const newSubId = `sub_${Date.now()}`;
+        const newSection: LevantamientoSeccion = {
+            id: newSecId,
+            nombreArea: nombreArea.trim().toUpperCase(),
+            subAreas: [{ id: newSubId, nombreSubArea: 'GENERAL', equipos: [] }],
+            equipos: []
+        };
+        const updated = [...(formData.levantamiento || []), newSection];
+        persistLevantamiento(updated);
+        setIsAreaModalOpen(false);
+    };
+
+    const handleAddSubArea = (nombreSubArea: string) => {
+        if (!activeAreaForSub) return;
+        const newSubId = `sub_${Date.now()}`;
+        const updated = (formData.levantamiento || []).map(sec => {
+            if (sec.id === activeAreaForSub) {
+                return {
+                    ...sec,
+                    subAreas: [...(sec.subAreas || []), { id: newSubId, nombreSubArea: nombreSubArea.trim().toUpperCase(), equipos: [] }]
+                };
+            }
+            return sec;
+        });
+        persistLevantamiento(updated);
+        setIsSubAreaModalOpen(false);
+    };
+
+    const handleDeleteArea = (id: string, nombreArea: string) => {
+        showConfirm(
+            "¿Eliminar área?",
+            `¿Estás seguro de que deseas eliminar el área "${nombreArea}" y todas sus sub-áreas?`,
+            () => {
+                const updated = (formData.levantamiento || []).filter(s => s.id !== id);
+                persistLevantamiento(updated);
+            },
+            () => {},
+            "Sí, eliminar",
+            "Cancelar"
+        );
+    };
+
+    const editAreaName = (id: string, oldName: string) => {
+        const newName = prompt("Nuevo nombre del área:", oldName);
+        if (newName && newName.trim()) {
+            const updated = (formData.levantamiento || []).map(sec => 
+                sec.id === id ? { ...sec, nombreArea: newName.trim().toUpperCase() } : sec
+            );
+            persistLevantamiento(updated);
+        }
     };
 
     const handleReportarProblemaSubmit = async (descripcion: string) => {
@@ -767,6 +846,19 @@ const PerfilEmpresa: React.FC = () => {
                                                 disabled={!canEdit}
                                             />
                                         </div>
+                                        <div className={styles.levantamientoHeader}>
+                                            <h3 style={{ margin: 0 }}>Áreas de Levantamiento</h3>
+                                            <p style={{ margin: '5px 0 0 0', color: '#64748b', fontSize: '14px' }}>
+                                                Gestiona las áreas, sub-áreas y catálogo de equipos/activos.
+                                            </p>
+                                            <div style={{ marginTop: '15px', display: 'flex', gap: '10px' }}>
+                                                {canEdit && (
+                                                    <button className={styles.btnPrimary} onClick={() => setIsAreaModalOpen(true)}>
+                                                        + Agregar Nueva Área
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
                                         <div className={styles.inputGroup}>
                                             <label className={styles.label}>Estado</label>
                                             <input type="text" name="estado" className={styles.input} value={formData.estado || ''} onChange={handleChange} disabled={!canEdit} />
@@ -939,90 +1031,24 @@ const PerfilEmpresa: React.FC = () => {
                             <div className={styles.levantamientoPreview}>
                                 {(formData.levantamiento?.length || 0) > 0 ? (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
-                                        {formData.levantamiento?.map((seccion) => {
-                                            const subAreas = seccion.subAreas && seccion.subAreas.length > 0 
-                                                ? seccion.subAreas 
-                                                : [{ id: `sub_gen_${seccion.id}`, nombreSubArea: 'GENERAL', equipos: seccion.equipos || [] }];
-
-                                            return (
-                                                <div key={seccion.id} style={{ background: '#f8fafc', padding: '18px 22px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
-                                                    <div className={styles.areaBadge} style={{ fontSize: '15px', fontWeight: '800', color: '#0f172a', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                        📂 {seccion.nombreArea}
-                                                    </div>
-
-                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                                        {subAreas.map((sub) => (
-                                                            <div key={sub.id} style={{ background: '#ffffff', padding: '14px 18px', borderRadius: '14px', border: '1px solid #cbd5e1' }}>
-                                                                <div style={{ fontSize: '12px', fontWeight: '800', color: '#2563eb', textTransform: 'uppercase', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                                    🔹 Sub-área: {sub.nombreSubArea}
-                                                                </div>
-
-                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                                                    {sub.equipos.length === 0 ? (
-                                                                        <span style={{ fontSize: '12px', color: '#94a3b8', fontStyle: 'italic' }}>No hay equipos registrados en esta sub-área.</span>
-                                                                    ) : (
-                                                                        Object.entries(
-                                                                            sub.equipos.reduce((acc: Record<string, Equipment[]>, item) => {
-                                                                                const catName = item.subCategoria || item.categoria?.nombre || 'Aparatos Eléctricos / General';
-                                                                                if (!acc[catName]) acc[catName] = [];
-                                                                                acc[catName].push(item);
-                                                                                return acc;
-                                                                            }, {})
-                                                                        ).map(([catName, items]) => (
-                                                                            <div key={catName} style={{ background: '#fafafa', padding: '10px 14px', borderRadius: '10px', border: '1px solid #f1f5f9' }}>
-                                                                                <div style={{ fontSize: '11px', fontWeight: '800', color: '#b45309', textTransform: 'uppercase', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                                                    🏷️ Subcategoría: <span style={{ color: '#d97706', fontWeight: '800' }}>{catName}</span>
-                                                                                </div>
-                                                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-                                                                                    {items.map((item, idx) => (
-                                                                                        <div key={item.id || idx} className={styles.equipoChip}>
-                                                                                            <span 
-                                                                                                className={styles.chipName}
-                                                                                                onClick={() => {
-                                                                                                    setSelectedEquipment(item);
-                                                                                                    setSelectedSectionId(seccion.id);
-                                                                                                }}
-                                                                                            >
-                                                                                                {item.nombre}
-                                                                                            </span>
-                                                                                            <div className={styles.chipActions}>
-                                                                                                <button onClick={() => { setSelectedEquipment(item); setSelectedSectionId(seccion.id); }} title="Ver Ficha"><HiOutlineEye size={16} color="#2563eb" /></button>
-                                                                                                <button onClick={() => setReportingEquipment(item)} title="Reportar"><HiOutlineExclamationTriangle size={16} color="#f59e0b" /></button>
-                                                                                                {canEdit && (
-                                                                                                    <>
-                                                                                                        <button onClick={() => { 
-                                                                                                            setActiveSectionId(seccion.id); 
-                                                                                                            setActiveEquipmentId(item.id!);
-                                                                                                            setIsLevantamientoModalOpen(true); 
-                                                                                                        }} title="Editar"><HiOutlinePencilSquare size={16} color="#64748b" /></button>
-                                                                                                        <button onClick={() => handleDeleteEquipment(item.id!, seccion.id)} title="Borrar" className={styles.deleteBtn}><HiOutlineTrash size={16} color="#ef4444" /></button>
-                                                                                                    </>
-                                                                                                )}
-                                                                                            </div>
-
-                                                                                            <button 
-                                                                                                onClick={() => {
-                                                                                                    setSelectedEqForBitacora(item);
-                                                                                                    setBitacoraModalOpen(true);
-                                                                                                }} 
-                                                                                                className={styles.bitacoraBtn}
-                                                                                            >
-                                                                                                <HiOutlineClipboardDocumentList size={14} />
-                                                                                                Ver Bitácora
-                                                                                            </button>
-                                                                                        </div>
-                                                                                    ))}
-                                                                                </div>
-                                                                            </div>
-                                                                        ))
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
+                                        {formData.levantamiento?.map((seccion) => (
+                                            <AreaVisualGrid 
+                                                key={seccion.id}
+                                                seccion={seccion}
+                                                canEdit={canEdit}
+                                                onEditArea={() => editAreaName(seccion.id, seccion.nombreArea)}
+                                                onDeleteArea={() => handleDeleteArea(seccion.id, seccion.nombreArea)}
+                                                onAddSubArea={() => {
+                                                    setActiveAreaForSub(seccion.id);
+                                                    setIsSubAreaModalOpen(true);
+                                                }}
+                                                onViewInventory={(subAreaId) => {
+                                                    setActiveSectionId(seccion.id);
+                                                    setInitialSubAreaId(subAreaId);
+                                                    setIsLevantamientoModalOpen(true);
+                                                }}
+                                            />
+                                        ))}
                                     </div>
                                 ) : (
                                     <div style={{ textAlign: 'center', padding: '30px' }}>
@@ -1047,7 +1073,7 @@ const PerfilEmpresa: React.FC = () => {
                             className={styles.saveButton} 
                             onClick={() => {
                                 if (activeTab === 'info') handleSave();
-                                else persistLevantamiento(formData.levantamiento || []);
+                                else persistLevantamiento(formData.levantamiento || [], true);
                             }}
                         >
                             Guardar Cambios
@@ -1061,10 +1087,12 @@ const PerfilEmpresa: React.FC = () => {
                     onClose={() => {
                         setIsLevantamientoModalOpen(false);
                         setActiveEquipmentId(null);
+                        setInitialSubAreaId(null);
                     }}
                     data={formData.levantamiento || []}
                     initialSectionId={activeSectionId}
                     initialEquipmentId={activeEquipmentId}
+                    initialSubAreaId={initialSubAreaId}
                     onSave={(newData) => persistLevantamiento(newData)}
                     isReadOnly={!canEdit}
                 />
@@ -1109,6 +1137,29 @@ const PerfilEmpresa: React.FC = () => {
                         trabajoId={selectedTrabajoId}
                     />
                 )}
+
+                <FormatoEntregaModal 
+                    isOpen={false} 
+                    onClose={() => {}} 
+                />
+
+                <ModalSeleccionEspacio 
+                    isOpen={isAreaModalOpen}
+                    onClose={() => setIsAreaModalOpen(false)}
+                    onAdd={handleAddArea}
+                    title="NUEVA ÁREA"
+                    subtitle="SELECCIONA EL ÁREA A AGREGAR"
+                    predefinedOptions={['COCINA', 'COMEDOR', 'RECEPCIÓN', 'BAÑOS', 'ALMACÉN', 'CUARTO DE MÁQUINAS', 'EXTERIOR', 'PASILLOS', 'BAR']}
+                />
+
+                <ModalSeleccionEspacio 
+                    isOpen={isSubAreaModalOpen}
+                    onClose={() => setIsSubAreaModalOpen(false)}
+                    onAdd={handleAddSubArea}
+                    title="NUEVA SUB-ÁREA"
+                    subtitle="SELECCIONA LA SUB-ÁREA A AGREGAR"
+                    predefinedOptions={['ZONA DE FRÍO', 'ZONA CALIENTE', 'LAVADO', 'PREPARACIÓN', 'CAJAS', 'BARRA', 'GENERAL']}
+                />
             </div>
 
             <style>{`

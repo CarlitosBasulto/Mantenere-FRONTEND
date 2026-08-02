@@ -24,9 +24,10 @@ interface LevantamientoModalProps {
     onSave: (newData: LevantamientoData) => void;
     isReadOnly?: boolean;
     initialEquipmentId?: string | null;
+    initialSubAreaId?: string | null;
 }
 
-const LevantamientoModal: React.FC<LevantamientoModalProps> = ({ isOpen, onClose, data, initialSectionId, onSave, isReadOnly = false, initialEquipmentId }) => {
+const LevantamientoModal: React.FC<LevantamientoModalProps> = ({ isOpen, onClose, data, initialSectionId, onSave, isReadOnly = false, initialEquipmentId, initialSubAreaId }) => {
     const { showConfirm } = useModal();
     
     useEffect(() => {
@@ -97,15 +98,19 @@ const LevantamientoModal: React.FC<LevantamientoModalProps> = ({ isOpen, onClose
             const targetSec = initialSectionId ? normalized.find(s => s.id === initialSectionId) : (isMobile ? null : (normalized[0] || null));
             if (targetSec) {
                 setActiveSectionId(targetSec.id);
-                if (targetSec.subAreas && targetSec.subAreas.length > 0) {
+                if (initialSubAreaId) {
+                    setActiveSubAreaId(initialSubAreaId);
+                } else if (targetSec.subAreas && targetSec.subAreas.length > 0) {
                     setActiveSubAreaId(targetSec.subAreas[0].id);
+                } else {
+                    setActiveSubAreaId(null);
                 }
             } else {
                 setActiveSectionId(null);
                 setActiveSubAreaId(null);
             }
         }
-    }, [isOpen, data, initialSectionId]);
+    }, [isOpen, data, initialSectionId, initialSubAreaId]);
 
     // Initial equipment selection edit
     useEffect(() => {
