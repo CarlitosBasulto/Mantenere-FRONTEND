@@ -522,7 +522,39 @@ const PerfilEmpresa: React.FC = () => {
 
             const updateRes = await updateNegocio(Number(editId), apiPayload);
             if (updateRes?.data?.areas) {
-                setFormData(prev => ({ ...prev, levantamiento: updateRes.data.areas }));
+                const mergedAreas = updateRes.data.areas.map((serverArea: any) => {
+                    const localArea = newLevantamientoData.find(a => 
+                        String(a.id) === String(serverArea.id) || a.nombreArea === serverArea.nombreArea
+                    );
+                    
+                    const subAreasMap = new Map<string, any>();
+                    
+                    if (localArea && localArea.subAreas) {
+                        localArea.subAreas.forEach(sub => {
+                            subAreasMap.set(sub.id, { ...sub, equipos: [] });
+                        });
+                    }
+
+                    (serverArea.equipos || []).forEach((eq: any) => {
+                        const subId = eq.subAreaId || `sub_gen_${serverArea.id}`;
+                        const subName = eq.nombreSubArea || 'GENERAL';
+                        if (!subAreasMap.has(subId)) {
+                            subAreasMap.set(subId, { id: subId, nombreSubArea: subName, equipos: [] });
+                        }
+                        subAreasMap.get(subId)!.equipos.push(eq);
+                    });
+
+                    let finalSubAreas = Array.from(subAreasMap.values());
+                    if (finalSubAreas.length === 0) {
+                        finalSubAreas = [{ id: `sub_gen_${serverArea.id}`, nombreSubArea: 'GENERAL', equipos: [] }];
+                    }
+
+                    return {
+                        ...serverArea,
+                        subAreas: finalSubAreas
+                    };
+                });
+                setFormData(prev => ({ ...prev, levantamiento: mergedAreas }));
             }
             if (showNotification) {
                 showAlert("Éxito", "Levantamiento guardado correctamente", "success");
