@@ -357,8 +357,12 @@ const MenuLayout: React.FC = () => {
 
             {/* SIDEBAR IZQUIERDO */}
             <aside className={styles.sidebar}>
-                <div className={styles.logoContainer} onClick={() => navigate(getBaseRoute())}>
-                    <img src={logo} alt="Logo" className={styles.logo} />
+                <div className={styles.logoContainer}>
+                    <img 
+                        src={logo} 
+                        alt="Logo" 
+                        className={styles.logo} 
+                    />
                 </div>
 
                 <nav className={styles.menu}>
