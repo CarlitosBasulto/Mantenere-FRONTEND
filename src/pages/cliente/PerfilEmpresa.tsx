@@ -267,27 +267,30 @@ const PerfilEmpresa: React.FC = () => {
                 // Trabajos para historial de la empresa
                 const trabajos = await getTrabajos({ negocio_id: businessId });
                 const trabajosGenericos = trabajos.filter((t: any) => t.estado === 'Finalizado');
-                const mappedGenericJobs: any[] = [];
-                for (const job of trabajosGenericos) {
-                    try {
-                        const reporte = await getReporteByTrabajoId(job.id);
-                        if (reporte && reporte.solucion) {
-                            const reportDataRaw = JSON.parse(reporte.solucion);
-                            if (reportDataRaw.involucraEquipo && reportDataRaw.equipoInfo && reportDataRaw.equipoInfo.id) {
-                                mappedGenericJobs.push({
-                                    id: `gen-${job.id}`,
-                                    actualTrabajoId: job.id,
-                                    levantamiento_equipo_id: reportDataRaw.equipoInfo.id,
-                                    descripcion_problema: job.titulo,
-                                    estado: job.estado,
-                                    created_at: job.created_at,
-                                    visitas: [],
-                                    reportes: [{ falla_encontrada: reportDataRaw.problema || 'Mantenimiento General', solucion: "Finalizado" }]
-                                });
+                
+                const mappedGenericJobs = (await Promise.all(
+                    trabajosGenericos.map(async (job: any) => {
+                        try {
+                            const reporte = await getReporteByTrabajoId(job.id);
+                            if (reporte && reporte.solucion) {
+                                const reportDataRaw = JSON.parse(reporte.solucion);
+                                if (reportDataRaw.involucraEquipo && reportDataRaw.equipoInfo && reportDataRaw.equipoInfo.id) {
+                                    return {
+                                        id: `gen-${job.id}`,
+                                        actualTrabajoId: job.id,
+                                        levantamiento_equipo_id: reportDataRaw.equipoInfo.id,
+                                        descripcion_problema: job.titulo,
+                                        estado: job.estado,
+                                        created_at: job.created_at,
+                                        visitas: [],
+                                        reportes: [{ falla_encontrada: reportDataRaw.problema || 'Mantenimiento General', solucion: "Finalizado" }]
+                                    };
+                                }
                             }
-                        }
-                    } catch (e) {}
-                }
+                        } catch (e) {}
+                        return null;
+                    })
+                )).filter(Boolean);
 
                 setAllSolicitudes([...mappedSolicitudes, ...mappedGenericJobs]);
             } catch (err) {
