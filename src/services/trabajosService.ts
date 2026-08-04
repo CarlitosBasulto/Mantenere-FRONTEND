@@ -19,9 +19,9 @@ const fixUrls = (data: any) => {
     return JSON.parse(stringified);
 };
 
-// Obtener todos los trabajos (solicitudes)
-export const getTrabajos = async () => {
-    const res = await api.get(`/trabajos`);
+// Obtener todos los trabajos (solicitudes) o filtrados
+export const getTrabajos = async (params?: { negocio_id?: number; trabajador_id?: number }) => {
+    const res = await api.get(`/trabajos`, { params });
     return fixUrls(res.data);
 };
 

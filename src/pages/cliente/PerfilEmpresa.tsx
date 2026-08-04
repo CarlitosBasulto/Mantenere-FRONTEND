@@ -264,9 +264,9 @@ const PerfilEmpresa: React.FC = () => {
                     };
                 });
 
-                // 2. Obtener trabajos genéricos
-                const trabajos = await getTrabajos();
-                const trabajosGenericos = trabajos.filter((t: any) => t.negocio_id === businessId && t.estado === 'Finalizado');
+                // Trabajos para historial de la empresa
+                const trabajos = await getTrabajos({ negocio_id: businessId });
+                const trabajosGenericos = trabajos.filter((t: any) => t.estado === 'Finalizado');
                 const mappedGenericJobs: any[] = [];
                 for (const job of trabajosGenericos) {
                     try {
