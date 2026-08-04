@@ -99,65 +99,78 @@
 
 /* SEARCH SECTION - Supplemental styles */
 .newRequestBtn {
-    border-radius: 25px !important;
-    padding: 10px 50px !important;
-    background: #333 !important;
+    border-radius: 8px !important;
+    padding: 10px 24px !important;
+    background: #334155 !important;
     color: #fff !important;
-    font-weight: bold !important;
+    font-weight: 600 !important;
     white-space: nowrap !important;
     border: none !important;
     transition: all 0.2s ease;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    font-size: 14px !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
 }
 
 .newRequestBtn:hover {
-    background: #111 !important;
-    transform: scale(1.05) !important;
+    background: #1e293b !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15) !important;
 }
 
 .sosBtn {
-    border-radius: 25px !important;
-    padding: 10px 50px !important;
-    background: #f44336 !important;
+    border-radius: 8px !important;
+    padding: 10px 24px !important;
+    background: #ef4444 !important;
     color: #fff !important;
-    font-weight: bold !important;
+    font-weight: 600 !important;
     white-space: nowrap !important;
     border: none !important;
     transition: all 0.2s ease;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    font-size: 14px !important;
+    box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2) !important;
 }
 
 .sosBtn:hover {
-    background: #d32f2f !important;
-    transform: scale(1.05) !important;
+    background: #dc2626 !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 4px 8px rgba(239, 68, 68, 0.3) !important;
 }
 
 .equiposBtn {
-    background: linear-gradient(135deg, #f26522 0%, #d14d13 100%) !important;
-    color: white !important;
-    font-weight: 800 !important;
+    border-radius: 8px !important;
     padding: 10px 24px !important;
-    border-radius: 30px !important;
+    background: #f97316 !important;
+    color: #fff !important;
+    font-weight: 600 !important;
+    white-space: nowrap !important;
     border: none !important;
     display: inline-flex !important;
     align-items: center !important;
-    gap: 10px !important;
+    gap: 8px !important;
     cursor: pointer !important;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-    box-shadow: 0 4px 12px rgba(242, 101, 34, 0.3) !important;
+    transition: all 0.2s ease !important;
+    box-shadow: 0 2px 4px rgba(249, 115, 22, 0.2) !important;
     font-size: 14px !important;
-    min-width: 140px;
-    justify-content: center;
 }
 
 .equiposBtn:hover {
-    background: linear-gradient(135deg, #d14d13 0%, #d14d13 100%) !important;
-    transform: translateY(-2px) scale(1.02) !important;
-    box-shadow: 0 8px 20px rgba(242, 101, 34, 0.45) !important;
+    background: #ea580c !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 4px 8px rgba(249, 115, 22, 0.3) !important;
 }
 
 .historialBtn {
-    background: linear-gradient(135deg, #f26522 0%, #d14d13 100%) !important;
+    border-radius: 8px !important;
+    padding: 10px 24px !important;
+    background: #64748b !important;
     color: white !important;
-    font-weight: 800 !important;
+    font-weight: 600 !important;
     padding: 10px 24px !important;
     border-radius: 30px !important;
     border: none !important;
@@ -1723,6 +1736,39 @@
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 12px;
+}
+
+.kanbanScrollWrapper {
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 8px;
+    margin-bottom: -8px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: auto !important;
+    scrollbar-color: #cbd5e1 transparent !important;
+}
+
+.kanbanScrollWrapper::-webkit-scrollbar {
+    height: 10px !important;
+    background: transparent !important;
+    display: block !important;
+    width: auto !important;
+}
+
+.kanbanScrollWrapper::-webkit-scrollbar-track {
+    background: #f1f5f9 !important;
+    border-radius: 8px !important;
+}
+
+.kanbanScrollWrapper::-webkit-scrollbar-thumb {
+    background-color: #cbd5e1 !important;
+    border-radius: 8px !important;
+    border: 2px solid #f1f5f9 !important;
+}
+
+.kanbanScrollWrapper::-webkit-scrollbar-thumb:hover {
+    background-color: #94a3b8 !important;
 }
 
 .miniCountCard {

@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import AdminLayout from "./layouts/AdminLayout";
 import ClienteLayout from "./layouts/ClienteLayout";
@@ -42,7 +42,7 @@ import InventarioGeneral from "./pages/admin/InventarioGeneral";
 import EncargadoLayout from "./layouts/EncargadoLayout";
 import AutonomoLayout from "./layouts/AutonomoLayout";
 import DashboardCliente from "./pages/cliente/DashboardCliente";
-import DashboardEncargado from "./pages/encargado/DashboardEncargado";
+
 import DashboardAutonomo from "./pages/autonomo/DashboardAutonomo";
 import AutonomoTablero from "./pages/autonomo/AutonomoTablero";
 import DetalleAdminAutonomo from "./pages/admin/DetalleAdminAutonomo";
@@ -129,8 +129,7 @@ function App() {
                                 <EncargadoLayout />
                             </ProtectedRoute>
                         }>
-                            <Route index element={<DashboardEncargado />} />
-                            <Route path="resumen" element={<DashboardEncargado />} />
+                            <Route index element={<Navigate to="/encargado/negocios" replace />} />
                             <Route path="negocios" element={<ListaNegocios />} />
                             <Route path="sucursal" element={<PerfilEmpresa />} />
                             <Route path="mi-perfil" element={<MiPerfil />} />

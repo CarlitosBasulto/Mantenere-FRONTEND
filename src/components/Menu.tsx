@@ -172,11 +172,11 @@ const MenuLayout: React.FC = () => {
         } else if (user.role === 'autonomo' || user.role === 'admin-autonomo' || user.role === 'gerente-general') {
             baseOptions = ["Mi Dashboard", "Mis Sucursales", "Mis Técnicos", "Usuarios", "Solicitudes", "Historial"];
         } else if (user.role === 'cliente') {
-            baseOptions = ["Mis Negocios", "Resumen", "Cotizaciones", "Historial"];
+            baseOptions = ["Mis Negocios", "Cotizaciones", "Historial"];
         } else if (user.role === 'tecnico') {
             baseOptions = ["Mis Trabajos", "Nueva Solicitud", "Historial de Trabajo"];
         } else if (user.role === 'encargado') {
-            baseOptions = ["Resumen", "Mi Sucursal", "Cotizaciones", "Historial"];
+            baseOptions = ["Mi Sucursal", "Cotizaciones", "Historial"];
         }
 
         if (user.role === 'admin' && location.pathname.includes("/menu/trabajo/")) {
@@ -209,7 +209,6 @@ const MenuLayout: React.FC = () => {
                 else if (path.includes("historial")) setActiveOption("Historial");
             } else if (path.startsWith("/cliente")) {
                 if (path === "/cliente" || path === "/cliente/") setActiveOption("Mis Negocios");
-                else if (path.includes("resumen")) setActiveOption("Resumen");
                 else if (path.includes("negocios") || path.includes("perfil-empresa")) setActiveOption("Mis Negocios");
                 else if (path.includes("cotizaciones")) setActiveOption("Cotizaciones");
                 else if (path.includes("historial")) setActiveOption("Historial");
@@ -218,8 +217,7 @@ const MenuLayout: React.FC = () => {
                 else if (path.includes("solicitudes")) setActiveOption("Nueva Solicitud");
                 else if (path.includes("historial")) setActiveOption("Historial de Trabajo");
             } else if (path.startsWith("/encargado")) {
-                if (path === "/encargado" || path === "/encargado/") setActiveOption("Resumen");
-                else if (path.includes("resumen")) setActiveOption("Resumen");
+                if (path === "/encargado" || path === "/encargado/") setActiveOption("Mi Sucursal");
                 else if (path.includes("negocios") || path.includes("sucursal")) setActiveOption("Mi Sucursal");
                 else if (path.includes("cotizaciones")) setActiveOption("Cotizaciones");
                 else if (path.includes("historial")) setActiveOption("Historial");

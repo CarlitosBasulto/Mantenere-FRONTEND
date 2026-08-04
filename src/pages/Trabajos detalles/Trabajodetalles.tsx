@@ -4,6 +4,7 @@ import { createMantenimientoSolicitud } from "../../services/mantenimientoServic
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import menuStyles from "../../components/Menu.module.css";
 import styles from "./Trabajodetalles.module.css";
+import tableroStyles from "../autonomo/AutonomoTablero.module.css";
 import { useAuth } from "../../context/AuthContext";
 import { useModal } from "../../context/ModalContext";
 import Historial from "../cliente/Historial";
@@ -1573,36 +1574,45 @@ const TrabajoDetalle: React.FC = () => {
     );
 
     const renderSummaryGrid = () => {
-        const counts = getTabCounts();
+        const colSolicitudes = flatJobs.filter(t => ['Solicitud', 'Pendiente'].includes(t.estado));
+        const colCotizaciones = flatJobs.filter(t => ['Cotización Enviada', 'Cotización Aceptada'].includes(t.estado));
+        const colEnEspera = flatJobs.filter(t => ['Aceptada', 'Asignado', 'En Espera'].includes(t.estado));
+        const colProceso = flatJobs.filter(t => t.estado === 'En Proceso');
+        const colFinalizadas = flatJobs.filter(t => ['Finalizado', 'Completado'].includes(t.estado));
+
+        const renderMiniCard = (trabajo: any) => {
+            return (
+                <div key={trabajo.id} style={{ padding: '10px', background: 'white', borderRadius: '8px', border: '1px solid #e2e8f0', cursor: 'pointer', marginBottom: '8px', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }} onClick={() => navigate(`/encargado/trabajo-detalle/${trabajo.id}`)}>
+                    <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#334155', marginBottom: '4px' }}>#{trabajo.id} - {trabajo.titulo}</div>
+                    <div style={{ fontSize: '11px', color: '#64748b' }}>{trabajo.fecha}</div>
+                    <div style={{ marginTop: '6px' }}>
+                        <span style={{ fontSize: '10px', background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px', color: '#475569', fontWeight: 600 }}>{trabajo.prioridad || 'Media'}</span>
+                    </div>
+                </div>
+            );
+        };
+
+        const renderKanbanColumn = (title: string, items: any[], borderColor: string, badgeBg: string) => (
+            <div style={{ flex: '0 0 240px', display: 'flex', flexDirection: 'column', height: '280px', borderTop: `3px solid ${borderColor}`, background: '#f8fafc', borderRadius: '10px', overflow: 'hidden', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+                <div style={{ padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'white', borderBottom: '1px solid #e2e8f0' }}>
+                    <h3 style={{ margin: 0, fontSize: '12px', fontWeight: 800, color: '#334155', textTransform: 'uppercase' }}>{title}</h3>
+                    <span style={{ background: badgeBg, color: 'white', padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 'bold' }}>{items.length}</span>
+                </div>
+                <div style={{ padding: '12px', overflowY: 'auto', flex: 1 }}>
+                    {items.map(renderMiniCard)}
+                    {items.length === 0 && <div style={{ textAlign: 'center', padding: '15px 10px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Vacío</div>}
+                </div>
+            </div>
+        );
+
         return (
-            <div className={styles.summaryGrid}>
-                <div className={`${styles.miniCountCard} ${styles.cardBlue}`}>
-                    <div className={`${styles.miniCountIconWrapper} ${styles.bgBlue}`}>
-                        <HiOutlineListBullet />
-                    </div>
-                    <span className={styles.miniCountValue}>{counts.total}</span>
-                    <span className={styles.miniCountLabel}>Total</span>
-                </div>
-                <div className={`${styles.miniCountCard} ${styles.cardGreen}`}>
-                    <div className={`${styles.miniCountIconWrapper} ${styles.bgGreen}`}>
-                        <HiOutlineArrowPath />
-                    </div>
-                    <span className={styles.miniCountValue}>{counts.enProceso}</span>
-                    <span className={styles.miniCountLabel}>En proceso</span>
-                </div>
-                <div className={`${styles.miniCountCard} ${styles.cardTeal}`}>
-                    <div className={`${styles.miniCountIconWrapper} ${styles.bgTeal}`}>
-                        <HiOutlineCheckCircle />
-                    </div>
-                    <span className={styles.miniCountValue}>{counts.finalizadas}</span>
-                    <span className={styles.miniCountLabel}>Finalizadas</span>
-                </div>
-                <div className={`${styles.miniCountCard} ${styles.cardPurple}`}>
-                    <div className={`${styles.miniCountIconWrapper} ${styles.bgPurple}`}>
-                        <HiOutlineClipboardDocument />
-                    </div>
-                    <span className={styles.miniCountValue}>{counts.solicitud}</span>
-                    <span className={styles.miniCountLabel}>Solicitudes</span>
+            <div className={styles.kanbanScrollWrapper}>
+                <div style={{ display: 'flex', gap: '12px', width: 'max-content' }}>
+                    {renderKanbanColumn("Pendientes", colSolicitudes, "#f59e0b", "#f59e0b")}
+                    {renderKanbanColumn("Cotizaciones", colCotizaciones, "#3b82f6", "#3b82f6")}
+                    {renderKanbanColumn("Visitas", colEnEspera, "#f97316", "#f97316")}
+                    {renderKanbanColumn("En Proceso", colProceso, "#10b981", "#10b981")}
+                    {renderKanbanColumn("Finalizadas", colFinalizadas, "#8b5cf6", "#8b5cf6")}
                 </div>
             </div>
         );
@@ -1793,85 +1803,7 @@ const TrabajoDetalle: React.FC = () => {
                         </button>
                     </div>
 
-                    {/* BOTONES DE ACCIÓN */}
-                    {(() => {
-                        const roleStr = (typeof user?.role === 'string' ? user.role : (user?.role?.name || '')).toLowerCase();
-                        const isEncargado = roleStr === 'encargado' || roleStr.includes('encargado') || roleStr.includes('subgerente') || roleStr.includes('gerente');
-                        const isCliente = roleStr === 'cliente';
-                        const isAdmin = roleStr === 'admin' || roleStr === 'root' || roleStr === 'sub-admin';
-                        const isAutonomo = roleStr.includes('autonomo');
-                        const isTecnico = roleStr.includes('tecnico');
-
-                        const canSeeActions = isCliente || isAdmin || isEncargado || isAutonomo || isTecnico;
-                        const canSeeSOS = isCliente || isEncargado || isAutonomo || isAdmin;
-                        const canSeeSolicitud = isCliente || isEncargado || isAutonomo || isAdmin;
-                        const canSeeEquipos = isAdmin || isCliente || isEncargado || isAutonomo;
-
-                        if (!canSeeActions) return null;
-
-                        return (
-                            <div className={styles.actionButtonsGroup}>
-                                {/* Botón SOS */}
-                                {canSeeSOS && (
-                                    <button
-                                        className={styles.sosBtn}
-                                        onClick={handleSOSRequest}
-                                        translate="no"
-                                    >
-                                        🚨 SOS
-                                    </button>
-                                )}
-
-                                {/* Botón Solicitud */}
-                                {canSeeSolicitud && (
-                                    <button
-                                        className={styles.newRequestBtn}
-                                        onClick={() => {
-                                            setIsSOSRequest(false);
-                                            setIsEditingRequest(false);
-                                            setEditingRequestId(null);
-                                            setNewRequestData({
-                                                categoria: "Electricidad",
-                                                cliente: businessName,
-                                                fecha: new Date().toISOString().split('T')[0],
-                                                descripcion: "",
-                                                equipoSeleccionado: "",
-                                                trabajador_id: ""
-                                            });
-                                            setFotosSOS([]);
-                                            setFotosPreviewUrls([]);
-                                            setIsRequestModalOpen(true);
-                                        }}
-                                    >
-                                        <HiOutlineClipboardDocument size={18} />
-                                        Solicitud
-                                    </button>
-                                )}
-
-                                {/* Botón Equipos */}
-                                {canSeeEquipos && (
-                                    <button
-                                        className={styles.equiposBtn}
-                                        onClick={() => setSearchParams({ tab: 'equipos' })}
-                                    >
-                                        <HiOutlineArchiveBox size={18} />
-                                        Equipos
-                                    </button>
-                                )}
-
-                                {/* Botón Ver Historial */}
-                                {isTecnico && (
-                                    <button
-                                        className={styles.historialBtn}
-                                        onClick={() => setSearchParams({ tab: 'historial' })}
-                                    >
-                                        <HiOutlineClock size={20} />
-                                        Ver Historial
-                                    </button>
-                                )}
-                            </div>
-                        );
-                    })()}
+                    {/* LOS BOTONES DE ACCIÓN AHORA ESTÁN ABAJO, ASÍ QUE ESTE CONTENEDOR QUEDA VACÍO O SE ELIMINA */}
                 </div>
 
                 {/* ESTRUCTURA DE CONTENIDO */}
@@ -1879,49 +1811,86 @@ const TrabajoDetalle: React.FC = () => {
                     <div className={styles.dashboardGrid}>
                         {/* COLUMNA IZQUIERDA: PESTAÑAS Y TRABAJOS */}
                         <div className={styles.leftColumn}>
-                            {/* BARRA DE PESTAÑAS DE ESTADO (FILTROS VISUALES) */}
+                            {/* BOTONES DE ACCIÓN (MOVIDOS AQUÍ) */}
                             <div className={styles.tabBarWrapper} style={{ justifyContent: 'flex-start', margin: '0 0 20px 0' }}>
-                                <div className={styles.tabBarContainer}>
-                                    {(() => {
-                                        const counts = getTabCounts();
-                                        return (
-                                            <>
+                                {(() => {
+                                    const roleStr = (typeof user?.role === 'string' ? user.role : (user?.role?.name || '')).toLowerCase();
+                                    const isEncargado = roleStr === 'encargado' || roleStr.includes('encargado') || roleStr.includes('subgerente') || roleStr.includes('gerente');
+                                    const isCliente = roleStr === 'cliente';
+                                    const isAdmin = roleStr === 'admin' || roleStr === 'root' || roleStr === 'sub-admin';
+                                    const isAutonomo = roleStr.includes('autonomo');
+                                    const isTecnico = roleStr.includes('tecnico');
+
+                                    const canSeeActions = isCliente || isAdmin || isEncargado || isAutonomo || isTecnico;
+                                    const canSeeSOS = isCliente || isEncargado || isAutonomo || isAdmin;
+                                    const canSeeSolicitud = isCliente || isEncargado || isAutonomo || isAdmin;
+                                    const canSeeEquipos = isAdmin || isCliente || isEncargado || isAutonomo;
+
+                                    if (!canSeeActions) return null;
+
+                                    return (
+                                        <div className={styles.actionButtonsGroup}>
+                                            {/* Botón SOS */}
+                                            {canSeeSOS && (
                                                 <button
-                                                    className={`${styles.tabButton} ${filterStatus === 'Todos' ? styles.tabButtonActive : ''}`}
-                                                    onClick={() => setFilterStatus('Todos')}
+                                                    className={styles.sosBtn}
+                                                    onClick={handleSOSRequest}
+                                                    translate="no"
                                                 >
-                                                    <span className={styles.tabIcon}><HiOutlineListBullet /></span>
-                                                    Todas
-                                                    <span className={styles.countBadge}>{counts.total}</span>
+                                                    🚨 SOS
                                                 </button>
+                                            )}
+
+                                            {/* Botón Solicitud */}
+                                            {canSeeSolicitud && (
                                                 <button
-                                                    className={`${styles.tabButton} ${filterStatus === 'En proceso' ? styles.tabButtonActive : ''}`}
-                                                    onClick={() => setFilterStatus('En proceso')}
+                                                    className={styles.newRequestBtn}
+                                                    onClick={() => {
+                                                        setIsSOSRequest(false);
+                                                        setIsEditingRequest(false);
+                                                        setEditingRequestId(null);
+                                                        setNewRequestData({
+                                                            categoria: "Electricidad",
+                                                            cliente: businessName,
+                                                            fecha: new Date().toISOString().split('T')[0],
+                                                            descripcion: "",
+                                                            equipoSeleccionado: "",
+                                                            trabajador_id: ""
+                                                        });
+                                                        setFotosSOS([]);
+                                                        setFotosPreviewUrls([]);
+                                                        setIsRequestModalOpen(true);
+                                                    }}
                                                 >
-                                                    <span className={styles.tabIcon}><HiOutlineArrowPath /></span>
-                                                    En proceso
-                                                    <span className={styles.countBadge}>{counts.enProceso}</span>
+                                                    <HiOutlineClipboardDocument size={18} />
+                                                    Solicitud
                                                 </button>
+                                            )}
+
+                                            {/* Botón Equipos */}
+                                            {canSeeEquipos && (
                                                 <button
-                                                    className={`${styles.tabButton} ${filterStatus === 'Finalizadas' ? styles.tabButtonActive : ''}`}
-                                                    onClick={() => setFilterStatus('Finalizadas')}
+                                                    className={styles.equiposBtn}
+                                                    onClick={() => setSearchParams({ tab: 'equipos' })}
                                                 >
-                                                    <span className={styles.tabIcon}><HiOutlineCheckCircle /></span>
-                                                    Finalizadas
-                                                    <span className={styles.countBadge}>{counts.finalizadas}</span>
+                                                    <HiOutlineArchiveBox size={18} />
+                                                    Equipos
                                                 </button>
+                                            )}
+
+                                            {/* Botón Ver Historial */}
+                                            {isTecnico && (
                                                 <button
-                                                    className={`${styles.tabButton} ${filterStatus === 'Solicitud' ? styles.tabButtonActive : ''}`}
-                                                    onClick={() => setFilterStatus('Solicitud')}
+                                                    className={styles.historialBtn}
+                                                    onClick={() => setSearchParams({ tab: 'historial' })}
                                                 >
-                                                    <span className={styles.tabIcon}><HiOutlineClipboardDocument /></span>
-                                                    Solicitudes
-                                                    <span className={styles.countBadge}>{counts.solicitud}</span>
+                                                    <HiOutlineClock size={20} />
+                                                    Ver Historial
                                                 </button>
-                                            </>
-                                        );
-                                    })()}
-                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })()}
                             </div>
 
                             {/* RESUMEN EXCLUSIVO PARA MÓVIL (SE MUESTRA ARRIBA DEL LISTADO) */}
