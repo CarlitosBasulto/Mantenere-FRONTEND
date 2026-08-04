@@ -2251,33 +2251,6 @@ const TrabajoDetalle: React.FC = () => {
                                 />
                             </div>
 
-                            {user?.role !== 'encargado' && user?.role !== 'cliente' && (
-                                <div className={styles.formField}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <label className={styles.formLabel} style={{ marginBottom: 0 }}>Técnico Sugerido/Asignado (Opcional)</label>
-                                        <span 
-                                            style={{ color: '#f26522', fontSize: '11px', cursor: 'pointer', fontWeight: 'bold' }}
-                                            onClick={() => setIsTechRequestModalOpen(true)}
-                                        >
-                                            ¿Necesitas técnicos?
-                                        </span>
-                                    </div>
-                                    <div className={styles.selectWrapper} style={{ marginTop: '5px' }}>
-                                        <select
-                                            className={`${styles.newServiceInput} ${isSOSRequest ? styles.newServiceInputSos : ''}`}
-                                            value={newRequestData.trabajador_id || ""}
-                                            onChange={(e) => setNewRequestData({ ...newRequestData, trabajador_id: e.target.value })}
-                                        >
-                                            <option value="">-- Seleccionar Técnico --</option>
-                                            {tecnicosData.map(tecnico => (
-                                                <option key={tecnico.id} value={tecnico.id}>
-                                                    {tecnico.nombre}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                </div>
-                            )}
 
                             <div className={styles.formField}>
                                 <label className={styles.formLabel}>Descripción del problema</label>
