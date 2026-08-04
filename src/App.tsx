@@ -145,8 +145,8 @@ function App() {
                                 <AutonomoLayout />
                             </ProtectedRoute>
                         }>
-                            <Route index element={<DashboardAutonomo />} />
-                            <Route path="dashboard" element={<DashboardAutonomo />} />
+                            <Route index element={<Navigate to="/autonomo/negocios" replace />} />
+                            <Route path="dashboard" element={<Navigate to="/autonomo/negocios" replace />} />
                             <Route path="negocios" element={<AutonomoListaNegocios />} />
                             <Route path="trabajadores" element={<AutonomoListaTrabajadores />} />
                             <Route path="trabajador/:id" element={<AdminPerfilTrabajador />} />

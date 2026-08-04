@@ -182,9 +182,8 @@ const TrabajoDetalle: React.FC = () => {
     useEffect(() => {
         const fetchJobs = async () => {
             try {
-                const data = await getTrabajos();
-                const filtered = data.filter((j: any) => j.negocio_id === Number(id));
-                const mapped = filtered.map((j: any) => {
+                const data = await getTrabajos({ negocio_id: Number(id) });
+                const mapped = data.map((j: any) => {
                     const isSOS = j.prioridad === "Alta" || j.titulo?.includes("SOS");
                     let displayTipo = "Nueva Solicitud";
                     if (isSOS) {
@@ -1581,8 +1580,9 @@ const TrabajoDetalle: React.FC = () => {
         const colFinalizadas = flatJobs.filter(t => ['Finalizado', 'Completado'].includes(t.estado));
 
         const renderMiniCard = (trabajo: any) => {
+            const basePath = user?.role === 'tecnico' ? '/tecnico' : (user?.role === 'cliente' ? '/cliente' : (['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '') ? '/autonomo' : (user?.role === 'encargado' ? '/encargado' : '/menu')));
             return (
-                <div key={trabajo.id} style={{ padding: '10px', background: 'white', borderRadius: '8px', border: '1px solid #e2e8f0', cursor: 'pointer', marginBottom: '8px', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }} onClick={() => navigate(`/encargado/trabajo-detalle/${trabajo.id}`)}>
+                <div key={trabajo.id} style={{ padding: '10px', background: 'white', borderRadius: '8px', border: '1px solid #e2e8f0', cursor: 'pointer', marginBottom: '8px', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }} onClick={() => navigate(`${basePath}/trabajo-detalle/${trabajo.id}`)}>
                     <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#334155', marginBottom: '4px' }}>#{trabajo.id} - {trabajo.titulo}</div>
                     <div style={{ fontSize: '11px', color: '#64748b' }}>{trabajo.fecha}</div>
                     <div style={{ marginTop: '6px' }}>

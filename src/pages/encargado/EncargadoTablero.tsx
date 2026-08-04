@@ -66,13 +66,10 @@ const EncargadoTablero: React.FC = () => {
 
         try {
             // 1. Fetch trabajos and users
-            const [trabajosData, usersData] = await Promise.all([
-                getTrabajos(),
+            const [misTrabajos, usersData] = await Promise.all([
+                getTrabajos({ negocio_id: user.negocio_id }),
                 getUsers()
             ]);
-
-            // Filter jobs by current user's negocio_id
-            const misTrabajos = trabajosData.filter((t: any) => t.negocio_id === user.negocio_id);
 
             // 2. Map subgerentes
             const subgerentesMap = new Map<number, string>();

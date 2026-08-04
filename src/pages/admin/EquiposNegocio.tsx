@@ -90,8 +90,8 @@ const EquiposNegocio: React.FC<EquiposNegocioProps> = ({ businessId, onViewRepor
                 });
 
                 // 3. Rescatar trabajos genéricos antiguos que contenían reportes manuales vinculados al ID del equipo
-                const trabajos = await getTrabajos();
-                const trabajosGenericos = trabajos.filter((t: any) => t.negocio_id === businessId && t.estado === 'Finalizado');
+                const trabajos = await getTrabajos({ negocio_id: businessId });
+                const trabajosGenericos = trabajos.filter((t: any) => t.estado === 'Finalizado');
 
                 const mappedGenericJobs: any[] = [];
                 for (const job of trabajosGenericos) {

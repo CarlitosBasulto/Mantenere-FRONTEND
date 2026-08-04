@@ -170,7 +170,7 @@ const MenuLayout: React.FC = () => {
         if (user.role === 'admin') {
             baseOptions = ["Negocios", "Dashboard", "Inventario General", "Trabajadores", "Usuarios", "Solicitudes", "Solicitudes Proveedores", "Mantenimientos", "Trabajos Realizados"];
         } else if (user.role === 'autonomo' || user.role === 'admin-autonomo' || user.role === 'gerente-general') {
-            baseOptions = ["Mi Dashboard", "Mis Sucursales", "Mis Técnicos", "Usuarios", "Solicitudes", "Historial"];
+            baseOptions = ["Mis Sucursales", "Mis Técnicos", "Usuarios", "Solicitudes", "Historial"];
         } else if (user.role === 'cliente') {
             baseOptions = ["Mis Negocios", "Cotizaciones", "Historial"];
         } else if (user.role === 'tecnico') {
@@ -246,7 +246,6 @@ const MenuLayout: React.FC = () => {
         if (option === "Trabajos Realizados") navigate("/menu/trabajos-realizados");
 
         // Admin Autónomo
-        if (option === "Mi Dashboard") navigate("/autonomo/dashboard");
         if (option === "Mis Sucursales") navigate("/autonomo/negocios");
         if (option === "Mis Técnicos") navigate("/autonomo/trabajadores");
 
