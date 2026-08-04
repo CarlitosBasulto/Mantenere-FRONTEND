@@ -767,6 +767,9 @@ const MiPerfil: React.FC = () => {
                     .perfil-grid {
                         grid-template-columns: 1fr !important;
                     }
+                    .perfil-grid > div {
+                        grid-column: span 1 !important;
+                    }
                 }
                 `}
             </style>
