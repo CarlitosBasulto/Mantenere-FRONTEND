@@ -1,15 +1,16 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 
-type ModalType = 'alert' | 'confirm' | 'success' | 'error' | 'warning' | 'info';
+type ModalType = 'alert' | 'confirm' | 'success' | 'error' | 'warning' | 'info' | 'prompt';
 
 interface ModalOptions {
   title: string;
   message: string;
   type?: ModalType;
-  onConfirm?: () => void;
+  onConfirm?: (value?: string) => void;
   onCancel?: () => void;
   confirmText?: string;
   cancelText?: string;
+  defaultValue?: string;
 }
 
 interface ModalContextType {
@@ -18,6 +19,15 @@ interface ModalContextType {
     title: string,
     message: string,
     onConfirm: () => void,
+    onCancel?: () => void,
+    confirmText?: string,
+    cancelText?: string
+  ) => void;
+  showPrompt: (
+    title: string,
+    message: string,
+    defaultValue: string,
+    onConfirm: (value: string) => void,
     onCancel?: () => void,
     confirmText?: string,
     cancelText?: string
@@ -63,12 +73,42 @@ export const ModalProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     []
   );
 
+  const showPrompt = useCallback(
+    (
+      title: string,
+      message: string,
+      defaultValue: string,
+      onConfirm: (value: string) => void,
+      onCancel?: () => void,
+      confirmText: string = 'Aceptar',
+      cancelText: string = 'Cancelar'
+    ) => {
+      setModalOptions({
+        title,
+        message,
+        type: 'prompt',
+        defaultValue,
+        onConfirm: (val?: string) => {
+          if (val !== undefined) onConfirm(val);
+          setModalOptions(null);
+        },
+        onCancel: () => {
+          if (onCancel) onCancel();
+          setModalOptions(null);
+        },
+        confirmText,
+        cancelText,
+      });
+    },
+    []
+  );
+
   const closeModal = useCallback(() => {
     setModalOptions(null);
   }, []);
 
   return (
-    <ModalContext.Provider value={{ showAlert, showConfirm, closeModal, modalOptions }}>
+    <ModalContext.Provider value={{ showAlert, showConfirm, showPrompt, closeModal, modalOptions }}>
       {children}
     </ModalContext.Provider>
   );

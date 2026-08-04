@@ -30,6 +30,7 @@ import HistorialEquipoModal from "../../../components/modals/HistorialEquipoModa
 import DetalleReporteModal from "../../../components/modals/DetalleReporteModal";
 import { saveSafeLocalInfo, stripBlobUrls } from "../../../utils/storageHelper";
 import { createMantenimientoSolicitud, getMantenimientoSolicitudes } from "../../../services/mantenimientoService";
+import ModalSeleccionEquipo from "../../../components/modals/ModalSeleccionEquipo";
 import { getTrabajos } from "../../../services/trabajosService";
 import { getReporteByTrabajoId } from "../../../services/reportesService";
 import LevantamientoFlotaMockup from "../../../components/LevantamientoFlotaMockup";
@@ -99,7 +100,7 @@ const AutonomoPerfilEmpresa: React.FC = () => {
     // ... (logic remains same until return)
     const navigate = useNavigate();
     const { user } = useAuth();
-    const { showAlert, showConfirm } = useModal();
+    const { showAlert, showConfirm, showPrompt } = useModal();
     const canEdit = ['cliente', 'encargado', 'autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '');
 
     const [formData, setFormData] = useState<BusinessData>({
@@ -134,7 +135,9 @@ const AutonomoPerfilEmpresa: React.FC = () => {
 
     // Bitacora (Historial) states
     const [bitacoraModalOpen, setBitacoraModalOpen] = useState(false);
-    const [selectedEqForBitacora, setSelectedEqForBitacora] = useState<any>(null);
+    const [equipoSelectionMode, setEquipoSelectionMode] = useState<'bitacora' | 'reporte' | null>(null);
+    const [equiposForSelection, setEquiposForSelection] = useState<Equipment[]>([]);
+    const [selectedEqForBitacora, setSelectedEqForBitacora] = useState<Equipment | null>(null);
     const [allSolicitudes, setAllSolicitudes] = useState<any[]>([]);
     const [reporteModalOpen, setReporteModalOpen] = useState(false);
     const [selectedTrabajoId, setSelectedTrabajoId] = useState<number | null>(null);
@@ -174,6 +177,41 @@ const AutonomoPerfilEmpresa: React.FC = () => {
                         fetchedApellidos = fullGerente.substring(firstSpaceIndex + 1);
                     }
 
+                    let serverAreas = Array.isArray((existing as any).areas) && (existing as any).areas.length > 0
+                        ? (existing as any).areas
+                        : Array.isArray(existing.levantamiento)
+                            ? existing.levantamiento
+                            : [];
+
+                    serverAreas = serverAreas.map((area: any) => {
+                        const subAreasMap = new Map<string, any>();
+                        
+                        if (area.sub_areas_json && Array.isArray(area.sub_areas_json)) {
+                            area.sub_areas_json.forEach((sub: any) => {
+                                subAreasMap.set(sub.id, { ...sub, equipos: [] });
+                            });
+                        }
+
+                        (area.equipos || []).forEach((eq: any) => {
+                            const subId = eq.subAreaId || `sub_gen_${area.id}`;
+                            const subName = eq.nombreSubArea || 'GENERAL';
+                            if (!subAreasMap.has(subId)) {
+                                subAreasMap.set(subId, { id: subId, nombreSubArea: subName, equipos: [] });
+                            }
+                            subAreasMap.get(subId)!.equipos.push(eq);
+                        });
+
+                        let finalSubAreas = Array.from(subAreasMap.values());
+                        if (finalSubAreas.length === 0) {
+                            finalSubAreas = [{ id: `sub_gen_${area.id}`, nombreSubArea: 'GENERAL', equipos: area.equipos || [] }];
+                        }
+
+                        return {
+                            ...area,
+                            subAreas: finalSubAreas
+                        };
+                    });
+
                     setFormData(prev => ({
                         ...prev,
                         ...existing,
@@ -188,12 +226,7 @@ const AutonomoPerfilEmpresa: React.FC = () => {
                         lote: localInfo.lote || existing.lote || "",
                         calleAv: localInfo.calleAv || existing.calleAv || "",
                         referencia: localInfo.referencia || existing.referencia || "",
-                        // SIEMPRE priorizamos datos del servidor para el levantamiento (evita mostrar datos stale del localStorage)
-                        levantamiento: Array.isArray((existing as any).areas) && (existing as any).areas.length > 0
-                            ? (existing as any).areas
-                            : Array.isArray(existing.levantamiento)
-                                ? existing.levantamiento
-                                : []
+                        levantamiento: serverAreas
                     }));
                 } catch (error) {
                     console.error("Error fetching negocio:", error);
@@ -391,7 +424,11 @@ const AutonomoPerfilEmpresa: React.FC = () => {
                     
                     return { ...eq, foto: eqFoto, fotoPlaca: eqFotoPlaca };
                 }));
-                return { ...section, equipos: finalEquipos };
+                const cleanSubAreas = (section.subAreas || []).map(sub => ({
+                    ...sub,
+                    equipos: []
+                }));
+                return { ...section, subAreas: cleanSubAreas, equipos: finalEquipos };
             }));
             
             const finalTipo = formData.tipo === 'Otro' ? (customTipoValue || 'Otro') : formData.tipo;
@@ -514,7 +551,11 @@ const AutonomoPerfilEmpresa: React.FC = () => {
                     }
                     return { ...eq, foto: eqFoto, fotoPlaca: eqFotoPlaca, fotoFile: undefined, fotoPlacaFile: undefined };
                 }));
-                return { ...section, equipos: finalEquipos };
+                const cleanSubAreas = (section.subAreas || []).map(sub => ({
+                    ...sub,
+                    equipos: []
+                }));
+                return { ...section, subAreas: cleanSubAreas, equipos: finalEquipos };
             }));
 
             const finalTipo = formData.tipo === 'Otro' ? (customTipoValue || 'Otro') : formData.tipo;
@@ -554,9 +595,17 @@ const AutonomoPerfilEmpresa: React.FC = () => {
                     
                     const subAreasMap = new Map<string, any>();
                     
+                    if (serverArea.sub_areas_json && Array.isArray(serverArea.sub_areas_json)) {
+                        serverArea.sub_areas_json.forEach((sub: any) => {
+                            subAreasMap.set(sub.id, { ...sub, equipos: [] });
+                        });
+                    }
+
                     if (localArea && localArea.subAreas) {
                         localArea.subAreas.forEach(sub => {
-                            subAreasMap.set(sub.id, { ...sub, equipos: [] });
+                            if (!subAreasMap.has(sub.id)) {
+                                subAreasMap.set(sub.id, { ...sub, equipos: [] });
+                            }
                         });
                     }
 
@@ -673,13 +722,22 @@ const AutonomoPerfilEmpresa: React.FC = () => {
     };
 
     const editAreaName = (id: string, oldName: string) => {
-        const newName = prompt("Nuevo nombre del área:", oldName);
-        if (newName && newName.trim()) {
-            const updated = (formData.levantamiento || []).map(sec => 
-                sec.id === id ? { ...sec, nombreArea: newName.trim().toUpperCase() } : sec
-            );
-            persistLevantamiento(updated);
-        }
+        showPrompt(
+            "Editar Área",
+            "Ingresa el nuevo nombre para esta área:",
+            oldName,
+            (newName) => {
+                if (newName && newName.trim()) {
+                    const updated = (formData.levantamiento || []).map(sec => 
+                        sec.id === id ? { ...sec, nombreArea: newName.trim().toUpperCase() } : sec
+                    );
+                    persistLevantamiento(updated);
+                }
+            },
+            () => {},
+            "Guardar Cambios",
+            "Cancelar"
+        );
     };
 
     const handleReportarProblemaSubmit = async (descripcion: string) => {
@@ -888,19 +946,7 @@ const AutonomoPerfilEmpresa: React.FC = () => {
                                                 onChange={handleChange}
                                                 disabled={!canEdit}
                                             />
-                                            <div className={styles.levantamientoHeader}>
-                                                <h3 style={{ margin: 0 }}>Áreas de Levantamiento</h3>
-                                                <p style={{ margin: '5px 0 0 0', color: '#64748b', fontSize: '14px' }}>
-                                                    Gestiona las áreas, sub-áreas y catálogo de equipos/activos.
-                                                </p>
-                                                <div style={{ marginTop: '15px', display: 'flex', gap: '10px' }}>
-                                                    {canEdit && (
-                                                        <button className={styles.btnPrimary} onClick={() => setIsAreaModalOpen(true)}>
-                                                            + Agregar Nueva Área
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            </div>
+
                                         </div>
                                         <div className={styles.inputGroup}>
                                             <label className={styles.label}>Estado</label>
@@ -1061,14 +1107,16 @@ const AutonomoPerfilEmpresa: React.FC = () => {
                                         Estructura de áreas, sub-áreas y catálogo de equipos y activos de la sucursal.
                                     </p>
                                 </div>
-                                <button
-                                    className={styles.levantamientoButton}
-                                    onClick={() => { setActiveSectionId(null); setIsLevantamientoModalOpen(true); }}
-                                    type="button"
-                                >
-                                    <HiOutlineBolt size={18} />
-                                    {canEdit ? "Iniciar levantamiento" : "Ver Catálogo"}
-                                </button>
+                                <div style={{ display: 'flex', gap: '12px' }}>
+                                    <button
+                                        className={styles.levantamientoButton}
+                                        onClick={() => { setActiveSectionId(null); setIsLevantamientoModalOpen(true); }}
+                                        type="button"
+                                    >
+                                        <HiOutlineBolt size={18} />
+                                        {canEdit ? "Iniciar levantamiento" : "Ver Catálogo"}
+                                    </button>
+                                </div>
                             </div>
 
                             <div className={styles.levantamientoPreview}>
@@ -1086,9 +1134,37 @@ const AutonomoPerfilEmpresa: React.FC = () => {
                                                     setIsSubAreaModalOpen(true);
                                                 }}
                                                 onViewInventory={(subAreaId) => {
-                                                    setActiveSectionId(seccion.id);
-                                                    setInitialSubAreaId(subAreaId);
-                                                    setIsLevantamientoModalOpen(true);
+                                                    const subArea = seccion.subAreas?.find(s => s.id === subAreaId);
+                                                    if (subArea && subArea.equipos && subArea.equipos.length > 0) {
+                                                        setActiveSectionId(seccion.id);
+                                                        setInitialSubAreaId(subAreaId);
+                                                        setSelectedEquipment(subArea.equipos as any);
+                                                    } else {
+                                                        setActiveSectionId(seccion.id);
+                                                        setInitialSubAreaId(subAreaId);
+                                                        setIsLevantamientoModalOpen(true);
+                                                    }
+                                                }}
+                                                onVerBitacora={(subAreaId) => {
+                                                    const subArea = seccion.subAreas?.find(s => s.id === subAreaId);
+                                                    if (!subArea || !subArea.equipos || subArea.equipos.length === 0) return;
+                                                    if (subArea.equipos.length === 1) {
+                                                        setSelectedEqForBitacora(subArea.equipos[0] as any);
+                                                        setBitacoraModalOpen(true);
+                                                    } else {
+                                                        setEquiposForSelection(subArea.equipos as any);
+                                                        setEquipoSelectionMode('bitacora');
+                                                    }
+                                                }}
+                                                onReportarProblema={(subAreaId) => {
+                                                    const subArea = seccion.subAreas?.find(s => s.id === subAreaId);
+                                                    if (!subArea || !subArea.equipos || subArea.equipos.length === 0) return;
+                                                    if (subArea.equipos.length === 1) {
+                                                        setReportingEquipment(subArea.equipos[0] as any);
+                                                    } else {
+                                                        setEquiposForSelection(subArea.equipos as any);
+                                                        setEquipoSelectionMode('reporte');
+                                                    }
                                                 }}
                                             />
                                         ))}
@@ -1146,6 +1222,26 @@ const AutonomoPerfilEmpresa: React.FC = () => {
                     equipment={reportingEquipment}
                     negocioId={editId || ''}
                     onSubmit={handleReportarProblemaSubmit}
+                />
+
+                <ModalSeleccionEquipo
+                    isOpen={equipoSelectionMode !== null}
+                    onClose={() => {
+                        setEquipoSelectionMode(null);
+                        setEquiposForSelection([]);
+                    }}
+                    equipos={equiposForSelection}
+                    title={equipoSelectionMode === 'bitacora' ? 'Seleccionar Equipo para Bitácora' : 'Seleccionar Equipo para Reportar'}
+                    onSelect={(equipo) => {
+                        if (equipoSelectionMode === 'bitacora') {
+                            setSelectedEqForBitacora(equipo);
+                            setBitacoraModalOpen(true);
+                        } else if (equipoSelectionMode === 'reporte') {
+                            setReportingEquipment(equipo);
+                        }
+                        setEquipoSelectionMode(null);
+                        setEquiposForSelection([]);
+                    }}
                 />
 
                 <DetalleEquipoModal

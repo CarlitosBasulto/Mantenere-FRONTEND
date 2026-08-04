@@ -1,43 +1,55 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import styles from './DetalleEquipoModal.module.css';
 import { 
     HiOutlinePencilSquare,
     HiOutlineCalendarDays,
     HiOutlineHashtag,
     HiOutlineClock,
-    HiOutlineTag
+    HiOutlineTag,
+    HiOutlineArrowLeft,
+    HiOutlineArrowRight
 } from "react-icons/hi2";
 import type { Equipment } from '../pages/cliente/PerfilEmpresa';
 
 interface DetalleEquipoModalProps {
     isOpen: boolean;
     onClose: () => void;
-    equipment: Equipment | null;
+    equipment: Equipment | Equipment[] | null;
     onEdit?: () => void;
     onVerHistorial?: () => void;
 }
 
 const DetalleEquipoModal: React.FC<DetalleEquipoModalProps> = ({ isOpen, onClose, equipment, onEdit, onVerHistorial }) => {
-    React.useEffect(() => {
-        if (isOpen && equipment) {
+    const [currentIndex, setCurrentIndex] = useState(0);
+
+    const equipmentList = React.useMemo(() => {
+        if (!equipment) return [];
+        return Array.isArray(equipment) ? equipment : [equipment];
+    }, [equipment]);
+
+    useEffect(() => {
+        if (isOpen && equipmentList.length > 0) {
             document.body.style.overflow = 'hidden';
+            setCurrentIndex(0); // Reset index when opened
         } else {
             document.body.style.overflow = '';
         }
         return () => {
             document.body.style.overflow = '';
         };
-    }, [isOpen, equipment]);
+    }, [isOpen, equipmentList.length]);
 
-    const [fotoError, setFotoError] = React.useState(false);
-    const [placaError, setPlacaError] = React.useState(false);
+    const [fotoError, setFotoError] = useState(false);
+    const [placaError, setPlacaError] = useState(false);
 
-    React.useEffect(() => {
+    useEffect(() => {
         setFotoError(false);
         setPlacaError(false);
-    }, [equipment]);
+    }, [currentIndex, equipmentList]);
 
-    if (!isOpen || !equipment) return null;
+    if (!isOpen || equipmentList.length === 0) return null;
+
+    const currentEq = equipmentList[currentIndex];
 
     return (
         <div className={styles.modalOverlay} onClick={onClose}>
@@ -45,8 +57,8 @@ const DetalleEquipoModal: React.FC<DetalleEquipoModalProps> = ({ isOpen, onClose
                 <div className={styles.modalHeader}>
                     <div className={styles.headerInfo}>
                         <div className={styles.categoryBadge}>DETALLE TÉCNICO</div>
-                        <h3 className={styles.modalTitle}>{equipment.nombre}</h3>
-                        <span className={styles.brandSubtitle}>{equipment.marca} • {equipment.modelo}</span>
+                        <h3 className={styles.modalTitle}>{currentEq.nombre}</h3>
+                        <span className={styles.brandSubtitle}>{currentEq.marca} • {currentEq.modelo}</span>
                     </div>
                     <button className={styles.closeButton} onClick={onClose} title="Cerrar">
                         <span style={{ fontSize: '20px', fontWeight: 'bold', color: 'inherit' }}>✕</span>
@@ -58,10 +70,10 @@ const DetalleEquipoModal: React.FC<DetalleEquipoModalProps> = ({ isOpen, onClose
                     <div className={styles.photosGrid}>
                         <div className={styles.photoContainer}>
                             <span className={styles.photoLabel}>VISTA GENERAL</span>
-                            {equipment.foto && !fotoError ? (
+                            {currentEq.foto && !fotoError ? (
                                 <img 
-                                    src={equipment.foto} 
-                                    alt={equipment.nombre} 
+                                    src={currentEq.foto} 
+                                    alt={currentEq.nombre} 
                                     className={styles.mainPhoto} 
                                     onError={() => setFotoError(true)}
                                 />
@@ -74,9 +86,9 @@ const DetalleEquipoModal: React.FC<DetalleEquipoModalProps> = ({ isOpen, onClose
 
                         <div className={styles.photoContainer}>
                             <span className={styles.photoLabel}>PLACA DE DATOS</span>
-                            {equipment.fotoPlaca && !placaError ? (
+                            {currentEq.fotoPlaca && !placaError ? (
                                 <img 
-                                    src={equipment.fotoPlaca} 
+                                    src={currentEq.fotoPlaca} 
                                     alt="Placa" 
                                     className={styles.mainPhoto} 
                                     onError={() => setPlacaError(true)}
@@ -91,47 +103,61 @@ const DetalleEquipoModal: React.FC<DetalleEquipoModalProps> = ({ isOpen, onClose
 
                     {/* DATA GRID */}
                     <div className={styles.dataGrid}>
-                        {equipment.categoria && (
+                        {currentEq.categoria && (
                             <div className={styles.dataItem}>
                                 <div className={styles.iconWrapper}><HiOutlineTag size={18} /></div>
                                 <div className={styles.dataLabel}>Categoría</div>
-                                <div className={styles.dataValue}>{equipment.categoria.nombre}</div>
+                                <div className={styles.dataValue}>{currentEq.categoria.nombre}</div>
                             </div>
                         )}
 
                         <div className={styles.dataItem}>
                             <div className={styles.iconWrapper}><HiOutlineTag size={18} /></div>
                             <div className={styles.dataLabel}>Marca / Modelo</div>
-                            <div className={styles.dataValue}>{equipment.marca} - {equipment.modelo}</div>
+                            <div className={styles.dataValue}>{currentEq.marca} - {currentEq.modelo}</div>
                         </div>
 
                         <div className={styles.dataItem}>
                             <div className={styles.iconWrapper}><HiOutlineHashtag size={18} /></div>
                             <div className={styles.dataLabel}>Número de Serie</div>
-                            <div className={styles.dataValue}>{equipment.serie || 'N/A'}</div>
+                            <div className={styles.dataValue}>{currentEq.serie || 'N/A'}</div>
                         </div>
 
                         <div className={styles.dataItem}>
                             <div className={styles.iconWrapper}><HiOutlineCalendarDays size={18} /></div>
                             <div className={styles.dataLabel}>Año Fabricación</div>
-                            <div className={styles.dataValue}>{equipment.anioFabricacion || 'N/A'}</div>
+                            <div className={styles.dataValue}>{currentEq.anioFabricacion || 'N/A'}</div>
                         </div>
 
                         <div className={styles.dataItem}>
                             <div className={styles.iconWrapper}><HiOutlineClock size={18} /></div>
                             <div className={styles.dataLabel}>Tiempo en Uso</div>
-                            <div className={styles.dataValue}>{equipment.anioUso || 'N/A'}</div>
+                            <div className={styles.dataValue}>{currentEq.anioUso || 'N/A'}</div>
                         </div>
                     </div>
                 </div>
 
-                <div className={styles.modalFooter}>
-                    {onVerHistorial && (
-                        <button className={styles.historyBtn} onClick={() => { onClose(); onVerHistorial(); }}>
-                            📂 Ver Historial
+                {equipmentList.length > 1 && (
+                    <div className={styles.carouselControls}>
+                        <button 
+                            className={styles.carouselBtn} 
+                            onClick={() => setCurrentIndex(prev => prev > 0 ? prev - 1 : equipmentList.length - 1)}
+                        >
+                            <HiOutlineArrowLeft size={16} /> ANTERIOR
                         </button>
-                    )}
+                        <span className={styles.carouselIndicator}>
+                            EQUIPO {currentIndex + 1} DE {equipmentList.length}
+                        </span>
+                        <button 
+                            className={styles.carouselBtn} 
+                            onClick={() => setCurrentIndex(prev => prev < equipmentList.length - 1 ? prev + 1 : 0)}
+                        >
+                            SIGUIENTE <HiOutlineArrowRight size={16} />
+                        </button>
+                    </div>
+                )}
 
+                <div className={styles.modalFooter}>
                     {onEdit && (
                         <button className={styles.editBtn} onClick={() => { onEdit(); onClose(); }}>
                             <HiOutlinePencilSquare size={18} /> EDITAR INFORMACIÓN

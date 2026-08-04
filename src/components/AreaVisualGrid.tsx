@@ -10,6 +10,8 @@ interface AreaVisualGridProps {
     onDeleteArea: () => void;
     onAddSubArea: () => void;
     onViewInventory: (subAreaId: string) => void;
+    onVerBitacora?: (subAreaId: string) => void;
+    onReportarProblema?: (subAreaId: string) => void;
     canEdit: boolean;
 }
 
@@ -19,6 +21,8 @@ const AreaVisualGrid: React.FC<AreaVisualGridProps> = ({
     onDeleteArea,
     onAddSubArea,
     onViewInventory,
+    onVerBitacora,
+    onReportarProblema,
     canEdit
 }) => {
     const subAreas = seccion.subAreas && seccion.subAreas.length > 0 
@@ -29,6 +33,7 @@ const AreaVisualGrid: React.FC<AreaVisualGridProps> = ({
         <div className={styles.container}>
             <div className={styles.header}>
                 <div className={styles.headerLeft}>
+                    <div className={styles.areaBadge}>ÁREA</div>
                     <h2 className={styles.areaName}>{seccion.nombreArea}</h2>
                     {canEdit && (
                         <>
@@ -42,7 +47,7 @@ const AreaVisualGrid: React.FC<AreaVisualGridProps> = ({
                     )}
                 </div>
                 <div className={styles.headerRight}>
-                    {subAreas.length} {subAreas.length === 1 ? 'ÁREA' : 'ÁREAS'}
+                    <span className={styles.areaCounterLabel}>ESPACIOS:</span> {subAreas.length}
                 </div>
             </div>
 
@@ -54,7 +59,7 @@ const AreaVisualGrid: React.FC<AreaVisualGridProps> = ({
                     const inventoryCount = sub.equipos.length;
 
                     return (
-                        <div key={sub.id} className={styles.card} onClick={() => onViewInventory(sub.id)}>
+                        <div key={sub.id} className={styles.card}>
                             {bgImage ? (
                                 <img src={bgImage} alt={sub.nombreSubArea} className={styles.cardBg} />
                             ) : (
@@ -63,17 +68,45 @@ const AreaVisualGrid: React.FC<AreaVisualGridProps> = ({
                                 </div>
                             )}
                             <div className={styles.cardOverlay} />
+                            
+                            <div className={styles.subAreaBadge}>SUB-ÁREA</div>
+
                             <div className={styles.cardContent}>
                                 <h3 className={styles.subAreaName}>{sub.nombreSubArea}</h3>
-                                <button 
-                                    className={styles.inventoryBtn}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        onViewInventory(sub.id);
-                                    }}
-                                >
-                                    VER INVENTARIO ({inventoryCount})
-                                </button>
+                                <div className={styles.cardButtons}>
+                                    <button 
+                                        className={`${styles.actionBtn} ${styles.btnInventory}`}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onViewInventory(sub.id);
+                                        }}
+                                    >
+                                        VER INVENTARIO ({inventoryCount})
+                                    </button>
+                                    
+                                    <div className={styles.secondaryButtons}>
+                                        <button 
+                                            className={`${styles.actionBtn} ${styles.btnBitacora}`}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (onVerBitacora) onVerBitacora(sub.id);
+                                            }}
+                                            disabled={inventoryCount === 0}
+                                        >
+                                            VER BITÁCORA
+                                        </button>
+                                        <button 
+                                            className={`${styles.actionBtn} ${styles.btnReport}`}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (onReportarProblema) onReportarProblema(sub.id);
+                                            }}
+                                            disabled={inventoryCount === 0}
+                                        >
+                                            REPORTAR PROBLEMA
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     );

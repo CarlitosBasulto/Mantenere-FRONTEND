@@ -198,7 +198,7 @@ const AutonomoDetalleTrabajo: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const { user } = useAuth();
-    const { showAlert, showConfirm } = useModal();
+    const { showAlert, showConfirm, showPrompt } = useModal();
 
     // Permitir abrir la pestaña de cotización directamente vía URL
     const searchParams = new URLSearchParams(location.search);
@@ -883,28 +883,37 @@ const AutonomoDetalleTrabajo: React.FC = () => {
     };
 
     const handleRechazarAsignacion = async () => {
-        const motivo = prompt("Por favor, ingresa el motivo del rechazo:");
-        if (!motivo) return;
+        showPrompt(
+            "Rechazar Asignación",
+            "Por favor, ingresa el motivo del rechazo:",
+            "",
+            async (motivo) => {
+                if (!motivo) return;
 
-        try {
-            const newState = (trabajo.tipo === "SOS" || trabajo.tipo === "Nueva Solicitud") ? "Solicitud" : "Cotización Aceptada";
-            await updateEstadoTrabajo(trabajo.id, { estado: newState, tecnico: "Sin asignar" });
-            
-            const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
-            const token = localStorage.getItem('token');
-            const chatMessage = `❌ ASIGNACIÓN RECHAZADA\nMotivo: ${motivo}`;
-            await fetch(`${API_URL}/trabajos/${trabajo.id}/chat`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: chatMessage })
-            });
+                try {
+                    const newState = (trabajo.tipo === "SOS" || trabajo.tipo === "Nueva Solicitud") ? "Solicitud" : "Cotización Aceptada";
+                    await updateEstadoTrabajo(trabajo.id, { estado: newState, tecnico: "Sin asignar" });
+                    
+                    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+                    const token = localStorage.getItem('token');
+                    const chatMessage = `❌ ASIGNACIÓN RECHAZADA\nMotivo: ${motivo}`;
+                    await fetch(`${API_URL}/trabajos/${trabajo.id}/chat`, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ message: chatMessage })
+                    });
 
-            setTrabajo((prev: any) => prev ? { ...prev, estado: newState, tecnico: "Sin asignar" } : prev);
-            showAlert("Trabajo Rechazado", "Has rechazado el trabajo y se ha notificado al administrador.", "info");
-        } catch (error) {
-            console.error("Error rechazando asignación:", error);
-            showAlert("Error", "No se pudo rechazar la asignación.", "error");
-        }
+                    setTrabajo((prev: any) => prev ? { ...prev, estado: newState, tecnico: "Sin asignar" } : prev);
+                    showAlert("Trabajo Rechazado", "Has rechazado el trabajo y se ha notificado al administrador.", "info");
+                } catch (error) {
+                    console.error("Error rechazando asignación:", error);
+                    showAlert("Error", "No se pudo rechazar la asignación.", "error");
+                }
+            },
+            () => {},
+            "Rechazar Trabajo",
+            "Cancelar"
+        );
     };
 
     const handleEmpezarTrabajoTipo = async (tipo: 'Visita' | 'Trabajo') => {

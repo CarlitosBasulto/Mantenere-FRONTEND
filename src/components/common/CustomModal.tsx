@@ -1,9 +1,16 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useModal } from '../../context/ModalContext';
 import styles from './CustomModal.module.css';
 
 const CustomModal: React.FC = () => {
   const { modalOptions, closeModal } = useModal();
+  const [inputValue, setInputValue] = useState('');
+
+  useEffect(() => {
+    if (modalOptions?.type === 'prompt') {
+      setInputValue(modalOptions.defaultValue || '');
+    }
+  }, [modalOptions]);
 
   if (!modalOptions) return null;
 
@@ -11,6 +18,14 @@ const CustomModal: React.FC = () => {
 
   const getIcon = () => {
     switch (type) {
+      case 'prompt':
+        return (
+          <div className={`${styles.iconOuter} ${styles.iconBlue}`}>
+            <svg className={styles.iconSvg} fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+            </svg>
+          </div>
+        );
       case 'confirm':
       case 'warning':
         return (
@@ -48,6 +63,16 @@ const CustomModal: React.FC = () => {
     }
   };
 
+  const handleConfirmClick = () => {
+    if (type === 'prompt' && onConfirm) {
+      onConfirm(inputValue);
+    } else if (onConfirm) {
+      onConfirm();
+    } else {
+      closeModal();
+    }
+  };
+
   return (
     <div className={styles.overlay} onClick={(e) => {
       // Allow closing when clicking the overlay (background) directly
@@ -69,6 +94,34 @@ const CustomModal: React.FC = () => {
         <p className={styles.message}>
           {message}
         </p>
+
+        {/* Prompt Input Section */}
+        {type === 'prompt' && (
+          <div className={styles.promptContainer} style={{ marginTop: '16px', width: '100%' }}>
+            <input
+              type="text"
+              autoFocus
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleConfirmClick();
+                }
+              }}
+              className={styles.promptInput}
+              style={{
+                width: '100%',
+                padding: '10px 14px',
+                borderRadius: '8px',
+                border: '1px solid #cbd5e1',
+                fontSize: '14px',
+                outline: 'none',
+                transition: 'border-color 0.2s'
+              }}
+            />
+          </div>
+        )}
         
         {/* Actions Section */}
         <div className={styles.actions}>
@@ -84,10 +137,7 @@ const CustomModal: React.FC = () => {
           <button
             type="button"
             className={`${styles.btn} ${type === 'error' ? styles.btnConfirmError : styles.btnConfirmDefault}`}
-            onClick={() => {
-              if (onConfirm) onConfirm();
-              else closeModal();
-            }}
+            onClick={handleConfirmClick}
           >
             {confirmText || 'Confirmar'}
           </button>

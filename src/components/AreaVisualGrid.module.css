@@ -126,23 +126,108 @@
     text-shadow: 0 2px 4px rgba(0,0,0,0.5);
 }
 
-.inventoryBtn {
-    background-color: #f97316;
+.areaBadge {
+    background-color: #ffffff;
+    color: #f97316;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.areaCounterLabel {
+    font-weight: 800;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 11px;
+    margin-right: 4px;
+}
+
+.subAreaBadge {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    background-color: rgba(15, 23, 42, 0.7);
+    backdrop-filter: blur(4px);
     color: #ffffff;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    z-index: 3;
+    border: 1px solid rgba(255,255,255,0.1);
+}
+
+.cardButtons {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+}
+
+.actionBtn {
     border: none;
     border-radius: 8px;
     padding: 10px 16px;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 800;
     text-transform: uppercase;
     cursor: pointer;
-    transition: background-color 0.2s;
+    transition: all 0.2s;
     width: 100%;
     box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-.inventoryBtn:hover {
+.actionBtn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+.btnInventory {
+    background-color: #f97316;
+    color: #ffffff;
+    font-size: 12px;
+}
+
+.btnInventory:hover:not(:disabled) {
     background-color: #ea580c;
+    transform: translateY(-1px);
+}
+
+.secondaryButtons {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+}
+
+.btnBitacora {
+    background-color: #0284c7;
+    color: #ffffff;
+    flex: 1;
+    padding: 8px;
+    font-size: 10px;
+}
+
+.btnBitacora:hover:not(:disabled) {
+    background-color: #0369a1;
+}
+
+.btnReport {
+    background-color: #e11d48;
+    color: #ffffff;
+    flex: 1;
+    padding: 8px;
+    font-size: 10px;
+}
+
+.btnReport:hover:not(:disabled) {
+    background-color: #be123c;
 }
 
 .addCard {
