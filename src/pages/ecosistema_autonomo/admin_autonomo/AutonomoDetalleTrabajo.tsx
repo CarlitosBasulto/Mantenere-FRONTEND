@@ -2519,6 +2519,42 @@ const AutonomoDetalleTrabajo: React.FC = () => {
                                 </div>
                             </div>
 
+                            {/* Card 1.5: Equipo en Mantenimiento (12/12) */}
+                            {((trabajo as any).mantenimiento_solicitud_visita?.levantamiento_equipo || (trabajo as any).mantenimiento_solicitud_reparacion?.levantamiento_equipo) && (
+                                <div className={`${styles.bentoCard}`} style={{ gridColumn: 'span 12', border: '1.5px solid #a7f3d0', background: 'linear-gradient(to right, #f8fafc, #ecfdf5)' }}>
+                                    <div className={styles.cardHeader} style={{ marginBottom: '10px' }}>
+                                        <div className={`${styles.iconBox}`} style={{ background: '#059669', color: 'white' }}>
+                                            <HiOutlineClipboardDocument size={20} />
+                                        </div>
+                                        <h3 className={styles.cardTitle} style={{ color: '#065f46' }}>Equipo a Intervenir</h3>
+                                    </div>
+                                    <div className={styles.bentoContent} style={{ display: 'flex', gap: '15px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                        {((trabajo as any).mantenimiento_solicitud_visita?.levantamiento_equipo?.foto_url || (trabajo as any).mantenimiento_solicitud_reparacion?.levantamiento_equipo?.foto_url) && (
+                                            <img 
+                                                src={((trabajo as any).mantenimiento_solicitud_visita?.levantamiento_equipo?.foto_url || (trabajo as any).mantenimiento_solicitud_reparacion?.levantamiento_equipo?.foto_url)} 
+                                                alt="Equipo" 
+                                                style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '10px', border: '1px solid #cbd5e1', cursor: 'pointer' }}
+                                                onClick={(e) => { e.stopPropagation(); setSelectedZoomImage(((trabajo as any).mantenimiento_solicitud_visita?.levantamiento_equipo?.foto_url || (trabajo as any).mantenimiento_solicitud_reparacion?.levantamiento_equipo?.foto_url)); setShowZoomModal(true); }}
+                                            />
+                                        )}
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                            <span style={{ fontSize: '16px', fontWeight: '800', color: '#0f172a' }}>
+                                                {((trabajo as any).mantenimiento_solicitud_visita?.levantamiento_equipo?.nombre || (trabajo as any).mantenimiento_solicitud_reparacion?.levantamiento_equipo?.nombre)}
+                                            </span>
+                                            <span style={{ fontSize: '13px', color: '#475569' }}>
+                                                <strong>Marca:</strong> {((trabajo as any).mantenimiento_solicitud_visita?.levantamiento_equipo?.marca || (trabajo as any).mantenimiento_solicitud_reparacion?.levantamiento_equipo?.marca || 'N/A')} | 
+                                                <strong> Modelo:</strong> {((trabajo as any).mantenimiento_solicitud_visita?.levantamiento_equipo?.modelo || (trabajo as any).mantenimiento_solicitud_reparacion?.levantamiento_equipo?.modelo || 'N/A')}
+                                            </span>
+                                            {((trabajo as any).mantenimiento_solicitud_visita?.levantamiento_equipo?.serie || (trabajo as any).mantenimiento_solicitud_reparacion?.levantamiento_equipo?.serie) && (
+                                                <span style={{ fontSize: '12px', color: '#64748b', background: '#e2e8f0', padding: '2px 6px', borderRadius: '4px', width: 'fit-content' }}>
+                                                    S/N: {((trabajo as any).mantenimiento_solicitud_visita?.levantamiento_equipo?.serie || (trabajo as any).mantenimiento_solicitud_reparacion?.levantamiento_equipo?.serie)}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Card 2: Estado Actual (4/12) */}
                             <div className={`${styles.bentoCard} ${styles.colSpan4}`}>
                                 <div className={styles.cardHeader}>
@@ -3699,59 +3735,7 @@ const AutonomoDetalleTrabajo: React.FC = () => {
                                     </div>
                                 )}
 
-                                {activeServiceType === 'Mantenimiento' && (
-                                    <div style={{ marginTop: '20px', background: '#f8fafc', padding: '15px', borderRadius: '12px', border: '1px solid #e2e8f0', marginBottom: '20px' }}>
-                                        <h4 style={{ fontSize: '14px', fontWeight: 'bold', color: '#475569', marginBottom: '10px' }}>Refacciones y Piezas (Historial de Equipo)</h4>
-                                        {refacciones.map((ref, i) => (
-                                            <div key={i} style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
-                                                <input
-                                                    placeholder="Nombre de la pieza"
-                                                    value={ref.pieza}
-                                                    onChange={(e) => {
-                                                        const newR = [...refacciones];
-                                                        newR[i].pieza = e.target.value;
-                                                        setRefacciones(newR);
-                                                    }}
-                                                    style={{ flex: 1, padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                                                />
-                                                <input
-                                                    type="number"
-                                                    placeholder="Cant."
-                                                    value={ref.cantidad}
-                                                    onChange={(e) => {
-                                                        const newR = [...refacciones];
-                                                        newR[i].cantidad = Number(e.target.value);
-                                                        setRefacciones(newR);
-                                                    }}
-                                                    style={{ width: '80px', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                                                />
-                                                <input
-                                                    type="number"
-                                                    placeholder="Precio ($)"
-                                                    value={ref.costo_estimado || ""}
-                                                    onChange={(e) => {
-                                                        const newR = [...refacciones];
-                                                        newR[i].costo_estimado = e.target.value;
-                                                        setRefacciones(newR);
-                                                    }}
-                                                    style={{ width: '120px', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                                                />
-                                                <button
-                                                    onClick={() => setRefacciones(refacciones.filter((_, idx) => idx !== i))}
-                                                    style={{ background: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca', padding: '0 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
-                                                >
-                                                    X
-                                                </button>
-                                            </div>
-                                        ))}
-                                        <button
-                                            onClick={() => setRefacciones([...refacciones, { pieza: '', cantidad: 1 }])}
-                                            style={{ background: 'transparent', color: '#f26522', border: '1px dashed #f26522', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold', width: '100%', marginTop: '5px' }}
-                                        >
-                                            + Agregar Pieza/Refacción
-                                        </button>
-                                    </div>
-                                )}
+
 
                                  {/* DETALLES DE LA ACTIVIDAD Y EVIDENCIAS (HASTA 3 BLOQUES) */}
                                  <div style={{ marginBottom: '25px' }}>

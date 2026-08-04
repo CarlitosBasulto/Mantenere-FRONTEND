@@ -137,6 +137,7 @@ function App() {
                             <Route path="historial" element={<Historial />} />
                             <Route path="trabajo/:id" element={<TrabajoDetalle />} />
                             <Route path="trabajo-detalle/:id" element={<AdminDetalleTrabajo />} />
+                            <Route path="mantenimiento-detalle/:id" element={<MantenimientoDetalle />} />
                         </Route>
 
                         {/* ADMIN AUTÓNOMO ROUTES */}
@@ -155,6 +156,7 @@ function App() {
                             <Route path="historial" element={<AdminHistorial />} />
                             <Route path="trabajo/:id" element={<TrabajoDetalle />} />
                             <Route path="trabajo-detalle/:id" element={<AutonomoDetalleTrabajo />} />
+                            <Route path="mantenimiento-detalle/:id" element={<MantenimientoDetalle />} />
                             <Route path="cotizacion/:id" element={<AdminCotizacion />} />
                             <Route path="reporte-tarea/:id" element={<AdminReporte />} />
                             <Route path="mi-perfil" element={<AutonomoMiPerfil />} />

@@ -145,6 +145,22 @@ const MantenimientoDetalle = () => {
                         <span className={`${styles.statusBadge} ${getStatusStyle(data.estado)}`}>
                             {data.estado}
                         </span>
+                        {/* Arrival Status Badge */}
+                        {(data.visita_trabajo?.hora_llegada || data.reparacion_trabajo?.hora_llegada) && (
+                            <span style={{
+                                display: 'inline-block',
+                                marginLeft: '12px',
+                                background: '#ecfdf5',
+                                color: '#059669',
+                                border: '1px solid #34d399',
+                                padding: '4px 10px',
+                                borderRadius: '12px',
+                                fontSize: '13px',
+                                fontWeight: '700'
+                            }}>
+                                📍 Técnico en sitio (Llegada: {data.reparacion_trabajo?.hora_llegada || data.visita_trabajo?.hora_llegada})
+                            </span>
+                        )}
                     </div>
                 </div>
 
@@ -244,24 +260,104 @@ const MantenimientoDetalle = () => {
                                         ))}
                                     </select>
                                 </div>
-                                <div className={styles.rowGrid}>
-                                    <div className={styles.formGroup}>
-                                        <label className={styles.formLabel}>Fecha</label>
-                                        <input 
-                                            type="date" 
-                                            className={styles.formInput}
-                                            value={fechaProgramada} 
-                                            onChange={(e) => setFechaProgramada(e.target.value)} 
+                                <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', marginBottom: '20px' }}>
+                                    {/* FECHA CON BOTONES */}
+                                    <div style={{ flex: '1 1 200px' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                            <label style={{ fontWeight: '700', fontSize: '13px', color: '#1e293b' }}>
+                                                📅 Fecha Estimada
+                                            </label>
+                                            <div style={{ display: 'flex', gap: '5px' }}>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setFechaProgramada(new Date().toISOString().split('T')[0])}
+                                                    style={{
+                                                        fontSize: '11px',
+                                                        fontWeight: '600',
+                                                        padding: '2px 7px',
+                                                        borderRadius: '6px',
+                                                        border: '1px solid #cbd5e1',
+                                                        background: '#fff',
+                                                        color: '#475569',
+                                                        cursor: 'pointer'
+                                                    }}
+                                                >
+                                                    Hoy
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const tom = new Date();
+                                                        tom.setDate(tom.getDate() + 1);
+                                                        setFechaProgramada(tom.toISOString().split('T')[0]);
+                                                    }}
+                                                    style={{
+                                                        fontSize: '11px',
+                                                        fontWeight: '600',
+                                                        padding: '2px 7px',
+                                                        borderRadius: '6px',
+                                                        border: '1px solid #cbd5e1',
+                                                        background: '#fff',
+                                                        color: '#475569',
+                                                        cursor: 'pointer'
+                                                    }}
+                                                >
+                                                    Mañana
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <input
+                                            type="date"
+                                            min={new Date().toISOString().split('T')[0]}
+                                            value={fechaProgramada}
+                                            onChange={(e) => setFechaProgramada(e.target.value)}
+                                            style={{
+                                                width: '100%',
+                                                padding: '10px 12px',
+                                                borderRadius: '10px',
+                                                border: '1.5px solid #cbd5e1',
+                                                fontSize: '14px',
+                                                fontWeight: '600',
+                                                color: '#0f172a',
+                                                background: '#fff',
+                                                outline: 'none'
+                                            }}
                                         />
                                     </div>
-                                    <div className={styles.formGroup}>
-                                        <label className={styles.formLabel}>Hora</label>
-                                        <input 
-                                            type="time" 
-                                            className={styles.formInput}
-                                            value={horaProgramada} 
-                                            onChange={(e) => setHoraProgramada(e.target.value)} 
-                                        />
+
+                                    {/* HORA */}
+                                    <div style={{ flex: '1 1 200px' }}>
+                                        <label style={{ display: 'block', fontWeight: '700', fontSize: '13px', color: '#1e293b', marginBottom: '6px' }}>
+                                            🕒 Hora Estimada
+                                        </label>
+                                        <select
+                                            value={horaProgramada}
+                                            onChange={(e) => setHoraProgramada(e.target.value)}
+                                            style={{
+                                                width: '100%',
+                                                padding: '10px 12px',
+                                                borderRadius: '10px',
+                                                border: '1.5px solid #cbd5e1',
+                                                fontSize: '14px',
+                                                fontWeight: '600',
+                                                color: '#0f172a',
+                                                background: '#fff',
+                                                outline: 'none'
+                                            }}
+                                        >
+                                            <option value="">Seleccione hora...</option>
+                                            <option value="08:00">08:00 AM</option>
+                                            <option value="09:00">09:00 AM</option>
+                                            <option value="10:00">10:00 AM</option>
+                                            <option value="11:00">11:00 AM</option>
+                                            <option value="12:00">12:00 PM</option>
+                                            <option value="13:00">01:00 PM</option>
+                                            <option value="14:00">02:00 PM</option>
+                                            <option value="15:00">03:00 PM</option>
+                                            <option value="16:00">04:00 PM</option>
+                                            <option value="17:00">05:00 PM</option>
+                                            <option value="18:00">06:00 PM</option>
+                                        </select>
                                     </div>
                                 </div>
                                 <button className={styles.primaryBtn} onClick={handleAsignarVisita}>
@@ -293,24 +389,104 @@ const MantenimientoDetalle = () => {
                                         ))}
                                     </select>
                                 </div>
-                                <div className={styles.rowGrid}>
-                                    <div className={styles.formGroup}>
-                                        <label className={styles.formLabel}>Fecha de Reparación</label>
-                                        <input 
-                                            type="date" 
-                                            className={styles.formInput}
-                                            value={fechaProgramada} 
-                                            onChange={(e) => setFechaProgramada(e.target.value)} 
+                                <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', marginBottom: '20px' }}>
+                                    {/* FECHA CON BOTONES */}
+                                    <div style={{ flex: '1 1 200px' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                            <label style={{ fontWeight: '700', fontSize: '13px', color: '#1e293b' }}>
+                                                📅 Fecha de Reparación
+                                            </label>
+                                            <div style={{ display: 'flex', gap: '5px' }}>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setFechaProgramada(new Date().toISOString().split('T')[0])}
+                                                    style={{
+                                                        fontSize: '11px',
+                                                        fontWeight: '600',
+                                                        padding: '2px 7px',
+                                                        borderRadius: '6px',
+                                                        border: '1px solid #cbd5e1',
+                                                        background: '#fff',
+                                                        color: '#475569',
+                                                        cursor: 'pointer'
+                                                    }}
+                                                >
+                                                    Hoy
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const tom = new Date();
+                                                        tom.setDate(tom.getDate() + 1);
+                                                        setFechaProgramada(tom.toISOString().split('T')[0]);
+                                                    }}
+                                                    style={{
+                                                        fontSize: '11px',
+                                                        fontWeight: '600',
+                                                        padding: '2px 7px',
+                                                        borderRadius: '6px',
+                                                        border: '1px solid #cbd5e1',
+                                                        background: '#fff',
+                                                        color: '#475569',
+                                                        cursor: 'pointer'
+                                                    }}
+                                                >
+                                                    Mañana
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <input
+                                            type="date"
+                                            min={new Date().toISOString().split('T')[0]}
+                                            value={fechaProgramada}
+                                            onChange={(e) => setFechaProgramada(e.target.value)}
+                                            style={{
+                                                width: '100%',
+                                                padding: '10px 12px',
+                                                borderRadius: '10px',
+                                                border: '1.5px solid #cbd5e1',
+                                                fontSize: '14px',
+                                                fontWeight: '600',
+                                                color: '#0f172a',
+                                                background: '#fff',
+                                                outline: 'none'
+                                            }}
                                         />
                                     </div>
-                                    <div className={styles.formGroup}>
-                                        <label className={styles.formLabel}>Hora (Aprox)</label>
-                                        <input 
-                                            type="time" 
-                                            className={styles.formInput}
-                                            value={horaProgramada} 
-                                            onChange={(e) => setHoraProgramada(e.target.value)} 
-                                        />
+
+                                    {/* HORA */}
+                                    <div style={{ flex: '1 1 200px' }}>
+                                        <label style={{ display: 'block', fontWeight: '700', fontSize: '13px', color: '#1e293b', marginBottom: '6px' }}>
+                                            🕒 Hora (Aprox)
+                                        </label>
+                                        <select
+                                            value={horaProgramada}
+                                            onChange={(e) => setHoraProgramada(e.target.value)}
+                                            style={{
+                                                width: '100%',
+                                                padding: '10px 12px',
+                                                borderRadius: '10px',
+                                                border: '1.5px solid #cbd5e1',
+                                                fontSize: '14px',
+                                                fontWeight: '600',
+                                                color: '#0f172a',
+                                                background: '#fff',
+                                                outline: 'none'
+                                            }}
+                                        >
+                                            <option value="">Seleccione hora...</option>
+                                            <option value="08:00">08:00 AM</option>
+                                            <option value="09:00">09:00 AM</option>
+                                            <option value="10:00">10:00 AM</option>
+                                            <option value="11:00">11:00 AM</option>
+                                            <option value="12:00">12:00 PM</option>
+                                            <option value="13:00">01:00 PM</option>
+                                            <option value="14:00">02:00 PM</option>
+                                            <option value="15:00">03:00 PM</option>
+                                            <option value="16:00">04:00 PM</option>
+                                            <option value="17:00">05:00 PM</option>
+                                            <option value="18:00">06:00 PM</option>
+                                        </select>
                                     </div>
                                 </div>
                                 <button className={`${styles.primaryBtn} ${styles.successBtn}`} onClick={handleAsignarReparacion}>

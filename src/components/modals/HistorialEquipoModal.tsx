@@ -145,6 +145,13 @@ const HistorialEquipoModal: React.FC<HistorialEquipoModalProps> = ({ isOpen, onC
                                     return true;
                                 });
 
+                                let displayEstado = req.estado;
+                                if (req.reparacion_trabajo && ['Finalizado', 'Completado'].includes(req.reparacion_trabajo.estado)) {
+                                    displayEstado = 'Finalizado';
+                                } else if (req.visita_trabajo && ['Finalizado', 'Completado'].includes(req.visita_trabajo.estado) && (req.estado === 'Visita Asignada' || req.estado === 'Pendiente')) {
+                                    displayEstado = 'Finalizado';
+                                }
+
                                 return (
                                     <div key={idx}
                                         onClick={() => toggleExpand(idx)}
@@ -166,7 +173,7 @@ const HistorialEquipoModal: React.FC<HistorialEquipoModalProps> = ({ isOpen, onC
                                             e.currentTarget.style.borderColor = isExpanded ? '#f26522' : '#cbd5e1';
                                         }}
                                     >
-                                        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '4px', background: req.estado === 'Finalizado' || req.estado?.includes('Aceptada') ? '#10b981' : '#f26522' }}></div>
+                                        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '4px', background: displayEstado === 'Finalizado' || displayEstado?.includes('Aceptada') ? '#10b981' : '#f26522' }}></div>
 
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
                                             <span style={{ fontSize: '14px', fontWeight: '700', color: '#475569', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -175,11 +182,11 @@ const HistorialEquipoModal: React.FC<HistorialEquipoModalProps> = ({ isOpen, onC
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                                 <span style={{
                                                     padding: '6px 14px', borderRadius: '30px', fontSize: '11px', fontWeight: '800', textTransform: 'uppercase',
-                                                    background: req.estado === 'Finalizado' || req.estado?.includes('Aceptada') ? '#ecfdf5' : '#fff8e1',
-                                                    color: req.estado === 'Finalizado' || req.estado?.includes('Aceptada') ? '#059669' : '#b7791f',
-                                                    border: `1px solid ${req.estado === 'Finalizado' || req.estado?.includes('Aceptada') ? '#a7f3d0' : '#fde68a'}`
+                                                    background: displayEstado === 'Finalizado' || displayEstado?.includes('Aceptada') ? '#ecfdf5' : '#fff8e1',
+                                                    color: displayEstado === 'Finalizado' || displayEstado?.includes('Aceptada') ? '#059669' : '#b7791f',
+                                                    border: `1px solid ${displayEstado === 'Finalizado' || displayEstado?.includes('Aceptada') ? '#a7f3d0' : '#fde68a'}`
                                                 }}>
-                                                    {req.estado}
+                                                    {displayEstado}
                                                 </span>
                                                 {isExpanded ? <HiChevronUp size={20} color="#94a3b8" /> : <HiChevronDown size={20} color="#94a3b8" />}
                                             </div>

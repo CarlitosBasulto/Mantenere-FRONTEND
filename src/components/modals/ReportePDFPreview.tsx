@@ -577,11 +577,12 @@ export default function ReportePDFPreview({ trabajo, reporteData, subTareas, isV
 
                         {/* Structured Observations */}
                         {(() => {
-                            let list = reporteData.observacionesList;
+                            let list = reporteData.observacionesList ? [...reporteData.observacionesList] : [];
+                            const extraImgs = (reporteData.imagenesObservacion && reporteData.imagenesObservacion.length > 0)
+                                ? reporteData.imagenesObservacion
+                                : (reporteData.imagenObservacion ? [reporteData.imagenObservacion] : []);
+                                
                             if (!list || list.length === 0) {
-                                const extraImgs = (reporteData.imagenesObservacion && reporteData.imagenesObservacion.length > 0)
-                                    ? reporteData.imagenesObservacion
-                                    : (reporteData.imagenObservacion ? [reporteData.imagenObservacion] : []);
                                 if (reporteData.observaciones?.trim() || extraImgs.length > 0) {
                                     list = [{
                                         id: 'fallback-preview',
@@ -591,6 +592,8 @@ export default function ReportePDFPreview({ trabajo, reporteData, subTareas, isV
                                 } else {
                                     list = [];
                                 }
+                            } else if (list.length === 1 && (!list[0].imagenes || list[0].imagenes.length === 0) && extraImgs.length > 0) {
+                                list[0].imagenes = extraImgs.filter(Boolean) as string[];
                             }
 
                             if (list.length > 0) {

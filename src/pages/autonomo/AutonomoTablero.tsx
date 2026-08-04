@@ -160,7 +160,7 @@ const AutonomoTablero: React.FC = () => {
             <h4 className={styles.cardTitle}>{t.titulo}</h4>
             
             {(() => {
-                const isVisita = colKey === 'orange';
+                const isVisita = ['orange', 'green'].includes(colKey);
                 if (!isVisita) return null;
 
                 const savedGpsRaw = localStorage.getItem(`gps_llegada_${t.id}`);

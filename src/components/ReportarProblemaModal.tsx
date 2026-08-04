@@ -103,7 +103,7 @@ const ReportarProblemaModal: React.FC<ReportarProblemaModalProps> = ({
                         disabled={!descripcion.trim() || isSubmitting}
                         style={{ background: !descripcion.trim() || isSubmitting ? '#94a3b8' : '#eab308' }}
                     >
-                        {isSubmitting ? 'Enviando...' : 'Enviar Reporte al Admin'}
+                        {isSubmitting ? 'Enviando...' : 'Enviar a Encargado'}
                     </button>
                 </div>
             </div>

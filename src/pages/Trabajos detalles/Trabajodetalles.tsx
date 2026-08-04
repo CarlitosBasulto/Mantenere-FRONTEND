@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { createTrabajo, getTrabajos, updateEstadoTrabajo, assignTrabajador, updateTrabajo } from "../../services/trabajosService";
-import { createMantenimientoSolicitud } from "../../services/mantenimientoService";
+import { createMantenimientoSolicitud, getMantenimientoSolicitudes } from "../../services/mantenimientoService";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import menuStyles from "../../components/Menu.module.css";
 import styles from "./Trabajodetalles.module.css";
@@ -178,12 +178,35 @@ const TrabajoDetalle: React.FC = () => {
     // DATOS DESDE LA API
     const [trabajosData, setTrabajosData] = useState<Trabajo[]>([]);
 
-
     useEffect(() => {
         const fetchJobs = async () => {
             try {
-                const data = await getTrabajos({ negocio_id: Number(id) });
-                const mapped = data.map((j: any) => {
+                const [data, mantenimientos] = await Promise.all([
+                    getTrabajos({ negocio_id: Number(id) }),
+                    getMantenimientoSolicitudes(Number(id))
+                ]);
+
+                // Mapear mantenimientos a la estructura de Trabajo
+                const mappedMantenimientos = mantenimientos.map((m: any) => {
+                    let estado = m.estado;
+                    if (estado === 'Pendiente') estado = 'Solicitud';
+
+                    const activeJob = m.reparacion_trabajo || m.visita_trabajo;
+
+                    return {
+                        id: `m-${m.id}`,
+                        original_id: m.id,
+                        titulo: `Mantenimiento: ${m.levantamiento_equipo?.nombre || 'Equipo'}`,
+                        descripcion: m.descripcion_problema,
+                        estado: estado,
+                        fecha: new Date(m.created_at).toLocaleDateString(),
+                        tipo: 'Mantenimiento',
+                        isMantenimiento: true,
+                        hora_llegada: activeJob?.hora_llegada || null
+                    };
+                });
+
+                const mappedTrabajos = data.map((j: any) => {
                     const isSOS = j.prioridad === "Alta" || j.titulo?.includes("SOS");
                     let displayTipo = "Nueva Solicitud";
                     if (isSOS) {
@@ -191,19 +214,17 @@ const TrabajoDetalle: React.FC = () => {
                     } else if (j.tipo && ["Visita", "Trabajo", "Mantenimiento"].includes(j.tipo)) {
                         displayTipo = j.tipo;
                     } else if (j.estado !== "Pendiente" && j.estado !== "Solicitud") {
-                        // Si el estado tiene que ver con la cotización ya completada o en proceso, 
-                        // automáticamente es la fase de Trabajo (haya presionado terminar visita o no).
                         const isTrabajoDefinitivo = ["Cotización Enviada", "Cotización Rechazada", "Cotización Aceptada", "Cotización Aprobada", "En Proceso", "Finalizado"].includes(j.estado) || j.visitado;
-
                         displayTipo = isTrabajoDefinitivo ? "Trabajo" : "Visita";
                     }
 
                     return {
-                        id: j.id,
+                        id: j.id.toString(),
+                        original_id: j.id,
                         titulo: j.titulo,
                         ubicacion: j.negocio ? ((j.negocio.nombrePlaza || j.negocio.nombre_plaza) ? `${j.negocio.nombre} - ${j.negocio.nombrePlaza || j.negocio.nombre_plaza}` : j.negocio.nombre) : businessName,
                         tecnico: j.trabajador?.nombre || "Sin asignar",
-                        tecnicoUserId: j.trabajador?.user_id || null, // <--- Added User ID mapping for strict filtering
+                        tecnicoUserId: j.trabajador?.user_id || null,
                         fecha: j.fecha_programada ? (j.fecha_programada.includes('-') ? j.fecha_programada.split('-').reverse().join('/') : j.fecha_programada) : new Date(j.created_at).toLocaleDateString('es-MX'),
                         estado: j.estado === "Pendiente" ? "Solicitud" : j.estado,
                         visitado: Boolean(j.visitado),
@@ -211,10 +232,11 @@ const TrabajoDetalle: React.FC = () => {
                         descripcion: j.descripcion,
                         isEmergency: isSOS,
                         fechaSolicitud: j.created_at ? new Date(j.created_at).toLocaleString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }) : "No registrada",
-                        foto_url: j.foto_url
+                        foto_url: j.foto_url,
+                        hora_llegada: j.hora_llegada || null
                     };
                 });
-                setTrabajosData(mapped);
+                setTrabajosData([...mappedTrabajos, ...mappedMantenimientos]);
             } catch (error) {
                 console.error("Error al obtener trabajos: ", error);
             }
@@ -1044,12 +1066,18 @@ const TrabajoDetalle: React.FC = () => {
             if (status.includes("enviada")) return styles.blue;
             return styles.orange;
         }
-        if (status === "en espera") return styles.yellow;
+        if (status === "en espera") {
+            const hasTech = job.tecnico && job.tecnico !== "Sin asignar" && job.tecnico !== "Sin Asignar";
+            return hasTech ? styles.orange : styles.yellow;
+        }
         if (status === "en proceso") return styles.blue;
         if (status === "solicitud" || status === "pendiente" || status === "asignado") {
             const hasTech = job.tecnico && job.tecnico !== "Sin asignar" && job.tecnico !== "Sin Asignar";
             return hasTech ? styles.orange : styles.yellow;
         }
+        if (status === "visita asignada" || status === "reparación asignada" || status === "reparacion asignada") return styles.orange;
+        if (status === "diagnosticado") return styles.blue;
+        
         if (job.tecnico && job.tecnico !== "Sin asignar" && job.tecnico !== "Sin Asignar") {
             return user?.role === 'tecnico' ? styles.orange : styles.blue;
         }
@@ -1080,9 +1108,16 @@ const TrabajoDetalle: React.FC = () => {
                 text = "PROCESO DE COTIZACIÓN";
             }
         } else if (status === "en espera") {
-            text = "EN ESPERA DE ASIGNACIÓN";
+            const hasTech = job.tecnico && job.tecnico !== "Sin asignar" && job.tecnico !== "Sin Asignar";
+            text = hasTech ? "TÉCNICO EN CAMINO" : "EN ESPERA DE ASIGNACIÓN";
         } else if (status === "en proceso") {
             text = "TÉCNICO ACEPTADO";
+        } else if (status === "visita asignada") {
+            text = "VISITA TÉCNICA ASIGNADA";
+        } else if (status === "diagnosticado") {
+            text = "EN PROCESO DE DIAGNÓSTICO";
+        } else if (status === "reparación asignada" || status === "reparacion asignada") {
+            text = "REPARACIÓN FINAL ASIGNADA";
         } else if (status === "solicitud" || status === "pendiente" || status === "asignado") {
             const hasTech = job.tecnico && job.tecnico !== "Sin asignar" && job.tecnico !== "Sin Asignar";
             text = hasTech ? "SOLICITUD POR ACEPTAR" : "SOLICITUD";
@@ -1294,7 +1329,11 @@ const TrabajoDetalle: React.FC = () => {
                                     if (!(e.target as HTMLElement).closest('button')) {
                                         markCardAsSeen(userRole, trabajo.id, trabajo.estado);
                                         const basePath = user?.role === 'tecnico' ? '/tecnico' : (user?.role === 'cliente' ? '/cliente' : (['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '') ? '/autonomo' : (user?.role === 'encargado' ? '/encargado' : '/menu')));
-                                        navigate(`${basePath}/trabajo-detalle/${trabajo.id}`);
+                                        if (trabajo.isMantenimiento) {
+                                            navigate(`${basePath}/mantenimiento-detalle/${trabajo.original_id}`);
+                                        } else {
+                                            navigate(`${basePath}/trabajo-detalle/${trabajo.id}`);
+                                        }
                                     }
                                 }}
                             >
@@ -1382,7 +1421,7 @@ const TrabajoDetalle: React.FC = () => {
                                                     </p>
                                                 {trabajo.hora_llegada && (
                                                     <p className={styles.strikingDate} style={{ color: '#059669', marginTop: '4px', background: '#ecfdf5', display: 'inline-block', padding: '2px 8px', borderRadius: '8px' }}>
-                                                        ⏰ Llegada aprox: {trabajo.hora_llegada}
+                                                        📍 Técnico en sitio (Llegada: {trabajo.hora_llegada})
                                                     </p>
                                                 )}
                                             </div>
@@ -1580,9 +1619,15 @@ const TrabajoDetalle: React.FC = () => {
         const colFinalizadas = flatJobs.filter(t => ['Finalizado', 'Completado'].includes(t.estado));
 
         const renderMiniCard = (trabajo: any) => {
-            const basePath = user?.role === 'tecnico' ? '/tecnico' : (user?.role === 'cliente' ? '/cliente' : (['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '') ? '/autonomo' : (user?.role === 'encargado' ? '/encargado' : '/menu')));
             return (
-                <div key={trabajo.id} style={{ padding: '10px', background: 'white', borderRadius: '8px', border: '1px solid #e2e8f0', cursor: 'pointer', marginBottom: '8px', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }} onClick={() => navigate(`${basePath}/trabajo-detalle/${trabajo.id}`)}>
+                <div key={trabajo.id} style={{ padding: '10px', background: 'white', borderRadius: '8px', border: '1px solid #e2e8f0', cursor: 'pointer', marginBottom: '8px', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }} onClick={() => {
+                    const basePath = user?.role === 'tecnico' ? '/tecnico' : (user?.role === 'cliente' ? '/cliente' : (['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '') ? '/autonomo' : (user?.role === 'encargado' ? '/encargado' : '/menu')));
+                    if (trabajo.isMantenimiento) {
+                        navigate(`${basePath}/mantenimiento-detalle/${trabajo.original_id}`);
+                    } else {
+                        navigate(`${basePath}/trabajo-detalle/${trabajo.id}`);
+                    }
+                }}>
                     <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#334155', marginBottom: '4px' }}>#{trabajo.id} - {trabajo.titulo}</div>
                     <div style={{ fontSize: '11px', color: '#64748b' }}>{trabajo.fecha}</div>
                     <div style={{ marginTop: '6px' }}>
@@ -1953,7 +1998,11 @@ const TrabajoDetalle: React.FC = () => {
                                                     className={styles.recentJobItem}
                                                     onClick={() => {
                                                         const basePath = user?.role === 'tecnico' ? '/tecnico' : (user?.role === 'cliente' ? '/cliente' : (['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '') ? '/autonomo' : (user?.role === 'encargado' ? '/encargado' : '/menu')));
-                                                        navigate(`${basePath}/trabajo-detalle/${job.id}`);
+                                                        if (job.isMantenimiento) {
+                                                            navigate(`${basePath}/mantenimiento-detalle/${job.original_id}`);
+                                                        } else {
+                                                            navigate(`${basePath}/trabajo-detalle/${job.id}`);
+                                                        }
                                                     }}
                                                 >
                                                     <div className={styles.recentJobInfo}>

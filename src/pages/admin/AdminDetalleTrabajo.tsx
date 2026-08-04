@@ -40,8 +40,7 @@ import ReportePDFPreview from "../../components/modals/ReportePDFPreview";
 import ChatTrabajo from "../../components/ChatTrabajo";
 import NegotiationChatWidget from "../../components/chat/NegotiationChatWidget";
 import { generateMaintenanceReportPDF } from "../../utils/pdfGenerator";
-
-
+import UbicacionMapaModal from "../../components/modals/UbicacionMapaModal";
 export interface CotizacionData {
     id?: number;
     costo: string;
@@ -1281,6 +1280,12 @@ const AdminDetalleTrabajo: React.FC = () => {
             cantidad: Number(r.cantidad) || 1,
             costo_estimado: r.costo_estimado ? String(r.costo_estimado) : ''
         })).concat(
+            isQuoteIncluded ? quoteConceptos.map(c => ({
+                pieza: c.descripcion,
+                cantidad: c.cantidad ? Number(c.cantidad) || 1 : 1,
+                costo_estimado: c.precio ? String(c.precio) : ''
+            })) : []
+        ).concat(
             isQuoteIncluded ? quoteMateriales.map(m => ({
                 pieza: m.nombre,
                 cantidad: m.cantidad ? Number(m.cantidad) || 1 : 1,
@@ -3044,7 +3049,19 @@ const AdminDetalleTrabajo: React.FC = () => {
                                         </div>
                                     </div>
 
-                                    {isEditingExecutionTime ? (
+                                    {(!trabajo?.fecha_programada && !trabajo?.hora_programada && !trabajo?.horaAsignada && user?.role !== 'tecnico' && user?.role !== 'admin' && user?.role !== 'autonomo' && user?.role !== 'gerente-general') ? (
+                                        <div style={{ background: 'white', padding: '16px 20px', borderRadius: '14px', border: '1px dashed #cbd5e1', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                            <span style={{ fontSize: '24px' }}>⏳</span>
+                                            <div>
+                                                <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: '#475569' }}>
+                                                    Esperando confirmación del técnico
+                                                </h4>
+                                                <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>
+                                                    El técnico asignado definirá la fecha y hora de ejecución próximamente.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    ) : (isEditingExecutionTime && (user?.role === 'tecnico' || user?.role === 'admin' || user?.role === 'autonomo' || user?.role === 'gerente-general')) ? (
                                         <div style={{ background: 'white', padding: '16px 20px', borderRadius: '14px', border: '1.5px solid #10b981', display: 'flex', flexDirection: 'column', gap: '14px' }}>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                 <h4 style={{ margin: 0, fontSize: '13px', fontWeight: '800', color: '#065f46', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
@@ -3068,22 +3085,105 @@ const AdminDetalleTrabajo: React.FC = () => {
 
                                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '14px' }}>
                                                 <div>
-                                                    <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>Fecha de Ejecución *</label>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                                        <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#334155' }}>Fecha de Ejecución *</label>
+                                                        <div style={{ display: 'flex', gap: '5px' }}>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setExecFecha(new Date().toISOString().split('T')[0])}
+                                                                style={{
+                                                                    fontSize: '11px',
+                                                                    fontWeight: '600',
+                                                                    padding: '2px 7px',
+                                                                    borderRadius: '6px',
+                                                                    border: '1px solid #cbd5e1',
+                                                                    background: '#fff',
+                                                                    color: '#475569',
+                                                                    cursor: 'pointer'
+                                                                }}
+                                                            >
+                                                                Hoy
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    const tom = new Date();
+                                                                    tom.setDate(tom.getDate() + 1);
+                                                                    setExecFecha(tom.toISOString().split('T')[0]);
+                                                                }}
+                                                                style={{
+                                                                    fontSize: '11px',
+                                                                    fontWeight: '600',
+                                                                    padding: '2px 7px',
+                                                                    borderRadius: '6px',
+                                                                    border: '1px solid #cbd5e1',
+                                                                    background: '#fff',
+                                                                    color: '#475569',
+                                                                    cursor: 'pointer'
+                                                                }}
+                                                            >
+                                                                Mañana
+                                                            </button>
+                                                        </div>
+                                                    </div>
                                                     <input 
                                                         type="date" 
                                                         value={execFecha} 
                                                         onChange={e => setExecFecha(e.target.value)}
-                                                        style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none', background: '#f8fafc', fontWeight: '600', color: '#0f172a' }}
+                                                        style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1.5px solid #cbd5e1', fontSize: '13px', outline: 'none', background: '#fff', fontWeight: '600', color: '#0f172a' }}
                                                     />
                                                 </div>
                                                 <div>
                                                     <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>Hora Confirmada *</label>
-                                                    <input 
-                                                        type="time" 
-                                                        value={execHora} 
-                                                        onChange={e => setExecHora(e.target.value)}
-                                                        style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none', background: '#f8fafc', fontWeight: '600', color: '#0f172a' }}
-                                                    />
+                                                    <select
+                                                        value={execHora}
+                                                        onChange={(e) => setExecHora(e.target.value)}
+                                                        style={{
+                                                            width: '100%',
+                                                            padding: '10px 12px',
+                                                            borderRadius: '10px',
+                                                            border: '1.5px solid #cbd5e1',
+                                                            fontSize: '13px',
+                                                            fontWeight: '600',
+                                                            color: '#0f172a',
+                                                            background: '#fff',
+                                                            outline: 'none',
+                                                            cursor: 'pointer'
+                                                        }}
+                                                    >
+                                                        <option value="">-- Seleccionar Hora --</option>
+                                                        {[
+                                                            { val: '07:00', lbl: '07:00 AM' },
+                                                            { val: '07:30', lbl: '07:30 AM' },
+                                                            { val: '08:00', lbl: '08:00 AM' },
+                                                            { val: '08:30', lbl: '08:30 AM' },
+                                                            { val: '09:00', lbl: '09:00 AM (Mañana)' },
+                                                            { val: '09:30', lbl: '09:30 AM' },
+                                                            { val: '10:00', lbl: '10:00 AM' },
+                                                            { val: '10:30', lbl: '10:30 AM' },
+                                                            { val: '11:00', lbl: '11:00 AM' },
+                                                            { val: '11:30', lbl: '11:30 AM' },
+                                                            { val: '12:00', lbl: '12:00 PM (Mediodía)' },
+                                                            { val: '12:30', lbl: '12:30 PM' },
+                                                            { val: '13:00', lbl: '01:00 PM' },
+                                                            { val: '13:30', lbl: '01:30 PM' },
+                                                            { val: '14:00', lbl: '02:00 PM' },
+                                                            { val: '14:30', lbl: '02:30 PM' },
+                                                            { val: '15:00', lbl: '03:00 PM (Tarde)' },
+                                                            { val: '15:30', lbl: '03:30 PM' },
+                                                            { val: '16:00', lbl: '04:00 PM' },
+                                                            { val: '16:30', lbl: '04:30 PM' },
+                                                            { val: '17:00', lbl: '05:00 PM' },
+                                                            { val: '17:30', lbl: '05:30 PM' },
+                                                            { val: '18:00', lbl: '06:00 PM' },
+                                                            { val: '18:30', lbl: '06:30 PM' },
+                                                            { val: '19:00', lbl: '07:00 PM' },
+                                                            { val: '19:30', lbl: '07:30 PM' },
+                                                            { val: '20:00', lbl: '08:00 PM' }
+                                                        ].map(h => (
+                                                            <option key={h.val} value={h.val}>{h.lbl}</option>
+                                                        ))}
+                                                    </select>
                                                 </div>
                                             </div>
                                             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '4px' }}>
@@ -3108,13 +3208,13 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                 <div>
                                                     <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', display: 'block' }}>📅 Fecha de Ejecución</span>
                                                     <span style={{ fontSize: '14px', fontWeight: '800', color: '#0f172a' }}>
-                                                        {trabajo.fecha_programada ? (trabajo.fecha_programada.includes('-') ? trabajo.fecha_programada.split('-').reverse().join('/') : trabajo.fecha_programada) : trabajo.fecha}
+                                                        {trabajo.fecha_programada ? (trabajo.fecha_programada.includes('-') ? trabajo.fecha_programada.split('-').reverse().join('/') : trabajo.fecha_programada) : 'Pendiente'}
                                                     </span>
                                                 </div>
                                                 <div>
                                                     <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', display: 'block' }}>⏰ Hora Confirmada</span>
                                                     <span style={{ fontSize: '14px', fontWeight: '800', color: '#0f172a' }}>
-                                                        {trabajo.horaAsignada || trabajo.hora_programada || '09:00 AM'}
+                                                        {trabajo.horaAsignada || trabajo.hora_programada || 'Pendiente'}
                                                     </span>
                                                 </div>
                                                 <div>
@@ -3133,7 +3233,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                     <button
                                                         onClick={() => {
                                                             setExecFecha(trabajo.fecha_programada || new Date().toISOString().split('T')[0]);
-                                                            setExecHora(trabajo.horaAsignada || trabajo.hora_programada || '09:00');
+                                                            setExecHora(trabajo.horaAsignada || trabajo.hora_programada || '');
                                                             setIsEditingExecutionTime(true);
                                                         }}
                                                         style={{ padding: '8px 14px', background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0', borderRadius: '10px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '6px' }}
@@ -3287,6 +3387,42 @@ const AdminDetalleTrabajo: React.FC = () => {
                                     )}
                                 </div>
                             </div>
+
+                            {/* Card 1.5: Equipo en Mantenimiento (12/12) */}
+                            {((trabajo as any).mantenimiento_solicitud_visita?.levantamiento_equipo || (trabajo as any).mantenimiento_solicitud_reparacion?.levantamiento_equipo) && (
+                                <div className={`${styles.bentoCard}`} style={{ gridColumn: 'span 12', border: '1.5px solid #a7f3d0', background: 'linear-gradient(to right, #f8fafc, #ecfdf5)' }}>
+                                    <div className={styles.cardHeader} style={{ marginBottom: '10px' }}>
+                                        <div className={`${styles.iconBox}`} style={{ background: '#059669', color: 'white' }}>
+                                            <HiOutlineClipboardDocument size={20} />
+                                        </div>
+                                        <h3 className={styles.cardTitle} style={{ color: '#065f46' }}>Equipo a Intervenir</h3>
+                                    </div>
+                                    <div className={styles.bentoContent} style={{ display: 'flex', gap: '15px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                        {((trabajo as any).mantenimiento_solicitud_visita?.levantamiento_equipo?.foto_url || (trabajo as any).mantenimiento_solicitud_reparacion?.levantamiento_equipo?.foto_url) && (
+                                            <img 
+                                                src={((trabajo as any).mantenimiento_solicitud_visita?.levantamiento_equipo?.foto_url || (trabajo as any).mantenimiento_solicitud_reparacion?.levantamiento_equipo?.foto_url)} 
+                                                alt="Equipo" 
+                                                style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '10px', border: '1px solid #cbd5e1', cursor: 'pointer' }}
+                                                onClick={(e) => { e.stopPropagation(); setSelectedZoomImage(((trabajo as any).mantenimiento_solicitud_visita?.levantamiento_equipo?.foto_url || (trabajo as any).mantenimiento_solicitud_reparacion?.levantamiento_equipo?.foto_url)); setShowZoomModal(true); }}
+                                            />
+                                        )}
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                            <span style={{ fontSize: '16px', fontWeight: '800', color: '#0f172a' }}>
+                                                {((trabajo as any).mantenimiento_solicitud_visita?.levantamiento_equipo?.nombre || (trabajo as any).mantenimiento_solicitud_reparacion?.levantamiento_equipo?.nombre)}
+                                            </span>
+                                            <span style={{ fontSize: '13px', color: '#475569' }}>
+                                                <strong>Marca:</strong> {((trabajo as any).mantenimiento_solicitud_visita?.levantamiento_equipo?.marca || (trabajo as any).mantenimiento_solicitud_reparacion?.levantamiento_equipo?.marca || 'N/A')} | 
+                                                <strong> Modelo:</strong> {((trabajo as any).mantenimiento_solicitud_visita?.levantamiento_equipo?.modelo || (trabajo as any).mantenimiento_solicitud_reparacion?.levantamiento_equipo?.modelo || 'N/A')}
+                                            </span>
+                                            {((trabajo as any).mantenimiento_solicitud_visita?.levantamiento_equipo?.serie || (trabajo as any).mantenimiento_solicitud_reparacion?.levantamiento_equipo?.serie) && (
+                                                <span style={{ fontSize: '12px', color: '#64748b', background: '#e2e8f0', padding: '2px 6px', borderRadius: '4px', width: 'fit-content' }}>
+                                                    S/N: {((trabajo as any).mantenimiento_solicitud_visita?.levantamiento_equipo?.serie || (trabajo as any).mantenimiento_solicitud_reparacion?.levantamiento_equipo?.serie)}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Card 2: Estado Actual (4/12) */}
                             <div className={`${styles.bentoCard} ${styles.colSpan4}`}>
@@ -4124,7 +4260,11 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                                                 </button>
 
                                                                                 {/* Accept/Reject only for encargado/cliente/admin */}
-                                                                                {(user?.role === 'encargado' || user?.role === 'cliente' || user?.role === 'admin' || user?.role === 'autonomo') && tarea.cotizacionEstado !== 'Aprobada' && tarea.cotizacionEstado !== 'Rechazada' && (
+                                                                                {(() => {
+                                                                                    const isAlreadyActioned = ['Cotización Aceptada', 'Cotización Aprobada', 'Aceptada', 'Asignado', 'Trabajo', 'En Proceso', 'Finalizado', 'Completado', 'Cotización Rechazada'].includes(trabajo?.estado || '');
+                                                                                    const canActionQuote = !isAlreadyActioned && tarea.cotizacionEstado !== 'Aprobada' && tarea.cotizacionEstado !== 'Rechazada';
+                                                                                    return (user?.role === 'encargado' || user?.role === 'cliente' || user?.role === 'admin' || user?.role === 'autonomo') && canActionQuote;
+                                                                                })() && (
                                                                                     <>
                                                                                         <button
                                                                                             onClick={async () => {
@@ -4235,21 +4375,28 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                                             </div>
 
                                                                             {/* Status badge if already accepted/rejected */}
-                                                                            {(tarea.cotizacionEstado === 'Aprobada' || tarea.cotizacionEstado === 'Rechazada') && (
-                                                                                <div style={{ display: 'flex', justifyContent: 'center', marginTop: '4px' }}>
-                                                                                    <span style={{
-                                                                                        padding: '6px 16px',
-                                                                                        borderRadius: '20px',
-                                                                                        fontSize: '12px',
-                                                                                        fontWeight: '800',
-                                                                                        background: tarea.cotizacionEstado === 'Aprobada' ? '#dcfce7' : '#fef2f2',
-                                                                                        color: tarea.cotizacionEstado === 'Aprobada' ? '#166534' : '#991b1b',
-                                                                                        border: `1px solid ${tarea.cotizacionEstado === 'Aprobada' ? '#86efac' : '#fca5a5'}`
-                                                                                    }}>
-                                                                                        {tarea.cotizacionEstado === 'Aprobada' ? '✓ Cotización Aceptada' : '✕ Cotización Rechazada'}
-                                                                                    </span>
-                                                                                </div>
-                                                                            )}
+                                                                            {(() => {
+                                                                                const isAcceptedState = tarea.cotizacionEstado === 'Aprobada' || ['Cotización Aceptada', 'Cotización Aprobada', 'Aceptada', 'Asignado', 'Trabajo', 'En Proceso', 'Finalizado', 'Completado'].includes(trabajo?.estado || '');
+                                                                                const isRejectedState = tarea.cotizacionEstado === 'Rechazada' || ['Cotización Rechazada'].includes(trabajo?.estado || '');
+                                                                                if (isAcceptedState || isRejectedState) {
+                                                                                    return (
+                                                                                        <div style={{ display: 'flex', justifyContent: 'center', marginTop: '4px' }}>
+                                                                                            <span style={{
+                                                                                                padding: '6px 16px',
+                                                                                                borderRadius: '20px',
+                                                                                                fontSize: '12px',
+                                                                                                fontWeight: '800',
+                                                                                                background: isAcceptedState ? '#dcfce7' : '#fef2f2',
+                                                                                                color: isAcceptedState ? '#166534' : '#991b1b',
+                                                                                                border: `1px solid ${isAcceptedState ? '#86efac' : '#fca5a5'}`
+                                                                                            }}>
+                                                                                                {isAcceptedState ? '✓ Cotización Aceptada' : '✕ Cotización Rechazada'}
+                                                                                            </span>
+                                                                                        </div>
+                                                                                    );
+                                                                                }
+                                                                                return null;
+                                                                            })()}
                                                                         </div>
                                                                     )})}
                                                                 </div>
@@ -5307,63 +5454,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                                     </div>
                                 )}
 
-                                {activeServiceType === 'Mantenimiento' && (
-                                    <div style={{ marginTop: '20px', background: '#f8fafc', padding: '15px', borderRadius: '12px', border: '1px solid #e2e8f0', marginBottom: '20px' }}>
-                                        <h4 style={{ fontSize: '14px', fontWeight: 'bold', color: '#475569', marginBottom: '10px' }}>Refacciones y Piezas (Historial de Equipo)</h4>
-                                        {refacciones.map((ref, i) => (
-                                            <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '10px' }}>
-                                                {/* Fila 1: Nombre de la pieza */}
-                                                <input
-                                                    placeholder="Nombre de la pieza"
-                                                    value={ref.pieza}
-                                                    onChange={(e) => {
-                                                        const newR = [...refacciones];
-                                                        newR[i].pieza = e.target.value;
-                                                        setRefacciones(newR);
-                                                    }}
-                                                    style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px', boxSizing: 'border-box' }}
-                                                />
-                                                {/* Fila 2: Cantidad + Precio + Eliminar */}
-                                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                                    <input
-                                                        type="number"
-                                                        placeholder="Cant."
-                                                        value={ref.cantidad}
-                                                        onChange={(e) => {
-                                                            const newR = [...refacciones];
-                                                            newR[i].cantidad = Number(e.target.value);
-                                                            setRefacciones(newR);
-                                                        }}
-                                                        style={{ flex: 1, padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px', minWidth: 0 }}
-                                                    />
-                                                    <input
-                                                        type="number"
-                                                        placeholder="$"
-                                                        value={ref.costo_estimado || ""}
-                                                        onChange={(e) => {
-                                                            const newR = [...refacciones];
-                                                            newR[i].costo_estimado = e.target.value;
-                                                            setRefacciones(newR);
-                                                        }}
-                                                        style={{ flex: 1, padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px', minWidth: 0 }}
-                                                    />
-                                                    <button
-                                                        onClick={() => setRefacciones(refacciones.filter((_, idx) => idx !== i))}
-                                                        style={{ background: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca', padding: '7px 13px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', flexShrink: 0 }}
-                                                    >
-                                                        ✕
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        ))}
-                                        <button
-                                            onClick={() => setRefacciones([...refacciones, { pieza: '', cantidad: 1 }])}
-                                            style={{ background: 'transparent', color: '#f26522', border: '1px dashed #f26522', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold', width: '100%', marginTop: '5px' }}
-                                        >
-                                            + Agregar Pieza/Refacción
-                                        </button>
-                                    </div>
-                                )}
+
 
                                  {/* DETALLES DE LA ACTIVIDAD Y EVIDENCIAS (HASTA 3 BLOQUES) */}
                                  <div style={{ marginBottom: '25px' }}>
@@ -6353,39 +6444,26 @@ const AdminDetalleTrabajo: React.FC = () => {
 
             {/* WIDGET CHAT DE NEGOCIACIÓN PARA COTIZACIÓN ELIMINADO */}
 
-            {/* MODAL UBICACIÓN GOOGLE MAPS */}
-            {showMapModal && trabajo && trabajo.latitud_llegada && trabajo.longitud_llegada && (
-                <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(12px)', zIndex: 99999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px', animation: 'fadeIn 0.2s ease-out' }}>
-                    <div style={{ background: '#ffffff', borderRadius: '24px', width: '100%', maxWidth: '800px', height: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', animation: 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)' }}>
-                        <div style={{ padding: '20px 25px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <div style={{ background: '#d1fae5', padding: '8px', borderRadius: '10px', color: '#059669' }}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                                </div>
-                                <div>
-                                    <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>Ubicación de Llegada</h2>
-                                    <span style={{ fontSize: '13px', color: '#64748b' }}>Técnico: {trabajo.tecnico && trabajo.tecnico !== 'Sin asignar' ? trabajo.tecnico : 'Desconocido'}</span>
-                                </div>
-                            </div>
-                            <button onClick={() => setShowMapModal(false)} style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer', color: '#64748b', transition: 'all 0.2s' }} onMouseEnter={e => { e.currentTarget.style.background = '#e2e8f0'; e.currentTarget.style.color = '#0f172a'; }} onMouseLeave={e => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#64748b'; }}>
-                                <HiOutlineXMark size={24} strokeWidth={2.5} style={{ stroke: 'currentColor' }} />
-                            </button>
-                        </div>
-                        <div style={{ flex: 1, position: 'relative' }}>
-                            <iframe 
-                                width="100%" 
-                                height="100%" 
-                                style={{ border: 0 }} 
-                                loading="lazy" 
-                                allowFullScreen 
-                                src={`https://www.google.com/maps/embed/v1/place?key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}&q=${trabajo.latitud_llegada},${trabajo.longitud_llegada}&zoom=17`}
-                            ></iframe>
-                        </div>
-                        <div style={{ padding: '15px 25px', background: '#fff', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end' }}>
-                            <button onClick={() => setShowMapModal(false)} style={{ padding: '10px 20px', borderRadius: '10px', background: '#f1f5f9', color: '#334155', border: 'none', fontWeight: 'bold', cursor: 'pointer' }}>Cerrar Mapa</button>
-                        </div>
-                    </div>
-                </div>
+            {/* MODAL MAPA GPS (MEJORADO CON DOS MARCADORES) */}
+            {showMapModal && trabajo && (
+                <UbicacionMapaModal
+                    isOpen={showMapModal}
+                    onClose={() => setShowMapModal(false)}
+                    sucursalName={trabajo.sucursal || (trabajo as any).negocio?.nombre || 'Sucursal'}
+                    direccion={{
+                        calle: trabajo.calle || (trabajo as any).negocio?.calle,
+                        numero: trabajo.numero || (trabajo as any).negocio?.numero_exterior,
+                        colonia: trabajo.colonia || (trabajo as any).negocio?.colonia,
+                        ciudad: trabajo.ciudad || (trabajo as any).negocio?.ciudad,
+                        estado: (trabajo as any).estado_republica || (trabajo as any).negocio?.estado,
+                        plaza: trabajo.plaza || (trabajo as any).negocio?.nombrePlaza
+                    }}
+                    tecnicoName={trabajo.tecnico || 'Técnico de Servicio'}
+                    tecnicoCoords={(trabajo as any).latitud_llegada && (trabajo as any).longitud_llegada ? { lat: parseFloat((trabajo as any).latitud_llegada), lng: parseFloat((trabajo as any).longitud_llegada) } : null}
+                    llegadaConfirmadaAt={(trabajo as any).hora_llegada}
+                    userRole={user?.role || 'encargado'}
+                    jobId={trabajo.id}
+                />
             )}
 
             {/* PREVISUALIZACION DEL PDF COTIZACION */}
