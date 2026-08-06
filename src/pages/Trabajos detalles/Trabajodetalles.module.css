@@ -508,13 +508,7 @@
     display: none;
 }
 
-.green {
-    background: #dfffd6 !important;
-}
 
-.blue {
-    background: #d4ebf9 !important;
-}
 
 .modalOverlay {
     position: fixed;

@@ -95,6 +95,7 @@ export interface BusinessData {
     imagenPerfilFile?: File;
     imagen_portada?: string;
     imagenPortadaFile?: File;
+    ownerEmail?: string;
 }
 
 const PerfilEmpresa: React.FC = () => {
@@ -208,6 +209,7 @@ const PerfilEmpresa: React.FC = () => {
                         setFormData(prev => ({
                             ...prev,
                             ...existing,
+                            ownerEmail: existing.user?.email || "",
                             tipo: isCustom ? 'Otro' : loadedTipo,
                             nombreSucursal: existing.nombre,
                             gerente: localInfo.gerente || existing.gerente || "",
@@ -832,22 +834,13 @@ const PerfilEmpresa: React.FC = () => {
                         Información Detallada
                     </button>
                     {editId && (
-                        <>
-                            <button
-                                type="button"
-                                onClick={() => setActiveTab('levantamiento')}
-                                className={`${styles.tab} ${activeTab === 'levantamiento' ? styles.activeTab : ''}`}
-                            >
-                                Levantamientos
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setActiveTab('flota')}
-                                className={`${styles.tab} ${activeTab === 'flota' ? styles.activeTab : ''}`}
-                            >
-                                Levantamiento de Flota
-                            </button>
-                        </>
+                        <button
+                            type="button"
+                            onClick={() => setActiveTab('flota')}
+                            className={`${styles.tab} ${activeTab === 'flota' ? styles.activeTab : ''}`}
+                        >
+                            Levantamiento de Flota
+                        </button>
                     )}
                 </div>
 
@@ -901,6 +894,18 @@ const PerfilEmpresa: React.FC = () => {
                                         disabled={!canEdit}
                                     />
                                 </div>
+                                {['admin', 'admin-autonomo', 'gerente-general'].includes(user?.role || '') && formData.ownerEmail && (
+                                    <div className={styles.inputGroup}>
+                                        <label className={styles.label}>Correo del Dueño</label>
+                                        <input
+                                            type="email"
+                                            className={styles.input}
+                                            value={formData.ownerEmail}
+                                            disabled={true}
+                                            style={{ backgroundColor: '#f1f5f9', cursor: 'not-allowed', color: '#64748b' }}
+                                        />
+                                    </div>
+                                )}
                             </div>
                         </div>
 

@@ -22,6 +22,15 @@ import { HiX } from "react-icons/hi";
 import { Pencil, MoveVertical } from 'lucide-react';
 import ChatTrabajo from "../../components/ChatTrabajo";
 import { isCardSeen, markCardAsSeen } from "../../utils/seenCards";
+import AreaVisualGrid from '../../components/AreaVisualGrid';
+import LevantamientoModal from "../../components/LevantamientoModal";
+import ReportarProblemaModal from "../../components/ReportarProblemaModal";
+import ModalSeleccionEquipo from "../../components/modals/ModalSeleccionEquipo";
+import DetalleEquipoModal from "../../components/DetalleEquipoModal";
+import HistorialEquipoModal from "../../components/modals/HistorialEquipoModal";
+import DetalleReporteModal from "../../components/modals/DetalleReporteModal";
+import ModalSeleccionEspacio from '../../components/ModalSeleccionEspacio';
+import { HiOutlineBolt, HiOutlinePaperAirplane } from "react-icons/hi2";
 
 interface Trabajo {
     id: number;
@@ -67,16 +76,265 @@ const TrabajoDetalle: React.FC = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const { user } = useAuth();
-    const { showAlert, showConfirm } = useModal();
+    const { showAlert, showConfirm, showPrompt } = useModal();
     const [searchParams, setSearchParams] = useSearchParams();
     const isCotizacionesTab = searchParams.get('tab') === 'cotizaciones';
     const isHistorialTab = searchParams.get('tab') === 'historial';
     const isEquiposTab = searchParams.get('tab') === 'equipos';
 
+    const canEdit = user?.role === 'cliente' || user?.role === 'encargado' || user?.role === 'autonomo';
+
+    const [equiposSubTab, setEquiposSubTab] = useState<'registrados' | 'levantamiento'>('registrados');
+
+    // Levantamiento state
+    const [isLevantamientoModalOpen, setIsLevantamientoModalOpen] = useState(false);
+    const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
+    const [selectedEquipment, setSelectedEquipment] = useState<any>(null);
+    const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null);
+    const [reportingEquipment, setReportingEquipment] = useState<any>(null);
+    const [activeEquipmentId, setActiveEquipmentId] = useState<string | null>(null);
+    
+    // Grid Visual states
+    const [isAreaModalOpen, setIsAreaModalOpen] = useState(false);
+    const [isSubAreaModalOpen, setIsSubAreaModalOpen] = useState(false);
+    const [activeAreaForSub, setActiveAreaForSub] = useState<string | null>(null);
+    const [initialSubAreaId, setInitialSubAreaId] = useState<string | null>(null);
+
+    // Bitacora (Historial) states
+    const [bitacoraModalOpen, setBitacoraModalOpen] = useState(false);
+    const [equipoSelectionMode, setEquipoSelectionMode] = useState<'bitacora' | 'reporte' | null>(null);
+    const [equiposForSelection, setEquiposForSelection] = useState<any[]>([]);
+    const [selectedEqForBitacora, setSelectedEqForBitacora] = useState<any>(null);
+    const [selectedTrabajoIdForBitacora, setSelectedTrabajoIdForBitacora] = useState<number | null>(null);
+    const [reporteModalOpenForBitacora, setReporteModalOpenForBitacora] = useState(false);
+
     // Obtener nombre del negocio desde localStorage
     const [businessName, setBusinessName] = useState("Cargando...");
     const [businessImage, setBusinessImage] = useState<string | null>(null);
     const [businessAreas, setBusinessAreas] = useState<any[]>([]);
+
+    const [allSolicitudes, setAllSolicitudes] = useState<any[]>([]);
+
+    useEffect(() => {
+        const fetchHistory = async () => {
+            if (!id) return;
+            try {
+                const solicitudesBackend = await getMantenimientoSolicitudes(Number(id));
+                const mappedSolicitudes = solicitudesBackend.map((sol: any) => {
+                    const mappedReportes: any[] = [];
+                    [sol.visita_trabajo, sol.reparacion_trabajo].forEach(t => {
+                        if (t?.reporte?.solucion) {
+                            try {
+                                const parsed = JSON.parse(t.reporte.solucion);
+                                if (parsed.descripcion || parsed.reporteTienda) {
+                                    mappedReportes.push({
+                                        id: t.id,
+                                        problema_cliente: parsed.reporteTienda || '—',
+                                        trabajo_realizado: parsed.descripcion || '—',
+                                        fecha: t.fecha_programada || new Date(t.created_at).toLocaleDateString(),
+                                        tecnico: t.trabajador?.nombre || 'Técnico'
+                                    });
+                                }
+                            } catch (e) { }
+                        }
+                    });
+                    return {
+                        id: sol.id,
+                        levantamiento_equipo_id: sol.levantamiento_equipo_id,
+                        descripcion_problema: sol.descripcion_problema,
+                        fecha_creacion: new Date(sol.created_at).toLocaleDateString(),
+                        reportes: mappedReportes
+                    };
+                });
+                setAllSolicitudes(mappedSolicitudes);
+            } catch (err) {
+                console.error("Error loading maintenance history:", err);
+            }
+        };
+        fetchHistory();
+    }, [id]);
+
+    const persistLevantamiento = async (newLevantamientoData: any[], showNotification: boolean = false) => {
+        setBusinessAreas(newLevantamientoData);
+        
+        try {
+            const finalLevantamiento = await Promise.all(newLevantamientoData.map(async (section) => {
+                const finalEquipos = await Promise.all(section.equipos.map(async (eq: any) => {
+                    let eqFoto = eq.foto;
+                    let eqFotoPlaca = eq.fotoPlaca;
+                    if (eq.fotoFile) {
+                        try { eqFoto = await uploadImage(eq.fotoFile); } catch (ign) { }
+                    }
+                    if (eq.fotoPlacaFile) {
+                        try { eqFotoPlaca = await uploadImage(eq.fotoPlacaFile); } catch (ign) { }
+                    }
+                    return { ...eq, foto: eqFoto, fotoPlaca: eqFotoPlaca, fotoFile: undefined, fotoPlacaFile: undefined };
+                }));
+                const cleanSubAreas = (section.subAreas || []).map((sub: any) => ({
+                    ...sub,
+                    equipos: []
+                }));
+                return { ...section, subAreas: cleanSubAreas, equipos: finalEquipos };
+            }));
+
+            const existing = await getNegocio(Number(id));
+            const apiPayload: any = {
+                nombre: existing.nombre,
+                tipo: existing.tipo,
+                encargado: existing.encargado,
+                estado: existing.estado,
+                ciudad: existing.ciudad,
+                calle: existing.calle,
+                numero: existing.numero,
+                colonia: existing.colonia,
+                cp: existing.cp,
+                referencia: existing.referencia,
+                nombrePlaza: existing.nombrePlaza,
+                gerente: existing.gerente,
+                telefonoGerente: existing.telefonoGerente,
+                subgerente: existing.subgerente,
+                telefonoSubgerente: existing.telefonoSubgerente,
+                manzana: existing.manzana,
+                lote: existing.lote,
+                calleAv: existing.calleAv,
+                levantamiento: finalLevantamiento,
+            };
+            if (existing.imagenPerfil) apiPayload.imagenPerfil = existing.imagenPerfil;
+            if (existing.imagen_portada) apiPayload.imagen_portada = existing.imagen_portada;
+
+            const updateRes = await updateNegocio(Number(id), apiPayload);
+            if (updateRes?.data?.areas) {
+                const mergedAreas = updateRes.data.areas.map((serverArea: any) => {
+                    const localArea = newLevantamientoData.find(a => 
+                        String(a.id) === String(serverArea.id) || a.nombreArea === serverArea.nombreArea
+                    );
+                    
+                    const subAreasMap = new Map<string, any>();
+                    
+                    if (serverArea.sub_areas_json && Array.isArray(serverArea.sub_areas_json)) {
+                        serverArea.sub_areas_json.forEach((sub: any) => {
+                            subAreasMap.set(sub.id, { ...sub, equipos: [] });
+                        });
+                    }
+
+                    if (localArea && localArea.subAreas) {
+                        localArea.subAreas.forEach(sub => {
+                            if (!subAreasMap.has(sub.id)) {
+                                subAreasMap.set(sub.id, { ...sub, equipos: [] });
+                            }
+                        });
+                    }
+
+                    (serverArea.equipos || []).forEach((eq: any) => {
+                        const subId = eq.subAreaId || `sub_gen_${serverArea.id}`;
+                        const subName = eq.nombreSubArea || 'GENERAL';
+                        if (!subAreasMap.has(subId)) {
+                            subAreasMap.set(subId, { id: subId, nombreSubArea: subName, equipos: [] });
+                        }
+                        subAreasMap.get(subId)!.equipos.push(eq);
+                    });
+
+                    let finalSubAreas = Array.from(subAreasMap.values());
+                    if (finalSubAreas.length === 0) {
+                        finalSubAreas = [{ id: `sub_gen_${serverArea.id}`, nombreSubArea: 'GENERAL', equipos: serverArea.equipos || [] }];
+                    }
+
+                    return {
+                        ...serverArea,
+                        subAreas: finalSubAreas
+                    };
+                });
+                
+                setBusinessAreas(mergedAreas);
+            }
+            if (showNotification) {
+                showAlert("Éxito", "Levantamiento guardado exitosamente.", "success");
+            }
+        } catch (error) {
+            console.error("Error saving levantamiento:", error);
+            showAlert("Error", "No se pudo guardar el levantamiento en el servidor.", "error");
+        }
+    };
+
+    const handleAddArea = (nombreArea: string) => {
+        const newSecId = `sec_${Date.now()}`;
+        const newSubId = `sub_${Date.now()}`;
+        const newSection: any = {
+            id: newSecId,
+            nombreArea: nombreArea.trim().toUpperCase(),
+            subAreas: [{ id: newSubId, nombreSubArea: 'GENERAL', equipos: [] }],
+            equipos: []
+        };
+        const updated = [...businessAreas, newSection];
+        persistLevantamiento(updated);
+        setIsAreaModalOpen(false);
+    };
+
+    const handleAddSubArea = (nombreSubArea: string) => {
+        if (!activeAreaForSub) return;
+        const newSubId = `sub_${Date.now()}`;
+        const updated = businessAreas.map(sec => {
+            if (sec.id === activeAreaForSub) {
+                return {
+                    ...sec,
+                    subAreas: [...(sec.subAreas || []), { id: newSubId, nombreSubArea: nombreSubArea.trim().toUpperCase(), equipos: [] }]
+                };
+            }
+            return sec;
+        });
+        persistLevantamiento(updated);
+        setIsSubAreaModalOpen(false);
+    };
+
+    const handleDeleteArea = (areaId: string, nombreArea: string) => {
+        showConfirm(
+            "¿Eliminar área?",
+            `¿Estás seguro de que deseas eliminar el área "${nombreArea}" y todas sus sub-áreas?`,
+            () => {
+                const updated = businessAreas.filter(s => s.id !== areaId);
+                persistLevantamiento(updated);
+            },
+            () => {},
+            "Sí, eliminar",
+            "Cancelar"
+        );
+    };
+
+    const editAreaName = (areaId: string, oldName: string) => {
+        showPrompt(
+            "Editar Área",
+            "Ingresa el nuevo nombre para esta área:",
+            oldName,
+            (newName) => {
+                if (newName && newName.trim()) {
+                    const updated = businessAreas.map(sec => 
+                        sec.id === areaId ? { ...sec, nombreArea: newName.trim().toUpperCase() } : sec
+                    );
+                    persistLevantamiento(updated);
+                }
+            },
+            () => {},
+            "Guardar Cambios",
+            "Cancelar"
+        );
+    };
+
+    const handleReportarProblemaSubmit = async (descripcion: string) => {
+        if (!reportingEquipment || !user?.id || !id) return;
+        try {
+            await createMantenimientoSolicitud({
+                cliente_id: user.id,
+                negocio_id: Number(id),
+                levantamiento_equipo_id: reportingEquipment.id!,
+                descripcion_problema: descripcion
+            });
+
+            showAlert("Reporte Enviado", "El problema ha sido reportado exitosamente. El administrador revisará y agendará una visita técnica.", "success");
+        } catch (error) {
+            console.error(error);
+            showAlert("Error", "No se pudo enviar el reporte de mantenimiento. Intenta de nuevo.", "error");
+        }
+    };
     const [businessDetails, setBusinessDetails] = useState<any>(null);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
     const [isAdjustingPosition, setIsAdjustingPosition] = useState(false);
@@ -178,71 +436,81 @@ const TrabajoDetalle: React.FC = () => {
     // DATOS DESDE LA API
     const [trabajosData, setTrabajosData] = useState<Trabajo[]>([]);
 
+    const reloadTrabajosList = async () => {
+        try {
+            const [data, mantenimientos] = await Promise.all([
+                getTrabajos({ negocio_id: Number(id) }),
+                getMantenimientoSolicitudes(Number(id))
+            ]);
+
+            // Mapear mantenimientos a la estructura de Trabajo
+            const mappedMantenimientos = mantenimientos.map((m: any) => {
+                let estado = m.estado;
+                if (estado === 'Pendiente') estado = 'Solicitud';
+
+                const activeJob = m.reparacion_trabajo || m.visita_trabajo;
+
+                // Formato de fecha consistente DD/MM/YYYY igual que los trabajos normales
+                const createdAt = new Date(m.created_at);
+                const fechaFormateada = `${String(createdAt.getDate()).padStart(2,'0')}/${String(createdAt.getMonth()+1).padStart(2,'0')}/${createdAt.getFullYear()}`;
+
+                return {
+                    id: `m-${m.id}`,
+                    original_id: m.id,
+                    titulo: `Mantenimiento: ${m.levantamiento_equipo?.nombre || 'Equipo'}`,
+                    descripcion: m.descripcion_problema || '',
+                    estado: estado,
+                    fecha: fechaFormateada,
+                    tipo: 'Mantenimiento',
+                    isMantenimiento: true,
+                    tecnico: activeJob?.trabajador?.nombre || 'Sin asignar',
+                    tecnicoUserId: activeJob?.trabajador?.user_id || null,
+                    ubicacion: businessName,
+                    fechaSolicitud: createdAt.toLocaleString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }),
+                    foto_url: null,
+                    hora_llegada: activeJob?.hora_llegada || null
+                };
+            });
+
+            const mappedTrabajos = data.map((j: any) => {
+                const isSOS = j.prioridad === "Alta" || j.titulo?.includes("SOS");
+                let displayTipo = "Nueva Solicitud";
+                if (isSOS) {
+                    displayTipo = "SOS";
+                } else if (j.tipo && ["Visita", "Trabajo", "Mantenimiento"].includes(j.tipo)) {
+                    displayTipo = j.tipo;
+                } else if (j.estado !== "Pendiente" && j.estado !== "Solicitud") {
+                    const isTrabajoDefinitivo = ["Cotización Enviada", "Cotización Rechazada", "Cotización Aceptada", "Cotización Aprobada", "En Proceso", "Finalizado"].includes(j.estado) || j.visitado;
+                    displayTipo = isTrabajoDefinitivo ? "Trabajo" : "Visita";
+                }
+
+                return {
+                    id: j.id.toString(),
+                    original_id: j.id,
+                    titulo: j.titulo,
+                    ubicacion: j.negocio ? ((j.negocio.nombrePlaza || j.negocio.nombre_plaza) ? `${j.negocio.nombre} - ${j.negocio.nombrePlaza || j.negocio.nombre_plaza}` : j.negocio.nombre) : businessName,
+                    tecnico: j.trabajador?.nombre || "Sin asignar",
+                    tecnicoUserId: j.trabajador?.user_id || null,
+                    fecha: j.fecha_programada ? (j.fecha_programada.includes('-') ? j.fecha_programada.split('-').reverse().join('/') : j.fecha_programada) : new Date(j.created_at).toLocaleDateString('es-MX'),
+                    estado: j.estado === "Pendiente" ? "Solicitud" : j.estado,
+                    visitado: Boolean(j.visitado),
+                    tipo: displayTipo,
+                    descripcion: j.descripcion,
+                    isEmergency: isSOS,
+                    fechaSolicitud: j.created_at ? new Date(j.created_at).toLocaleString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }) : "No registrada",
+                    foto_url: j.foto_url,
+                    hora_llegada: j.hora_llegada || null
+                };
+            });
+            setTrabajosData([...mappedTrabajos, ...mappedMantenimientos]);
+        } catch (error) {
+            console.error("Error al obtener trabajos: ", error);
+        }
+    };
+
     useEffect(() => {
-        const fetchJobs = async () => {
-            try {
-                const [data, mantenimientos] = await Promise.all([
-                    getTrabajos({ negocio_id: Number(id) }),
-                    getMantenimientoSolicitudes(Number(id))
-                ]);
-
-                // Mapear mantenimientos a la estructura de Trabajo
-                const mappedMantenimientos = mantenimientos.map((m: any) => {
-                    let estado = m.estado;
-                    if (estado === 'Pendiente') estado = 'Solicitud';
-
-                    const activeJob = m.reparacion_trabajo || m.visita_trabajo;
-
-                    return {
-                        id: `m-${m.id}`,
-                        original_id: m.id,
-                        titulo: `Mantenimiento: ${m.levantamiento_equipo?.nombre || 'Equipo'}`,
-                        descripcion: m.descripcion_problema,
-                        estado: estado,
-                        fecha: new Date(m.created_at).toLocaleDateString(),
-                        tipo: 'Mantenimiento',
-                        isMantenimiento: true,
-                        hora_llegada: activeJob?.hora_llegada || null
-                    };
-                });
-
-                const mappedTrabajos = data.map((j: any) => {
-                    const isSOS = j.prioridad === "Alta" || j.titulo?.includes("SOS");
-                    let displayTipo = "Nueva Solicitud";
-                    if (isSOS) {
-                        displayTipo = "SOS";
-                    } else if (j.tipo && ["Visita", "Trabajo", "Mantenimiento"].includes(j.tipo)) {
-                        displayTipo = j.tipo;
-                    } else if (j.estado !== "Pendiente" && j.estado !== "Solicitud") {
-                        const isTrabajoDefinitivo = ["Cotización Enviada", "Cotización Rechazada", "Cotización Aceptada", "Cotización Aprobada", "En Proceso", "Finalizado"].includes(j.estado) || j.visitado;
-                        displayTipo = isTrabajoDefinitivo ? "Trabajo" : "Visita";
-                    }
-
-                    return {
-                        id: j.id.toString(),
-                        original_id: j.id,
-                        titulo: j.titulo,
-                        ubicacion: j.negocio ? ((j.negocio.nombrePlaza || j.negocio.nombre_plaza) ? `${j.negocio.nombre} - ${j.negocio.nombrePlaza || j.negocio.nombre_plaza}` : j.negocio.nombre) : businessName,
-                        tecnico: j.trabajador?.nombre || "Sin asignar",
-                        tecnicoUserId: j.trabajador?.user_id || null,
-                        fecha: j.fecha_programada ? (j.fecha_programada.includes('-') ? j.fecha_programada.split('-').reverse().join('/') : j.fecha_programada) : new Date(j.created_at).toLocaleDateString('es-MX'),
-                        estado: j.estado === "Pendiente" ? "Solicitud" : j.estado,
-                        visitado: Boolean(j.visitado),
-                        tipo: displayTipo,
-                        descripcion: j.descripcion,
-                        isEmergency: isSOS,
-                        fechaSolicitud: j.created_at ? new Date(j.created_at).toLocaleString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }) : "No registrada",
-                        foto_url: j.foto_url,
-                        hora_llegada: j.hora_llegada || null
-                    };
-                });
-                setTrabajosData([...mappedTrabajos, ...mappedMantenimientos]);
-            } catch (error) {
-                console.error("Error al obtener trabajos: ", error);
-            }
-        };
         if (businessName !== "Cargando...") {
-            fetchJobs();
+            reloadTrabajosList();
         }
     }, [id, businessName]);
 
@@ -389,6 +657,19 @@ const TrabajoDetalle: React.FC = () => {
     // Modal Filtro
     const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
     const [filterStatus, setFilterStatus] = useState<string>("Todos");
+    const [activeSummaryTab, setActiveSummaryTab] = useState<string | null>(null);
+    const [formServices, setFormServices] = useState<Array<{
+        id: string;
+        dbId?: number;
+        categoria: string;
+        customCategoria: string;
+        descripcion: string;
+        equipoSeleccionado: string;
+        fotos: File[];
+        fotosPreviewUrls: string[];
+        isMinimized: boolean;
+    }>>([]);
+    const [deletedDbIds, setDeletedDbIds] = useState<number[]>([]);
     const [dateFrom, setDateFrom] = useState("");
     const [dateTo, setDateTo] = useState("");
 
@@ -505,8 +786,8 @@ const TrabajoDetalle: React.FC = () => {
         let filteredJobs = trabajosData.filter(job => {
             if (job.estado === "Eliminado") return false;
 
-            const matchesSearch = job.titulo.toLowerCase().includes(searchText.toLowerCase()) ||
-                job.tecnico.toLowerCase().includes(searchText.toLowerCase());
+            const matchesSearch = (job.titulo || '').toLowerCase().includes(searchText.toLowerCase()) ||
+                (job.tecnico || '').toLowerCase().includes(searchText.toLowerCase());
 
             let matchesStatus = true;
             if (filterStatus !== "Todos") {
@@ -541,6 +822,68 @@ const TrabajoDetalle: React.FC = () => {
             filteredJobs = filteredJobs.filter(job => job.tecnicoUserId === user.id && job.estado !== "Finalizado");
         }
 
+        // Helper para extraer Group ID
+        const getGroupId = (descripcion?: string) => {
+            if (!descripcion) return null;
+            const match = descripcion.match(/\[Grupo:\s*(REQ-\d+)\]/);
+            return match ? match[1] : null;
+        };
+
+        // AGRUPACIÓN POR GRUPO REQ (para mostrar una sola tarjeta por solicitud)
+        const groupedByReq: { [key: string]: Trabajo[] } = {};
+        const singleJobsList: Trabajo[] = [];
+
+        filteredJobs.forEach(job => {
+            const grpId = getGroupId(job.descripcion);
+            if (grpId) {
+                if (!groupedByReq[grpId]) {
+                    groupedByReq[grpId] = [];
+                }
+                groupedByReq[grpId].push(job);
+            } else {
+                singleJobsList.push(job);
+            }
+        });
+
+        // Convertir cada grupo de REQ en un objeto compuesto
+        Object.entries(groupedByReq).forEach(([grpId, jobsInGroup]) => {
+            // Ordenar por ID para que el primero sea la base
+            jobsInGroup.sort((a, b) => Number(a.id) - Number(b.id));
+            const baseJob = { ...jobsInGroup[0] };
+            
+            baseJob.isGroupHeader = true;
+            baseJob.groupId = grpId;
+            baseJob.jobsInGroup = jobsInGroup;
+            
+            // Generar título combinado
+            const serviceTypes = jobsInGroup.map(j => {
+                const parts = j.titulo.split(' - ');
+                return parts[0];
+            });
+            const uniqueTypes = Array.from(new Set(serviceTypes));
+            const suffix = baseJob.titulo.includes(' - ') ? ' - ' + baseJob.titulo.split(' - ').slice(1).join(' - ') : '';
+            baseJob.titulo = `${uniqueTypes.join(', ')}${suffix}`;
+            
+            // Descripción combinada
+            baseJob.descripcion = `[Grupo: ${grpId}]\n` + jobsInGroup.map((j, idx) => {
+                const cleanDesc = j.descripcion?.replace(/\[Grupo:\s*REQ-\d+\]\s*\n?/, "") || "";
+                const svcName = j.titulo.split(' - ')[0];
+                return `${idx + 1}. ${svcName}: ${cleanDesc}`;
+            }).join('\n');
+            
+            // Combinar fotos
+            const allPhotos: string[] = [];
+            jobsInGroup.forEach(j => {
+                if (j.foto_url) {
+                    const urls = j.foto_url.split(',').map(u => u.trim()).filter(Boolean);
+                    allPhotos.push(...urls);
+                }
+            });
+            baseJob.foto_url = allPhotos.join(',');
+            
+            singleJobsList.push(baseJob);
+        });
+
         // 3. ORDENAMIENTO AUTOMÁTICO: SOS primero, luego Fecha Descendente
         const parseDateForSort = (dateStr: string) => {
             const parts = dateStr.includes('/') ? dateStr.split('/') : dateStr.split('-');
@@ -551,7 +894,7 @@ const TrabajoDetalle: React.FC = () => {
             return new Date(dateStr).getTime();
         };
 
-        const sortedFilteredJobs = [...filteredJobs].sort((a, b) => {
+        const sortedFilteredJobs = [...singleJobsList].sort((a, b) => {
             // SOS primero
             if (a.tipo === 'SOS' && b.tipo !== 'SOS') return -1;
             if (a.tipo !== 'SOS' && b.tipo === 'SOS') return 1;
@@ -707,227 +1050,250 @@ const TrabajoDetalle: React.FC = () => {
         setIsModalOpen(false);
     };
 
+    const toggleMinimize = (svcId: string) => {
+        setFormServices(prev => prev.map(s => s.id === svcId ? { ...s, isMinimized: !s.isMinimized } : s));
+    };
+
+    const removeServiceForm = (svcId: string, dbId?: number) => {
+        setFormServices(prev => prev.filter(s => s.id !== svcId));
+        if (dbId) {
+            setDeletedDbIds(prev => [...prev, dbId]);
+        }
+    };
+
+    const updateFormService = (svcId: string, key: string, value: any) => {
+        setFormServices(prev => prev.map(s => s.id === svcId ? { ...s, [key]: value } : s));
+    };
+
+    const handleAddFormPhoto = (svcId: string, filesList: FileList | null) => {
+        if (!filesList) return;
+        const files = Array.from(filesList);
+        const newUrls = files.map(file => URL.createObjectURL(file));
+
+        setFormServices(prev => prev.map(s => {
+            if (s.id === svcId) {
+                return {
+                    ...s,
+                    fotos: [...s.fotos, ...files],
+                    fotosPreviewUrls: [...s.fotosPreviewUrls, ...newUrls]
+                };
+            }
+            return s;
+        }));
+    };
+
+    const removeFormPhoto = (svcId: string, photoIdx: number) => {
+        setFormServices(prev => prev.map(s => {
+            if (s.id === svcId) {
+                const urlToRevoke = s.fotosPreviewUrls[photoIdx];
+                if (urlToRevoke && urlToRevoke.startsWith('blob:')) {
+                    URL.revokeObjectURL(urlToRevoke);
+                }
+                return {
+                    ...s,
+                    fotos: s.fotos.filter((_, idx) => idx !== photoIdx),
+                    fotosPreviewUrls: s.fotosPreviewUrls.filter((_, idx) => idx !== photoIdx)
+                };
+            }
+            return s;
+        }));
+    };
+
+    const addMoreServiceForm = () => {
+        if (formServices.length >= 10) {
+            showAlert("Límite Alcanzado", "Puedes agregar un máximo de 10 servicios en una sola solicitud.", "warning");
+            return;
+        }
+        setFormServices(prev => [
+            ...prev,
+            {
+                id: "svc-" + Date.now(),
+                categoria: "Electricidad",
+                customCategoria: "",
+                descripcion: "",
+                equipoSeleccionado: "",
+                fotos: [] as File[],
+                fotosPreviewUrls: [] as string[],
+                isMinimized: false
+            }
+        ]);
+    };
+
     const handleConfirmRequest = async () => {
-        const finalCategoria = newRequestData.categoria === "Otro" && customCategoria.trim() !== ""
-            ? customCategoria.trim()
-            : newRequestData.categoria;
+        // Validate description of all forms
+        const invalidIndex = formServices.findIndex(s => !s.descripcion.trim());
+        if (invalidIndex !== -1) {
+            showAlert("Campo Requerido", `Por favor detalla la descripción del problema para el Servicio #${invalidIndex + 1}.`, "error");
+            return;
+        }
+
+        // Validate that each service has at least one photo (new upload or existing)
+        const invalidPhotoIndex = formServices.findIndex(s => s.fotos.length === 0 && s.fotosPreviewUrls.length === 0);
+        if (invalidPhotoIndex !== -1) {
+            showAlert("Foto Requerida", `Por favor adjunta al menos una foto para el Servicio #${invalidPhotoIndex + 1}.`, "error");
+            return;
+        }
 
         if (isEditingRequest && editingRequestId !== null) {
-            // Edit existing request
+            // Edit Group Request
             try {
-                const updatedPayload = {
-                    titulo: `${finalCategoria} - ${newRequestData.cliente || businessName}`,
-                    descripcion: newRequestData.descripcion,
-                    fecha_programada: newRequestData.fecha || null
-                };
-                await updateTrabajo(editingRequestId, updatedPayload);
+                // Determine original group ID or create a new one
+                const originalJob = trabajosData.find(t => t.id === editingRequestId);
+                const groupMatch = originalJob?.descripcion?.match(/\[Grupo:\s*(REQ-\d+)\]/);
+                let finalGroupId = groupMatch ? groupMatch[1] : null;
 
-                const updated = trabajosData.map(job => {
-                    if (job.id === editingRequestId) {
-                        return {
-                            ...job,
-                            titulo: updatedPayload.titulo,
-                            descripcion: updatedPayload.descripcion,
-                            fecha: updatedPayload.fecha_programada
-                                ? (updatedPayload.fecha_programada.includes('-') ? updatedPayload.fecha_programada.split('-').reverse().join('/') : updatedPayload.fecha_programada)
-                                : job.fecha
-                        };
-                    }
-                    return job;
-                });
-                saveJobs(updated);
-                showAlert("Éxito", "Solicitud actualizada exitosamente.", "success");
-            } catch (error) {
-                console.error("Error al actualizar la solicitud:", error);
-                showAlert("Error", "No se pudo actualizar la solicitud en el servidor.", "error");
-            }
-        } else {
-            // Create new request (Normal or SOS)
-            try {
-                if (newRequestData.categoria === 'Mantenimiento' && newRequestData.equipoSeleccionado) {
-                    // Si se seleccionó equipo, se va flujo especializado de mantenimiento
-                    await createMantenimientoSolicitud({
-                        cliente_id: user?.id || 1,
-                        negocio_id: Number(id),
-                        levantamiento_equipo_id: newRequestData.equipoSeleccionado,
-                        descripcion_problema: newRequestData.descripcion || "Mantenimiento general programado"
-                    });
+                if (!finalGroupId && formServices.length > 1) {
+                    finalGroupId = "REQ-" + Date.now();
+                }
 
+                // 1. Delete removed database records
+                for (const delId of deletedDbIds) {
                     try {
-                        let equName = "un equipo";
-                        const individual = await getNegocio(Number(id));
-                        if (individual && individual.areas) {
-                            for (let a of individual.areas) {
-                                const matched = a.equipos.find((e: any) => String(e.id) === String(newRequestData.equipoSeleccionado));
-                                if (matched) { equName = matched.nombre; break; }
-                            }
-                        }
-                        if (businessDetails && businessDetails.admin_autonomo_id) {
-                            await createNotificacion({
-                                user_id: businessDetails.admin_autonomo_id,
-                                titulo: '📋 Reporte de Mantenimiento de Equipo',
-                                mensaje: `Un cliente solicitó mantenimiento programado para ${equName}.`,
-                                enlace: '/autonomo/solicitudes' // Autónomo no tiene ruta separada de mantenimiento aún, va a solicitudes
-                            });
-                        } else {
-                            await createNotificacionByRole({
-                                role: 'admin',
-                                titulo: '📋 Reporte de Mantenimiento de Equipo',
-                                mensaje: `Un cliente solicitó mantenimiento programado para ${equName}.`,
-                                enlace: '/menu/mantenimiento'
-                            });
-                        }
-                    } catch (e) { console.error(e); }
-
-                    showAlert("Solicitud Exitosa", "Tu reporte se ha creado correctamente y ya es visible en la sección de Reportes de Mantenimiento para la administración.", "success");
-                    setIsRequestModalOpen(false);
-                    return;
+                        await deleteTrabajo(delId);
+                    } catch (e) {
+                        console.error("Error deleting job in group edit:", e);
+                    }
                 }
 
                 const isEmergency = isSOSRequest;
-                
-                const isDirectAssignmentAllowed = ['admin', 'admin-autonomo', 'gerente-general'].includes(user?.role?.toLowerCase() || '');
-                let finalTrabajadorId = newRequestData.trabajador_id || null;
-                let baseDescripcion = newRequestData.descripcion;
 
-                if (!isDirectAssignmentAllowed && newRequestData.trabajador_id) {
-                    const selectedTecnico = tecnicosData.find(t => String(t.id) === String(newRequestData.trabajador_id));
-                    if (selectedTecnico) {
-                        baseDescripcion = `[Técnico sugerido: ${selectedTecnico.nombre}]\n\n${baseDescripcion}`;
-                    }
-                    finalTrabajadorId = null;
-                }
-                
-                let dbJob;
-                if (fotosSOS.length > 0) {
-                    const formData = new FormData();
-                    formData.append('titulo', isEmergency
-                        ? `🚨 SOS: ${finalCategoria} - ${businessName}`
-                        : `${finalCategoria} - ${newRequestData.cliente || businessName}`
-                    );
-                    formData.append('descripcion', (newRequestData.categoria === 'Mantenimiento' && newRequestData.equipoSeleccionado)
-                        ? `[Equipo: ${newRequestData.equipoSeleccionado}]\n${baseDescripcion}`
-                        : baseDescripcion
-                    );
-                    formData.append('prioridad', isEmergency ? 'Alta' : 'Media');
-                    formData.append('tipo', isEmergency ? 'SOS' : 'Nueva Solicitud');
-                    formData.append('negocio_id', id || '');
-                    if (finalTrabajadorId) {
-                        formData.append('trabajador_id', finalTrabajadorId);
-                    }
-                    if (newRequestData.fecha) {
-                        formData.append('fecha_programada', newRequestData.fecha);
-                    }
-                    fotosSOS.forEach((file) => {
-                        formData.append('fotos[]', file);
-                    });
-                    
-                    dbJob = await createTrabajo(formData);
-                } else {
-                    const newJobPayload = {
-                        titulo: isEmergency
-                            ? `🚨 SOS: ${finalCategoria} - ${businessName}`
-                            : `${finalCategoria} - ${newRequestData.cliente || businessName}`,
-                        descripcion: (newRequestData.categoria === 'Mantenimiento' && newRequestData.equipoSeleccionado)
-                            ? `[Equipo: ${newRequestData.equipoSeleccionado}]\n${baseDescripcion}`
-                            : baseDescripcion,
-                        prioridad: isEmergency ? "Alta" : "Media",
-                        tipo: isEmergency ? "SOS" : "Nueva Solicitud",
-                        negocio_id: Number(id),
-                        fecha_programada: newRequestData.fecha || null,
-                        trabajador_id: finalTrabajadorId
-                    };
+                // 2. Iterate and update existing / create new services
+                for (const svc of formServices) {
+                    const finalCat = svc.categoria === "Otro" && svc.customCategoria.trim() !== ""
+                        ? svc.customCategoria.trim()
+                        : svc.categoria;
 
-                    dbJob = await createTrabajo(newJobPayload);
-                }
+                    const descWithGroup = finalGroupId ? `[Grupo: ${finalGroupId}]\n${svc.descripcion}` : svc.descripcion;
 
-                // Update purely visual UI State immediately
-                const newJobView = {
-                    id: dbJob.id || Date.now(),
-                    titulo: dbJob.titulo,
-                    ubicacion: newRequestData.cliente || businessName,
-                    tecnico: "Sin asignar",
-                    fecha: dbJob.fecha_programada ? (dbJob.fecha_programada.includes('-') ? dbJob.fecha_programada.split('-').reverse().join('/') : dbJob.fecha_programada) : new Date().toLocaleDateString('es-MX'),
-                    estado: "Solicitud",
-                    tipo: isEmergency ? "SOS" : "Nueva Solicitud",
-                    descripcion: dbJob.descripcion,
-                    isEmergency: isEmergency,
-                    fechaSolicitud: dbJob.created_at 
-                        ? new Date(dbJob.created_at).toLocaleString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }) 
-                        : new Date().toLocaleString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }),
-                    foto_url: dbJob.foto_url
-                };
-
-                if (isEmergency) {
-                    saveJobs([newJobView as any, ...trabajosData]);
-                } else {
-                    saveJobs([...trabajosData, newJobView as any]);
-                }
-
-                // --- NOTIFICAR ADMIN EN BD ---
-                try {
-                    const tituloNoti = isEmergency ? '🚨 NUEVA EMERGENCIA' : 'NUEVA SOLICITUD ✨';
-                    const mensajeNoti = isEmergency
-                        ? `El cliente ha enviado un SOS: ${newJobView.titulo} en la sucursal ${businessName}.`
-                        : `El cliente ha creado una nueva solicitud: ${newJobView.titulo} en la sucursal ${businessName}.`;
-
-                    if (businessDetails && businessDetails.admin_autonomo_id) {
-                        await createNotificacionEcosistema({
-                            admin_autonomo_id: businessDetails.admin_autonomo_id,
-                            titulo: tituloNoti,
-                            mensaje: mensajeNoti,
-                            enlace: `/autonomo/trabajo-detalle/${newJobView.id}`
-                        });
+                    if (svc.dbId) {
+                        // Update existing request
+                        const updatedPayload = {
+                            titulo: isEmergency
+                                ? `🚨 SOS: ${finalCat} - ${businessName}`
+                                : `${finalCat} - ${newRequestData.cliente || businessName}`,
+                            descripcion: descWithGroup,
+                            fecha_programada: newRequestData.fecha || null
+                        };
+                        await updateTrabajo(svc.dbId, updatedPayload);
                     } else {
-                        await createNotificacionByRole({
-                            role: 'admin',
-                            titulo: tituloNoti,
-                            mensaje: mensajeNoti,
-                            enlace: `/menu/trabajo-detalle/${newJobView.id}`
-                        });
+                        // Create newly added request inside edit mode
+                        const newJobPayload = {
+                            titulo: isEmergency
+                                ? `🚨 SOS: ${finalCat} - ${businessName}`
+                                : `${finalCat} - ${newRequestData.cliente || businessName}`,
+                            descripcion: descWithGroup,
+                            prioridad: isEmergency ? "Alta" : "Media",
+                            tipo: isEmergency ? "SOS" : "Nueva Solicitud",
+                            negocio_id: Number(id),
+                            fecha_programada: newRequestData.fecha || null,
+                            trabajador_id: null
+                        };
+                        await createTrabajo(newJobPayload);
                     }
-                } catch (notiErr) {
-                    console.error("Error al notificar admin de nueva solicitud:", notiErr);
                 }
+
+                showAlert("Éxito", "Solicitud editada exitosamente.", "success");
+                reloadTrabajosList();
+            } catch (error) {
+                console.error("Error al actualizar el grupo de solicitudes:", error);
+                showAlert("Error", "No se pudo actualizar alguna de las solicitudes.", "error");
+            }
+
+            setIsRequestModalOpen(false);
+            setIsEditingRequest(false);
+            setIsSOSRequest(false);
+            setFotosSOS([]);
+            setFotosPreviewUrls([]);
+            setEditingRequestId(null);
+            setFormServices([]);
+            setDeletedDbIds([]);
+        } else {
+            // Create New Request Group
+            try {
+                // Generate a unique group ID if there are multiple services
+                let finalGroupId: string | null = null;
+                if (formServices.length > 1) {
+                    finalGroupId = "REQ-" + Date.now();
+                }
+
+                const isEmergency = isSOSRequest;
+
+                for (const svc of formServices) {
+                    const finalCat = svc.categoria === "Otro" && svc.customCategoria.trim() !== ""
+                        ? svc.customCategoria.trim()
+                        : svc.categoria;
+
+                    const descWithGroup = finalGroupId ? `[Grupo: ${finalGroupId}]\n${svc.descripcion}` : svc.descripcion;
+
+                    if (svc.categoria === 'Mantenimiento' && svc.equipoSeleccionado) {
+                        // Flujo especializado de mantenimiento
+                        await createMantenimientoSolicitud({
+                            cliente_id: user?.id || 1,
+                            negocio_id: Number(id),
+                            levantamiento_equipo_id: svc.equipoSeleccionado,
+                            descripcion_problema: svc.descripcion || "Mantenimiento general programado"
+                        });
+                        continue;
+                    }
+
+                    let dbJob;
+                    if (svc.fotos.length > 0) {
+                        const formData = new FormData();
+                        formData.append('titulo', isEmergency
+                            ? `🚨 SOS: ${finalCat} - ${businessName}`
+                            : `${finalCat} - ${newRequestData.cliente || businessName}`
+                        );
+                        formData.append('descripcion', descWithGroup);
+                        formData.append('prioridad', isEmergency ? 'Alta' : 'Media');
+                        formData.append('tipo', isEmergency ? 'SOS' : 'Nueva Solicitud');
+                        formData.append('negocio_id', id || '');
+                        if (newRequestData.fecha) {
+                            formData.append('fecha_programada', newRequestData.fecha);
+                        }
+                        svc.fotos.forEach((file) => {
+                            formData.append('fotos[]', file);
+                        });
+
+                        dbJob = await createTrabajo(formData);
+                    } else {
+                        const newJobPayload = {
+                            titulo: isEmergency
+                                ? `🚨 SOS: ${finalCat} - ${businessName}`
+                                : `${finalCat} - ${newRequestData.cliente || businessName}`,
+                            descripcion: descWithGroup,
+                            prioridad: isEmergency ? "Alta" : "Media",
+                            tipo: isEmergency ? "SOS" : "Nueva Solicitud",
+                            negocio_id: Number(id),
+                            fecha_programada: newRequestData.fecha || null,
+                            trabajador_id: null
+                        };
+
+                        dbJob = await createTrabajo(newJobPayload);
+                    }
+                }
+
                 showAlert(
-                    isEmergency ? "🚨 ¡Emergencia Enviada!" : "✅ ¡Solicitud Enviada!",
+                    isEmergency ? "🚨 ¡Emergencias Enviadas!" : "✅ ¡Solicitudes Enviadas!",
                     isEmergency
-                        ? "Tu alerta SOS ha sido enviada al administrador. Nos pondremos en contacto contigo a la brevedad posible."
-                        : (newRequestData.trabajador_id 
-                            ? "Tu solicitud ha sido mandada exitosamente al administrador, se te notificará cuando el técnico acepte."
-                            : "Tu solicitud ha sido enviada exitosamente al administrador. Pronto te notificaremos cuando se asigne un técnico."),
+                        ? "Tus alertas SOS han sido enviadas al administrador. Nos pondremos en contacto contigo a la brevedad posible."
+                        : "Tus solicitudes han sido enviadas exitosamente al administrador.",
                     "success"
                 );
+                reloadTrabajosList();
             } catch (error: any) {
-                console.error("Error creating record:", error);
-                let errorMessage = "Hubo un error contactando al servidor.";
-                if (error.response && error.response.data) {
-                    if (error.response.data.errors) {
-                        const errorDetails = Object.values(error.response.data.errors).flat().join(" ");
-                        errorMessage = `${error.response.data.message || "Error de validación"}: ${errorDetails}`;
-                    } else if (error.response.data.message) {
-                        errorMessage = error.response.data.message;
-                    }
-                }
-                showAlert("Error", errorMessage, "error");
+                console.error("Error creating request group:", error);
+                showAlert("Error", "No se pudo crear alguna de las solicitudes.", "error");
             }
-        }
 
-        setIsRequestModalOpen(false);
-        setIsEditingRequest(false);
-        setIsSOSRequest(false);
-        setFotosSOS([]);
-        setFotosPreviewUrls([]);
-        setEditingRequestId(null);
-        // Reset form
-        setNewRequestData({
-            categoria: "Electricidad",
-            cliente: businessName,
-            fecha: new Date().toISOString().split('T')[0],
-            descripcion: "",
-            equipoSeleccionado: "",
-            trabajador_id: ""
-        });
+            setIsRequestModalOpen(false);
+            setIsEditingRequest(false);
+            setIsSOSRequest(false);
+            setFotosSOS([]);
+            setFotosPreviewUrls([]);
+            setEditingRequestId(null);
+            setFormServices([]);
+            setDeletedDbIds([]);
+        }
     };
 
     const handleSOSRequest = async () => {
@@ -939,25 +1305,65 @@ const TrabajoDetalle: React.FC = () => {
             equipoSeleccionado: "",
             trabajador_id: ""
         });
+        setFormServices([
+            {
+                id: "svc-" + Date.now(),
+                categoria: "Electricidad",
+                customCategoria: "",
+                descripcion: "",
+                equipoSeleccionado: "",
+                fotos: [] as File[],
+                fotosPreviewUrls: [] as string[],
+                isMinimized: false
+            }
+        ]);
         setIsSOSRequest(true);
         setIsEditingRequest(false);
         setIsRequestModalOpen(true);
     };
 
-    const handleDeleteRequest = (e: React.MouseEvent, jobId: number) => {
+    const handleDeleteRequest = (e: React.MouseEvent, job: Trabajo) => {
         e.stopPropagation();
+        
+        const getGroupId = (descripcion?: string) => {
+            if (!descripcion) return null;
+            const match = descripcion.match(/\[Grupo:\s*(REQ-\d+)\]/);
+            return match ? match[1] : null;
+        };
+        
+        const grpId = getGroupId(job.descripcion);
+        const title = grpId ? "Borrar Grupo de Solicitudes" : "Borrar Solicitud";
+        const message = grpId 
+            ? "¿Estás seguro de que deseas borrar este grupo de solicitudes? Se eliminarán todos los servicios de la solicitud." 
+            : "¿Estás seguro de que deseas borrar esta solicitud?";
+
         showConfirm(
-            "Borrar Solicitud",
-            "¿Estás seguro de que deseas borrar esta solicitud?",
+            title,
+            message,
             async () => {
                 try {
-                    await deleteTrabajo(jobId);
-                    const updated = trabajosData.filter(job => job.id !== jobId);
-                    saveJobs(updated);
-                    showAlert("Éxito", "Solicitud borrada exitosamente.", "success");
+                    if (grpId) {
+                        const groupJobs = trabajosData.filter(t => {
+                            const tGrpId = getGroupId(t.descripcion);
+                            return tGrpId === grpId;
+                        });
+                        for (const gJob of groupJobs) {
+                            await deleteTrabajo(Number(gJob.original_id || gJob.id));
+                        }
+                        const updated = trabajosData.filter(t => {
+                            const tGrpId = getGroupId(t.descripcion);
+                            return tGrpId !== grpId;
+                        });
+                        saveJobs(updated);
+                    } else {
+                        await deleteTrabajo(Number(job.original_id || job.id));
+                        const updated = trabajosData.filter(t => t.id !== job.id);
+                        saveJobs(updated);
+                    }
+                    showAlert("Éxito", grpId ? "Grupo de solicitudes borrado exitosamente." : "Solicitud borrada exitosamente.", "success");
                 } catch (error) {
                     console.error("Error al borrar solicitud:", error);
-                    showAlert("Error", "No se pudo borrar la solicitud en el servidor.", "error");
+                    showAlert("Error", "No se pudo borrar la solicitud.", "error");
                 }
             }
         );
@@ -965,25 +1371,58 @@ const TrabajoDetalle: React.FC = () => {
 
     const handleOpenEditRequest = (e: React.MouseEvent, job: Trabajo) => {
         e.stopPropagation();
-        // Intentar deducir la categoría del título si es posible
-        const parts = (job.titulo || "").split(' - ');
-        let cat = parts.length > 1 ? parts[0] : "Electricidad";
 
-        if (!["Electricidad", "Plomeria", "Albañileria", "Limpieza", "Instalación", "Mantenimiento"].includes(cat)) {
-            if (job.titulo?.includes("Mantenimiento")) cat = "Mantenimiento";
-            else if (job.titulo?.includes("Instalación")) cat = "Instalación";
+        // 1. Detectar si pertenece a un grupo
+        const match = job.descripcion?.match(/\[Grupo:\s*(REQ-\d+)\]/);
+        const groupId = match ? match[1] : null;
+
+        let jobsToEdit = [job];
+        if (groupId) {
+            jobsToEdit = trabajosData.filter(t => t.descripcion?.includes(`[Grupo: ${groupId}]`));
         }
 
+        // 2. Mapear a formServices
+        const mapped = jobsToEdit.map(t => {
+            const cleanDesc = t.descripcion?.replace(/\[Grupo:\s*REQ-\d+\]\s*\n?/, "") || "";
+            
+            // Deducir categoría y customCategoria
+            let cleanTitle = t.titulo || "";
+            cleanTitle = cleanTitle.replace("🚨 SOS: ", "");
+            const parts = cleanTitle.split(' - ');
+            let cat = parts.length > 0 ? parts[0] : "Electricidad";
+            let custom = "";
+
+            if (!["Electricidad", "Plomeria", "Albañileria", "Limpieza", "Instalación", "Mantenimiento"].includes(cat)) {
+                custom = cat;
+                cat = "Otro";
+            }
+
+            return {
+                id: "svc-edit-" + t.id,
+                dbId: t.id,
+                categoria: cat,
+                customCategoria: custom,
+                descripcion: cleanDesc,
+                equipoSeleccionado: "",
+                fotos: [] as File[],
+                fotosPreviewUrls: parseFotoUrls(t.foto_url),
+                isMinimized: false
+            };
+        });
+
+        setFormServices(mapped);
+        setDeletedDbIds([]);
+
+        // Set basic newRequestData (especially date)
         setNewRequestData({
-            categoria: cat,
+            categoria: mapped[0].categoria,
             cliente: businessName,
-            fecha: job.fecha ? (job.fecha.includes('/') ? job.fecha.split('/').reverse().join('-') : job.fecha) : "",
-            descripcion: job.descripcion || "",
+            fecha: job.fecha ? (job.fecha.includes('/') ? job.fecha.split('/').reverse().join('-') : job.fecha) : new Date().toISOString().split('T')[0],
+            descripcion: mapped[0].descripcion,
             equipoSeleccionado: "",
             trabajador_id: ""
         });
-        setFotosSOS([]);
-        setFotosPreviewUrls([]);
+
         setIsEditingRequest(true);
         setEditingRequestId(job.id);
         setIsRequestModalOpen(true);
@@ -1272,12 +1711,145 @@ const TrabajoDetalle: React.FC = () => {
                         )}
                     </div>
 
-                    <div style={{ width: '100%', maxWidth: '900px', margin: '0 auto' }}>
-                        <EquiposNegocio
-                            businessId={Number(id)}
-                            onViewReport={handleOpenReportDetail}
-                        />
+                    {/* Sub-tabs Selector */}
+                    <div style={{ display: 'flex', gap: '15px', justifyContent: 'center', marginBottom: '25px' }}>
+                        <button
+                            onClick={() => setEquiposSubTab('registrados')}
+                            style={{
+                                padding: '10px 20px',
+                                borderRadius: '12px',
+                                border: 'none',
+                                fontWeight: 'bold',
+                                cursor: 'pointer',
+                                background: equiposSubTab === 'registrados' ? 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)' : '#e2e8f0',
+                                color: equiposSubTab === 'registrados' ? 'white' : '#475569',
+                                boxShadow: equiposSubTab === 'registrados' ? '0 4px 12px rgba(249, 115, 22, 0.25)' : 'none',
+                                transition: 'all 0.2s ease'
+                            }}
+                        >
+                            📋 Inventario de Equipos
+                        </button>
+                        <button
+                            onClick={() => setEquiposSubTab('levantamiento')}
+                            style={{
+                                padding: '10px 20px',
+                                borderRadius: '12px',
+                                border: 'none',
+                                fontWeight: 'bold',
+                                cursor: 'pointer',
+                                background: equiposSubTab === 'levantamiento' ? 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)' : '#e2e8f0',
+                                color: equiposSubTab === 'levantamiento' ? 'white' : '#475569',
+                                boxShadow: equiposSubTab === 'levantamiento' ? '0 4px 12px rgba(249, 115, 22, 0.25)' : 'none',
+                                transition: 'all 0.2s ease'
+                            }}
+                        >
+                            🛠️ Levantamiento por Áreas
+                        </button>
                     </div>
+
+                    {equiposSubTab === 'registrados' ? (
+                        <div style={{ width: '100%', maxWidth: '900px', margin: '0 auto' }}>
+                            <EquiposNegocio
+                                businessId={Number(id)}
+                                onViewReport={handleOpenReportDetail}
+                            />
+                        </div>
+                    ) : (
+                        <div style={{ width: '100%', maxWidth: '900px', margin: '0 auto' }}>
+                            <div style={{ background: 'white', padding: '24px', borderRadius: '24px', border: '1px solid #e2e8f0', boxShadow: '0 4px 20px rgba(0,0,0,0.02)' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px', flexWrap: 'wrap', gap: '15px' }}>
+                                    <div>
+                                        <h2 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '18px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
+                                            <HiOutlineBolt size={20} style={{ color: '#f59e0b' }} /> Levantamientos por Áreas y Sub-áreas
+                                        </h2>
+                                        <p style={{ color: '#64748b', fontSize: '13px', margin: '4px 0 0 0' }}>
+                                            Estructura de áreas, sub-áreas y catálogo de equipos de la sucursal.
+                                        </p>
+                                    </div>
+                                    {canEdit && (
+                                        <button
+                                            onClick={() => { setActiveSectionId(null); setIsLevantamientoModalOpen(true); }}
+                                            type="button"
+                                            style={{
+                                                background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+                                                color: 'white',
+                                                padding: '10px 18px',
+                                                borderRadius: '12px',
+                                                border: 'none',
+                                                fontWeight: 'bold',
+                                                fontSize: '13px',
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px',
+                                                boxShadow: '0 4px 12px rgba(5, 150, 105, 0.2)'
+                                            }}
+                                        >
+                                            <HiOutlineBolt size={16} /> Iniciar levantamiento
+                                        </button>
+                                    )}
+                                </div>
+
+                                <div className={styles.levantamientoPreview}>
+                                    {businessAreas.length > 0 ? (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
+                                            {businessAreas.map((seccion: any) => (
+                                                <AreaVisualGrid 
+                                                    key={seccion.id}
+                                                    seccion={seccion}
+                                                    canEdit={canEdit}
+                                                    onEditArea={() => editAreaName(seccion.id, seccion.nombreArea)}
+                                                    onDeleteArea={() => handleDeleteArea(seccion.id, seccion.nombreArea)}
+                                                    onAddSubArea={() => {
+                                                        setActiveAreaForSub(seccion.id);
+                                                        setIsSubAreaModalOpen(true);
+                                                    }}
+                                                    onViewInventory={(subAreaId) => {
+                                                        const subArea = seccion.subAreas?.find((s: any) => s.id === subAreaId);
+                                                        if (subArea && subArea.equipos && subArea.equipos.length > 0) {
+                                                            setActiveSectionId(seccion.id);
+                                                            setInitialSubAreaId(subAreaId);
+                                                            setSelectedEquipment(subArea.equipos as any);
+                                                        } else {
+                                                            setActiveSectionId(seccion.id);
+                                                            setInitialSubAreaId(subAreaId);
+                                                            setIsLevantamientoModalOpen(true);
+                                                        }
+                                                    }}
+                                                    onVerBitacora={(subAreaId) => {
+                                                        const subArea = seccion.subAreas?.find((s: any) => s.id === subAreaId);
+                                                        if (!subArea || !subArea.equipos || subArea.equipos.length === 0) return;
+                                                        if (subArea.equipos.length === 1) {
+                                                            setSelectedEqForBitacora(subArea.equipos[0] as any);
+                                                            setBitacoraModalOpen(true);
+                                                        } else {
+                                                            setEquiposForSelection(subArea.equipos as any);
+                                                            setEquipoSelectionMode('bitacora');
+                                                        }
+                                                    }}
+                                                    onReportarProblema={(subAreaId) => {
+                                                        const subArea = seccion.subAreas?.find((s: any) => s.id === subAreaId);
+                                                        if (!subArea || !subArea.equipos || subArea.equipos.length === 0) return;
+                                                        if (subArea.equipos.length === 1) {
+                                                            setReportingEquipment(subArea.equipos[0] as any);
+                                                        } else {
+                                                            setEquiposForSelection(subArea.equipos as any);
+                                                            setEquipoSelectionMode('reporte');
+                                                        }
+                                                    }}
+                                                />
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div style={{ textAlign: 'center', padding: '30px' }}>
+                                            <p style={{ color: '#94a3b8', fontSize: '14px' }}>Aún no se ha realizado el levantamiento de áreas y equipos de esta sucursal.</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {/* MODAL DE REPORTE DETALLES (USA PORTAL) */}
                     {reporteModalOpen && (
                         <ReporteDetailModal
@@ -1289,6 +1861,95 @@ const TrabajoDetalle: React.FC = () => {
                             userRole={user?.role ?? undefined}
                         />
                     )}
+
+                    {/* MODALS LEVANTAMIENTO */}
+                    <LevantamientoModal
+                        isOpen={isLevantamientoModalOpen}
+                        onClose={() => {
+                            setIsLevantamientoModalOpen(false);
+                            setActiveEquipmentId(null);
+                            setInitialSubAreaId(null);
+                        }}
+                        data={businessAreas}
+                        initialSectionId={activeSectionId}
+                        initialEquipmentId={activeEquipmentId}
+                        initialSubAreaId={initialSubAreaId}
+                        onSave={(newData) => persistLevantamiento(newData)}
+                        isReadOnly={!canEdit}
+                    />
+
+                    <ReportarProblemaModal 
+                        isOpen={!!reportingEquipment}
+                        onClose={() => setReportingEquipment(null)}
+                        equipment={reportingEquipment}
+                        negocioId={id || ''}
+                        onSubmit={handleReportarProblemaSubmit}
+                    />
+
+                    <ModalSeleccionEquipo
+                        isOpen={equipoSelectionMode !== null}
+                        onClose={() => {
+                            setEquipoSelectionMode(null);
+                            setEquiposForSelection([]);
+                        }}
+                        equipos={equiposForSelection}
+                        title={equipoSelectionMode === 'bitacora' ? 'Seleccionar Equipo para Bitácora' : 'Seleccionar Equipo para Reportar'}
+                        onSelect={(equipo) => {
+                            if (equipoSelectionMode === 'bitacora') {
+                                setSelectedEqForBitacora(equipo);
+                                setBitacoraModalOpen(true);
+                            } else if (equipoSelectionMode === 'reporte') {
+                                setReportingEquipment(equipo);
+                            }
+                            setEquipoSelectionMode(null);
+                            setEquiposForSelection([]);
+                        }}
+                    />
+
+                    <DetalleEquipoModal
+                        isOpen={!!selectedEquipment}
+                        onClose={() => setSelectedEquipment(null)}
+                        equipment={selectedEquipment}
+                        onEdit={canEdit ? () => {
+                            setActiveSectionId(selectedSectionId);
+                            setIsLevantamientoModalOpen(true);
+                        } : undefined}
+                        onVerHistorial={() => {
+                            setSelectedEqForBitacora(selectedEquipment);
+                            setBitacoraModalOpen(true);
+                        }}
+                    />
+
+                    <HistorialEquipoModal 
+                        isOpen={bitacoraModalOpen}
+                        onClose={() => setBitacoraModalOpen(false)}
+                        equipo={selectedEqForBitacora}
+                        historial={selectedEqForBitacora ? allSolicitudes.filter(sol => String(sol.levantamiento_equipo_id) === String(selectedEqForBitacora.id)) : []}
+                        onViewReport={(trabajoId) => {
+                            setSelectedTrabajoIdForBitacora(trabajoId);
+                            setReporteModalOpenForBitacora(true);
+                        }}
+                    />
+
+                    {selectedTrabajoIdForBitacora && (
+                        <DetalleReporteModal 
+                            isOpen={reporteModalOpenForBitacora}
+                            onClose={() => setReporteModalOpenForBitacora(false)}
+                            trabajoId={selectedTrabajoIdForBitacora}
+                        />
+                    )}
+
+                    <ModalSeleccionEspacio
+                        isOpen={isAreaModalOpen || isSubAreaModalOpen}
+                        onClose={() => {
+                            setIsAreaModalOpen(false);
+                            setIsSubAreaModalOpen(false);
+                            setActiveAreaForSub(null);
+                        }}
+                        title={isAreaModalOpen ? "Agregar Nueva Área" : "Agregar Nueva Sub-área"}
+                        placeholder={isAreaModalOpen ? "Ej: COCINA, COMEDOR, AZOTEA" : "Ej: REFRIGERACIÓN, ESTUFAS"}
+                        onSubmit={isAreaModalOpen ? handleAddArea : handleAddSubArea}
+                    />
                 </div>
             </div>
         );
@@ -1555,7 +2216,7 @@ const TrabajoDetalle: React.FC = () => {
                                                     <div className={styles.actionBtns} onClick={(e) => e.stopPropagation()}>
                                                         <button
                                                             className={styles.trashBtn}
-                                                            onClick={(e) => handleDeleteRequest(e, trabajo.id)}
+                                                            onClick={(e) => handleDeleteRequest(e, trabajo)}
                                                             title="Eliminar"
                                                         >
                                                             <HiOutlineTrash size={15} />
@@ -1566,7 +2227,7 @@ const TrabajoDetalle: React.FC = () => {
                                                 {user?.role === 'cliente' && trabajo.estado !== 'Finalizado' && trabajo.estado !== 'Completado' && (
                                                     <button
                                                         className={styles.trashBtn}
-                                                        onClick={(e) => handleDeleteRequest(e, trabajo.id)}
+                                                        onClick={(e) => handleDeleteRequest(e, trabajo)}
                                                         title="Eliminar"
                                                     >
                                                         <HiOutlineTrash size={15} />
@@ -1612,53 +2273,172 @@ const TrabajoDetalle: React.FC = () => {
     );
 
     const renderSummaryGrid = () => {
-        const colSolicitudes = flatJobs.filter(t => ['Solicitud', 'Pendiente'].includes(t.estado));
-        const colCotizaciones = flatJobs.filter(t => ['Cotización Enviada', 'Cotización Aceptada'].includes(t.estado));
-        const colEnEspera = flatJobs.filter(t => ['Aceptada', 'Asignado', 'En Espera'].includes(t.estado));
+        const colPendientes = flatJobs.filter(t => ['En Espera', 'Asignado', 'Pendiente'].includes(t.estado));
         const colProceso = flatJobs.filter(t => t.estado === 'En Proceso');
         const colFinalizadas = flatJobs.filter(t => ['Finalizado', 'Completado'].includes(t.estado));
+        const colSolicitudes = flatJobs.filter(t => t.estado === 'Solicitud');
 
         const renderMiniCard = (trabajo: any) => {
             return (
-                <div key={trabajo.id} style={{ padding: '10px', background: 'white', borderRadius: '8px', border: '1px solid #e2e8f0', cursor: 'pointer', marginBottom: '8px', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }} onClick={() => {
-                    const basePath = user?.role === 'tecnico' ? '/tecnico' : (user?.role === 'cliente' ? '/cliente' : (['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '') ? '/autonomo' : (user?.role === 'encargado' ? '/encargado' : '/menu')));
-                    if (trabajo.isMantenimiento) {
-                        navigate(`${basePath}/mantenimiento-detalle/${trabajo.original_id}`);
-                    } else {
-                        navigate(`${basePath}/trabajo-detalle/${trabajo.id}`);
-                    }
-                }}>
-                    <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#334155', marginBottom: '4px' }}>#{trabajo.id} - {trabajo.titulo}</div>
+                <div key={trabajo.id} style={{ padding: '12px', background: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', cursor: 'pointer', marginBottom: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', transition: 'transform 0.15s, box-shadow 0.15s' }} 
+                    onClick={() => {
+                        const basePath = user?.role === 'tecnico' ? '/tecnico' : (user?.role === 'cliente' ? '/cliente' : (['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '') ? '/autonomo' : (user?.role === 'encargado' ? '/encargado' : '/menu')));
+                        if (trabajo.isMantenimiento) {
+                            navigate(`${basePath}/mantenimiento-detalle/${trabajo.original_id}`);
+                        } else {
+                            navigate(`${basePath}/trabajo-detalle/${trabajo.id}`);
+                        }
+                    }}
+                    onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'translateY(-1px)';
+                        e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.05)';
+                    }}
+                    onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'none';
+                        e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.02)';
+                    }}
+                >
+                    <div style={{ fontSize: '13px', fontWeight: '700', color: '#1e293b', marginBottom: '4px' }}>#{trabajo.id} - {trabajo.titulo}</div>
                     <div style={{ fontSize: '11px', color: '#64748b' }}>{trabajo.fecha}</div>
-                    <div style={{ marginTop: '6px' }}>
+                    <div style={{ marginTop: '6px', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                         <span style={{ fontSize: '10px', background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px', color: '#475569', fontWeight: 600 }}>{trabajo.prioridad || 'Media'}</span>
+                        <span style={{ fontSize: '10px', background: '#fffbeb', padding: '2px 6px', borderRadius: '4px', color: '#b45309', fontWeight: 600 }}>{trabajo.estado}</span>
                     </div>
                 </div>
             );
         };
 
-        const renderKanbanColumn = (title: string, items: any[], borderColor: string, badgeBg: string) => (
-            <div style={{ flex: '0 0 240px', display: 'flex', flexDirection: 'column', height: '280px', borderTop: `3px solid ${borderColor}`, background: '#f8fafc', borderRadius: '10px', overflow: 'hidden', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
-                <div style={{ padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'white', borderBottom: '1px solid #e2e8f0' }}>
-                    <h3 style={{ margin: 0, fontSize: '12px', fontWeight: 800, color: '#334155', textTransform: 'uppercase' }}>{title}</h3>
-                    <span style={{ background: badgeBg, color: 'white', padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 'bold' }}>{items.length}</span>
+        if (activeSummaryTab) {
+            let items: any[] = [];
+            let badgeBg = '#f59e0b';
+            if (activeSummaryTab === 'Pendientes') {
+                items = colPendientes;
+                badgeBg = '#f59e0b';
+            } else if (activeSummaryTab === 'En Proceso') {
+                items = colProceso;
+                badgeBg = '#10b981';
+            } else if (activeSummaryTab === 'Finalizados') {
+                items = colFinalizadas;
+                badgeBg = '#8b5cf6';
+            } else if (activeSummaryTab === 'Solicitudes') {
+                items = colSolicitudes;
+                badgeBg = '#3b82f6';
+            }
+
+            return (
+                <div style={{ display: 'flex', flexDirection: 'column', minHeight: '280px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', paddingBottom: '8px', borderBottom: '1px solid #e2e8f0' }}>
+                        <button
+                            onClick={() => setActiveSummaryTab(null)}
+                            style={{
+                                background: '#f1f5f9',
+                                border: 'none',
+                                color: '#475569',
+                                fontWeight: 700,
+                                fontSize: '12px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                padding: '6px 12px',
+                                borderRadius: '8px',
+                                transition: 'background 0.2s'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.background = '#e2e8f0'}
+                            onMouseLeave={(e) => e.currentTarget.style.background = '#f1f5f9'}
+                        >
+                            ← Volver
+                        </button>
+                        <span style={{
+                            fontSize: '11px',
+                            fontWeight: 800,
+                            textTransform: 'uppercase',
+                            background: badgeBg,
+                            color: 'white',
+                            padding: '4px 10px',
+                            borderRadius: '12px'
+                        }}>
+                            {activeSummaryTab} ({items.length})
+                        </span>
+                    </div>
+                    <div style={{ overflowY: 'auto', maxHeight: '320px', paddingRight: '4px' }}>
+                        {items.map(renderMiniCard)}
+                        {items.length === 0 && (
+                            <div style={{ textAlign: 'center', padding: '30px 10px', color: '#94a3b8', fontSize: '13px', fontWeight: 600 }}>
+                                No hay trabajos en esta sección.
+                            </div>
+                        )}
+                    </div>
                 </div>
-                <div style={{ padding: '12px', overflowY: 'auto', flex: 1 }}>
-                    {items.map(renderMiniCard)}
-                    {items.length === 0 && <div style={{ textAlign: 'center', padding: '15px 10px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Vacío</div>}
+            );
+        }
+
+        const SummarySquare = ({ title, count, gradient, border, textColor, onClick }: any) => {
+            const [hovered, setHovered] = useState(false);
+            return (
+                <div
+                    onClick={onClick}
+                    onMouseEnter={() => setHovered(true)}
+                    onMouseLeave={() => setHovered(false)}
+                    style={{
+                        background: gradient,
+                        border: border,
+                        color: textColor,
+                        cursor: 'pointer',
+                        borderRadius: '16px',
+                        padding: '18px 12px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                        transform: hovered ? 'translateY(-3px)' : 'none',
+                        boxShadow: hovered 
+                            ? '0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04)' 
+                            : '0 2px 4px rgba(0, 0, 0, 0.02)',
+                        textAlign: 'center'
+                    }}
+                >
+                    <div style={{ fontSize: '26px', fontWeight: 900, lineHeight: 1, marginBottom: '6px' }}>{count}</div>
+                    <div style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px', opacity: 0.9 }}>{title}</div>
                 </div>
-            </div>
-        );
+            );
+        };
 
         return (
-            <div className={styles.kanbanScrollWrapper}>
-                <div style={{ display: 'flex', gap: '12px', width: 'max-content' }}>
-                    {renderKanbanColumn("Pendientes", colSolicitudes, "#f59e0b", "#f59e0b")}
-                    {renderKanbanColumn("Cotizaciones", colCotizaciones, "#3b82f6", "#3b82f6")}
-                    {renderKanbanColumn("Visitas", colEnEspera, "#f97316", "#f97316")}
-                    {renderKanbanColumn("En Proceso", colProceso, "#10b981", "#10b981")}
-                    {renderKanbanColumn("Finalizadas", colFinalizadas, "#8b5cf6", "#8b5cf6")}
-                </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px', width: '100%' }}>
+                <SummarySquare 
+                    title="Solicitudes" 
+                    count={colSolicitudes.length} 
+                    gradient="linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)" 
+                    border="1px solid #bfdbfe" 
+                    textColor="#1d4ed8" 
+                    onClick={() => setActiveSummaryTab('Solicitudes')} 
+                />
+                <SummarySquare 
+                    title="Pendientes" 
+                    count={colPendientes.length} 
+                    gradient="linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)" 
+                    border="1px solid #fde68a" 
+                    textColor="#b45309" 
+                    onClick={() => setActiveSummaryTab('Pendientes')} 
+                />
+                <SummarySquare 
+                    title="En Proceso" 
+                    count={colProceso.length} 
+                    gradient="linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)" 
+                    border="1px solid #a7f3d0" 
+                    textColor="#047857" 
+                    onClick={() => setActiveSummaryTab('En Proceso')} 
+                />
+                <SummarySquare 
+                    title="Finalizados" 
+                    count={colFinalizadas.length} 
+                    gradient="linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)" 
+                    border="1px solid #ddd6fe" 
+                    textColor="#6d28d9" 
+                    onClick={() => setActiveSummaryTab('Finalizados')} 
+                />
             </div>
         );
     };
@@ -1902,6 +2682,18 @@ const TrabajoDetalle: React.FC = () => {
                                                             equipoSeleccionado: "",
                                                             trabajador_id: ""
                                                         });
+                                                        setFormServices([
+                                                            {
+                                                                id: "svc-" + Date.now(),
+                                                                categoria: "Electricidad",
+                                                                customCategoria: "",
+                                                                descripcion: "",
+                                                                equipoSeleccionado: "",
+                                                                fotos: [],
+                                                                fotosPreviewUrls: [],
+                                                                isMinimized: false
+                                                            }
+                                                        ]);
                                                         setFotosSOS([]);
                                                         setFotosPreviewUrls([]);
                                                         setIsRequestModalOpen(true);
@@ -1976,7 +2768,7 @@ const TrabajoDetalle: React.FC = () => {
                                         const recentJobs = [...trabajosData]
                                             .filter(job => job.estado !== "Eliminado")
                                             .sort((a, b) => parseDate(b.fecha) - parseDate(a.fecha))
-                                            .slice(0, 4);
+                                            .slice(0, 10);
 
                                         if (recentJobs.length === 0) {
                                             return <div style={{ fontSize: '13px', color: '#64748b', textAlign: 'center', padding: '10px 0' }}>No hay trabajos registrados.</div>;
@@ -2213,199 +3005,235 @@ const TrabajoDetalle: React.FC = () => {
                     </div>
                 </div>
             )}
-
-            {/* MODAL NUEVA SOLICITUD (CLIENTE) */}
+{/* MODAL NUEVA SOLICITUD (CLIENTE) */}
             {isRequestModalOpen && (
                 <div className={styles.modalOverlay}>
                     <div className={styles.modalContentMedium}>
                         <h2 className={styles.modalTitle} style={isSOSRequest ? { color: '#e11d48' } : {}}>
                             {isSOSRequest ? "🚨 Nueva Emergencia SOS" : (isEditingRequest ? "Editar Solicitud" : "Nuevo Servicio")}
                         </h2>
-
-                        <div className={styles.formGroup}>
+                        
+                        {/* CAMPOS COMUNES AL GRUPO */}
+                        <div className={styles.formGroup} style={{ marginBottom: '15px' }}>
                             <div className={styles.formGridRow}>
                                 <div className={styles.formField}>
-                                    <label className={styles.formLabel}>Categoría</label>
-                                    <select
+                                    <label className={styles.formLabel}>Sucursal / Cliente</label>
+                                    <input
+                                        type="text"
                                         className={`${styles.newServiceInput} ${isSOSRequest ? styles.newServiceInputSos : ''}`}
-                                        value={newRequestData.categoria}
-                                        onChange={(e) => {
-                                            setNewRequestData({ ...newRequestData, categoria: e.target.value });
-                                            if (e.target.value !== "Otro") setCustomCategoria("");
-                                        }}
-                                    >
-                                        <option>Electricidad</option>
-                                        <option>Plomeria</option>
-                                        <option>Albañileria</option>
-                                        <option>Limpieza</option>
-                                        <option>Instalación</option>
-                                        <option>Mantenimiento</option>
-                                        <option value="Otro">Otro (Especificar)</option>
-                                    </select>
-                                    {newRequestData.categoria === "Otro" && (
-                                        <input
-                                            type="text"
-                                            className={`${styles.newServiceInput} ${isSOSRequest ? styles.newServiceInputSos : ''}`}
-                                            style={{ marginTop: '10px' }}
-                                            placeholder="Escribe la categoría..."
-                                            value={customCategoria}
-                                            onChange={(e) => setCustomCategoria(e.target.value)}
-                                        />
-                                    )}
+                                        placeholder="Ej: Pokémon Center"
+                                        value={newRequestData.cliente}
+                                        onChange={(e) => setNewRequestData({ ...newRequestData, cliente: e.target.value })}
+                                        disabled={isEditingRequest}
+                                    />
                                 </div>
-
                                 <div className={styles.formField}>
-                                                    <label className={styles.formLabel}>Fecha para la cita solicitada</label>
-                                                    <input
-                                                        type="date"
-                                                        className={`${styles.newServiceInput} ${isSOSRequest ? styles.newServiceInputSos : ''}`}
-                                                        value={newRequestData.fecha}
-                                                        onChange={(e) => setNewRequestData({ ...newRequestData, fecha: e.target.value })}
-                                                    />
-                                                </div>
-                            </div>
-
-                            {newRequestData.categoria === 'Mantenimiento' && businessAreas.length > 0 && (
-                                <div className={styles.formField}>
-                                    <label className={styles.formLabel}>Equipo a mantener</label>
-                                    <div className={styles.selectWrapper}>
-                                        <select
-                                            className={`${styles.newServiceInput} ${isSOSRequest ? styles.newServiceInputSos : ''}`}
-                                            value={newRequestData.equipoSeleccionado}
-                                            onChange={(e) => setNewRequestData({ ...newRequestData, equipoSeleccionado: e.target.value })}
-                                        >
-                                            <option value="">-- Seleccionar Equipo (Opcional) --</option>
-                                            {businessAreas.map((area: any) => (
-                                                <optgroup key={area.id} label={area.nombreArea}>
-                                                    {area.equipos && area.equipos.map((eq: any) => (
-                                                        <option key={eq.id} value={eq.id}>
-                                                            {eq.nombre} - {eq.marca} {eq.modelo}
-                                                        </option>
-                                                    ))}
-                                                </optgroup>
-                                            ))}
-                                        </select>
-                                    </div>
+                                    <label className={styles.formLabel}>Fecha para la cita solicitada</label>
+                                    <input
+                                        type="date"
+                                        className={`${styles.newServiceInput} ${isSOSRequest ? styles.newServiceInputSos : ''}`}
+                                        value={newRequestData.fecha}
+                                        onChange={(e) => setNewRequestData({ ...newRequestData, fecha: e.target.value })}
+                                    />
                                 </div>
-                            )}
-
-                            <div className={styles.formField}>
-                                <label className={styles.formLabel}>Sucursal / Cliente</label>
-                                <input
-                                    type="text"
-                                    className={`${styles.newServiceInput} ${isSOSRequest ? styles.newServiceInputSos : ''}`}
-                                    placeholder="Ej: Pokémon Center"
-                                    value={newRequestData.cliente}
-                                    onChange={(e) => setNewRequestData({ ...newRequestData, cliente: e.target.value })}
-                                />
-                            </div>
-
-
-                            <div className={styles.formField}>
-                                <label className={styles.formLabel}>Descripción del problema</label>
-                                <textarea
-                                    className={`${styles.newServiceTextArea} ${isSOSRequest ? styles.newServiceTextAreaSos : ''}`}
-                                    placeholder="Detalla lo que sucede o los requerimientos del servicio..."
-                                    value={newRequestData.descripcion}
-                                    onChange={(e) => setNewRequestData({ ...newRequestData, descripcion: e.target.value })}
-                                />
                             </div>
                         </div>
 
-                        {/* INPUT FOTO MULTIPLE */}
-                        <div style={{ marginTop: '15px', marginBottom: '15px' }}>
-                            <label className={styles.formLabel}>Adjuntar fotos del problema (Opcional)</label>
-                            
-                            {fotosPreviewUrls.length > 0 && (
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '12px', marginBottom: '15px' }}>
-                                    {fotosPreviewUrls.map((url, index) => (
-                                        <div key={url} style={{ position: 'relative', width: '100px', height: '100px', borderRadius: '12px', overflow: 'hidden', border: '2px solid #e2e8f0', boxShadow: '0 4px 10px rgba(0,0,0,0.05)' }}>
-                                            <img src={url} alt={`Vista previa ${index + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                            <button
-                                                type="button"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    e.preventDefault();
-                                                    setFotosSOS(prev => prev.filter((_, i) => i !== index));
-                                                    setFotosPreviewUrls(prev => prev.filter((_, i) => i !== index));
-                                                    URL.revokeObjectURL(url);
-                                                }}
-                                                style={{
-                                                    position: 'absolute',
-                                                    top: '4px',
-                                                    right: '4px',
-                                                    background: 'rgba(15, 23, 42, 0.7)',
-                                                    border: 'none',
-                                                    color: 'white',
-                                                    width: '20px',
-                                                    height: '20px',
-                                                    borderRadius: '50%',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    cursor: 'pointer',
-                                                    fontSize: '10px',
-                                                    fontWeight: 'bold',
-                                                    zIndex: 10,
-                                                    transition: 'background 0.2s'
-                                                }}
-                                                onMouseEnter={(e) => e.currentTarget.style.background = '#ef4444'}
-                                                onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(15, 23, 42, 0.7)'}
-                                                title="Quitar foto"
-                                            >
-                                                ✕
-                                            </button>
+                        {/* CONTENEDOR SCROLLABLE PARA FORMULARIOS */}
+                        <div style={{ maxHeight: '50vh', overflowY: 'auto', paddingRight: '6px', marginBottom: '20px' }}>
+                            {formServices.map((svc, index) => {
+                                return (
+                                    <div key={svc.id} style={{ marginBottom: '20px', padding: '18px', background: '#f8fafc', borderRadius: '16px', border: '1px solid #cbd5e1' }}>
+                                        {/* Form Header */}
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: svc.isMinimized ? '0' : '15px', borderBottom: svc.isMinimized ? 'none' : '1px solid #e2e8f0', paddingBottom: svc.isMinimized ? '0' : '10px' }}>
+                                            <span style={{ fontSize: '13px', fontWeight: 800, color: '#1e293b', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                🛠️ SERVICIO #{index + 1} {svc.isMinimized ? `— ${svc.categoria}` : ''}
+                                            </span>
+                                            <div style={{ display: 'flex', gap: '8px' }}>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => toggleMinimize(svc.id)}
+                                                    style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '8px', color: '#475569', padding: '6px 12px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }}
+                                                >
+                                                    {svc.isMinimized ? 'Expandir ↙' : 'Minimizar ↗'}
+                                                </button>
+                                                {formServices.length > 1 && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeServiceForm(svc.id, svc.dbId)}
+                                                        style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', color: '#ef4444', padding: '6px 12px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }}
+                                                    >
+                                                        Eliminar 🗑️
+                                                    </button>
+                                                )}
+                                            </div>
                                         </div>
-                                    ))}
+
+                                        {/* Form Fields */}
+                                        {!svc.isMinimized && (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                    <label className={styles.formLabel} style={{ marginBottom: '6px' }}>Categoría del Servicio</label>
+                                                    <select
+                                                        className={`${styles.newServiceInput} ${isSOSRequest ? styles.newServiceInputSos : ''}`}
+                                                        value={svc.categoria}
+                                                        onChange={(e) => updateFormService(svc.id, 'categoria', e.target.value)}
+                                                        style={{ margin: 0 }}
+                                                    >
+                                                        <option>Electricidad</option>
+                                                        <option>Plomeria</option>
+                                                        <option>Albañileria</option>
+                                                        <option>Limpieza</option>
+                                                        <option>Instalación</option>
+                                                        <option>Mantenimiento</option>
+                                                        <option value="Otro">Otro (Especificar)</option>
+                                                    </select>
+                                                    {svc.categoria === "Otro" && (
+                                                        <input
+                                                            type="text"
+                                                            className={`${styles.newServiceInput} ${isSOSRequest ? styles.newServiceInputSos : ''}`}
+                                                            style={{ marginTop: '10px' }}
+                                                            placeholder="Escribe la categoría..."
+                                                            value={svc.customCategoria}
+                                                            onChange={(e) => updateFormService(svc.id, 'customCategoria', e.target.value)}
+                                                        />
+                                                    )}
+                                                </div>
+
+                                                {svc.categoria === 'Mantenimiento' && businessAreas.length > 0 && (
+                                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                        <label className={styles.formLabel} style={{ marginBottom: '6px' }}>Equipo a mantener</label>
+                                                        <select
+                                                            className={`${styles.newServiceInput} ${isSOSRequest ? styles.newServiceInputSos : ''}`}
+                                                            value={svc.equipoSeleccionado}
+                                                            onChange={(e) => updateFormService(svc.id, 'equipoSeleccionado', e.target.value)}
+                                                            style={{ margin: 0 }}
+                                                        >
+                                                            <option value="">-- Seleccionar Equipo (Opcional) --</option>
+                                                            {businessAreas.map((area: any) => (
+                                                                <optgroup key={area.id} label={area.nombreArea}>
+                                                                    {area.equipos && area.equipos.map((eq: any) => (
+                                                                        <option key={eq.id} value={eq.id}>
+                                                                            {eq.nombre} - {eq.marca} {eq.modelo}
+                                                                        </option>
+                                                                    ))}
+                                                                </optgroup>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                )}
+
+                                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                    <label className={styles.formLabel} style={{ marginBottom: '6px' }}>Descripción del problema</label>
+                                                    <textarea
+                                                        className={`${styles.newServiceTextArea} ${isSOSRequest ? styles.newServiceTextAreaSos : ''}`}
+                                                        placeholder="Detalla lo que sucede o los requerimientos del servicio..."
+                                                        value={svc.descripcion}
+                                                        onChange={(e) => updateFormService(svc.id, 'descripcion', e.target.value)}
+                                                        style={{ margin: 0, minHeight: '90px' }}
+                                                    />
+                                                </div>
+
+                                                {/* Adjuntar fotos */}
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                    <label className={styles.formLabel}>Adjuntar fotos (Obligatorio)</label>
+                                                    
+                                                    {svc.fotosPreviewUrls.length > 0 && (
+                                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: '8px', marginBottom: '8px' }}>
+                                                            {svc.fotosPreviewUrls.map((url, fIdx) => (
+                                                                <div key={url} style={{ position: 'relative', width: '80px', height: '80px', borderRadius: '8px', overflow: 'hidden', border: '1px solid #cbd5e1' }}>
+                                                                    <img src={url} alt="Vista previa" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => removeFormPhoto(svc.id, fIdx)}
+                                                                        style={{
+                                                                            position: 'absolute',
+                                                                            top: '2px',
+                                                                            right: '2px',
+                                                                            background: 'rgba(15, 23, 42, 0.7)',
+                                                                            border: 'none',
+                                                                            color: 'white',
+                                                                            borderRadius: '50%',
+                                                                            width: '16px',
+                                                                            height: '16px',
+                                                                            fontSize: '9px',
+                                                                            cursor: 'pointer',
+                                                                            display: 'flex',
+                                                                            alignItems: 'center',
+                                                                            justifyContent: 'center'
+                                                                        }}
+                                                                    >
+                                                                        ✕
+                                                                    </button>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+
+                                                    <div style={{ display: 'flex', gap: '10px' }}>
+                                                        <label className={`${styles.uploadContainer} ${isSOSRequest ? styles.uploadContainerSos : ''}`} style={{ flex: 1, position: 'relative', cursor: 'pointer', padding: '12px 10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', borderRadius: '12px' }}>
+                                                            <input
+                                                                type="file"
+                                                                accept="image/*"
+                                                                capture="environment"
+                                                                multiple
+                                                                onChange={(e) => handleAddFormPhoto(svc.id, e.target.files)}
+                                                                style={{ display: 'none' }}
+                                                            />
+                                                            📸 Tomar Foto
+                                                        </label>
+
+                                                        <label className={`${styles.uploadContainer} ${isSOSRequest ? styles.uploadContainerSos : ''}`} style={{ flex: 1, position: 'relative', cursor: 'pointer', padding: '12px 10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', borderRadius: '12px' }}>
+                                                            <input
+                                                                type="file"
+                                                                accept="image/*"
+                                                                multiple
+                                                                onChange={(e) => handleAddFormPhoto(svc.id, e.target.files)}
+                                                                style={{ display: 'none' }}
+                                                            />
+                                                            🖼️ Abrir Galería
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+
+                            {/* BOTÓN AGREGAR OTRO SERVICIO DENTRO DEL SCROLL */}
+                            {formServices.length < 10 && (
+                                <div style={{ display: 'flex', justifyContent: 'center', marginTop: '15px', marginBottom: '15px' }}>
+                                    <button
+                                        type="button"
+                                        onClick={addMoreServiceForm}
+                                        style={{
+                                            background: 'none',
+                                            border: '2px dashed #f26522',
+                                            color: '#f26522',
+                                            padding: '10px 20px',
+                                            borderRadius: '12px',
+                                            fontSize: '13px',
+                                            fontWeight: 'bold',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '6px',
+                                            transition: 'all 0.2s'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.background = '#fff7ed';
+                                            e.currentTarget.style.transform = 'scale(1.02)';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.background = 'none';
+                                            e.currentTarget.style.transform = 'none';
+                                        }}
+                                    >
+                                        ➕ Agregar más servicio ({formServices.length}/10)
+                                    </button>
                                 </div>
                             )}
-
-                            <div style={{ display: 'flex', gap: '10px' }}>
-                                <label className={`${styles.uploadContainer} ${isSOSRequest ? styles.uploadContainerSos : ''}`} style={{ flex: 1, position: 'relative', cursor: 'pointer', padding: '15px 10px' }}>
-                                    <input
-                                        type="file"
-                                        accept="image/*"
-                                        capture="environment"
-                                        multiple
-                                        onChange={(e) => {
-                                            const files = e.target.files ? Array.from(e.target.files) : [];
-                                            if (files.length > 0) {
-                                                setFotosSOS(prev => [...prev, ...files]);
-                                                const newUrls = files.map(file => URL.createObjectURL(file));
-                                                setFotosPreviewUrls(prev => [...prev, ...newUrls]);
-                                            }
-                                            e.target.value = '';
-                                        }}
-                                        style={{ display: 'none' }}
-                                    />
-                                    <span className={styles.uploadIcon}>📸</span>
-                                    <span className={`${styles.uploadText} ${isSOSRequest ? styles.uploadTextSos : ''}`} style={{ fontSize: '13px' }}>
-                                        Tomar Foto
-                                    </span>
-                                </label>
-
-                                <label className={`${styles.uploadContainer} ${isSOSRequest ? styles.uploadContainerSos : ''}`} style={{ flex: 1, position: 'relative', cursor: 'pointer', padding: '15px 10px' }}>
-                                    <input
-                                        type="file"
-                                        accept="image/*"
-                                        multiple
-                                        onChange={(e) => {
-                                            const files = e.target.files ? Array.from(e.target.files) : [];
-                                            if (files.length > 0) {
-                                                setFotosSOS(prev => [...prev, ...files]);
-                                                const newUrls = files.map(file => URL.createObjectURL(file));
-                                                setFotosPreviewUrls(prev => [...prev, ...newUrls]);
-                                            }
-                                            e.target.value = '';
-                                        }}
-                                        style={{ display: 'none' }}
-                                    />
-                                    <span className={styles.uploadIcon}>🖼️</span>
-                                    <span className={`${styles.uploadText} ${isSOSRequest ? styles.uploadTextSos : ''}`} style={{ fontSize: '13px' }}>
-                                        Abrir Galería
-                                    </span>
-                                </label>
-                            </div>
                         </div>
 
                         <div className={styles.requestModalActions}>
@@ -2425,6 +3253,8 @@ const TrabajoDetalle: React.FC = () => {
                                     });
                                     setFotosSOS([]);
                                     setFotosPreviewUrls([]);
+                                    setFormServices([]);
+                                    setDeletedDbIds([]);
                                 }}
                                 className={styles.cancelBtnLarge}
                             >

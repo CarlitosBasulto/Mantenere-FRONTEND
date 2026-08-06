@@ -26,7 +26,7 @@ import {
     HiOutlineArrowLeft
 } from "react-icons/hi2";
 import ReporteDetailModal from "../../components/modals/ReporteDetailModal";
-import { getTrabajo, updateEstadoTrabajo, assignTrabajador, updateTrabajo } from "../../services/trabajosService";
+import { getTrabajo, updateEstadoTrabajo, assignTrabajador, updateTrabajo, getTrabajos } from "../../services/trabajosService";
 import { createActividad, getActividadesByTrabajo, deleteActividad, updateActividad } from "../../services/actividadesService";
 import { getTrabajadores } from "../../services/trabajadoresService";
 import { saveCotizacion, updateCotizacion, deleteCotizacion, updateCotizacionStatus, getCotizacionesByTrabajoId, type Cotizacion } from "../../services/cotizacionesService";
@@ -214,6 +214,7 @@ const AdminDetalleTrabajo: React.FC = () => {
 
     // MOCK DATA
     const [trabajo, setTrabajo] = useState<Trabajo | null>(null);
+    const [groupedJobs, setGroupedJobs] = useState<any[]>([]);
     const [latestChatQuote, setLatestChatQuote] = useState<any>(null);
     const [subTareas, setSubTareas] = useState<SubTarea[]>([]);
     const [reporteFinal, setReporteFinal] = useState<any>(null);
@@ -546,6 +547,23 @@ const AdminDetalleTrabajo: React.FC = () => {
                     }
                 } catch (chatErr) {
                     console.error("Error fetching chats for quote check:", chatErr);
+                }
+
+                // FETCH GROUPED JOBS IF APPLICABLE
+                const groupMatch = mappedJob.descripcion?.match(/\[Grupo:\s*(REQ-\d+)\]/);
+                const groupId = groupMatch ? groupMatch[1] : null;
+
+                if (groupId && mappedJob.negocio_id) {
+                    try {
+                        const allJobs = await getTrabajos({ negocio_id: Number(mappedJob.negocio_id) });
+                        const groupJobs = allJobs.filter((t: any) => t.descripcion?.includes(`[Grupo: ${groupId}]`));
+                        setGroupedJobs(groupJobs);
+                    } catch (err) {
+                        console.error("Error fetching grouped jobs:", err);
+                        setGroupedJobs([]);
+                    }
+                } else {
+                    setGroupedJobs([]);
                 }
 
                 setTrabajo(mappedJob as any);
@@ -2802,7 +2820,8 @@ const AdminDetalleTrabajo: React.FC = () => {
 
                 {/* Shapes removed for cleaner look */}
 
-                <div className={styles.contentWrapper}>
+                <div className={styles.scrollableContent}>
+                    <div className={styles.contentWrapper}>
 
                     <div className={styles.headerContainer}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
@@ -3016,8 +3035,6 @@ const AdminDetalleTrabajo: React.FC = () => {
                         )}
                     </div>
                 </div>
-
-                <div className={styles.scrollableContent}>
                     {activeTab === 'Datos' && (
                         <div className={styles.bentoGrid}>
                             {/* BANNER 1: CONFIRMACIÓN DE FECHA Y HORA DE EJECUCIÓN (COTIZACIÓN ACEPTADA) */}
@@ -3308,7 +3325,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                             )}
 
                             {/* Card 1: Información General (8/12) */}
-                            <div className={`${styles.bentoCard} ${styles.colSpan8}`}>
+                            <div className={`${styles.bentoCard} ${styles.colSpan8} ${styles.sucursalCard}`}>
                                 <div 
                                     className={styles.cardHeader} 
                                     onClick={() => setIsSucursalModalOpen(true)} 
@@ -3359,29 +3376,78 @@ const AdminDetalleTrabajo: React.FC = () => {
                                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
                                                 </svg>
                                             </div>
-                                            {trabajo.descripcion && (
-                                                <>
-                                                    <span className={styles.bentoLabel} style={{ marginBottom: '4px', color: '#334155' }}>Problema Reportado</span>
-                                                    <p className={styles.descriptionQuote}>"{trabajo.descripcion}"</p>
-                                                </>
-                                            )}
-                                            {parseFotoUrls(trabajo.foto_url).length > 0 && (
-                                                <div style={{ marginTop: '10px' }}>
-                                                    <span className={styles.bentoLabel} style={{ marginBottom: '6px', color: '#334155', display: 'block' }}>Fotos Adjuntas ({parseFotoUrls(trabajo.foto_url).length}):</span>
-                                                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                                                        {parseFotoUrls(trabajo.foto_url).map((url, idx) => (
-                                                            <img 
-                                                                key={idx}
-                                                                src={url} 
-                                                                alt={`Evidencia ${idx + 1}`} 
-                                                                onClick={(e) => { e.stopPropagation(); setSelectedZoomImage(url); }}
-                                                                style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', cursor: 'pointer', transition: 'transform 0.15s ease' }} 
-                                                                onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                                                                onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
-                                                            />
-                                                        ))}
-                                                    </div>
+                                            {groupedJobs.length > 0 ? (
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                                                    <span className={styles.bentoLabel} style={{ color: '#0f172a', fontWeight: '800', fontSize: '13px', textTransform: 'uppercase', marginBottom: '5px', display: 'block' }}>
+                                                        📋 Servicios creados en esta Solicitud ({groupedJobs.length})
+                                                    </span>
+                                                    {groupedJobs.map((groupJob, idx) => {
+                                                        const cleanDesc = groupJob.descripcion?.replace(/\[Grupo:\s*REQ-\d+\]\s*\n?/, "") || "";
+                                                        const photos = parseFotoUrls(groupJob.foto_url);
+                                                        return (
+                                                            <div key={groupJob.id} style={{ padding: '14px', background: '#ffffff', borderRadius: '12px', border: '1px solid #cbd5e1' }}>
+                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', borderBottom: '1px solid #f1f5f9', paddingBottom: '6px' }}>
+                                                                    <span style={{ fontSize: '12px', fontWeight: '800', color: '#1e293b' }}>
+                                                                        🛠️ SERVICIO #{idx + 1}: {groupJob.titulo}
+                                                                    </span>
+                                                                    <span className={styles.badge} style={{ margin: 0, fontSize: '10px', background: '#e2e8f0', color: '#475569' }}>
+                                                                        ID: {groupJob.id}
+                                                                    </span>
+                                                                </div>
+                                                                <p className={styles.descriptionQuote} style={{ margin: '0 0 10px 0', fontSize: '13px', color: '#334155', fontStyle: 'normal' }}>
+                                                                    "{cleanDesc || "Sin descripción."}"
+                                                                </p>
+                                                                {photos.length > 0 && (
+                                                                    <div>
+                                                                        <span className={styles.bentoLabel} style={{ marginBottom: '6px', color: '#64748b', fontSize: '11px', display: 'block' }}>
+                                                                            Evidencia ({photos.length}):
+                                                                        </span>
+                                                                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                                                                            {photos.map((url, pIdx) => (
+                                                                                <img
+                                                                                    key={pIdx}
+                                                                                    src={url}
+                                                                                    alt={`Evidencia ${idx + 1}-${pIdx + 1}`}
+                                                                                    onClick={(e) => { e.stopPropagation(); setSelectedZoomImage(url); }}
+                                                                                    style={{ width: '60px', height: '60px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #e2e8f0', cursor: 'pointer', transition: 'transform 0.15s ease' }}
+                                                                                    onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                                                                                    onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
+                                                                                />
+                                                                            ))}
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })}
                                                 </div>
+                                            ) : (
+                                                <>
+                                                    {trabajo.descripcion && (
+                                                        <>
+                                                            <span className={styles.bentoLabel} style={{ marginBottom: '4px', color: '#334155' }}>Problema Reportado</span>
+                                                            <p className={styles.descriptionQuote}>"{trabajo.descripcion}"</p>
+                                                        </>
+                                                    )}
+                                                    {parseFotoUrls(trabajo.foto_url).length > 0 && (
+                                                        <div style={{ marginTop: '10px' }}>
+                                                            <span className={styles.bentoLabel} style={{ marginBottom: '6px', color: '#334155', display: 'block' }}>Fotos Adjuntas ({parseFotoUrls(trabajo.foto_url).length}):</span>
+                                                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                                                {parseFotoUrls(trabajo.foto_url).map((url, idx) => (
+                                                                    <img 
+                                                                        key={idx}
+                                                                        src={url} 
+                                                                        alt={`Evidencia ${idx + 1}`} 
+                                                                        onClick={(e) => { e.stopPropagation(); setSelectedZoomImage(url); }}
+                                                                        style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', cursor: 'pointer', transition: 'transform 0.15s ease' }} 
+                                                                        onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                                                                        onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
+                                                                    />
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </>
                                             )}
                                         </div>
                                     )}
@@ -3390,7 +3456,7 @@ const AdminDetalleTrabajo: React.FC = () => {
 
                             {/* Card 1.5: Equipo en Mantenimiento (12/12) */}
                             {((trabajo as any).mantenimiento_solicitud_visita?.levantamiento_equipo || (trabajo as any).mantenimiento_solicitud_reparacion?.levantamiento_equipo) && (
-                                <div className={`${styles.bentoCard}`} style={{ gridColumn: 'span 12', border: '1.5px solid #a7f3d0', background: 'linear-gradient(to right, #f8fafc, #ecfdf5)' }}>
+                                <div className={`${styles.bentoCard} ${styles.equipoCard}`} style={{ gridColumn: 'span 12', border: '1.5px solid #a7f3d0', background: 'linear-gradient(to right, #f8fafc, #ecfdf5)' }}>
                                     <div className={styles.cardHeader} style={{ marginBottom: '10px' }}>
                                         <div className={`${styles.iconBox}`} style={{ background: '#059669', color: 'white' }}>
                                             <HiOutlineClipboardDocument size={20} />
@@ -3425,7 +3491,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                             )}
 
                             {/* Card 2: Estado Actual (4/12) */}
-                            <div className={`${styles.bentoCard} ${styles.colSpan4}`}>
+                            <div className={`${styles.bentoCard} ${styles.colSpan4} ${styles.estadoCard}`}>
                                 <div className={styles.cardHeader}>
                                     <div className={`${styles.iconBox} ${trabajo.estado === 'En Espera' ? styles.bgBlue : styles.bgOrange}`}>
                                         <HiOutlineClock size={18} />
@@ -6219,24 +6285,67 @@ const AdminDetalleTrabajo: React.FC = () => {
                             <h2 style={{ margin: 0, fontSize: '22px', fontWeight: '800', color: '#0f172a', letterSpacing: '-0.5px' }}>Detalles del Problema</h2>
                         </div>
 
-                        {trabajo.descripcion && (
-                            <div style={{ marginBottom: '25px' }}>
-                                <span style={{ display: 'block', fontSize: '12px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '8px' }}>Descripción Reportada</span>
-                                <p style={{ fontSize: '16px', color: '#334155', lineHeight: '1.6', margin: 0, padding: '16px', background: '#f8fafc', borderRadius: '12px', borderLeft: '4px solid #3b82f6' }}>"{trabajo.descripcion}"</p>
-                            </div>
-                        )}
-
-                        {parseFotoUrls(trabajo.foto_url).length > 0 && (
-                            <div style={{ marginBottom: '30px' }}>
-                                <span style={{ display: 'block', fontSize: '12px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '12px' }}>Fotos de Evidencia ({parseFotoUrls(trabajo.foto_url).length})</span>
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '12px' }}>
-                                    {parseFotoUrls(trabajo.foto_url).map((url, idx) => (
-                                        <div key={idx} style={{ position: 'relative', paddingTop: '100%', borderRadius: '12px', overflow: 'hidden', border: '1px solid #e2e8f0', cursor: 'zoom-in' }} onClick={(e) => { e.stopPropagation(); setSelectedZoomImage(url); }}>
-                                            <img src={url} alt={`Evidencia ${idx+1}`} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                        {groupedJobs.length > 0 ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginBottom: '25px' }}>
+                                <span style={{ display: 'block', fontSize: '12px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '8px' }}>
+                                    Servicios en esta Solicitud ({groupedJobs.length})
+                                </span>
+                                {groupedJobs.map((groupJob, idx) => {
+                                    const cleanDesc = groupJob.descripcion?.replace(/\[Grupo:\s*REQ-\d+\]\s*\n?/, "") || "";
+                                    const photos = parseFotoUrls(groupJob.foto_url);
+                                    return (
+                                        <div key={groupJob.id} style={{ padding: '16px', background: '#f8fafc', borderRadius: '16px', border: '1px solid #cbd5e1' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', borderBottom: '1px solid #f1f5f9', paddingBottom: '6px' }}>
+                                                <span style={{ fontSize: '13px', fontWeight: '800', color: '#1e293b' }}>
+                                                    🛠️ SERVICIO #{idx + 1}: {groupJob.titulo}
+                                                </span>
+                                                <span style={{ fontSize: '11px', background: '#e2e8f0', color: '#475569', padding: '2px 8px', borderRadius: '6px' }}>
+                                                    ID: {groupJob.id}
+                                                </span>
+                                            </div>
+                                            <p style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#334155' }}>
+                                                "{cleanDesc || "Sin descripción."}"
+                                            </p>
+                                            {photos.length > 0 && (
+                                                <div>
+                                                    <span style={{ fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '6px', display: 'block' }}>
+                                                        Fotos de Evidencia ({photos.length})
+                                                    </span>
+                                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '8px' }}>
+                                                        {photos.map((url, pIdx) => (
+                                                            <div key={pIdx} style={{ position: 'relative', paddingTop: '100%', borderRadius: '8px', overflow: 'hidden', border: '1px solid #cbd5e1', cursor: 'zoom-in' }} onClick={(e) => { e.stopPropagation(); setSelectedZoomImage(url); }}>
+                                                                <img src={url} alt={`Evidencia ${idx+1}-${pIdx+1}`} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
-                                    ))}
-                                </div>
+                                    );
+                                })}
                             </div>
+                        ) : (
+                            <>
+                                {trabajo.descripcion && (
+                                    <div style={{ marginBottom: '25px' }}>
+                                        <span style={{ display: 'block', fontSize: '12px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '8px' }}>Descripción Reportada</span>
+                                        <p style={{ fontSize: '16px', color: '#334155', lineHeight: '1.6', margin: 0, padding: '16px', background: '#f8fafc', borderRadius: '12px', borderLeft: '4px solid #3b82f6' }}>"{trabajo.descripcion}"</p>
+                                    </div>
+                                )}
+
+                                {parseFotoUrls(trabajo.foto_url).length > 0 && (
+                                    <div style={{ marginBottom: '30px' }}>
+                                        <span style={{ display: 'block', fontSize: '12px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '12px' }}>Fotos de Evidencia ({parseFotoUrls(trabajo.foto_url).length})</span>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '12px' }}>
+                                            {parseFotoUrls(trabajo.foto_url).map((url, idx) => (
+                                                <div key={idx} style={{ position: 'relative', paddingTop: '100%', borderRadius: '12px', overflow: 'hidden', border: '1px solid #e2e8f0', cursor: 'zoom-in' }} onClick={(e) => { e.stopPropagation(); setSelectedZoomImage(url); }}>
+                                                    <img src={url} alt={`Evidencia ${idx+1}`} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </>
                         )}
 
                         {/* BOTONES PARA TÉCNICO: Aceptar, Rechazar dentro del modal */}
