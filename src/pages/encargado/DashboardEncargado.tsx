@@ -1,12 +1,13 @@
 import React from 'react';
-import EncargadoTablero from './EncargadoTablero';
+import GerenteSucursalTablero from './GerenteSucursalTablero';
 
 const DashboardEncargado: React.FC = () => {
     return (
         <div>
-            <EncargadoTablero />
+            <GerenteSucursalTablero />
         </div>
     );
 };
 
 export default DashboardEncargado;
+

@@ -16,8 +16,8 @@ import {
 import { useNavigate } from "react-router-dom";
 import { useModal } from "../../context/ModalContext";
 import { useAuth } from "../../context/AuthContext";
-import { getTrabajadores, createTrabajador, toggleEstado } from "../../services/trabajadoresService";
-import { createNotificacionByRole } from "../../services/notificacionesService";
+import { getTrabajadores, createTrabajador, toggleEstado } from "../../services/base/trabajadoresService";
+
 
 interface Trabajador {
     id: number;
@@ -134,31 +134,7 @@ const ListaTrabajadores: React.FC = () => {
         setNewWorkerRoles(newWorkerRoles.filter(r => r !== role));
     };
 
-    // ESTADOS PARA "SOLICITAR TÉCNICO"
-    const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
-    const [requestRole, setRequestRole] = useState("");
 
-    const handleRequestTechnician = async () => {
-        if (!requestRole) {
-            showAlert("Atención", "Por favor selecciona el tipo de técnico que necesitas.", "warning");
-            return;
-        }
-
-        try {
-            await createNotificacionByRole({
-                role: 'admin-autonomo', // Enviaremos solicitud a los autónomos
-                titulo: 'Solicitud de Técnico',
-                mensaje: `El administrador general solicita un técnico con especialidad: ${requestRole}.`,
-                enlace: '/autonomo/trabajadores'
-            });
-            showAlert("Éxito", "Solicitud enviada a los administradores autónomos.", "success");
-            setIsRequestModalOpen(false);
-            setRequestRole("");
-        } catch (error) {
-            console.error(error);
-            showAlert("Error", "No se pudo enviar la solicitud.", "error");
-        }
-    };
 
     // Estado temporal para el modal de filtro
     const [tempFilter, setTempFilter] = useState("Activos");
@@ -228,7 +204,7 @@ const ListaTrabajadores: React.FC = () => {
             }
         }
     };
-Line: 97
+
 
     const handleDeactivateWorker = async (worker: Trabajador) => {
         showConfirm(
@@ -346,7 +322,7 @@ Line: 97
                                             return;
                                         }
                                     }
-                                    if (user?.role === 'autonomo') {
+                                    if (user?.role === 'propietario-autonomo') {
                                         navigate(`/autonomo/trabajador/${worker.id}`);
                                     } else {
                                         navigate(`/menu/trabajador/${worker.id}`);
@@ -587,55 +563,12 @@ Line: 97
                 </div>
             )}
 
-            {/* BOTÓN FLOTANTE SOLICITAR TÉCNICO */}
-            <button 
-                className={styles.floatingRequestBtn}
-                onClick={() => setIsRequestModalOpen(true)}
-            >
-                ¿Necesitas técnicos?
-            </button>
 
-            {/* MODAL DE SOLICITAR TÉCNICO */}
-            {isRequestModalOpen && (
-                <div className={styles.modalOverlay}>
-                    <div className={styles.modalContent} style={{ maxWidth: '400px' }}>
-                        <div className={styles.modalHeader}>
-                            <h2>Solicitar Técnico</h2>
-                            <button className={styles.closeBtn} onClick={() => setIsRequestModalOpen(false)}>
-                                <HiX size={24} />
-                            </button>
-                        </div>
-                        <div className={styles.modalBody}>
-                            <p style={{ color: '#475569', marginBottom: '15px', fontSize: '14px' }}>
-                                ¿Qué tipo de técnico necesitas? Enviaremos tu solicitud a los administradores autónomos.
-                            </p>
-                            <select 
-                                className={styles.inputField} 
-                                value={requestRole} 
-                                onChange={(e) => setRequestRole(e.target.value)}
-                            >
-                                <option value="">Selecciona una opción...</option>
-                                <option value="General">General</option>
-                                <option value="Albañil">Albañil</option>
-                                <option value="Plomero">Plomero</option>
-                                <option value="Electricista">Electricista</option>
-                                <option value="Pintor">Pintor</option>
-                                <option value="Jardinero">Jardinero</option>
-                                <option value="Aire Acondicionado">Aire Acondicionado</option>
-                                <option value="Cerrajería">Cerrajería</option>
-                            </select>
-                            
-                            <div className={styles.formActions} style={{ marginTop: '20px' }}>
-                                <button className={styles.cancelBtn} onClick={() => setIsRequestModalOpen(false)}>Cancelar</button>
-                                <button className={styles.submitBtn} onClick={handleRequestTechnician}>Solicitar</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
 
         </div>
     );
 };
 
 export default ListaTrabajadores;
+
+

@@ -3,9 +3,8 @@ import { useNavigate } from "react-router-dom";
 import styles from "./AutonomoListaNegocios.module.css";
 import menuStyles from "../../../components/Menu.module.css";
 import { useAuth } from "../../../context/AuthContext";
-import { useModal } from "../../../context/ModalContext";
-import { getNegocios } from "../../../services/negociosService";
-import { getTrabajos } from "../../../services/trabajosService";
+import { getNegocios } from "../../../services/autonomo/negociosService";
+import { getTrabajos } from "../../../services/autonomo/trabajosService";
 
 
 interface Negocio {
@@ -24,7 +23,6 @@ interface Negocio {
 const AutonomoListaNegocios: React.FC = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
-    const { } = useModal();
     const [negocios, setNegocios] = useState<Negocio[]>([]);
     const [globalJobs, setGlobalJobs] = useState<any[]>([]);
     const [searchText, setSearchText] = useState("");
@@ -148,14 +146,6 @@ const AutonomoListaNegocios: React.FC = () => {
                         />
                     </div>
                     <div className={styles.actionButtons}>
-                        {user?.role === 'cliente' && (
-                            <button
-                                className={styles.registrarBtn}
-                                onClick={() => navigate("/cliente/perfil-empresa")}
-                            >
-                                Registrar
-                            </button>
-                        )}
                         {['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '') && (
                             <button
                                 className={styles.registrarBtn}
@@ -169,15 +159,8 @@ const AutonomoListaNegocios: React.FC = () => {
 
                 <div className={styles.jobsSection}>
                     {filteredNegocios.map((negocio, index) => {
-                        let hasSOS = false;
-                        let hasDiagnosis = false;
-                        if (user?.role === 'admin') {
-                            hasSOS = globalJobs.some((j: any) => j.negocio_id === negocio.id && j.tipo === 'SOS' && j.estado === 'Solicitud');
-                            hasDiagnosis = globalJobs.some((j: any) => j.negocio_id === negocio.id && (j.visitado === 1 || j.visitado === true) && (j.estado === 'Solicitud' || j.estado === 'En Espera'));
-                        }
-
                         const hasValidCover = !!(negocio.imagen_portada && !coverImageErrors[negocio.id]);
-                        const cardBg = hasSOS ? '#fffafa' : (hasDiagnosis ? '#f0fdfc' : '#ffffff');
+                        const cardBg = '#ffffff';
 
                         const coverUrl = negocio.imagen_portada || '';
                         const matchPos = coverUrl.match(/[?&]posy=(\d+)/);
@@ -185,21 +168,10 @@ const AutonomoListaNegocios: React.FC = () => {
 
                         return (
                             <div style={{ position: 'sticky', top: `calc(10px + ${index * 14}px)`, zIndex: index, paddingBottom: '10px' }} key={negocio.id}>
-                                {hasSOS && (
-                                    <div className={styles.badgeSOS}>
-                                        EMERGENCIA SOS
-                                    </div>
-                                )}
-                                {hasDiagnosis && !hasSOS && (
-                                    <div className={styles.badgeDiagnosis}>
-                                        DIAGNÓSTICO LISTO
-                                    </div>
-                                )}
                                 <div
                                     className={styles.jobCard}
                                     onClick={() => handleCardClick(negocio.id)}
                                     style={{
-                                        border: hasSOS ? '2px solid #f44336' : (hasDiagnosis ? '2px solid #00a699' : undefined),
                                         backgroundColor: cardBg,
                                         ['--card-bg' as any]: cardBg
                                     }}
@@ -220,8 +192,8 @@ const AutonomoListaNegocios: React.FC = () => {
                                         <div 
                                             className={styles.cardIcon} 
                                             onClick={(e) => handleEditClick(e, negocio.id)}
-                                            style={{ cursor: (user?.role === 'cliente' || user?.role === 'admin' || user?.role === 'encargado' || ['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '')) ? 'pointer' : 'default' }}
-                                            title={(user?.role === 'cliente' || user?.role === 'admin' || user?.role === 'encargado' || ['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '')) ? "Editar Perfil" : ""}
+                                            style={{ cursor: 'pointer' }}
+                                            title="Editar Perfil"
                                         >
                                             {negocio.imagenPerfil && !imageErrors[negocio.id] ? (
                                                 <img
@@ -256,7 +228,7 @@ const AutonomoListaNegocios: React.FC = () => {
                                             </p>
 
                                             {/* ALERTA DE COTIZACIÓN - Solo visible para Admin/Cliente, no para técnico */}
-                                            {user?.role !== 'tecnico' && globalJobs.some(j => j.negocio_id === negocio.id && (j.estado || "").toLowerCase().includes("cotizaci")) && (
+                                            {globalJobs.some(j => j.negocio_id === negocio.id && (j.estado || "").toLowerCase().includes("cotizaci")) && (
                                                 <div className={styles.quoteBadge} style={{ marginTop: '10px' }}>
                                                     💰 Cotización Recibida
                                                 </div>
@@ -277,3 +249,4 @@ const AutonomoListaNegocios: React.FC = () => {
 };
 
 export default AutonomoListaNegocios;
+

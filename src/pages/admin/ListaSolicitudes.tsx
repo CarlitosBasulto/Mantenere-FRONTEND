@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { getTrabajos } from "../../services/trabajosService";
+import { getTrabajos } from "../../services/base/trabajosService";
 import styles from "./ListaSolicitudes.module.css";
 import menuStyles from "../../components/Menu.module.css";
 import { useAuth } from "../../context/AuthContext";
+import { normalizeRole } from "../../utils/roles";
 import { useModal } from "../../context/ModalContext";
-import { deleteTrabajo } from "../../services/trabajosService";
+import { deleteTrabajo } from "../../services/base/trabajosService";
 import { HiOutlineTrash, HiOutlineUserPlus } from "react-icons/hi2";
 
 interface Trabajo {
@@ -48,7 +49,7 @@ const ListaSolicitudes: React.FC = () => {
                 // Filtramos por estados relevantes para la bandeja de "Nuevas Solicitudes"
                 // Si es técnico, queremos ver TODO lo que tiene asignado y no esté finalizado
                 const activeJobs = apiJobs.filter((j: any) => {
-                    const isTecnico = user?.role === 'tecnico';
+                    const isTecnico = normalizeRole(user?.role) === 'tecnico-normal' || user?.role === 'tecnico_externo';
                     const assignedToMe = j.trabajador?.user_id === user?.id || j.trabajador_id === user?.id;
 
                     if (isTecnico) {
@@ -125,7 +126,7 @@ const ListaSolicitudes: React.FC = () => {
             (req.sucursal || "").toLowerCase().includes(searchTextLower) ||
             req.tecnico.toLowerCase().includes(searchTextLower);
 
-        if (user?.role === 'tecnico') {
+        if (normalizeRole(user?.role) === 'tecnico-normal') {
             return matchesText && req.tecnicoUserId === user.id;
         }
 
@@ -172,7 +173,7 @@ const ListaSolicitudes: React.FC = () => {
             text = "Finalizado";
         } else if (status === "rechazado por técnico" || status === "rechazado por tecnico") {
             barClass = styles.red;
-            text = user?.role === 'tecnico' ? "RECHAZASTE ESTA ASIGNACIÓN" : "RECHAZADO POR TÉCNICO";
+            text = normalizeRole(user?.role) === 'tecnico-normal' ? "RECHAZASTE ESTA ASIGNACIÓN" : "RECHAZADO POR TÉCNICO";
         } else if (job.tipo === "SOS") {
             barClass = styles.red;
             text = "¡ALERTA SOS!";
@@ -194,7 +195,7 @@ const ListaSolicitudes: React.FC = () => {
         } else if (status.includes("cotizaci") || (job.tecnico && job.tecnico !== "Sin asignar" && job.tecnico !== "Sin Asignar")) {
             const hasTech = job.tecnico && job.tecnico !== "Sin asignar" && job.tecnico !== "Sin Asignar";
 
-            if (user?.role === 'tecnico') {
+            if (normalizeRole(user?.role) === 'tecnico-normal') {
                 if (status === 'cotización enviada' || status === 'cotización rechazada') {
                     barClass = styles.orange;
                     text = "EN PROCESO DE COTIZACIÓN";
@@ -274,8 +275,8 @@ const ListaSolicitudes: React.FC = () => {
                                 <div
                                     className={styles.jobCard}
                                     onClick={() => {
-                                        const isAutonomoContext = ['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '');
-                                        const basePath = user?.role === 'tecnico' ? '/tecnico' : (isAutonomoContext ? '/autonomo' : '/menu');
+                                        const r = normalizeRole(user?.role);
+                                        const basePath = r === 'tecnico-normal' ? '/tecnico' : '/menu';
                                         navigate(`${basePath}/trabajo-detalle/${req.id}`);
                                     }}
                                 >
@@ -357,14 +358,14 @@ const ListaSolicitudes: React.FC = () => {
                                                  {req.estado === 'Finalizado' && req.tipo === 'SOS' ? 'Finalizado' : req.tipo}
                                              </span>
                                          )}
-                                         {user?.role === 'admin' && (
+                                         {normalizeRole(user?.role) === 'admin' && (
                                              <div className={styles.actionBtns} onClick={(e) => e.stopPropagation()}>
                                                  <button
                                                      className={styles.assignBtn}
                                                      onClick={(e) => { 
                                                          e.stopPropagation(); 
-                                                         const isAutonomoContext = ['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '');
-                                                         const basePath = user?.role === 'tecnico' ? '/tecnico' : (isAutonomoContext ? '/autonomo' : '/menu');
+                                                         const r = normalizeRole(user?.role);
+                                                         const basePath = r === 'tecnico-normal' ? '/tecnico' : '/menu';
                                                          navigate(`${basePath}/trabajo-detalle/${req.id}`); 
                                                      }}
                                                      title="Asignar Técnico"
@@ -464,3 +465,4 @@ const ListaSolicitudes: React.FC = () => {
 };
 
 export default ListaSolicitudes;
+

@@ -16,7 +16,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { useModal } from "../../../context/ModalContext";
 import { useAuth } from "../../../context/AuthContext";
-import { getTrabajadores, createTrabajador, toggleEstado } from "../../../services/trabajadoresService";
+import { getTrabajadores, createTrabajador, toggleEstado } from "../../../services/autonomo/trabajadoresService";
 import { createNotificacionByRole } from "../../../services/notificacionesService";
 
 interface Trabajador {
@@ -690,3 +690,4 @@ Line: 97
 };
 
 export default AutonomoListaTrabajadores;
+

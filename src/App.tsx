@@ -110,7 +110,7 @@ function App() {
 
                         {/* TECNICO ROUTES */}
                         <Route path="/tecnico" element={
-                            <ProtectedRoute allowedRoles={['tecnico']}>
+                            <ProtectedRoute allowedRoles={['tecnico-normal']}>
                                 <TecnicoLayout />
                             </ProtectedRoute>
                         }>
@@ -124,12 +124,12 @@ function App() {
                         </Route>
 
                         {/* ENCARGADO ROUTES */}
-                        <Route path="/encargado" element={
-                            <ProtectedRoute allowedRoles={['encargado']}>
+                        <Route path="/gerente-sucursal" element={
+                            <ProtectedRoute allowedRoles={['gerente-sucursal']}>
                                 <EncargadoLayout />
                             </ProtectedRoute>
                         }>
-                            <Route index element={<Navigate to="/encargado/negocios" replace />} />
+                            <Route index element={<Navigate to="/gerente-sucursal/negocios" replace />} />
                             <Route path="negocios" element={<ListaNegocios />} />
                             <Route path="sucursal" element={<PerfilEmpresa />} />
                             <Route path="mi-perfil" element={<MiPerfil />} />
@@ -142,7 +142,7 @@ function App() {
 
                         {/* ADMIN AUTÓNOMO ROUTES */}
                         <Route path="/autonomo" element={
-                            <ProtectedRoute allowedRoles={['autonomo', 'gerente-general', 'admin-autonomo']}>
+                            <ProtectedRoute allowedRoles={['autonomo', 'administrador-general', 'propietario-autonomo']}>
                                 <AutonomoLayout />
                             </ProtectedRoute>
                         }>

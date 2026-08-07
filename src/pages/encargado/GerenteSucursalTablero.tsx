@@ -46,7 +46,7 @@ interface Trabajo {
     longitud_llegada?: string;
 }
 
-const EncargadoTablero: React.FC = () => {
+const GerenteSucursalTablero: React.FC = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
     const [trabajos, setTrabajos] = useState<Trabajo[]>([]);
@@ -382,4 +382,5 @@ const EncargadoTablero: React.FC = () => {
     );
 };
 
-export default EncargadoTablero;
+export default GerenteSucursalTablero;
+

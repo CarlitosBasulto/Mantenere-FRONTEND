@@ -300,3 +300,4 @@ const DashboardTecnico: React.FC = () => {
 };
 
 export default DashboardTecnico;
+

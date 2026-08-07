@@ -3,9 +3,10 @@ import { useNavigate } from "react-router-dom";
 import styles from "./ListaNegocios.module.css";
 import menuStyles from "../../components/Menu.module.css";
 import { useAuth } from "../../context/AuthContext";
+import { normalizeRole } from "../../utils/roles";
 import { useModal } from "../../context/ModalContext";
-import { getNegocios } from "../../services/negociosService";
-import { getTrabajos } from "../../services/trabajosService";
+import { getNegocios } from "../../services/base/negociosService";
+import { getTrabajos } from "../../services/base/trabajosService";
 
 
 interface Negocio {
@@ -86,17 +87,17 @@ const ListaNegocios: React.FC = () => {
         const matchesSearch = negocio.nombre.toLowerCase().includes(searchText.toLowerCase());
 
         // FILTRO POR ROL: El cliente solo ve lo suyo, el admin ve todo
-        if (user?.role === 'cliente') {
+        if (normalizeRole(user?.role) === 'cliente') {
             return matchesSearch && (negocio.dueno === user.name || negocio.user_id === user.id);
         }
 
         // FILTRO POR ROL: El encargado solo ve su sucursal asignada
-        if (user?.role === 'encargado') {
+        if (normalizeRole(user?.role) === 'gerente-sucursal') {
             return matchesSearch && (negocio.id === user.negocio_id);
         }
 
         // FILTRO POR ROL: El técnico solo ve los negocios donde tiene trabajos asignados
-        if (user?.role === 'tecnico') {
+        if (normalizeRole(user?.role) === 'tecnico-normal') {
             const hasAssignedJobs = globalJobs.some((j: any) => {
                 if (j.negocio_id !== negocio.id) return false;
                 
@@ -117,17 +118,18 @@ const ListaNegocios: React.FC = () => {
     });
 
     const handleCardClick = (id: number) => {
-        const basePath = user?.role === 'cliente' ? '/cliente' : (user?.role === 'tecnico' ? '/tecnico' : (user?.role === 'encargado' ? '/encargado' : (['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '') ? '/autonomo' : '/menu')));
+        const r = normalizeRole(user?.role);
+        const basePath = r === 'cliente' ? '/cliente' : (r === 'tecnico-normal' ? '/tecnico' : (r === 'gerente-sucursal' ? '/gerente-sucursal' : '/menu'));
         navigate(`${basePath}/trabajo/${id}`);
     };
 
     const handleEditClick = (e: React.MouseEvent, id: number) => {
         e.stopPropagation();
-        if (user?.role === 'tecnico') return; // El técnico no debe poder editar ni navegar aquí
+        if (normalizeRole(user?.role) === 'tecnico-normal') return; // El técnico no debe poder editar ni navegar aquí
         
-        if (user?.role === 'encargado') {
+        if (normalizeRole(user?.role) === 'gerente-sucursal') {
             navigate(`/encargado/sucursal?id=${id}`);
-        } else if (user?.role === 'cliente') {
+        } else if (normalizeRole(user?.role) === 'cliente') {
             navigate(`/cliente/perfil-empresa?id=${id}`);
         } else if (['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '')) {
             navigate(`/autonomo/perfil-empresa?id=${id}`);
@@ -150,7 +152,7 @@ const ListaNegocios: React.FC = () => {
                         />
                     </div>
                     <div className={styles.actionButtons}>
-                        {user?.role === 'cliente' && (
+                        {normalizeRole(user?.role) === 'cliente' && (
                             <button
                                 className={styles.registrarBtn}
                                 onClick={() => navigate("/cliente/perfil-empresa")}
@@ -173,7 +175,7 @@ const ListaNegocios: React.FC = () => {
                     {filteredNegocios.map((negocio, index) => {
                         let hasSOS = false;
                         let hasDiagnosis = false;
-                        if (user?.role === 'admin') {
+                        if (normalizeRole(user?.role) === 'admin') {
                             hasSOS = globalJobs.some((j: any) => j.negocio_id === negocio.id && j.tipo === 'SOS' && j.estado === 'Solicitud');
                             hasDiagnosis = globalJobs.some((j: any) => j.negocio_id === negocio.id && (j.visitado === 1 || j.visitado === true) && (j.estado === 'Solicitud' || j.estado === 'En Espera'));
                         }
@@ -222,8 +224,8 @@ const ListaNegocios: React.FC = () => {
                                         <div 
                                             className={styles.cardIcon} 
                                             onClick={(e) => handleEditClick(e, negocio.id)}
-                                            style={{ cursor: (user?.role === 'cliente' || user?.role === 'admin' || user?.role === 'encargado' || ['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '')) ? 'pointer' : 'default' }}
-                                            title={(user?.role === 'cliente' || user?.role === 'admin' || user?.role === 'encargado' || ['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '')) ? "Editar Perfil" : ""}
+                                            style={{ cursor: (normalizeRole(user?.role) === 'cliente' || normalizeRole(user?.role) === 'admin' || normalizeRole(user?.role) === 'gerente-sucursal' || ['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '')) ? 'pointer' : 'default' }}
+                                            title={(normalizeRole(user?.role) === 'cliente' || normalizeRole(user?.role) === 'admin' || normalizeRole(user?.role) === 'gerente-sucursal' || ['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '')) ? "Editar Perfil" : ""}
                                         >
                                             {negocio.imagenPerfil && !imageErrors[negocio.id] ? (
                                                 <img
@@ -257,7 +259,7 @@ const ListaNegocios: React.FC = () => {
                                             </p>
 
                                             {/* ALERTA DE COTIZACIÓN - Solo visible para Admin/Cliente, no para técnico */}
-                                            {user?.role !== 'tecnico' && globalJobs.some(j => j.negocio_id === negocio.id && (j.estado || "").toLowerCase().includes("cotizaci")) && (
+                                            {normalizeRole(user?.role) !== 'tecnico-normal' && globalJobs.some(j => j.negocio_id === negocio.id && (j.estado || "").toLowerCase().includes("cotizaci")) && (
                                                 <div className={styles.quoteBadge} style={{ marginTop: '10px' }}>
                                                     💰 Cotización Recibida
                                                 </div>
@@ -275,3 +277,4 @@ const ListaNegocios: React.FC = () => {
 };
 
 export default ListaNegocios;
+
