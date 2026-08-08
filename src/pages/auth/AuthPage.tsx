@@ -73,8 +73,8 @@ const AuthPage: React.FC = () => {
             localStorage.setItem('token', data.token);
 
             let roleStr = user.role.toLowerCase();
-            // Mapeamos explícitamente el rol "trabajador" de Laravel al rol "tecnico" del Frontend
-            if (roleStr === 'trabajador') roleStr = 'tecnico';
+            // Mapeamos explícitamente el rol "trabajador" y "tecnico-normal" de Laravel al rol "tecnico" del Frontend
+            if (roleStr === 'trabajador' || roleStr === 'tecnico-normal') roleStr = 'tecnico';
             
             let role: UserRole = roleStr as UserRole;
             
@@ -132,7 +132,7 @@ const AuthPage: React.FC = () => {
             localStorage.setItem('token', data.token);
 
             let roleStr = user.role.toLowerCase();
-            if (roleStr === 'trabajador') roleStr = 'tecnico';
+            if (roleStr === 'trabajador' || roleStr === 'tecnico-normal') roleStr = 'tecnico';
             
             let role: UserRole = roleStr as UserRole;
             

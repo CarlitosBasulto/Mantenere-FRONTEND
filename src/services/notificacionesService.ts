@@ -1,6 +1,4 @@
-import axios from 'axios';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8085/api';
+import api from './api';
 
 export interface Notificacion {
     id: number;
@@ -16,7 +14,7 @@ export interface Notificacion {
  * Obtener notificaciones del usuario actual
  */
 export const getNotificaciones = async (userId: number): Promise<Notificacion[]> => {
-    const response = await axios.get(`${API_URL}/notificaciones/usuario/${userId}`);
+    const response = await api.get(`/notificaciones/usuario/${userId}`);
     return response.data;
 };
 
@@ -29,7 +27,7 @@ export const createNotificacion = async (data: {
     mensaje: string;
     enlace?: string;
 }) => {
-    const response = await axios.post(`${API_URL}/notificaciones`, data);
+    const response = await api.post(`/notificaciones`, data);
     return response.data;
 };
 
@@ -37,7 +35,7 @@ export const createNotificacion = async (data: {
  * Marcar una notificación como leída
  */
 export const markNotificacionAsRead = async (id: number) => {
-    const response = await axios.put(`${API_URL}/notificaciones/${id}/leer`);
+    const response = await api.put(`/notificaciones/${id}/leer`);
     return response.data;
 };
 
@@ -50,7 +48,7 @@ export const createNotificacionByRole = async (data: {
     mensaje: string;
     enlace?: string;
 }) => {
-    const response = await axios.post(`${API_URL}/notificaciones/rol`, data);
+    const response = await api.post(`/notificaciones/rol`, data);
     return response.data;
 };
 
@@ -58,7 +56,7 @@ export const createNotificacionByRole = async (data: {
  * Marcar TODAS las notificaciones de un usuario como leídas
  */
 export const markAllNotificacionesAsRead = async (userId: number) => {
-    const response = await axios.put(`${API_URL}/notificaciones/usuario/${userId}/leer-todas`);
+    const response = await api.put(`/notificaciones/usuario/${userId}/leer-todas`);
     return response.data;
 };
 
@@ -71,7 +69,7 @@ export const createNotificacionEcosistema = async (data: {
     mensaje: string;
     enlace?: string;
 }) => {
-    const response = await axios.post(`${API_URL}/notificaciones/ecosistema`, data);
+    const response = await api.post(`/notificaciones/ecosistema`, data);
     return response.data;
 };
 
@@ -84,6 +82,7 @@ export const createNotificacionNegocio = async (data: {
     mensaje: string;
     enlace?: string;
 }) => {
-    const response = await axios.post(`${API_URL}/notificaciones/negocio`, data);
+    const response = await api.post(`/notificaciones/negocio`, data);
     return response.data;
 };
+

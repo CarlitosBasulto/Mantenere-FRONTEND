@@ -56,6 +56,7 @@ interface ReportePDFPreviewProps {
         tecnicoAvatar?: string | null;
         fechaInicio?: string;
         isVisita?: boolean;
+        isActivityReport?: boolean;
     };
     subTareas?: any[];
     isVisita?: boolean;
@@ -556,25 +557,36 @@ export default function ReportePDFPreview({ trabajo, reporteData, subTareas, isV
                                     {reporteData.imagenes.antes && (
                                         <div style={{ textAlign: 'center', width: '130px' }}>
                                             <img src={reporteData.imagenes.antes} alt="Antes" style={{ width: '130px', height: '130px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #e2e8f0' }} />
-                                            <span style={{ fontSize: '10px', fontWeight: 'bold', color: '#64748b', display: 'block', marginTop: '5px' }}>ANTES</span>
+                                            <span style={{ fontSize: '10px', fontWeight: 'bold', color: '#64748b', display: 'block', marginTop: '5px' }}>
+                                                {reporteData.isActivityReport
+                                                    ? 'FOTO 1'
+                                                    : (trabajo?.tipo === 'Visita' || trabajo?.originalTipo === 'Visita' ? 'ANTES' : 'FOTO 1')}
+                                            </span>
                                         </div>
                                     )}
                                     {reporteData.imagenes.durante && (
                                         <div style={{ textAlign: 'center', width: '130px' }}>
                                             <img src={reporteData.imagenes.durante} alt="Durante" style={{ width: '130px', height: '130px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #e2e8f0' }} />
-                                            <span style={{ fontSize: '10px', fontWeight: 'bold', color: '#64748b', display: 'block', marginTop: '5px' }}>DURANTE</span>
+                                            <span style={{ fontSize: '10px', fontWeight: 'bold', color: '#64748b', display: 'block', marginTop: '5px' }}>
+                                                {reporteData.isActivityReport
+                                                    ? 'FOTO 2'
+                                                    : (trabajo?.tipo === 'Visita' || trabajo?.originalTipo === 'Visita' ? 'DURANTE' : 'FOTO 2')}
+                                            </span>
                                         </div>
                                     )}
                                     {reporteData.imagenes.despues && (
                                         <div style={{ textAlign: 'center', width: '130px' }}>
                                             <img src={reporteData.imagenes.despues} alt="Después" style={{ width: '130px', height: '130px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #e2e8f0' }} />
-                                            <span style={{ fontSize: '10px', fontWeight: 'bold', color: '#64748b', display: 'block', marginTop: '5px' }}>DESPUÉS</span>
+                                            <span style={{ fontSize: '10px', fontWeight: 'bold', color: '#64748b', display: 'block', marginTop: '5px' }}>
+                                                {reporteData.isActivityReport
+                                                    ? 'FOTO 3'
+                                                    : (trabajo?.tipo === 'Visita' || trabajo?.originalTipo === 'Visita' ? 'DESPUÉS' : 'FOTO 3')}
+                                            </span>
                                         </div>
                                     )}
                                 </div>
                             </div>
                         )}
-
                         {/* Structured Observations */}
                         {(() => {
                             let list = reporteData.observacionesList ? [...reporteData.observacionesList] : [];

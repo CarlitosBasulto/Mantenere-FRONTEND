@@ -98,3 +98,10 @@ export const getEquipoHistorial = async (equipoId: number) => {
     const res = await api.get(`/equipos/${equipoId}/historial`);
     return fixUrls(res.data);
 };
+
+// Eliminar un negocio
+export const deleteNegocio = async (id: number) => {
+    const res = await api.delete(`/negocios/${id}`);
+    return res.data;
+};
+

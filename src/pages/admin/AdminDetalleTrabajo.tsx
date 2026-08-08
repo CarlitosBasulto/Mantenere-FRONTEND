@@ -557,6 +557,8 @@ const AdminDetalleTrabajo: React.FC = () => {
                     try {
                         const allJobs = await getTrabajos({ negocio_id: Number(mappedJob.negocio_id) });
                         const groupJobs = allJobs.filter((t: any) => t.descripcion?.includes(`[Grupo: ${groupId}]`));
+                        // Ordenar de menor a mayor por ID
+                        groupJobs.sort((a: any, b: any) => Number(a.id) - Number(b.id));
                         setGroupedJobs(groupJobs);
                     } catch (err) {
                         console.error("Error fetching grouped jobs:", err);
@@ -620,7 +622,6 @@ const AdminDetalleTrabajo: React.FC = () => {
                 const mappedSubTareas = acts.map((act: any) => {
                     let finalDesc = act.descripcion || "";
                     let parsedMonto = "Por Evaluar";
-                    let esCot = true;
                     let sData = null;
                     let qData = null;
 
@@ -741,6 +742,9 @@ const AdminDetalleTrabajo: React.FC = () => {
                         }
                         finalRefacciones = syntheticRefacciones;
                     }
+
+                    // esCotizacion es true SOLO si la actividad contiene datos de cotización sugeridos por el técnico
+                    const esCot = qData !== null;
 
                     return {
                         id: act.id,
@@ -881,6 +885,14 @@ const AdminDetalleTrabajo: React.FC = () => {
 
     // ADD NEW TASK MODAL STATE
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [activeRequestSlide, setActiveRequestSlide] = useState(0);
+
+    useEffect(() => {
+        if (!isAddModalOpen) {
+            setActiveRequestSlide(0);
+        }
+    }, [isAddModalOpen]);
+
     const [showActivityPDFPreview, setShowActivityPDFPreview] = useState(false);
     const [showCotizacionPreview, setShowCotizacionPreview] = useState(false);
     const [cotizacionPreviewData, setCotizacionPreviewData] = useState<any>(null);
@@ -891,6 +903,7 @@ const AdminDetalleTrabajo: React.FC = () => {
     const [quoteConceptos, setQuoteConceptos] = useState<{descripcion: string, cantidad: string, precio: string}[]>([]);
     const [quoteMateriales, setQuoteMateriales] = useState<{nombre: string, cantidad: string, precio: string}[]>([]);
     const [quoteComentarios, setQuoteComentarios] = useState("");
+    const [newQuoteFileName, setNewQuoteFileName] = useState("");
     const [activityPhotos, setActivityPhotos] = useState<string[]>([]);
     const [showSendConfirmModal, setShowSendConfirmModal] = useState(false);
     const [taskItems, setTaskItems] = useState<{ id: string; descripcion: string; foto: string }[]>([
@@ -912,6 +925,30 @@ const AdminDetalleTrabajo: React.FC = () => {
     const [longitudLlegada, setLongitudLlegada] = useState<string | null>(null);
     const [showMapModal, setShowMapModal] = useState(false);
     const [horaLlegada, setHoraLlegada] = useState("");
+
+    const openNewTaskModal = () => {
+        setEditingTaskId(null);
+        setNewTaskDescription("");
+        setActiveServiceType("Mantenimiento");
+        setCustomServiceType("");
+        setServiceMarca("");
+        setServiceModelo("");
+        setServicePieza("");
+        setServiceGarantia("");
+        setConfirmacionLlegada(false);
+        setHoraLlegada("");
+        setRefacciones([]);
+        setIsQuoteIncluded(false);
+        setQuoteConceptos([]);
+        setQuoteMateriales([]);
+        setQuoteComentarios("");
+        setActivityPhotos([]);
+        setNewQuoteFileName("");
+        setTaskItems([
+            { id: '1', descripcion: '', foto: '' }
+        ]);
+        setIsAddModalOpen(true);
+    };
 
     // REASSIGNMENT / CAMBIO DE PROVEEDOR STATES
     const [isReassignModalOpen, setIsReassignModalOpen] = useState(false);
@@ -1415,17 +1452,12 @@ const AdminDetalleTrabajo: React.FC = () => {
                 await createActividad(body);
             }
 
-            if (isQuoteIncluded) {
-                await updateEstadoTrabajo(Number(id), { estado: 'Cotización Enviada' });
-                // Actualizar estado local si es necesario
-                setTrabajo((prev: any) => prev ? { ...prev, estado: 'Cotización Enviada' } : prev);
-            }
+            // El estado solo cambia cuando el técnico presiona "Enviar al Administrador", no al guardar una actividad individual
 
             const acts = await getActividadesByTrabajo(Number(id));
             const mappedSubTareas = acts.map((act: any) => {
                 let finalDesc = act.descripcion || "";
                 let parsedMonto = "Por Evaluar";
-                let esCot = true;
                 let sData = null;
                 let qData = null;
 
@@ -1487,6 +1519,8 @@ const AdminDetalleTrabajo: React.FC = () => {
                             photosList = JSON.parse(jsonContent);
                         } catch (e) {}
                     }
+
+                    const esCot = qData !== null;
 
                     return {
                         id: act.id,
@@ -1611,11 +1645,8 @@ const AdminDetalleTrabajo: React.FC = () => {
         setServiceGarantia("");
         setRefacciones([]);
         
-        if (isQuoteIncluded || trabajo?.estado !== 'En Proceso') {
-            setActiveTab("Trabajo");
-        } else {
-            setActiveTab("Registro");
-        }
+        // Siempre regresar a Registro para que el técnico pueda seguir agregando actividades
+        setActiveTab("Registro");
     };
 
 
@@ -1637,7 +1668,6 @@ const AdminDetalleTrabajo: React.FC = () => {
                     const mappedSubTareas = acts.map((act: any) => {
                         let finalDesc = act.descripcion || "";
                         let parsedMonto = "Por Evaluar";
-                        let esCot = true;
                         let sData = null;
                         let qData = null;
 
@@ -1699,6 +1729,8 @@ const AdminDetalleTrabajo: React.FC = () => {
                                 photosList = JSON.parse(jsonContent);
                             } catch (e) {}
                         }
+
+                        const esCot = qData !== null;
 
                         return {
                             id: act.id,
@@ -2329,482 +2361,656 @@ const AdminDetalleTrabajo: React.FC = () => {
 
         const getCategoryIcon = (titulo: string) => {
             const t = titulo?.toLowerCase() || '';
-            if (t.includes('mantenimiento')) return <HiOutlineCog6Tooth size={24} style={{ color: '#f26522' }} />;
-            if (t.includes('instalacion')) return <HiOutlineBuildingOffice2 size={24} style={{ color: '#6366f1' }} />;
-            if (t.includes('electricidad')) return <HiOutlineBolt size={24} style={{ color: '#fbbf24' }} />;
-            if (t.includes('plomeria')) return <HiOutlineWrench size={24} style={{ color: '#0ea5e9' }} />;
-            if (t.includes('albañil')) return <HiOutlineSquare3Stack3D size={24} style={{ color: '#f26522' }} />;
-            if (t.includes('carpinter')) return <HiOutlinePencilSquare size={24} style={{ color: '#b45309' }} />;
-            if (t.includes('pintura')) return <HiOutlinePencilSquare size={24} style={{ color: '#db2777' }} />;
-            return <HiOutlineClipboardDocumentList size={24} style={{ color: '#94a3b8' }} />;
+            if (t.includes('mantenimiento')) return <HiOutlineCog6Tooth size={20} style={{ color: '#f26522' }} />;
+            if (t.includes('instalacion')) return <HiOutlineBuildingOffice2 size={20} style={{ color: '#6366f1' }} />;
+            if (t.includes('electricidad')) return <HiOutlineBolt size={20} style={{ color: '#fbbf24' }} />;
+            if (t.includes('plomeria')) return <HiOutlineWrench size={20} style={{ color: '#0ea5e9' }} />;
+            if (t.includes('albañil')) return <HiOutlineSquare3Stack3D size={20} style={{ color: '#f26522' }} />;
+            if (t.includes('carpinter')) return <HiOutlinePencilSquare size={20} style={{ color: '#b45309' }} />;
+            if (t.includes('pintura')) return <HiOutlinePencilSquare size={20} style={{ color: '#db2777' }} />;
+            return <HiOutlineClipboardDocumentList size={20} style={{ color: '#94a3b8' }} />;
+        };
+
+        const getCategoryColor = (titulo: string) => {
+            const t = titulo?.toLowerCase() || '';
+            if (t.includes('mantenimiento')) return '#f26522';
+            if (t.includes('instalacion')) return '#6366f1';
+            if (t.includes('electricidad')) return '#fbbf24';
+            if (t.includes('plomeria')) return '#0ea5e9';
+            if (t.includes('albañil')) return '#f26522';
+            if (t.includes('carpinter')) return '#b45309';
+            if (t.includes('pintura')) return '#db2777';
+            return '#94a3b8';
         };
 
         const isVisita = trabajo?.tipo === "Visita";
         const isTecnico = user?.role === 'tecnico';
         const canEdit = isVisita && isTecnico;
+        const categoryColor = getCategoryColor(tarea.titulo);
+
+        const handleOpenPDFPreview = (e: React.MouseEvent) => {
+            e.stopPropagation();
+            
+            // 1. Refacciones y materiales
+            const refaccionesList = (tarea.refacciones || []).map(r => ({
+                pieza: r.pieza,
+                amount: r.cantidad,
+                cantidad: Number(r.cantidad) || 1,
+                costo_estimado: r.costo_estimado ? String(r.costo_estimado) : ''
+            }));
+
+            // 2. Conceptos de servicio
+            if (tarea.quoteData?.conceptos) {
+                tarea.quoteData.conceptos.forEach((c: any) => {
+                    refaccionesList.push({
+                        pieza: c.descripcion,
+                        amount: Number(c.cantidad) || 1,
+                        cantidad: Number(c.cantidad) || 1,
+                        costo_estimado: c.precio ? String(c.precio) : ''
+                    });
+                });
+            }
+
+            // 3. Materiales registrados
+            if (tarea.quoteData?.materiales) {
+                tarea.quoteData.materiales.forEach((m: any) => {
+                    refaccionesList.push({
+                        pieza: m.nombre,
+                        amount: Number(m.cantidad) || 1,
+                        cantidad: Number(m.cantidad) || 1,
+                        costo_estimado: m.precio ? String(m.precio) : ''
+                    });
+                });
+            }
+
+            // Comments/additional notes
+            const combinedMateriales = tarea.quoteData?.comentarios || tarea.quoteData?.detalles || '';
+
+            const preparedData = {
+                id: tarea.id || 'SD',
+                reporteTienda: tarea.titulo,
+                descripcion: tarea.cleanDescripcion || tarea.descripcion,
+                materiales: combinedMateriales,
+                refaccionesList: refaccionesList,
+                observaciones: '',
+                imagenes: {
+                    antes: tarea.photos?.[0] || null,
+                    durante: tarea.photos?.[1] || null,
+                    despues: tarea.photos?.[2] || null
+                },
+                imagenObservacion: tarea.photos?.[3] || null,
+                imagenesObservacion: tarea.photos && tarea.photos.length > 3 ? tarea.photos.slice(3) : [],
+                firmaEmpresa: null,
+                involucraEquipo: !!tarea.serviceData?.marca || !!tarea.serviceData?.modelo,
+                equipoInfo: (tarea.serviceData?.marca || tarea.serviceData?.modelo) ? {
+                    tipo: tarea.serviceData.tipoServicio || tarea.titulo,
+                    marca: tarea.serviceData.marca || 'N/A',
+                    modelo: tarea.serviceData.modelo || 'N/A',
+                    piezas: tarea.serviceData.pieza || 'N/A',
+                    garantia: tarea.serviceData.garantia || 'N/A'
+                } : null,
+                fecha: new Date().toLocaleDateString('es-MX'),
+                isVisita: trabajo?.tipo === 'Visita' || trabajo?.originalTipo === 'Visita' || !!tarea.hasQuote || (trabajo?.estado !== 'Finalizado' && trabajo?.estado !== 'En Proceso'),
+                isActivityReport: true
+            };
+
+            setActivityPDFData(preparedData);
+            setShowActivityPDFPreview(true);
+        };
+
+        // Combine photos from taskReport (localStorage cache) and subTarea (db synced)
+        const photosListToRender: { label: string; url: string }[] = [];
+        const rawUrls: string[] = [];
+
+        if (taskReport?.imagenes?.antes) rawUrls.push(taskReport.imagenes.antes);
+        if (taskReport?.imagenes?.durante) rawUrls.push(taskReport.imagenes.durante);
+        if (taskReport?.imagenes?.despues) rawUrls.push(taskReport.imagenes.despues);
+
+        if (taskReport?.imagenesObservacion && taskReport.imagenesObservacion.length > 0) {
+            taskReport.imagenesObservacion.forEach((img: string) => {
+                if (img) rawUrls.push(img);
+            });
+        } else if (taskReport?.imagenObservacion) {
+            rawUrls.push(taskReport.imagenObservacion);
+        }
+
+        if (rawUrls.length === 0 && tarea.photos && tarea.photos.length > 0) {
+            tarea.photos.forEach((url) => {
+                if (url) rawUrls.push(url);
+            });
+        }
+
+        const uniqueUrls = Array.from(new Set(rawUrls.filter(Boolean)));
+        uniqueUrls.forEach((url, idx) => {
+            photosListToRender.push({ label: `Foto ${idx + 1}`, url });
+        });
+
+        const descText = tarea.descripcion || '';
+        const parts = descText.split(/Notas de cotizaci[óo]n:\s*-?/i);
+        const mainDesc = tarea.cleanDescripcion || parts[0].trim();
+        const materialsText = parts.length > 1 ? parts.slice(1).join('Notas de cotización:').trim() : '';
+        const parsedItems = materialsText ? parseMaterials(materialsText) : [];
+
+        let totalPrice = 0;
+        if (tarea.quoteData?.conceptos) {
+            tarea.quoteData.conceptos.forEach((c: any) => {
+                totalPrice += (Number(c.cantidad) || 1) * (Number(c.precio) || 0);
+            });
+        }
+        if (tarea.quoteData?.materiales) {
+            tarea.quoteData.materiales.forEach((m: any) => {
+                totalPrice += (Number(m.cantidad) || 1) * (Number(m.precio) || 0);
+            });
+        }
+        if (tarea.refacciones) {
+            tarea.refacciones.forEach((r: any) => {
+                totalPrice += (Number(r.cantidad) || 1) * (Number(r.costo_estimado) || 0);
+            });
+        }
 
         return (
             <div
                 key={tarea.id}
-                onClick={() => {
-                    const refaccionesList = (tarea.refacciones || []).map(r => ({
-                        pieza: r.pieza,
-                        cantidad: Number(r.cantidad) || 1,
-                        costo_estimado: r.costo_estimado ? String(r.costo_estimado) : ''
-                    })).concat(
-                        tarea.hasQuote && tarea.quoteData?.materials ? tarea.quoteData.materials.map((m: any) => ({
-                            pieza: m.material,
-                            cantidad: m.piezas ? Number(m.piezas) || 1 : 1,
-                            costo_estimado: m.precio ? String(m.precio) : ''
-                        })) : []
-                    );
-
-                    if (tarea.hasQuote && tarea.quoteData?.monto && parseFloat(tarea.quoteData.monto) > 0) {
-                        refaccionesList.push({
-                            pieza: "MANO DE OBRA / SERVICIO TÉCNICO",
-                            cantidad: 1,
-                            costo_estimado: String(tarea.quoteData.monto)
-                        });
-                    }
-
-                    const combinedMateriales = tarea.hasQuote ? (tarea.quoteData?.detalles || '') : '';
-
-                    const preparedData = {
-                        id: taskReport?.dbId || taskReport?.id || tarea.id || 'SD',
-                        reporteTienda: taskReport?.reporteTienda || tarea.titulo,
-                        descripcion: taskReport?.descripcion || tarea.cleanDescripcion || tarea.descripcion,
-                        materiales: taskReport?.materiales || combinedMateriales,
-                        refaccionesList: taskReport?.refaccionesList || refaccionesList,
-                        observaciones: taskReport?.observaciones || '',
-                        imagenes: taskReport?.imagenes || {
-                            antes: tarea.photos?.[0] || null,
-                            durante: tarea.photos?.[1] || null,
-                            despues: tarea.photos?.[2] || null
-                        },
-                        imagenObservacion: taskReport?.imagenObservacion || tarea.photos?.[3] || null,
-                        imagenesObservacion: taskReport?.imagenesObservacion || (taskReport?.imagenObservacion ? [taskReport.imagenObservacion] : (tarea.photos?.[3] ? [tarea.photos[3]] : [])),
-                        firmaEmpresa: taskReport?.firmaEmpresa || null,
-                        involucraEquipo: taskReport ? !!taskReport.involucraEquipo : (!!tarea.serviceData?.marca || !!tarea.serviceData?.modelo),
-                        equipoInfo: taskReport ? taskReport.equipoInfo : ((tarea.serviceData?.marca || tarea.serviceData?.modelo) ? {
-                            tipo: tarea.serviceData.tipoServicio || tarea.titulo,
-                            marca: tarea.serviceData.marca || 'N/A',
-                            modelo: tarea.serviceData.modelo || 'N/A',
-                            piezas: tarea.serviceData.pieza || 'N/A',
-                            garantia: tarea.serviceData.garantia || 'N/A'
-                        } : null),
-                        fecha: taskReport?.fecha || new Date().toLocaleDateString('es-MX'),
-                        isVisita: trabajo?.tipo === 'Visita' || trabajo?.originalTipo === 'Visita' || !!tarea.hasQuote || !!taskReport?.isVisita || (trabajo?.estado !== 'Finalizado' && trabajo?.estado !== 'En Proceso')
-                    };
-
-                    setActivityPDFData(preparedData);
-                    setShowActivityPDFPreview(true);
-                }}
-                className={`${styles.taskCard} ${tarea.estado === 'Nueva' ? styles.newTaskCard : styles.defaultTaskCard}`}
+                onClick={handleOpenPDFPreview}
                 style={{
-                    cursor: taskReport ? 'pointer' : ((isInteractive && !canEdit) || (isInteractive && !isVisita) || (!isInteractive && activeTab === 'Cotización') ? 'pointer' : (isInteractive ? 'not-allowed' : 'default')),
-                    opacity: isVisita && isTecnico && isInteractive ? 0.7 : 1,
+                    cursor: 'pointer',
+                    background: '#ffffff',
+                    border: '1.5px solid #e2e8f0',
+                    borderLeft: `6px solid ${categoryColor}`,
+                    borderRadius: '16px',
+                    padding: '16px 20px',
+                    boxShadow: '0 4px 12px -2px rgba(148, 163, 184, 0.05)',
                     display: 'flex',
                     flexDirection: 'column',
-                    alignItems: 'stretch',
-                    padding: '20px'
+                    gap: '14px',
+                    transition: 'all 0.15s ease',
+                    position: 'relative',
+                    overflow: 'hidden'
+                }}
+                onMouseEnter={e => {
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                    e.currentTarget.style.boxShadow = '0 8px 24px -4px rgba(148, 163, 184, 0.1)';
+                }}
+                onMouseLeave={e => {
+                    e.currentTarget.style.transform = 'none';
+                    e.currentTarget.style.boxShadow = '0 4px 12px -2px rgba(148, 163, 184, 0.05)';
                 }}
             >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '15px' }}>
-                    <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
+                {/* CSS INLINE STYLE FOR RESPONSIVE COLUMNS */}
+                <style>{`
+                    @media (min-width: 768px) {
+                        .task-columns-container-${tarea.id} {
+                            flex-direction: row !important;
+                            overflow-x: visible !important;
+                        }
+                        .task-sub-card-${tarea.id} {
+                            flex: 1 !important;
+                            width: auto !important;
+                            max-height: 180px !important;
+                            overflow-y: auto !important;
+                        }
+                    }
+                    @media (max-width: 767px) {
+                        .task-columns-container-${tarea.id} {
+                            flex-direction: row !important;
+                            overflow-x: auto !important;
+                            flex-wrap: nowrap !important;
+                            scroll-snap-type: x mandatory !important;
+                            padding-bottom: 8px !important;
+                            gap: 12px !important;
+                        }
+                        .task-sub-card-${tarea.id} {
+                            flex: 0 0 85% !important;
+                            width: 85% !important;
+                            max-height: none !important;
+                            overflow-y: visible !important;
+                            scroll-snap-align: start !important;
+                        }
+                    }
+                    .task-sub-card-${tarea.id}::-webkit-scrollbar {
+                        width: 4px;
+                        height: 4px;
+                    }
+                    .task-sub-card-${tarea.id}::-webkit-scrollbar-track {
+                        background: transparent;
+                    }
+                    .task-sub-card-${tarea.id}::-webkit-scrollbar-thumb {
+                        background-color: #cbd5e1;
+                        border-radius: 10px;
+                    }
+                `}</style>
+
+                {/* CARD HEADER */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                         <div style={{
-                            width: '48px',
-                            height: '48px',
-                            borderRadius: '14px',
-                            background: '#f8fafc',
+                            width: '36px',
+                            height: '36px',
+                            borderRadius: '10px',
+                            background: `${categoryColor}10`,
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            border: '1px solid #f1f5f9'
+                            border: `1px solid ${categoryColor}20`
                         }}>
                             {getCategoryIcon(tarea.titulo)}
                         </div>
                         <div>
-                            <h3 className={styles.taskTitle} style={{ margin: 0, fontSize: '17px' }}>
+                            <h4 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#1e293b', lineHeight: '1.2' }}>
                                 {tarea.titulo}
-                            </h3>
-                            <span style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 'bold' }}>Tarea: {tarea.id}</span>
+                            </h4>
+                            <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                Registro #{tarea.id}
+                            </span>
                         </div>
                     </div>
 
-                    <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
-                        <span
-                            className={styles.taskStatus}
-                            style={{
-                                background: tarea.estado === 'Completa' ? '#ecfdf5' : (tarea.estado === 'Nueva' ? '#fff7ed' : '#eff6ff'),
-                                color: tarea.estado === 'Completa' ? '#059669' : (tarea.estado === 'Nueva' ? '#ea580c' : '#2563eb'),
-                                padding: '4px 12px',
-                                border: `1px solid ${tarea.estado === 'Completa' ? '#10b98133' : (tarea.estado === 'Nueva' ? '#f9731633' : '#3b82f633')}`,
-                                fontSize: '12px'
-                            }}
-                        >
-                            {tarea.estado}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {totalPrice > 0 && (
+                            <span style={{
+                                background: '#f0fdf4',
+                                color: '#15803d',
+                                padding: '3px 10px',
+                                borderRadius: '20px',
+                                fontSize: '11px',
+                                fontWeight: '900',
+                                border: '1px solid #bbf7d0'
+                            }}>
+                                Total: ${totalPrice.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                            </span>
+                        )}
+                        <span style={{
+                            background: tarea.estado === 'Completa' ? '#ecfdf5' : '#fff7ed',
+                            color: tarea.estado === 'Completa' ? '#047857' : '#c2410c',
+                            padding: '3px 10px',
+                            borderRadius: '20px',
+                            fontSize: '10px',
+                            fontWeight: '800',
+                            border: `1px solid ${tarea.estado === 'Completa' ? '#a7f3d0' : '#ffedd5'}`,
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.5px'
+                        }}>
+                            {tarea.estado === 'Completa' ? 'Verificado' : 'Pendiente'}
                         </span>
                     </div>
                 </div>
 
-                <div style={{ padding: '0 0 0 63px' }}>
-                    {(() => {
-                        const descText = tarea.descripcion || '';
-                        const parts = descText.split(/Notas de cotizaci[óo]n:\s*-?/i);
-                        const mainDesc = parts[0].trim();
-                        const materialsText = parts.length > 1 ? parts.slice(1).join('Notas de cotización:').trim() : '';
-
-                        return (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginBottom: '15px' }}>
-                                {mainDesc && (
-                                    <p className={styles.taskDesc} style={{ color: '#475569', fontSize: '15px', margin: 0, fontWeight: 'normal', lineHeight: '1.6' }}>
-                                        {mainDesc}
-                                    </p>
-                                )}
-                                {materialsText && (() => {
-                                    const parsedItems = parseMaterials(materialsText);
-                                    return (
-                                        <div style={{
-                                            background: '#ffffff',
-                                            borderRadius: '16px',
-                                            border: '1.5px solid #f1f5f9',
-                                            boxShadow: '0 4px 20px -2px rgba(148, 163, 184, 0.08)',
-                                            overflow: 'hidden',
-                                            marginTop: '8px'
-                                        }}>
-                                            <div style={{
-                                                background: 'linear-gradient(90deg, #f8fafc 0%, #f1f5f9 100%)',
-                                                padding: '14px 20px',
-                                                borderBottom: '1.5px solid #e2e8f0',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'space-between',
-                                                gap: '8px'
-                                            }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                    <div style={{
-                                                        background: '#e0f2fe',
-                                                        color: '#0284c7',
-                                                        padding: '6px',
-                                                        borderRadius: '8px',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center'
-                                                    }}>
-                                                        <HiOutlineClipboardDocumentList size={16} />
-                                                    </div>
-                                                    <span style={{
-                                                        fontSize: '13px',
-                                                        fontWeight: '700',
-                                                        color: '#1e293b',
-                                                        letterSpacing: '0.3px',
-                                                        textTransform: 'uppercase'
-                                                    }}>
-                                                        Materiales Solicitados
-                                                    </span>
-                                                </div>
-                                                <span style={{
-                                                    background: '#f1f5f9',
-                                                    color: '#475569',
-                                                    padding: '2px 8px',
-                                                    borderRadius: '20px',
-                                                    fontSize: '11px',
-                                                    fontWeight: '700',
-                                                    border: '1px solid #e2e8f0'
-                                                }}>
-                                                    {parsedItems.length} {parsedItems.length === 1 ? 'ítem' : 'ítems'}
-                                                </span>
-                                            </div>
-
-                                            <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                                {parsedItems.map((item, index) => (
-                                                    <div
-                                                        key={index}
-                                                        style={{
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            justifyContent: 'space-between',
-                                                            padding: '14px 20px',
-                                                            borderBottom: index < parsedItems.length - 1 ? '1px solid #f1f5f9' : 'none',
-                                                            background: index % 2 === 0 ? '#ffffff' : '#fcfdfe',
-                                                            gap: '12px'
-                                                        }}
-                                                    >
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
-                                                            <div style={{
-                                                                background: 'linear-gradient(135deg, #0ea5e9, #0284c7)',
-                                                                color: '#ffffff',
-                                                                minWidth: '26px',
-                                                                height: '26px',
-                                                                borderRadius: '8px',
-                                                                display: 'flex',
-                                                                alignItems: 'center',
-                                                                justifyContent: 'center',
-                                                                fontSize: '11px',
-                                                                fontWeight: '800',
-                                                                boxShadow: '0 2px 8px rgba(14, 165, 233, 0.15)',
-                                                                padding: '0 4px'
-                                                            }}>
-                                                                {item.cantidad}
-                                                            </div>
-                                                            <span style={{
-                                                                fontSize: '14px',
-                                                                fontWeight: '600',
-                                                                color: '#334155',
-                                                                lineHeight: '1.4'
-                                                            }}>
-                                                                {item.material}
-                                                            </span>
-                                                        </div>
-
-                                                        {item.precio && (
-                                                            <div style={{
-                                                                background: '#ecfdf5',
-                                                                color: '#065f46',
-                                                                padding: '6px 12px',
-                                                                borderRadius: '10px',
-                                                                fontSize: '13px',
-                                                                fontWeight: '700',
-                                                                border: '1.5px solid #d1fae5',
-                                                                display: 'flex',
-                                                                alignItems: 'center',
-                                                                gap: '4px'
-                                                            }}>
-                                                                <span style={{ fontSize: '11px', opacity: 0.8, fontWeight: '600' }}>Costo:</span>
-                                                                <span>{item.precio}</span>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    );
-                                })()}
-                            </div>
-                        );
-                    })()}
-
-                    {taskReport && (taskReport.imagenes?.antes || taskReport.imagenes?.durante || taskReport.imagenes?.despues || taskReport.imagenObservacion || (taskReport.imagenesObservacion && taskReport.imagenesObservacion.length > 0)) && (
-                        <div style={{ marginTop: '12px', display: 'flex', gap: '8px', flexWrap: 'wrap', paddingBottom: '10px' }}>
-                            {taskReport.imagenes?.antes && (
-                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                                    <img 
-                                        src={taskReport.imagenes.antes} 
-                                        alt="Antes" 
-                                        onClick={(e) => { e.stopPropagation(); setSelectedZoomImage(taskReport.imagenes.antes); }}
-                                        style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e2e8f0', cursor: 'pointer', transition: 'transform 0.15s ease' }} 
-                                        onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                                        onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
-                                    />
-                                    <span style={{ fontSize: '9px', fontWeight: 'bold', color: '#64748b' }}>Antes</span>
-                                </div>
-                            )}
-                            {taskReport.imagenes?.durante && (
-                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                                    <img 
-                                        src={taskReport.imagenes.durante} 
-                                        alt="Durante" 
-                                        onClick={(e) => { e.stopPropagation(); setSelectedZoomImage(taskReport.imagenes.durante); }}
-                                        style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e2e8f0', cursor: 'pointer', transition: 'transform 0.15s ease' }} 
-                                        onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                                        onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
-                                    />
-                                    <span style={{ fontSize: '9px', fontWeight: 'bold', color: '#64748b' }}>Durante</span>
-                                </div>
-                            )}
-                            {taskReport.imagenes?.despues && (
-                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                                    <img 
-                                        src={taskReport.imagenes.despues} 
-                                        alt="Después" 
-                                        onClick={(e) => { e.stopPropagation(); setSelectedZoomImage(taskReport.imagenes.despues); }}
-                                        style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e2e8f0', cursor: 'pointer', transition: 'transform 0.15s ease' }} 
-                                        onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                                        onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
-                                    />
-                                    <span style={{ fontSize: '9px', fontWeight: 'bold', color: '#64748b' }}>Después</span>
-                                </div>
-                            )}
-                            {taskReport.imagenesObservacion && taskReport.imagenesObservacion.length > 0 ? (
-                                taskReport.imagenesObservacion.map((img: string, idx: number) => (
-                                    <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                                        <img 
-                                            src={img} 
-                                            alt={`Extra ${idx + 1}`} 
-                                            onClick={(e) => { e.stopPropagation(); setSelectedZoomImage(img); }}
-                                            style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e2e8f0', cursor: 'pointer', transition: 'transform 0.15s ease' }} 
-                                            onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                                            onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
-                                        />
-                                        <span style={{ fontSize: '9px', fontWeight: 'bold', color: '#64748b' }}>Extra {idx + 1}</span>
-                                    </div>
-                                ))
-                            ) : (
-                                taskReport.imagenObservacion && (
-                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                                        <img 
-                                            src={taskReport.imagenObservacion} 
-                                            alt="Extra" 
-                                            onClick={(e) => { e.stopPropagation(); setSelectedZoomImage(taskReport.imagenObservacion); }}
-                                            style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e2e8f0', cursor: 'pointer', transition: 'transform 0.15s ease' }} 
-                                            onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                                            onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
-                                        />
-                                        <span style={{ fontSize: '9px', fontWeight: 'bold', color: '#64748b' }}>Extra</span>
-                                    </div>
-                                )
-                            )}
+                {/* DESCRIPTION / SOLUTION */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {mainDesc && (
+                        <div style={{ 
+                            background: '#f8fafc', 
+                            padding: '10px 14px', 
+                            borderRadius: '12px', 
+                            border: '1px solid #f1f5f9',
+                            fontSize: '13.5px',
+                            lineHeight: '1.5',
+                            color: '#475569'
+                        }}>
+                            <p style={{ margin: 0, fontWeight: '500', whiteSpace: 'pre-line' }}>
+                                {mainDesc}
+                            </p>
                         </div>
                     )}
 
-                    {tarea.photos && tarea.photos.length > 0 && (
-                        <div style={{ marginTop: '12px', display: 'flex', gap: '8px', flexWrap: 'wrap', paddingBottom: '10px' }}>
-                            {tarea.photos.map((url, idx) => (
-                                <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                                    <img 
-                                        src={url} 
-                                        alt={`Foto Actividad ${idx + 1}`} 
-                                        onClick={(e) => { e.stopPropagation(); setSelectedZoomImage(url); }}
-                                        style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e2e8f0', cursor: 'pointer', transition: 'transform 0.15s ease' }} 
-                                        onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                                        onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
-                                    />
-                                    <span style={{ fontSize: '9px', fontWeight: 'bold', color: '#64748b' }}>Evidencia {idx + 1}</span>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-
-                    {/* BOTÓN DE ACCIÓN PARA TÉCNICO */}
-                    {isInteractive && tarea.estado !== 'Completa' && user?.role === 'tecnico' && Boolean(trabajo?.visitado) && (
-                        <div style={{ marginTop: '10px' }}>
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSelectedTaskForReport(tarea);
-                                    setIsSecurityModalOpen(true);
-                                }}
-                                style={{
-                                    width: '100%',
-                                    padding: '12px',
-                                    background: 'linear-gradient(135deg, #1e293b, #334155)',
-                                    color: '#fff',
-                                    border: 'none',
-                                    borderRadius: '12px',
-                                    fontSize: '14px',
-                                    fontWeight: '700',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    gap: '8px',
-                                    boxShadow: '0 4px 12px rgba(30,41,59,0.15)'
-                                }}
-                            >
-                                📋 Iniciar Reporte de Trabajo
-                            </button>
-                        </div>
-                    )}
-
-                    {tarea.serviceData && (
+                    {/* MACHINE INFO (IF AVAILABLE) */}
+                    {tarea.serviceData && (tarea.serviceData.marca || tarea.serviceData.modelo) && (
                         <div style={{
                             display: 'grid',
-                            gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
-                            gap: '12px',
-                            background: '#f8fafc',
-                            padding: '15px',
+                            gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))',
+                            gap: '8px 12px',
+                            background: '#f1f5f9',
+                            padding: '8px 12px',
                             borderRadius: '12px',
-                            border: '1px solid #f1f5f9'
+                            fontSize: '11.5px',
+                            border: '1px solid #e2e8f0'
                         }}>
                             {tarea.serviceData.marca && (
                                 <div>
-                                    <span style={{ display: 'block', fontSize: '10px', textTransform: 'uppercase', color: '#94a3b8', fontWeight: '800' }}>Marca</span>
-                                    <span style={{ fontSize: '13px', color: '#1e293b', fontWeight: '700' }}>{tarea.serviceData.marca}</span>
+                                    <span style={{ display: 'block', fontSize: '8.5px', textTransform: 'uppercase', color: '#64748b', fontWeight: '800', letterSpacing: '0.5px' }}>Marca</span>
+                                    <strong style={{ color: '#0f172a' }}>{tarea.serviceData.marca}</strong>
                                 </div>
                             )}
                             {tarea.serviceData.modelo && (
                                 <div>
-                                    <span style={{ display: 'block', fontSize: '10px', textTransform: 'uppercase', color: '#94a3b8', fontWeight: '800' }}>Modelo</span>
-                                    <span style={{ fontSize: '13px', color: '#1e293b', fontWeight: '700' }}>{tarea.serviceData.modelo}</span>
+                                    <span style={{ display: 'block', fontSize: '8.5px', textTransform: 'uppercase', color: '#64748b', fontWeight: '800', letterSpacing: '0.5px' }}>Modelo</span>
+                                    <strong style={{ color: '#0f172a' }}>{tarea.serviceData.modelo}</strong>
                                 </div>
                             )}
                             {tarea.serviceData.pieza && (
                                 <div>
-                                    <span style={{ display: 'block', fontSize: '10px', textTransform: 'uppercase', color: '#94a3b8', fontWeight: '800' }}>Pieza</span>
-                                    <span style={{ fontSize: '13px', color: '#1e293b', fontWeight: '700' }}>{tarea.serviceData.pieza}</span>
+                                    <span style={{ display: 'block', fontSize: '8.5px', textTransform: 'uppercase', color: '#64748b', fontWeight: '800', letterSpacing: '0.5px' }}>Pieza</span>
+                                    <strong style={{ color: '#0f172a' }}>{tarea.serviceData.pieza}</strong>
                                 </div>
                             )}
                             {tarea.serviceData.garantia && (
                                 <div>
-                                    <span style={{ display: 'block', fontSize: '10px', textTransform: 'uppercase', color: '#94a3b8', fontWeight: '800' }}>Garantía</span>
-                                    <span style={{ fontSize: '13px', color: '#1e293b', fontWeight: '700' }}>{tarea.serviceData.garantia} Meses</span>
+                                    <span style={{ display: 'block', fontSize: '8.5px', textTransform: 'uppercase', color: '#64748b', fontWeight: '800', letterSpacing: '0.5px' }}>Garantía</span>
+                                    <strong style={{ color: '#0f172a' }}>{tarea.serviceData.garantia} M</strong>
                                 </div>
                             )}
                         </div>
                     )}
-
-
-
-                    {canEdit && isInteractive && (
-                        <div style={{ display: 'flex', gap: '10px', marginTop: '15px' }}>
-                            <button
-                                onClick={(e) => openEditModal(e, tarea)}
-                                style={{ background: '#f1f5f9', border: 'none', borderRadius: '8px', padding: '6px 12px', fontSize: '12px', cursor: 'pointer', color: '#475569', fontWeight: '700' }}
-                            >
-                                ✍️ Editar
-                            </button>
-                            <button
-                                onClick={(e) => handleDeleteTask(e, tarea.id)}
-                                style={{ background: '#fef2f2', border: 'none', borderRadius: '8px', padding: '6px 12px', fontSize: '12px', cursor: 'pointer', color: '#dc2626', fontWeight: '700' }}
-                            >
-                                🗑️ Eliminar
-                            </button>
-                        </div>
-                    )}
                 </div>
 
-                {/* Técnico que realizó la actividad */}
+                {/* THREE COLUMNS (SCROLLABLE VERTICALLY ON DESKTOP, SWIPEABLE HORICONTALLY ON MOBILE) */}
+                <div className={`task-columns-container-${tarea.id}`} style={{ display: 'flex', gap: '16px', width: '100%' }}>
+                    
+                    {/* COLUMN 1: EVIDENCIA FOTOGRÁFICA */}
+                    <div className={`task-sub-card-${tarea.id}`} style={{
+                        background: '#f8fafc',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '12px',
+                        padding: '12px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '8px'
+                    }}>
+                        <span style={{ display: 'block', fontSize: '9px', textTransform: 'uppercase', color: '#64748b', fontWeight: '800', letterSpacing: '0.5px', borderBottom: '1px solid #e2e8f0', paddingBottom: '4px' }}>
+                            📸 Evidencia Fotográfica
+                        </span>
+                        {photosListToRender.length > 0 ? (
+                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '4px' }}>
+                                {photosListToRender.map((photo, idx) => (
+                                    <div 
+                                        key={idx} 
+                                        onClick={(e) => { e.stopPropagation(); setSelectedZoomImage(photo.url); }}
+                                        style={{ 
+                                            position: 'relative', 
+                                            width: '64px', 
+                                            height: '64px', 
+                                            borderRadius: '8px', 
+                                            overflow: 'hidden', 
+                                            border: '1px solid #cbd5e1', 
+                                            cursor: 'pointer',
+                                            boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
+                                            flexShrink: 0
+                                        }}
+                                    >
+                                        <img 
+                                            src={photo.url} 
+                                            alt={photo.label} 
+                                            style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                                        />
+                                        <div style={{ 
+                                            position: 'absolute', 
+                                            bottom: 0, 
+                                            left: 0, 
+                                            right: 0, 
+                                            background: 'rgba(15, 23, 42, 0.7)', 
+                                            color: '#ffffff', 
+                                            fontSize: '7.5px', 
+                                            fontWeight: '800', 
+                                            textAlign: 'center', 
+                                            padding: '2px 0'
+                                        }}>
+                                            {photo.label}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <span style={{ fontSize: '11px', color: '#94a3b8', fontStyle: 'italic', padding: '10px 0' }}>Sin imágenes</span>
+                        )}
+                    </div>
+
+                    {/* COLUMN 2: CONCEPTOS DE SERVICIO */}
+                    <div className={`task-sub-card-${tarea.id}`} style={{
+                        background: '#f8fafc',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '12px',
+                        padding: '12px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '8px'
+                    }}>
+                        <span style={{ display: 'block', fontSize: '9px', textTransform: 'uppercase', color: '#64748b', fontWeight: '800', letterSpacing: '0.5px', borderBottom: '1px solid #e2e8f0', paddingBottom: '4px' }}>
+                            💼 Conceptos de Servicio
+                        </span>
+                        {tarea.quoteData?.conceptos && tarea.quoteData.conceptos.length > 0 ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px' }}>
+                                {tarea.quoteData.conceptos.map((concept: any, idx: number) => (
+                                    <div key={idx} style={{ 
+                                        background: '#eff6ff', 
+                                        border: '1px solid #bfdbfe', 
+                                        color: '#1e40af', 
+                                        padding: '4px 8px', 
+                                        borderRadius: '6px', 
+                                        fontSize: '11px', 
+                                        fontWeight: '700',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        gap: '6px'
+                                    }}>
+                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '120px' }}>
+                                            {concept.cantidad}x {concept.descripcion}
+                                        </span>
+                                        {concept.precio && (
+                                            <span style={{ fontWeight: '800', color: '#1d4ed8' }}>
+                                                ${concept.precio}
+                                            </span>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <span style={{ fontSize: '11px', color: '#94a3b8', fontStyle: 'italic', padding: '10px 0' }}>Sin conceptos</span>
+                        )}
+                    </div>
+
+                    {/* COLUMN 3: MATERIALES / REFACCIONES */}
+                    <div className={`task-sub-card-${tarea.id}`} style={{
+                        background: '#f8fafc',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '12px',
+                        padding: '12px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '8px'
+                    }}>
+                        <span style={{ display: 'block', fontSize: '9px', textTransform: 'uppercase', color: '#64748b', fontWeight: '800', letterSpacing: '0.5px', borderBottom: '1px solid #e2e8f0', paddingBottom: '4px' }}>
+                            🛠️ Refacciones y Materiales
+                        </span>
+                        {((tarea.refacciones && tarea.refacciones.length > 0) || parsedItems.length > 0 || (tarea.quoteData?.materiales && tarea.quoteData.materiales.length > 0)) ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px' }}>
+                                {(tarea.refacciones || []).map((ref, idx) => (
+                                    <div key={idx} style={{ 
+                                        background: '#f0fdf4', 
+                                        border: '1px solid #bbf7d0', 
+                                        color: '#166534', 
+                                        padding: '4px 8px', 
+                                        borderRadius: '6px', 
+                                        fontSize: '11px', 
+                                        fontWeight: '700',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        gap: '6px'
+                                    }}>
+                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '120px' }}>
+                                            {ref.cantidad}x {ref.pieza}
+                                        </span>
+                                        {ref.costo_estimado && (
+                                            <span style={{ fontWeight: '800' }}>
+                                                ${ref.costo_estimado}
+                                            </span>
+                                        )}
+                                    </div>
+                                ))}
+                                {(tarea.quoteData?.materiales || []).map((ref: any, idx: number) => (
+                                    <div key={`quote-mat-${idx}`} style={{ 
+                                        background: '#f0fdf4', 
+                                        border: '1px solid #bbf7d0', 
+                                        color: '#166534', 
+                                        padding: '4px 8px', 
+                                        borderRadius: '6px', 
+                                        fontSize: '11px', 
+                                        fontWeight: '700',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        gap: '6px'
+                                    }}>
+                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '120px' }}>
+                                            {ref.cantidad}x {ref.nombre}
+                                        </span>
+                                        {ref.precio && (
+                                            <span style={{ fontWeight: '800' }}>
+                                                ${ref.precio}
+                                            </span>
+                                        )}
+                                    </div>
+                                ))}
+                                {parsedItems.map((ref, idx) => (
+                                    <div key={`parsed-${idx}`} style={{ 
+                                        background: '#f0fdf4', 
+                                        border: '1px solid #bbf7d0', 
+                                        color: '#166534', 
+                                        padding: '4px 8px', 
+                                        borderRadius: '6px', 
+                                        fontSize: '11px', 
+                                        fontWeight: '700',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        gap: '6px'
+                                    }}>
+                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '120px' }}>
+                                            {ref.cantidad}x {ref.material}
+                                        </span>
+                                        {ref.precio && (
+                                            <span style={{ fontWeight: '800' }}>
+                                                {ref.precio}
+                                            </span>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <span style={{ fontSize: '11px', color: '#94a3b8', fontStyle: 'italic', padding: '10px 0' }}>Sin materiales</span>
+                        )}
+                    </div>
+                </div>
+
+                {/* BOTTOM FOOTER BAR */}
                 <div style={{ 
-                    marginTop: 'auto', 
-                    paddingTop: '15px', 
-                    borderTop: '1.5px solid #f1f5f9', 
+                    marginTop: '0px', 
+                    paddingTop: '10px', 
+                    borderTop: '1px solid #f1f5f9', 
                     display: 'flex', 
                     alignItems: 'center', 
-                    justifyContent: 'space-between'
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '10px'
                 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    {/* Left: Technician profile */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <div style={{ 
-                            width: '32px', 
-                            height: '32px', 
+                            width: '26px', 
+                            height: '26px', 
                             borderRadius: '50%', 
                             overflow: 'hidden', 
                             background: '#f8fafc', 
-                            border: '1.5px solid #e2e8f0',
+                            border: '1px solid #cbd5e1',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center'
                         }}>
-                            {getAvatarForTech((tarea.tecnicoNombre && tarea.tecnicoNombre !== "Sin Asignar") ? tarea.tecnicoNombre : '') ? (
+                            {getAvatarForTech(tarea.tecnicoNombre || '') ? (
                                 <img 
-                                    src={getAvatarForTech((tarea.tecnicoNombre && tarea.tecnicoNombre !== "Sin Asignar") ? tarea.tecnicoNombre : '') || undefined} 
+                                    src={getAvatarForTech(tarea.tecnicoNombre || '') || undefined} 
                                     alt="Tech" 
                                     style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
                                 />
                             ) : (
-                                <HiOutlineUser size={14} color="#64748b" />
+                                <HiOutlineUser size={12} color="#64748b" />
                             )}
                         </div>
-                        <span style={{ fontSize: '12px', fontWeight: '700', color: '#475569' }}>
-                            {(tarea.tecnicoNombre && tarea.tecnicoNombre !== "Sin Asignar") ? tarea.tecnicoNombre : "Técnico (Registro Antiguo)"}
+                        <span style={{ fontSize: '11.5px', fontWeight: '750', color: '#475569' }}>
+                            {tarea.tecnicoNombre || "Técnico"}
                         </span>
                     </div>
 
-                    {tarea.refacciones && tarea.refacciones.length > 0 && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#f0fdf4', color: '#166534', padding: '3px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: '800' }}>
-                            <HiOutlineWrench size={12} />
-                            <span>{tarea.refacciones.length} piezas</span>
-                        </div>
-                    )}
+                    {/* Right: Actions */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {canEdit && isInteractive && (
+                            <>
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); openEditModal(e, tarea); }}
+                                    style={{ 
+                                        background: '#f1f5f9', 
+                                        border: '1px solid #cbd5e1', 
+                                        borderRadius: '10px', 
+                                        padding: '7px 12px', 
+                                        fontSize: '11px', 
+                                        cursor: 'pointer', 
+                                        color: '#475569', 
+                                        fontWeight: '800',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '4px',
+                                        transition: 'all 0.15s ease'
+                                    }}
+                                    onMouseEnter={e => e.currentTarget.style.background = '#e2e8f0'}
+                                    onMouseLeave={e => e.currentTarget.style.background = '#f1f5f9'}
+                                >
+                                    ✏️ Editar
+                                </button>
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); handleDeleteTask(e, tarea.id); }}
+                                    style={{ 
+                                        background: '#fef2f2', 
+                                        border: '1px solid #fecaca', 
+                                        borderRadius: '10px', 
+                                        padding: '7px 12px', 
+                                        fontSize: '11px', 
+                                        cursor: 'pointer', 
+                                        color: '#dc2626', 
+                                        fontWeight: '800',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '4px',
+                                        transition: 'all 0.15s ease'
+                                    }}
+                                    onMouseEnter={e => e.currentTarget.style.background = '#fee2e2'}
+                                    onMouseLeave={e => e.currentTarget.style.background = '#fef2f2'}
+                                >
+                                    🗑️ Eliminar
+                                </button>
+                            </>
+                        )}
+
+                        {/* PDF PREVIEW BUTTON */}
+                        <button
+                            onClick={handleOpenPDFPreview}
+                            style={{
+                                background: 'linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)',
+                                border: 'none',
+                                borderRadius: '10px',
+                                padding: '7px 14px',
+                                fontSize: '11px',
+                                color: '#ffffff',
+                                fontWeight: '850',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                boxShadow: '0 4px 10px rgba(14, 165, 233, 0.2)',
+                                transition: 'all 0.15s ease'
+                            }}
+                            onMouseEnter={e => {
+                                e.currentTarget.style.transform = 'translateY(-1px)';
+                                e.currentTarget.style.boxShadow = '0 6px 14px rgba(14, 165, 233, 0.3)';
+                            }}
+                            onMouseLeave={e => {
+                                e.currentTarget.style.transform = 'none';
+                                e.currentTarget.style.boxShadow = '0 4px 10px rgba(14, 165, 233, 0.2)';
+                            }}
+                        >
+                            📄 PDF de Bitácora
+                        </button>
+                    </div>
                 </div>
             </div>
         );
@@ -2957,12 +3163,15 @@ const AdminDetalleTrabajo: React.FC = () => {
                                 if (trabajo.estado === "Finalizado") {
                                     return tabName === 'Datos' || tabName === 'Historial';
                                 }
+                                // Técnico normal NUNCA ve la tab de Cotización (eso es responsabilidad del Admin)
+                                if (tabName === 'Cotización' && user?.role === 'tecnico') return false;
+
                                 if (tabName === 'Cotización') {
                                     return true;
                                 }
                                 if (tabName === 'Registro') {
-                                    const cotizacionYaEnviada = ['Cotización Enviada', 'Cotización Rechazada', 'Cotización Aceptada', 'Cotización Aprobada'].includes(trabajo?.estado) || cotizaciones.length > 0 || subTareas.some(t => t.esCotizacion);
-                                    if (cotizacionYaEnviada) return false;
+                                    // Tab Registro solo aparece en tipo Visita y mientras el técnico NO haya enviado al admin (visitado: false)
+                                    if (trabajo?.visitado) return false;
                                     return trabajo.tipo === 'Visita';
                                 }
                                 if (tabName === 'Trabajo') {
@@ -4686,42 +4895,6 @@ const AdminDetalleTrabajo: React.FC = () => {
                                     );
                                 })()}
 
-                                {/* BOTÓN DE ENVIAR AL ENCARGADO DE SUCURSAL PARA EL TÉCNICO */}
-                                {user?.role === 'tecnico' && subTareas.length > 0 && (
-                                    <div style={{ marginTop: '25px', display: 'flex', justifyContent: 'center', width: '100%' }}>
-                                        {(['Cotización Enviada', 'Cotización Rechazada', 'Cotización Aceptada', 'Cotización Aprobada', 'Trabajo', 'Finalizado'].includes(trabajo?.estado || '') || trabajo?.visitado || subTareas.some(t => t.esCotizacion) || cotizaciones.length > 0) ? (
-                                            <div style={{ background: '#f0fdf4', border: '1.5px solid #86efac', borderRadius: '16px', padding: '16px 24px', display: 'flex', alignItems: 'center', gap: '10px', color: '#166534', fontWeight: '800', fontSize: '14px', boxShadow: '0 4px 12px rgba(34, 197, 94, 0.15)' }}>
-                                                <span style={{ fontSize: '20px' }}>✓</span> Información Enviada al Encargado de Sucursal
-                                            </div>
-                                        ) : (
-                                            <button
-                                                onClick={() => setShowSendConfirmModal(true)}
-                                                style={{
-                                                    width: '100%',
-                                                    maxWidth: '400px',
-                                                    padding: '16px 28px',
-                                                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                                                    color: '#ffffff',
-                                                    border: 'none',
-                                                    borderRadius: '16px',
-                                                    fontSize: '15px',
-                                                    fontWeight: '800',
-                                                    cursor: 'pointer',
-                                                    boxShadow: '0 8px 24px rgba(16, 185, 129, 0.35)',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    gap: '10px',
-                                                    transition: 'all 0.2s ease'
-                                                }}
-                                                onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
-                                                onMouseLeave={e => e.currentTarget.style.transform = 'none'}
-                                            >
-                                                🚀 Enviar al Encargado de Sucursal
-                                            </button>
-                                        )}
-                                    </div>
-                                )}
                             </div>
                         )
                     }
@@ -4749,7 +4922,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                                         {/* Actividades ya registradas */}
                                         {subTareas.length > 0 && (
                                             <div className={styles.taskList}>
-                                                {subTareas.map(tarea => renderTaskCard(tarea, true))}
+                                                {[...subTareas].sort((a, b) => a.id - b.id).map(tarea => renderTaskCard(tarea, true))}
                                             </div>
                                         )}
 
@@ -4770,7 +4943,7 @@ const AdminDetalleTrabajo: React.FC = () => {
                                 {/* Para trabajo normal (no SOS): solo muestra la lista existente */}
                                 {!isSOS && (
                                     <div className={styles.taskList}>
-                                        {subTareas.map(tarea => renderTaskCard(tarea, true))}
+                                        {[...subTareas].sort((a, b) => a.id - b.id).map(tarea => renderTaskCard(tarea, true))}
                                     </div>
                                 )}
                                 
@@ -4804,57 +4977,132 @@ const AdminDetalleTrabajo: React.FC = () => {
 
                     {
                         activeTab === 'Registro' && (
-                            <div>
-                                {(user?.role === 'tecnico' || user?.role === 'admin') && trabajo.tipo === 'Visita' && !trabajo.visitado && trabajo.estado === 'En Proceso' && (
-                                    <button
-                                        onClick={() => setIsAddModalOpen(true)}
-                                        className={styles.addTaskButton}
-                                    >
-                                        <div className={styles.addTaskIcon}>+</div>
-                                        Agregar
-                                    </button>
-                                )}
-
-                                {/* LISTADO DE ACTIVIDADES REGISTRADAS — para tipo Visita */}
-                                {subTareas.length > 0 && (
-                                    <div className={styles.taskList}>
-                                        {subTareas.map(tarea => renderTaskCard(tarea, true))}
+                            <div style={{ padding: '24px', background: '#f8fafc', borderRadius: '24px', border: '1px solid #cbd5e1', minHeight: '300px' }}>
+                                {/* CASO 1: TRABAJO EN ESTADO "ASIGNADO" (Debe aceptar asignación) */}
+                                {user?.role === 'tecnico' && trabajo.estado === 'Asignado' && (
+                                    <div style={{ textAlign: 'center', padding: '40px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
+                                        <div style={{ fontSize: '48px' }}>👷</div>
+                                        <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#1e293b', margin: 0 }}>Tienes esta visita asignada</h3>
+                                        <p style={{ fontSize: '14px', color: '#64748b', maxWidth: '380px', margin: 0, lineHeight: '1.5' }}>
+                                            Para comenzar con el registro de problemas y actividades en esta sucursal, primero debes aceptar la asignación de este trabajo.
+                                        </p>
+                                        <button
+                                            onClick={handleAceptarAsignacion}
+                                            style={{
+                                                padding: '14px 28px',
+                                                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                                color: '#ffffff',
+                                                border: 'none',
+                                                borderRadius: '16px',
+                                                fontSize: '15px',
+                                                fontWeight: '800',
+                                                cursor: 'pointer',
+                                                boxShadow: '0 8px 24px rgba(16, 185, 129, 0.3)',
+                                                transition: 'all 0.2s'
+                                            }}
+                                            onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+                                            onMouseLeave={e => e.currentTarget.style.transform = 'none'}
+                                        >
+                                            ✅ Aceptar Asignación
+                                        </button>
                                     </div>
                                 )}
 
-                                {/* BOTÓN DE ENVIAR AL ENCARGADO DE SUCURSAL PARA EL TÉCNICO */}
-                                {user?.role === 'tecnico' && subTareas.length > 0 && (
-                                    <div style={{ marginTop: '25px', display: 'flex', justifyContent: 'center', width: '100%' }}>
-                                        {trabajo?.estado === 'Cotización Enviada' || trabajo?.visitado ? (
-                                            <div style={{ background: '#f0fdf4', border: '1.5px solid #86efac', borderRadius: '16px', padding: '16px 24px', display: 'flex', alignItems: 'center', gap: '10px', color: '#166534', fontWeight: '800', fontSize: '14px', boxShadow: '0 4px 12px rgba(34, 197, 94, 0.15)' }}>
-                                                <span style={{ fontSize: '20px' }}>✓</span> Información Enviada al Encargado de Sucursal
+                                {/* CASO 2: TRABAJO EN ESTADO "EN ESPERA" (Debe comenzar registro) */}
+                                {user?.role === 'tecnico' && trabajo.estado === 'En Espera' && (
+                                    <div style={{ textAlign: 'center', padding: '40px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
+                                        <div style={{ fontSize: '48px' }}>📍</div>
+                                        <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#1e293b', margin: 0 }}>Asignación Aceptada</h3>
+                                        <p style={{ fontSize: '14px', color: '#64748b', maxWidth: '380px', margin: 0, lineHeight: '1.5' }}>
+                                            Ya has aceptado este trabajo. Presiona el botón "Comenzar Registro" cuando estés listo para evaluar los problemas de la sucursal.
+                                        </p>
+                                        <button
+                                            onClick={() => handleEmpezarTrabajoTipo('Visita')}
+                                            style={{
+                                                padding: '14px 28px',
+                                                background: 'linear-gradient(135deg, #f26522 0%, #d14d13 100%)',
+                                                color: '#ffffff',
+                                                border: 'none',
+                                                borderRadius: '16px',
+                                                fontSize: '15px',
+                                                fontWeight: '800',
+                                                cursor: 'pointer',
+                                                boxShadow: '0 8px 24px rgba(242, 101, 34, 0.3)',
+                                                transition: 'all 0.2s'
+                                            }}
+                                            onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+                                            onMouseLeave={e => e.currentTarget.style.transform = 'none'}
+                                        >
+                                            🚀 Comenzar Registro
+                                        </button>
+                                    </div>
+                                )}
+
+                                {/* CASO 3: TRABAJO EN PROCESO O FINALIZADO */}
+                                {(trabajo.estado === 'En Proceso' || trabajo.estado === 'Cotización Enviada' || trabajo.visitado) && (
+                                    <div>
+                                        {/* Botón de Agregar (Solo visible si está en proceso y no se ha finalizado/enviado) */}
+                                        {(user?.role === 'tecnico' || user?.role === 'admin') && trabajo.tipo === 'Visita' && !trabajo.visitado && trabajo.estado === 'En Proceso' && (
+                                            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '20px' }}>
+                                                <button
+                                                    onClick={openNewTaskModal}
+                                                    className={styles.addTaskButton}
+                                                    style={{ margin: 0 }}
+                                                >
+                                                    <div className={styles.addTaskIcon}>+</div>
+                                                    Agregar Problema / Registro
+                                                </button>
+                                            </div>
+                                        )}
+
+                                        {/* LISTADO DE ACTIVIDADES REGISTRADAS */}
+                                        {subTareas.length > 0 ? (
+                                            <div className={styles.taskList} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                {[...subTareas].sort((a, b) => a.id - b.id).map(tarea => renderTaskCard(tarea, true))}
                                             </div>
                                         ) : (
-                                            <button
-                                                onClick={() => setShowSendConfirmModal(true)}
-                                                style={{
-                                                    width: '100%',
-                                                    maxWidth: '400px',
-                                                    padding: '16px 28px',
-                                                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                                                    color: '#ffffff',
-                                                    border: 'none',
-                                                    borderRadius: '16px',
-                                                    fontSize: '15px',
-                                                    fontWeight: '800',
-                                                    cursor: 'pointer',
-                                                    boxShadow: '0 8px 24px rgba(16, 185, 129, 0.35)',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    gap: '10px',
-                                                    transition: 'all 0.2s ease'
-                                                }}
-                                                onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
-                                                onMouseLeave={e => e.currentTarget.style.transform = 'none'}
-                                            >
-                                                🚀 Enviar al Encargado de Sucursal
-                                            </button>
+                                            trabajo.estado === 'En Proceso' && (
+                                                <div style={{ textAlign: 'center', padding: '40px 20px', color: '#94a3b8', fontSize: '14px' }}>
+                                                    📭 Aún no has registrado ningún problema en la sucursal. Utiliza el botón "Agregar" superior para registrar los trabajos necesarios.
+                                                </div>
+                                            )
+                                        )}
+
+                                        {/* BOTÓN DE CONFIRMAR DATOS Y ENVIAR AL ADMIN GENERAL */}
+                                        {user?.role === 'tecnico' && subTareas.length > 0 && (
+                                            <div style={{ marginTop: '25px', display: 'flex', justifyContent: 'center', width: '100%' }}>
+                                                {trabajo?.visitado ? (
+                                                    <div style={{ background: '#f0fdf4', border: '1.5px solid #86efac', borderRadius: '16px', padding: '16px 24px', display: 'flex', alignItems: 'center', gap: '10px', color: '#166534', fontWeight: '800', fontSize: '14px', boxShadow: '0 4px 12px rgba(34, 197, 94, 0.15)' }}>
+                                                        <span style={{ fontSize: '20px' }}>✓</span> Información Enviada al Administrador
+                                                    </div>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => setShowSendConfirmModal(true)}
+                                                        style={{
+                                                            width: '100%',
+                                                            maxWidth: '400px',
+                                                            padding: '16px 28px',
+                                                            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                                            color: '#ffffff',
+                                                            border: 'none',
+                                                            borderRadius: '16px',
+                                                            fontSize: '15px',
+                                                            fontWeight: '800',
+                                                            cursor: 'pointer',
+                                                            boxShadow: '0 8px 24px rgba(16, 185, 129, 0.35)',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            gap: '10px',
+                                                            transition: 'all 0.2s ease'
+                                                        }}
+                                                        onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+                                                        onMouseLeave={e => e.currentTarget.style.transform = 'none'}
+                                                    >
+                                                        🚀 Enviar al Administrador
+                                                    </button>
+                                                )}
+                                            </div>
                                         )}
                                     </div>
                                 )}
@@ -5281,47 +5529,106 @@ const AdminDetalleTrabajo: React.FC = () => {
                             </div>
 
                             {/* INFORMACION DE LA SOLICITUD DEL CLIENTE */}
-                            {trabajo && (
-                                <div style={{ background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: '18px', padding: '20px', marginBottom: '25px', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
-                                    <h3 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: '800', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <span>📋</span> Información de la Solicitud
-                                    </h3>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                        <div>
-                                            <span style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '2px' }}>Servicio solicitado</span>
-                                            <span style={{ fontSize: '13px', fontWeight: '700', color: '#334155' }}>{trabajo.titulo || trabajo.tipo || 'Servicio de Mantenimiento'}</span>
-                                        </div>
-                                        {trabajo.descripcion && (
-                                            <div>
-                                                <span style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '2px' }}>Detalles / Notas del Cliente</span>
-                                                <p style={{ fontSize: '12px', color: '#475569', margin: 0, whiteSpace: 'pre-wrap', fontStyle: 'italic', background: '#fff', padding: '8px 12px', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
-                                                    "{trabajo.descripcion}"
-                                                </p>
-                                            </div>
-                                        )}
-                                        {parseFotoUrls(trabajo.foto_url).length > 0 && (
-                                            <div style={{ marginTop: '5px' }}>
-                                                <span style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '6px' }}>
-                                                    Fotos de Evidencia ({parseFotoUrls(trabajo.foto_url).length})
-                                                </span>
-                                                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                                                    {parseFotoUrls(trabajo.foto_url).map((url, idx) => (
-                                                        <img 
-                                                            key={idx}
-                                                            src={url} 
-                                                            alt={`Evidencia Solicitud ${idx + 1}`} 
-                                                            onClick={() => setSelectedZoomImage(url)}
-                                                            style={{ width: '55px', height: '55px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e2e8f0', cursor: 'pointer', transition: 'transform 0.15s ease' }} 
-                                                            onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                                                            onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
-                                                        />
-                                                    ))}
+                            {trabajo && (() => {
+                                const requestItems = groupedJobs.length > 0 ? groupedJobs : [trabajo];
+                                const currentReqItem = requestItems[activeRequestSlide] || requestItems[0] || trabajo;
+                                const cleanReqDesc = currentReqItem.descripcion?.replace(/\[Grupo:\s*REQ-\d+\]\s*\n?/, "") || "";
+                                const currentReqPhotos = parseFotoUrls(currentReqItem.foto_url);
+
+                                return (
+                                    <div style={{ background: '#f8fafc', border: '1.5px solid #cbd5e1', borderRadius: '18px', padding: '20px', marginBottom: '25px', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                                            <h3 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <span>📋</span> Información de la Solicitud
+                                            </h3>
+                                            {requestItems.length > 1 && (
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setActiveRequestSlide(prev => Math.max(0, prev - 1))}
+                                                        disabled={activeRequestSlide === 0}
+                                                        style={{
+                                                            background: activeRequestSlide === 0 ? '#e2e8f0' : '#f97316',
+                                                            color: activeRequestSlide === 0 ? '#94a3b8' : 'white',
+                                                            border: 'none',
+                                                            borderRadius: '50%',
+                                                            width: '24px',
+                                                            height: '24px',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            cursor: activeRequestSlide === 0 ? 'not-allowed' : 'pointer',
+                                                            fontSize: '10px'
+                                                        }}
+                                                    >
+                                                        ◀
+                                                    </button>
+                                                    <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#64748b' }}>
+                                                        {activeRequestSlide + 1} / {requestItems.length}
+                                                    </span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setActiveRequestSlide(prev => Math.min(requestItems.length - 1, prev + 1))}
+                                                        disabled={activeRequestSlide === requestItems.length - 1}
+                                                        style={{
+                                                            background: activeRequestSlide === requestItems.length - 1 ? '#e2e8f0' : '#f97316',
+                                                            color: activeRequestSlide === requestItems.length - 1 ? '#94a3b8' : 'white',
+                                                            border: 'none',
+                                                            borderRadius: '50%',
+                                                            width: '24px',
+                                                            height: '24px',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            cursor: activeRequestSlide === requestItems.length - 1 ? 'not-allowed' : 'pointer',
+                                                            fontSize: '10px'
+                                                        }}
+                                                    >
+                                                        ▶
+                                                    </button>
                                                 </div>
+                                            )}
+                                        </div>
+                                        
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                            <div>
+                                                <span style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '2px' }}>Servicio solicitado</span>
+                                                <span style={{ fontSize: '13px', fontWeight: '700', color: '#334155' }}>
+                                                    {currentReqItem.titulo || currentReqItem.tipo || 'Servicio de Mantenimiento'}
+                                                </span>
                                             </div>
-                                        )}
+                                            {currentReqItem.descripcion && (
+                                                <div>
+                                                    <span style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '2px' }}>Detalles / Notas del Cliente</span>
+                                                    <p style={{ fontSize: '12px', color: '#475569', margin: 0, whiteSpace: 'pre-wrap', fontStyle: 'italic', background: '#fff', padding: '8px 12px', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
+                                                        "{cleanReqDesc}"
+                                                    </p>
+                                                </div>
+                                            )}
+                                            {currentReqPhotos.length > 0 && (
+                                                <div style={{ marginTop: '5px' }}>
+                                                    <span style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '6px' }}>
+                                                        Fotos de Evidencia ({currentReqPhotos.length})
+                                                    </span>
+                                                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                                        {currentReqPhotos.map((url, idx) => (
+                                                            <img 
+                                                                key={idx}
+                                                                src={url} 
+                                                                alt={`Evidencia Solicitud ${idx + 1}`} 
+                                                                onClick={() => setSelectedZoomImage(url)}
+                                                                style={{ width: '55px', height: '55px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e2e8f0', cursor: 'pointer', transition: 'transform 0.15s ease' }} 
+                                                                onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                                                                onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
-                            )}
+                                );
+                            })()}
 
                             {/* CONFIRMACIÓN DE LLEGADA AL SITIO */}
                             <div style={{ background: confirmacionLlegada ? '#ecfdf5' : '#fff', border: `2px solid ${confirmacionLlegada ? '#10b981' : '#e2e8f0'}`, borderRadius: '18px', padding: '20px', marginBottom: '25px', transition: 'all 0.3s ease', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: confirmacionLlegada ? '0 4px 12px rgba(16, 185, 129, 0.1)' : 'none' }}>
@@ -5522,11 +5829,11 @@ const AdminDetalleTrabajo: React.FC = () => {
 
 
 
-                                 {/* DETALLES DE LA ACTIVIDAD Y EVIDENCIAS (HASTA 3 BLOQUES) */}
+                                 {/* DETALLES DE LA ACTIVIDAD Y EVIDENCIAS (HASTA 10 BLOQUES) */}
                                  <div style={{ marginBottom: '25px' }}>
                                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                                          <label style={{ fontSize: '13px', fontWeight: 'bold', color: '#475569' }}>
-                                             Detalles de la Visita y Evidencias ({taskItems.length}/3)
+                                             Detalles de la Visita y Evidencias
                                          </label>
                                          {taskItems.length < 3 && (
                                              <button
@@ -6433,12 +6740,15 @@ const AdminDetalleTrabajo: React.FC = () => {
                 <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(15, 23, 42, 0.75)', backdropFilter: 'blur(8px)', zIndex: 99999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
                     <div style={{ background: '#ffffff', borderRadius: '24px', padding: '32px', maxWidth: '460px', width: '100%', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', textAlign: 'center' }}>
                         <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: '#ecfdf5', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px auto', fontSize: '32px' }}>
-                            🚀
+                            📤
                         </div>
-                        <h3 style={{ margin: '0 0 12px 0', fontSize: '20px', fontWeight: '800', color: '#0f172a' }}>¿Enviar al Encargado de Sucursal?</h3>
-                        <p style={{ margin: '0 0 25px 0', fontSize: '14px', color: '#64748b', lineHeight: '1.6' }}>
-                            ¿Estás seguro de que deseas enviar la información? Una vez enviada al Encargado de Sucursal, la información se mandará y no se podrán realizar más cambios ni ediciones.
+                        <h3 style={{ margin: '0 0 12px 0', fontSize: '20px', fontWeight: '800', color: '#0f172a' }}>¿Enviar Información al Administrador?</h3>
+                        <p style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#64748b', lineHeight: '1.6' }}>
+                            Una vez confirmado, el <strong>Administrador (jerarquía 1)</strong> recibirá los registros de tu visita.
                         </p>
+                        <div style={{ background: '#fef9c3', border: '1px solid #fde68a', borderRadius: '12px', padding: '12px 16px', marginBottom: '20px', fontSize: '13px', color: '#92400e', textAlign: 'left' }}>
+                            ⚠️ <strong>Atención:</strong> Después de enviar, ya no podrás modificar ni agregar más registros a esta visita.
+                        </div>
                         <div style={{ display: 'flex', gap: '12px' }}>
                             <button
                                 onClick={() => setShowSendConfirmModal(false)}
@@ -6450,60 +6760,33 @@ const AdminDetalleTrabajo: React.FC = () => {
                                 onClick={async () => {
                                     setShowSendConfirmModal(false);
                                     try {
-                                        await updateEstadoTrabajo(Number(id), { estado: 'Cotización Enviada', visitado: true });
-                                        setTrabajo((prev: any) => prev ? { ...prev, estado: 'Cotización Enviada', visitado: true } : prev);
+                                        // Marcar visita como completada sin cambiar a estado de cotización
+                                        await updateEstadoTrabajo(Number(id), { estado: 'En Proceso', visitado: true });
+                                        setTrabajo((prev: any) => prev ? { ...prev, visitado: true } : prev);
 
                                         const techName = user?.name || 'Técnico';
                                         const sucursalName = trabajo?.sucursal || trabajo?.negocio?.nombre || 'tu sucursal';
 
-                                        // Notificar al Encargado de Sucursal
-                                        if (trabajo?.negocio_id) {
-                                            try {
-                                                await createNotificacionNegocio({
-                                                    negocio_id: trabajo.negocio_id,
-                                                    titulo: '📍 Visita Finalizada',
-                                                    mensaje: `El técnico ${techName} ha concluido la visita en tu sucursal.`,
-                                                    enlace: `/encargado/resumen`
-                                                });
-                                            } catch (notiErr) {
-                                                console.error("Error notificando al Encargado:", notiErr);
-                                            }
-                                        }
-
-                                        // Notificar al Admin General
+                                        // Notificar SOLO al Admin General (jerarquía 1)
                                         try {
                                             await createNotificacionByRole({
                                                 role: 'admin',
-                                                titulo: '📍 Visita Finalizada',
-                                                mensaje: `El técnico ${techName} ha concluido la visita en ${sucursalName}.`,
+                                                titulo: '📍 Visita Completada — Revisión Pendiente',
+                                                mensaje: `El técnico ${techName} ha finalizado la visita en ${sucursalName}. Revisa los registros y genera la cotización.`,
                                                 enlace: `/menu/trabajo-detalle/${id}`
                                             });
                                         } catch (notiErr) {
                                             console.error("Error notificando al Admin:", notiErr);
                                         }
 
-                                        // Notificar al Admin Autónomo / Subgerente
-                                        if (trabajo?.admin_autonomo_id) {
-                                            try {
-                                                await createNotificacion({
-                                                    user_id: trabajo.admin_autonomo_id,
-                                                    titulo: '📍 Visita Finalizada',
-                                                    mensaje: `El técnico ${techName} ha concluido la visita en la sucursal ${sucursalName}.`,
-                                                    enlace: `/autonomo/trabajo-detalle/${id}`
-                                                });
-                                            } catch (notiErr) {
-                                                console.error("Error notificando al Admin Autónomo:", notiErr);
-                                            }
-                                        }
-
-                                        showAlert('Información Enviada', 'La información ha sido enviada al Encargado de Sucursal correctamente.', 'success');
+                                        showAlert('Información Enviada', 'Los registros de la visita han sido enviados al Administrador correctamente.', 'success');
                                     } catch (err: any) {
                                         showAlert('Error', err?.message || 'No se pudo enviar la información', 'error');
                                     }
                                 }}
                                 style={{ flex: 1.5, padding: '13px', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#ffffff', border: 'none', borderRadius: '14px', fontWeight: '800', fontSize: '14px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)' }}
                             >
-                                Sí, Enviar
+                                ✅ Sí, Enviar al Administrador
                             </button>
                         </div>
                     </div>
@@ -6732,4 +7015,5 @@ const AdminDetalleTrabajo: React.FC = () => {
 };
 
 export default AdminDetalleTrabajo;
+
 

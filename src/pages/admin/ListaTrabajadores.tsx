@@ -172,7 +172,8 @@ const ListaTrabajadores: React.FC = () => {
                 correo: newWorkerEmail,
                 password: newWorkerPassword,
                 puesto: puestoConTipo,
-                telefono: newWorkerPhone || null
+                telefono: newWorkerPhone || null,
+                tipo: newWorkerType
             });
 
             // Refrescar

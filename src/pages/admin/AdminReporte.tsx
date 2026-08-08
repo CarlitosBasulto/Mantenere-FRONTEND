@@ -429,8 +429,9 @@ const AdminReporte: React.FC = () => {
             return;
         }
 
-        const compiledObservaciones = observacionesList.map(o => o.texto).filter(Boolean).join('\n\n');
-        const compiledImagenesObservacion = observacionesList.reduce((acc, o) => [...acc, ...o.imagenes], [] as string[]);
+        const filteredObsList = observacionesList.filter(o => o.texto.trim() || o.imagenes.length > 0);
+        const compiledObservaciones = filteredObsList.map(o => o.texto).filter(Boolean).join('\n\n');
+        const compiledImagenesObservacion = filteredObsList.reduce((acc, o) => [...acc, ...o.imagenes], [] as string[]);
 
         const reportData = {
             id,
@@ -442,7 +443,7 @@ const AdminReporte: React.FC = () => {
             imagenes,
             imagenObservacion: compiledImagenesObservacion[0] || null,
             imagenesObservacion: compiledImagenesObservacion,
-            observacionesList,
+            observacionesList: filteredObsList,
             firmaEmpresa,
             involucraEquipo,
             equipoInfo: involucraEquipo ? equipoInfo : null,
@@ -1160,8 +1161,9 @@ const AdminReporte: React.FC = () => {
 
             {/* PREVISUALIZACION DEL PDF GENERADO */}
             {showReportePreview && (() => {
-                const compiledObservaciones = observacionesList.map(o => o.texto).filter(Boolean).join('\n\n');
-                const compiledImagenesObservacion = observacionesList.reduce((acc, o) => [...acc, ...o.imagenes], [] as string[]);
+                const filteredObs = observacionesList.filter(o => o.texto.trim() || o.imagenes.length > 0);
+                const compiledObservaciones = filteredObs.map(o => o.texto).filter(Boolean).join('\n\n');
+                const compiledImagenesObservacion = filteredObs.reduce((acc, o) => [...acc, ...o.imagenes], [] as string[]);
                 return (
                     <ReportePDFPreview
                         trabajo={trabajoBase}
@@ -1173,7 +1175,7 @@ const AdminReporte: React.FC = () => {
                             materiales,
                             refaccionesList,
                             observaciones: compiledObservaciones,
-                            observacionesList: observacionesList,
+                            observacionesList: filteredObs,
                             imagenes,
                             imagenObservacion: compiledImagenesObservacion[0] || null,
                             imagenesObservacion: compiledImagenesObservacion,

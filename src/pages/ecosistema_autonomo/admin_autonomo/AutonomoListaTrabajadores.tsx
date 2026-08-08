@@ -204,7 +204,8 @@ const AutonomoListaTrabajadores: React.FC = () => {
                 telefono: newWorkerPhone || null,
                 fecha_nacimiento: newWorkerDOB || null,
                 direccion: newWorkerAddress || null,
-                rfc: newWorkerType === "Externo" ? (newWorkerRFC || null) : null
+                rfc: newWorkerType === "Externo" ? (newWorkerRFC || null) : null,
+                tipo: newWorkerType
             });
 
             // Refrescar

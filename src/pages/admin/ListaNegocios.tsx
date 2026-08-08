@@ -35,6 +35,7 @@ const ListaNegocios: React.FC = () => {
 
     useEffect(() => {
         const fetchData = async () => {
+            // 1. Cargar negocios de forma independiente
             try {
                 const data = await getNegocios();
                 const localData = JSON.parse(localStorage.getItem('local_negocios_info') || '{}');
@@ -69,15 +70,21 @@ const ListaNegocios: React.FC = () => {
                     };
                 });
                 setNegocios(mapped);
-                
-                if (user) {
-                    const jobsApi = await getTrabajos();
-                    setGlobalJobs(jobsApi);
-                }
+                localStorage.setItem('negocios_list', JSON.stringify(mapped));
             } catch (error) {
-                console.error("Error al cargar negocios o trabajos:", error);
+                console.error("Error al cargar negocios:", error);
                 const stored = localStorage.getItem('negocios_list');
                 if (stored) setNegocios(JSON.parse(stored));
+            }
+
+            // 2. Cargar trabajos de forma independiente
+            if (user) {
+                try {
+                    const jobsApi = await getTrabajos();
+                    setGlobalJobs(jobsApi);
+                } catch (error) {
+                    console.error("Error al cargar trabajos:", error);
+                }
             }
         };
         fetchData();
@@ -88,7 +95,10 @@ const ListaNegocios: React.FC = () => {
 
         // FILTRO POR ROL: El cliente solo ve lo suyo, el admin ve todo
         if (normalizeRole(user?.role) === 'cliente') {
-            return matchesSearch && (negocio.dueno === user.name || negocio.user_id === user.id);
+            return matchesSearch && (
+                Number(negocio.user_id) === Number(user?.id) ||
+                negocio.dueno?.toLowerCase().replace(/\s+/g, ' ').trim() === user?.name?.toLowerCase().replace(/\s+/g, ' ').trim()
+            );
         }
 
         // FILTRO POR ROL: El encargado solo ve su sucursal asignada

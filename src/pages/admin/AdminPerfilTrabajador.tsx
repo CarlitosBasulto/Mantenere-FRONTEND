@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import styles from './AdminPerfilTrabajador.module.css';
 import { useModal } from '../../context/ModalContext';
-import { HiOutlineCamera, HiOutlinePhoto, HiXMark, HiOutlineEnvelope, HiOutlinePhone, HiOutlineMapPin, HiOutlineWrenchScrewdriver, HiOutlineShare, HiOutlineUserMinus, HiOutlineUserPlus } from 'react-icons/hi2';
+import { HiOutlineCamera, HiOutlinePhoto, HiXMark, HiOutlineEnvelope, HiOutlinePhone, HiOutlineMapPin, HiOutlineWrenchScrewdriver, HiOutlineShare, HiOutlineUserMinus, HiOutlineUserPlus, HiOutlineUser } from 'react-icons/hi2';
 import api from '../../services/api';
 import { getUsers } from '../../services/usersService';
 import { createNotificacionEcosistema, createNotificacion } from '../../services/notificacionesService';

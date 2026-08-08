@@ -20,7 +20,7 @@ import {
     HiOutlineClipboardDocumentList
 } from "react-icons/hi2";
 
-import { createNegocio, updateNegocio, getNegocio, uploadImage } from "../../services/negociosService";
+import { createNegocio, updateNegocio, getNegocio, uploadImage, deleteNegocio } from "../../services/negociosService";
 import { createNotificacionByRole } from "../../services/notificacionesService";
 import { asignarEncargadoSucursal, getEncargadoSucursal } from "../../services/usersService";
 import LevantamientoModal from "../../components/LevantamientoModal";
@@ -512,6 +512,41 @@ const PerfilEmpresa: React.FC = () => {
             console.error("Error saving negocio:", error);
             showAlert("Error", "Hubo un error al guardar en el servidor. Prueba de nuevo.", "error");
         }
+    };
+
+    const handleDeleteNegocio = () => {
+        if (!editId) return;
+        showConfirm(
+            "Eliminar Sucursal",
+            "¿Estás seguro de que deseas eliminar esta sucursal? Esta acción borrará permanentemente todo su historial, áreas y equipos registrados.",
+            async () => {
+                try {
+                    await deleteNegocio(Number(editId));
+                    // Limpiar local storage
+                    const localData = JSON.parse(localStorage.getItem('local_negocios_info') || '{}');
+                    delete localData[editId];
+                    localStorage.setItem('local_negocios_info', JSON.stringify(localData));
+
+                    showAlert("Éxito", "La sucursal ha sido eliminada correctamente", "success");
+                    
+                    if (user?.role === 'encargado') {
+                        navigate('/encargado');
+                    } else if (['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '')) {
+                        navigate('/autonomo/negocios');
+                    } else if (user?.role === 'admin') {
+                        navigate('/menu/negocios');
+                    } else {
+                        navigate('/cliente');
+                    }
+                } catch (error) {
+                    console.error("Error deleting negocio:", error);
+                    showAlert("Error", "No se pudo eliminar la sucursal. Intenta de nuevo.", "error");
+                }
+            },
+            () => {},
+            "Eliminar",
+            "Cancelar"
+        );
     };
 
     const persistLevantamiento = async (newLevantamientoData: LevantamientoData, showNotification: boolean = false) => {
@@ -1173,6 +1208,14 @@ const PerfilEmpresa: React.FC = () => {
                 {/* FLOATING ACTION BUTTONS */}
                 {canEdit && (activeTab === 'info' || activeTab === 'levantamiento') && (
                     <div className={styles.floatingActions}>
+                        {editId && (
+                            <button 
+                                className={styles.deleteNegocioButton} 
+                                onClick={handleDeleteNegocio}
+                            >
+                                Eliminar Sucursal
+                            </button>
+                        )}
                         <button 
                             className={styles.saveButton} 
                             onClick={() => {

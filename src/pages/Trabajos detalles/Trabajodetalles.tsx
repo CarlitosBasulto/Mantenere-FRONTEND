@@ -437,42 +437,13 @@ const TrabajoDetalle: React.FC = () => {
     const [trabajosData, setTrabajosData] = useState<Trabajo[]>([]);
 
     const reloadTrabajosList = async () => {
+        let mappedTrabajos: Trabajo[] = [];
+        let mappedMantenimientos: Trabajo[] = [];
+
+        // 1. Obtener trabajos
         try {
-            const [data, mantenimientos] = await Promise.all([
-                getTrabajos({ negocio_id: Number(id) }),
-                getMantenimientoSolicitudes(Number(id))
-            ]);
-
-            // Mapear mantenimientos a la estructura de Trabajo
-            const mappedMantenimientos = mantenimientos.map((m: any) => {
-                let estado = m.estado;
-                if (estado === 'Pendiente') estado = 'Solicitud';
-
-                const activeJob = m.reparacion_trabajo || m.visita_trabajo;
-
-                // Formato de fecha consistente DD/MM/YYYY igual que los trabajos normales
-                const createdAt = new Date(m.created_at);
-                const fechaFormateada = `${String(createdAt.getDate()).padStart(2,'0')}/${String(createdAt.getMonth()+1).padStart(2,'0')}/${createdAt.getFullYear()}`;
-
-                return {
-                    id: `m-${m.id}`,
-                    original_id: m.id,
-                    titulo: `Mantenimiento: ${m.levantamiento_equipo?.nombre || 'Equipo'}`,
-                    descripcion: m.descripcion_problema || '',
-                    estado: estado,
-                    fecha: fechaFormateada,
-                    tipo: 'Mantenimiento',
-                    isMantenimiento: true,
-                    tecnico: activeJob?.trabajador?.nombre || 'Sin asignar',
-                    tecnicoUserId: activeJob?.trabajador?.user_id || null,
-                    ubicacion: businessName,
-                    fechaSolicitud: createdAt.toLocaleString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }),
-                    foto_url: null,
-                    hora_llegada: activeJob?.hora_llegada || null
-                };
-            });
-
-            const mappedTrabajos = data.map((j: any) => {
+            const data = await getTrabajos({ negocio_id: Number(id) });
+            mappedTrabajos = data.map((j: any) => {
                 const isSOS = j.prioridad === "Alta" || j.titulo?.includes("SOS");
                 let displayTipo = "Nueva Solicitud";
                 if (isSOS) {
@@ -502,10 +473,43 @@ const TrabajoDetalle: React.FC = () => {
                     hora_llegada: j.hora_llegada || null
                 };
             });
-            setTrabajosData([...mappedTrabajos, ...mappedMantenimientos]);
         } catch (error) {
             console.error("Error al obtener trabajos: ", error);
         }
+
+        // 2. Obtener mantenimientos
+        try {
+            const mantenimientos = await getMantenimientoSolicitudes(Number(id));
+            mappedMantenimientos = mantenimientos.map((m: any) => {
+                let estado = m.estado;
+                if (estado === 'Pendiente') estado = 'Solicitud';
+
+                const activeJob = m.reparacion_trabajo || m.visita_trabajo;
+                const createdAt = new Date(m.created_at);
+                const fechaFormateada = `${String(createdAt.getDate()).padStart(2,'0')}/${String(createdAt.getMonth()+1).padStart(2,'0')}/${createdAt.getFullYear()}`;
+
+                return {
+                    id: `m-${m.id}`,
+                    original_id: m.id,
+                    titulo: `Mantenimiento: ${m.levantamiento_equipo?.nombre || 'Equipo'}`,
+                    descripcion: m.descripcion_problema || '',
+                    estado: estado,
+                    fecha: fechaFormateada,
+                    tipo: 'Mantenimiento',
+                    isMantenimiento: true,
+                    tecnico: activeJob?.trabajador?.nombre || 'Sin asignar',
+                    tecnicoUserId: activeJob?.trabajador?.user_id || null,
+                    ubicacion: businessName,
+                    fechaSolicitud: createdAt.toLocaleString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }),
+                    foto_url: null,
+                    hora_llegada: activeJob?.hora_llegada || null
+                } as any;
+            });
+        } catch (error) {
+            console.error("Error al obtener solicitudes de mantenimiento: ", error);
+        }
+
+        setTrabajosData([...mappedTrabajos, ...mappedMantenimientos]);
     };
 
     useEffect(() => {
@@ -607,6 +611,7 @@ const TrabajoDetalle: React.FC = () => {
     const [fotosPreviewUrls, setFotosPreviewUrls] = useState<string[]>([]);
     const [editingRequestId, setEditingRequestId] = useState<number | null>(null);
     const [selectedZoomImage, setSelectedZoomImage] = useState<string | null>(null);
+    const [activeSlides, setActiveSlides] = useState<{ [jobId: string]: number }>({});
 
     const parseFotoUrls = (fotoUrl: any): string[] => {
         if (!fotoUrl) return [];
@@ -1270,6 +1275,25 @@ const TrabajoDetalle: React.FC = () => {
 
                         dbJob = await createTrabajo(newJobPayload);
                     }
+                }
+
+                // Enviar notificación al administrador con rol 'Admin'
+                try {
+                    const isEmergency = isSOSRequest;
+                    const categoriasCreadas = formServices.map(s => {
+                        return s.categoria === "Otro" && s.customCategoria.trim() !== ""
+                            ? s.customCategoria.trim()
+                            : s.categoria;
+                    }).join(', ');
+
+                    await createNotificacionByRole({
+                        role: 'Admin',
+                        titulo: isEmergency ? "🚨 Nueva Alerta SOS" : "🔧 Nueva Solicitud de Servicio",
+                        mensaje: `El cliente "${user?.name || 'Cliente'}" ha creado una solicitud para la sucursal "${businessName}": [${categoriasCreadas}].`,
+                        enlace: `/menu/trabajos`
+                    });
+                } catch (notiError) {
+                    console.error("Error al notificar al administrador:", notiError);
                 }
 
                 showAlert(
@@ -1975,11 +1999,14 @@ const TrabajoDetalle: React.FC = () => {
                             return { grad: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', shadow: 'rgba(16,185,129,0.35)', dot: '🟢' };
                         if (['Finalizado', 'Completado'].includes(estado))
                             return { grad: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)', shadow: 'rgba(139,92,246,0.35)', dot: '🟣' };
-                        // default fallback
                         return { grad: 'linear-gradient(135deg, #64748b 0%, #475569 100%)', shadow: 'rgba(100,116,139,0.35)', dot: '⚪' };
                     };
 
                     const seenAccent = getAccentForStatus(trabajo.estado);
+                    const activeSlide = activeSlides[trabajo.id] || 0;
+                    const items = trabajo.jobsInGroup || [trabajo];
+                    const currentItem = items[activeSlide] || items[0] || trabajo;
+                    const currentPhotos = parseFotoUrls(currentItem.foto_url);
 
                     return (
                             <div
@@ -1993,15 +2020,13 @@ const TrabajoDetalle: React.FC = () => {
                                         if (trabajo.isMantenimiento) {
                                             navigate(`${basePath}/mantenimiento-detalle/${trabajo.original_id}`);
                                         } else {
-                                            navigate(`${basePath}/trabajo-detalle/${trabajo.id}`);
+                                            navigate(`${basePath}/trabajo-detalle/${currentItem.id}`);
                                         }
                                     }
                                 }}
                             >
-                                {/* BARRA DE ESTADO SUPERIOR */}
                                 {renderStatusBar(trabajo)}
 
-                                {/* INDICADOR FLOTANTE DE DIAGNÓSTICO (PREMIUM) */}
                                 {!!trabajo.visitado && (trabajo.estado === 'Solicitud' || trabajo.estado === 'En Espera') && (
                                     <div style={{
                                         position: 'absolute',
@@ -2022,7 +2047,6 @@ const TrabajoDetalle: React.FC = () => {
                                     </div>
                                 )}
 
-                                {/* BANNER DE DIAGNÓSTICO (Opcional - debajo de la barra si se desea mantener) */}
                                 {trabajo.visitado && trabajo.estado === 'Solicitud' && (
                                     <div className={styles.diagnosisBanner}>
                                         <div className={styles.diagnosisIconWrapper}>🛡️</div>
@@ -2033,31 +2057,26 @@ const TrabajoDetalle: React.FC = () => {
                                     </div>
                                 )}
 
-                                <div className={styles.cardBodyWrapper}>
-                                    {parseFotoUrls(trabajo.foto_url).length > 0 && (
-                                        <div 
-                                            className={styles.verticalCarousel}
-                                            onClick={(e) => e.stopPropagation()}
-                                        >
-                                            {parseFotoUrls(trabajo.foto_url).map((url, idx) => (
-                                                <img 
-                                                    key={idx}
-                                                    src={url}
-                                                    alt={`Foto ${idx + 1}`}
-                                                    className={styles.carouselImg}
-                                                    onClick={() => setSelectedZoomImage(url)}
-                                                    onError={(e) => {
-                                                        (e.currentTarget as HTMLElement).style.display = 'none';
-                                                    }}
-                                                />
-                                            ))}
-                                        </div>
-                                    )}
+                                <div className={styles.cardBodyWrapper} style={{ display: 'flex', flexDirection: 'row', gap: '20px', padding: '0 30px', alignItems: 'center', boxSizing: 'border-box', width: '100%' }}>
+                                    <div style={{ position: 'relative', width: '100px', height: '100px', flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
+                                        {currentPhotos.length > 0 ? (
+                                            <img 
+                                                src={currentPhotos[0]} 
+                                                alt={`Evidencia ${activeSlide + 1}`}
+                                                className={styles.carouselImg}
+                                                style={{ width: '100%', height: '100%', borderRadius: '16px', border: '1.5px solid #e2e8f0', cursor: 'zoom-in' }}
+                                                onClick={() => setSelectedZoomImage(currentPhotos[0])}
+                                            />
+                                        ) : (
+                                            <div style={{ width: '100%', height: '100%', background: '#f1f5f9', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: '24px', border: '1.5px solid #e2e8f0' }}>
+                                                📷
+                                            </div>
+                                        )}
+                                    </div>
 
-                                    <div className={styles.cardContent}>
-                                        <div className={styles.cardLeftDetails}>
-                                            {/* FILA SUPERIOR: FECHA Y MENU */}
-                                            <div className={styles.headerRow}>
+                                    <div className={styles.cardContent} style={{ flex: 1, padding: 0, display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', minWidth: 0 }}>
+                                        <div className={styles.cardLeftDetails} style={{ flex: 1, minWidth: 0 }}>
+                                            <div className={styles.headerRow} style={{ marginBottom: '8px' }}>
                                                 <div className={styles.dateGroup} style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                                                     {!isCardSeen(userRole, trabajo.id, trabajo.estado) && (
                                                         <span style={{
@@ -2080,194 +2099,127 @@ const TrabajoDetalle: React.FC = () => {
                                                     <p className={styles.strikingDate}>
                                                         📅 Cita solicitada: {trabajo.fechaAsignada || trabajo.fecha}
                                                     </p>
-                                                {trabajo.hora_llegada && (
-                                                    <p className={styles.strikingDate} style={{ color: '#059669', marginTop: '4px', background: '#ecfdf5', display: 'inline-block', padding: '2px 8px', borderRadius: '8px' }}>
-                                                        📍 Técnico en sitio (Llegada: {trabajo.hora_llegada})
-                                                    </p>
-                                                )}
-                                            </div>
-                                            {/* ACCIONES - Solo Admin o Cliente en la parte derecha del header */}
-                                            {user?.role === 'cliente' && trabajo.estado !== 'Finalizado' && trabajo.estado !== 'Completado' && (
-                                                <div className={`${styles.menuContainer} ${styles.desktopOnlyEditContainer}`} onClick={(e) => e.stopPropagation()}>
-                                                    <button
-                                                        className={styles.editBtnSmall}
-                                                        onClick={(e) => handleOpenEditRequest(e, trabajo)}
-                                                        title="Editar"
-                                                    >
-                                                        <HiOutlinePencil size={14} />
-                                                    </button>
+                                                    {trabajo.hora_llegada && (
+                                                        <p className={styles.strikingDate} style={{ color: '#059669', background: '#ecfdf5', display: 'inline-block', padding: '2px 8px', borderRadius: '8px', fontSize: '12px' }}>
+                                                            📍 Técnico en sitio (Llegada: {trabajo.hora_llegada})
+                                                        </p>
+                                                    )}
                                                 </div>
-                                            )}
-                                        </div>
+                                            </div>
 
-                                        {/* INFO PRINCIPAL */}
-                                        <div className={styles.cardInfo}>
-                                            <h3 className={styles.jobTitle}>
-                                                {trabajo.estado === 'Finalizado' ? trabajo.titulo.replace('🚨 SOS: ', '').replace('SOS: ', '') : trabajo.titulo}
-                                            </h3>
+                                            <div className={styles.cardInfo}>
+                                                <h3 className={styles.jobTitle} style={{ fontSize: '18px', marginBottom: '8px' }}>
+                                                    {currentItem.titulo.split(' - ')[0]}
+                                                </h3>
 
-                                            {/* CAJA DE DESCRIPCIÓN ELEGANTE */}
-                                            {trabajo.descripcion && (() => {
-                                                const desc = trabajo.descripcion;
-                                                const bracketMatch = desc.match(/\[(.*?)\]/);
-                                                const mainText = desc.replace(/\[.*?\]/, '').trim();
-                                                const extraInfo = bracketMatch ? bracketMatch[1] : null;
+                                                <div className={styles.descriptionBox} style={{ margin: 0 }}>
+                                                    <p style={{ fontSize: '13px' }}>
+                                                        {currentItem.descripcion?.replace(/\[Grupo:\s*REQ-\d+\]\s*\n?/, "") || "Servicio solicitado sin descripción adicional."}
+                                                    </p>
+                                                </div>
 
-                                                return (
-                                                    <div className={styles.descriptionBox}>
-                                                        <p>{mainText || "Servicio solicitado sin descripción adicional."}</p>
-                                                        {extraInfo && (
-                                                            <div className={styles.equipmentBadge}>
-                                                                📦 {extraInfo}
+                                                {(['Cotización Enviada', 'Cotización Aceptada', 'Cotización Rechazada', 'Cotización'].includes(trabajo.estado) || trabajo.estado.toLowerCase().includes("cotizaci")) && trabajo.cotizacion && (
+                                                    <div style={{ background: '#fef3c7', padding: '10px', borderRadius: '10px', marginTop: '10px', border: '1px solid #fcd34d' }} onClick={(e) => e.stopPropagation()}>
+                                                        <p style={{ fontWeight: 'bold', color: '#92400e', marginBottom: '5px', fontSize: '13px' }}>
+                                                            {user?.role === 'admin' ? '💰 Cotización Enviada' : '💰 Cotización del Trabajo'}: ${trabajo.cotizacion.costo}
+                                                        </p>
+                                                        {user?.role === 'cliente' && trabajo.estado === 'Cotización Enviada' && (
+                                                            <div style={{ display: 'flex', gap: '5px' }}>
+                                                                <button onClick={() => handleAceptarCotizacion(trabajo.id)} style={{ flex: 1, padding: '5px', background: '#22c55e', color: 'white', borderRadius: '5px', border: 'none', fontSize: '12px', cursor: 'pointer' }}>Aceptar</button>
+                                                                <button onClick={() => handleRechazarCotizacion(trabajo.id)} style={{ flex: 1, padding: '5px', background: '#ef4444', color: 'white', borderRadius: '5px', border: 'none', fontSize: '12px', cursor: 'pointer' }}>Rechazar</button>
                                                             </div>
                                                         )}
                                                     </div>
-                                                );
-                                            })()}
-
-                                            {/* INFO DE COTIZACIÓN (Solo si está enviada y es relevante) */}
-                                            {(['Cotización Enviada', 'Cotización Aceptada', 'Cotización Rechazada', 'Cotización'].includes(trabajo.estado) || status.includes("cotizaci")) && trabajo.cotizacion && (
-                                                <div style={{ background: '#fef3c7', padding: '10px', borderRadius: '10px', marginTop: '10px', border: '1px solid #fcd34d' }}>
-                                                    <p style={{ fontWeight: 'bold', color: '#92400e', marginBottom: '5px' }}>
-                                                        {user?.role === 'admin' ? '💰 Cotización Enviada' : '💰 Cotización del Trabajo'}: ${trabajo.cotizacion.costo}
-                                                    </p>
-                                                    {user?.role === 'cliente' && trabajo.estado === 'Cotización Enviada' && (
-                                                        <div style={{ display: 'flex', gap: '5px' }}>
-                                                            <button onClick={(e) => { e.stopPropagation(); handleAceptarCotizacion(trabajo.id); }} style={{ flex: 1, padding: '5px', background: '#22c55e', color: 'white', borderRadius: '5px', border: 'none', fontSize: '12px' }}>Aceptar</button>
-                                                            <button onClick={(e) => { e.stopPropagation(); handleRechazarCotizacion(trabajo.id); }} style={{ flex: 1, padding: '5px', background: '#ef4444', color: 'white', borderRadius: '5px', border: 'none', fontSize: '12px' }}>Rechazar</button>
-                                                        </div>
-                                                    )}
-                                                    {user?.role === 'tecnico' && trabajo.estado === 'Cotización Enviada' && (
-                                                        <div style={{ display: 'flex', gap: '5px' }}>
-                                                            <button onClick={(e) => { e.stopPropagation(); handleAceptarCotizacion(trabajo.id); }} style={{ flex: 1, padding: '5px', background: '#22c55e', color: 'white', borderRadius: '5px', border: 'none', fontSize: '12px' }}>Aceptar Propuesta</button>
-                                                            <button onClick={(e) => { e.stopPropagation(); handleRechazarCotizacion(trabajo.id); }} style={{ flex: 1, padding: '5px', background: '#ef4444', color: 'white', borderRadius: '5px', border: 'none', fontSize: '12px' }}>Rechazar / Negociar</button>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            )}
-
-                                            {/* CHAT DE NEGOCIACIÓN (Para el Técnico) */}
-                                            {trabajo.estado === 'Cotización Rechazada' && (
-                                                <div style={{ marginTop: '10px' }} onClick={(e) => e.stopPropagation()}>
-                                                    <ChatTrabajo trabajoId={trabajo.id} />
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {/* FOOTER DE LA TARJETA */}
-                                        <div className={styles.footerRow}>
-                                            <div className={styles.technicianInfo}>
-                                                {trabajo.tecnico !== "Sin asignar" ? `👤 ${trabajo.tecnico}` : `🏢 ${trabajo.ubicacion}`}
-                                            </div>
-
-                                            <div className={styles.actionsCard}>
-                                                {/* Botón rápido si es necesario (ej. Cotizar) */}
-                                                {trabajo.visitado && !trabajo.cotizacion && user?.role === 'admin' && trabajo.estado === 'Solicitud' && (
-                                                    <button
-                                                        className={styles.btnCotizar}
-                                                        onClick={(e) => { e.stopPropagation(); navigate(`/menu/admin-reporte/${trabajo.id}`); }}
-                                                    >
-                                                        💰 Cotizar
-                                                    </button>
                                                 )}
-                                                {/* Badge de tipo */}
-                                                {trabajo.tipo && (
-                                                    <span className={styles.jobTypeBadge}>
-                                                        {trabajo.estado === 'Finalizado' && trabajo.tipo === "SOS" ? 'Finalizado' : trabajo.tipo}
-                                                    </span>
-                                                )}
-                                                {/* Badge de prioridad/estado para móvil */}
-                                                {(() => {
-                                                    let text = trabajo.prioridad || "Media";
-                                                    let badgeClass = styles.badgeMedia;
-                                                    
-                                                    if (trabajo.estado === 'Finalizado') {
-                                                        text = "Finalizado";
-                                                        badgeClass = styles.badgeFinalizado;
-                                                    } else if (trabajo.estado === 'En Proceso') {
-                                                        text = "En proceso";
-                                                        badgeClass = styles.badgeEnProceso;
-                                                    } else if (trabajo.prioridad === 'Alta' || trabajo.tipo === 'SOS' || trabajo.isEmergency) {
-                                                        text = "Alta";
-                                                        badgeClass = styles.badgeAlta;
-                                                    } else if (trabajo.prioridad === 'Baja') {
-                                                        text = "Baja";
-                                                        badgeClass = styles.badgeBaja;
-                                                    }
-                                                    
-                                                    return (
-                                                        <span className={`${styles.statusPriorityBadge} ${badgeClass} ${styles.mobileOnlyStatusBadge}`}>
-                                                            {text}
-                                                        </span>
-                                                    );
-                                                })()}
-                                                {/* Botón Editar para Móvil */}
-                                                {user?.role === 'cliente' && trabajo.estado !== 'Finalizado' && trabajo.estado !== 'Completado' && (
-                                                    <button
-                                                        className={`${styles.editBtnSmall} ${styles.mobileOnlyEditBtn}`}
-                                                        onClick={(e) => { e.stopPropagation(); handleOpenEditRequest(e, trabajo); }}
-                                                        title="Editar"
-                                                    >
-                                                        <HiOutlinePencil size={14} />
-                                                    </button>
-                                                )}
-                                                {/* Botón Asignar Técnico visible para Admin */}
-                                                {user?.role === 'admin' && (
-                                                    <div className={styles.actionBtns} onClick={(e) => e.stopPropagation()}>
-                                                        <button
-                                                            className={styles.trashBtn}
-                                                            onClick={(e) => handleDeleteRequest(e, trabajo)}
-                                                            title="Eliminar"
-                                                        >
-                                                            <HiOutlineTrash size={15} />
-                                                        </button>
+
+                                                {trabajo.estado === 'Cotización Rechazada' && (
+                                                    <div style={{ marginTop: '10px' }} onClick={(e) => e.stopPropagation()}>
+                                                        <ChatTrabajo trabajoId={trabajo.id} />
                                                     </div>
                                                 )}
-                                                {/* Botones de cliente */}
-                                                {user?.role === 'cliente' && trabajo.estado !== 'Finalizado' && trabajo.estado !== 'Completado' && (
-                                                    <button
-                                                        className={styles.trashBtn}
-                                                        onClick={(e) => handleDeleteRequest(e, trabajo)}
-                                                        title="Eliminar"
-                                                    >
-                                                        <HiOutlineTrash size={15} />
-                                                    </button>
-                                                )}
+                                            </div>
+
+                                            <div className={styles.footerRow} style={{ marginTop: '15px' }}>
+                                                <div className={styles.technicianInfo}>
+                                                    {trabajo.tecnico !== "Sin asignar" ? `👤 ${trabajo.tecnico}` : `🏢 ${trabajo.ubicacion}`}
+                                                </div>
+
+                                                <div className={styles.actionsCard}>
+                                                    {trabajo.visitado && !trabajo.cotizacion && user?.role === 'admin' && trabajo.estado === 'Solicitud' && (
+                                                        <button
+                                                            className={styles.btnCotizar}
+                                                            onClick={(e) => { e.stopPropagation(); navigate(`/menu/admin-reporte/${trabajo.id}`); }}
+                                                        >
+                                                            💰 Cotizar
+                                                        </button>
+                                                    )}
+                                                    {trabajo.tipo && (
+                                                        <span className={styles.jobTypeBadge}>
+                                                            {trabajo.estado === 'Finalizado' && trabajo.tipo === "SOS" ? 'Finalizado' : trabajo.tipo}
+                                                        </span>
+                                                    )}
+                                                    {(() => {
+                                                        let text = trabajo.prioridad || "Media";
+                                                        let badgeClass = styles.badgeMedia;
+                                                        if (trabajo.estado === 'Finalizado') { text = "Finalizado"; badgeClass = styles.badgeFinalizado; }
+                                                        else if (trabajo.estado === 'En Proceso') { text = "En proceso"; badgeClass = styles.badgeEnProceso; }
+                                                        else if (trabajo.prioridad === 'Alta' || trabajo.tipo === 'SOS' || trabajo.isEmergency) { text = "Alta"; badgeClass = styles.badgeAlta; }
+                                                        else if (trabajo.prioridad === 'Baja') { text = "Baja"; badgeClass = styles.badgeBaja; }
+                                                        return <span className={`${styles.statusPriorityBadge} ${badgeClass} ${styles.mobileOnlyStatusBadge}`}>{text}</span>;
+                                                    })()}
+                                                    {user?.role === 'cliente' && trabajo.estado !== 'Finalizado' && trabajo.estado !== 'Completado' && (
+                                                        <button
+                                                            className={styles.editBtnSmall}
+                                                            onClick={(e) => { e.stopPropagation(); handleOpenEditRequest(e, trabajo); }}
+                                                            title="Editar"
+                                                            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '34px', height: '34px', borderRadius: '50%', background: '#f1f5f9', border: '1px solid #cbd5e1', cursor: 'pointer', transition: 'all 0.2s' }}
+                                                        >
+                                                            <HiOutlinePencil size={15} />
+                                                        </button>
+                                                    )}
+                                                    {user?.role === 'admin' && (
+                                                        <div className={styles.actionBtns} onClick={(e) => e.stopPropagation()}>
+                                                            <button className={styles.trashBtn} onClick={(e) => handleDeleteRequest(e, trabajo)} title="Eliminar"><HiOutlineTrash size={15} /></button>
+                                                        </div>
+                                                    )}
+                                                    {user?.role === 'cliente' && trabajo.estado !== 'Finalizado' && trabajo.estado !== 'Completado' && (
+                                                        <button className={styles.trashBtn} onClick={(e) => handleDeleteRequest(e, trabajo)} title="Eliminar"><HiOutlineTrash size={15} /></button>
+                                                    )}
+
+                                                    {items.length > 1 && (
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '15px' }} onClick={(e) => e.stopPropagation()}>
+                                                            <button
+                                                                onClick={() => setActiveSlides(prev => ({ ...prev, [trabajo.id]: Math.max(0, activeSlide - 1) }))}
+                                                                disabled={activeSlide === 0}
+                                                                style={{ background: activeSlide === 0 ? '#e2e8f0' : '#f97316', color: activeSlide === 0 ? '#94a3b8' : 'white', border: 'none', borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: activeSlide === 0 ? 'not-allowed' : 'pointer', fontSize: '11px' }}
+                                                            >▲</button>
+                                                            <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#64748b' }}>{activeSlide + 1}/{items.length}</span>
+                                                            <button
+                                                                onClick={() => setActiveSlides(prev => ({ ...prev, [trabajo.id]: Math.min(items.length - 1, activeSlide + 1) }))}
+                                                                disabled={activeSlide === items.length - 1}
+                                                                style={{ background: activeSlide === items.length - 1 ? '#e2e8f0' : '#f97316', color: activeSlide === items.length - 1 ? '#94a3b8' : 'white', border: 'none', borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: activeSlide === items.length - 1 ? 'not-allowed' : 'pointer', fontSize: '11px' }}
+                                                            >▼</button>
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
 
-                                    {/* CONTENEDOR DERECHO CON PRIORIDAD / ESTADO Y CHEVRON */}
-                                    <div className={styles.cardRightStatus}>
-                                        {(() => {
-                                            let text = trabajo.prioridad || "Media";
-                                            let badgeClass = styles.badgeMedia;
-                                            
-                                            if (trabajo.estado === 'Finalizado') {
-                                                text = "Finalizado";
-                                                badgeClass = styles.badgeFinalizado;
-                                            } else if (trabajo.estado === 'En Proceso') {
-                                                text = "En proceso";
-                                                badgeClass = styles.badgeEnProceso;
-                                            } else if (trabajo.prioridad === 'Alta' || trabajo.tipo === 'SOS' || trabajo.isEmergency) {
-                                                text = "Alta";
-                                                badgeClass = styles.badgeAlta;
-                                            } else if (trabajo.prioridad === 'Baja') {
-                                                text = "Baja";
-                                                badgeClass = styles.badgeBaja;
-                                            }
-                                            
-                                            return (
-                                                <span className={`${styles.statusPriorityBadge} ${badgeClass} ${styles.desktopOnlyStatusBadge}`}>
-                                                    {text}
-                                                </span>
-                                            );
-                                        })()}
-                                        <HiOutlineChevronRight className={styles.cardChevron} size={20} />
+                                        <div className={styles.cardRightStatus}>
+                                            {(() => {
+                                                let text = trabajo.prioridad || "Media";
+                                                let badgeClass = styles.badgeMedia;
+                                                if (trabajo.estado === 'Finalizado') { text = "Finalizado"; badgeClass = styles.badgeFinalizado; }
+                                                else if (trabajo.estado === 'En Proceso') { text = "En proceso"; badgeClass = styles.badgeEnProceso; }
+                                                else if (trabajo.prioridad === 'Alta' || trabajo.tipo === 'SOS' || trabajo.isEmergency) { text = "Alta"; badgeClass = styles.badgeAlta; }
+                                                else if (trabajo.prioridad === 'Baja') { text = "Baja"; badgeClass = styles.badgeBaja; }
+                                                return <span className={`${styles.statusPriorityBadge} ${badgeClass} ${styles.desktopOnlyStatusBadge}`}>{text}</span>;
+                                            })()}
+                                            <HiOutlineChevronRight className={styles.cardChevron} size={20} />
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
                     );
                 })
     );

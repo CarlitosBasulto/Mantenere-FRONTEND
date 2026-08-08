@@ -3802,11 +3802,11 @@ const AutonomoDetalleTrabajo: React.FC = () => {
 
 
 
-                                 {/* DETALLES DE LA ACTIVIDAD Y EVIDENCIAS (HASTA 3 BLOQUES) */}
+                                 {/* DETALLES DE LA ACTIVIDAD Y EVIDENCIAS (HASTA 10 BLOQUES) */}
                                  <div style={{ marginBottom: '25px' }}>
                                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                                          <label style={{ fontSize: '13px', fontWeight: 'bold', color: '#475569' }}>
-                                             Detalles de la Visita y Evidencias ({taskItems.length}/3)
+                                             Detalles de la Visita y Evidencias
                                          </label>
                                          {taskItems.length < 3 && (
                                              <button
@@ -4842,4 +4842,5 @@ const AutonomoDetalleTrabajo: React.FC = () => {
 };
 
 export default AutonomoDetalleTrabajo;
+
 

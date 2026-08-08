@@ -110,7 +110,7 @@ function App() {
 
                         {/* TECNICO ROUTES */}
                         <Route path="/tecnico" element={
-                            <ProtectedRoute allowedRoles={['tecnico-normal']}>
+                            <ProtectedRoute allowedRoles={['tecnico-normal', 'tecnico']}>
                                 <TecnicoLayout />
                             </ProtectedRoute>
                         }>
@@ -125,7 +125,7 @@ function App() {
 
                         {/* ENCARGADO ROUTES */}
                         <Route path="/gerente-sucursal" element={
-                            <ProtectedRoute allowedRoles={['gerente-sucursal']}>
+                            <ProtectedRoute allowedRoles={['gerente-sucursal', 'encargado']}>
                                 <EncargadoLayout />
                             </ProtectedRoute>
                         }>

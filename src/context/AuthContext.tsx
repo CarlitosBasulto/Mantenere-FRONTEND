@@ -33,7 +33,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             const parsed = JSON.parse(storedUser);
             // Normalizar rol al cargar de localStorage
             if (parsed.role) {
-                parsed.role = parsed.role.toLowerCase() as UserRole;
+                let roleStr = parsed.role.toLowerCase();
+                if (roleStr === 'trabajador' || roleStr === 'tecnico-normal') roleStr = 'tecnico';
+                parsed.role = roleStr as UserRole;
             }
             return parsed;
         }
@@ -48,7 +50,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const login = (userData: User) => {
         const normalizedUser = { ...userData };
         if (normalizedUser.role) {
-            normalizedUser.role = (normalizedUser.role as string).toLowerCase() as UserRole;
+            let roleStr = (normalizedUser.role as string).toLowerCase();
+            if (roleStr === 'trabajador' || roleStr === 'tecnico-normal') roleStr = 'tecnico';
+            normalizedUser.role = roleStr as UserRole;
         }
         
         setUser(normalizedUser);
