@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { HiOutlineChatAlt2, HiOutlineX, HiOutlinePaperAirplane, HiOutlineCurrencyDollar, HiOutlineDocumentText } from 'react-icons/hi';
 import styles from './NegotiationChatWidget.module.css';
+import echo from '../../services/echo';
 
 interface Message {
     id: number;
@@ -27,10 +28,17 @@ interface ChatProps {
     currentUser: any; // User object from AuthContext
     onViewVisitInfo?: () => void;
     inlineMode?: boolean;
+    forceOpen?: boolean;
 }
 
-const NegotiationChatWidget: React.FC<ChatProps> = ({ trabajoId, currentUser, onViewVisitInfo, inlineMode = false }) => {
+const NegotiationChatWidget: React.FC<ChatProps> = ({ trabajoId, currentUser, onViewVisitInfo, inlineMode = false, forceOpen = false }) => {
     const [isOpen, setIsOpen] = useState(inlineMode ? true : false);
+
+    useEffect(() => {
+        if (forceOpen) {
+            setIsOpen(true);
+        }
+    }, [forceOpen]);
     const [messages, setMessages] = useState<Message[]>([]);
     const [inputText, setInputText] = useState('');
     const [unreadCount, setUnreadCount] = useState(0);
@@ -40,9 +48,14 @@ const NegotiationChatWidget: React.FC<ChatProps> = ({ trabajoId, currentUser, on
 
     const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
+    const isFetchingRef = useRef(false);
+
     const fetchMessages = async () => {
+        if (!trabajoId || isFetchingRef.current) return;
+        isFetchingRef.current = true;
         try {
             const token = localStorage.getItem('token');
+            if (!token) return;
             const res = await axios.get(`${API_URL}/trabajos/${trabajoId}/chat`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
@@ -57,14 +70,35 @@ const NegotiationChatWidget: React.FC<ChatProps> = ({ trabajoId, currentUser, on
             }
         } catch (error) {
             console.error("Error fetching chats:", error);
+        } finally {
+            isFetchingRef.current = false;
         }
     };
 
     useEffect(() => {
+        if (!trabajoId) return;
+        
+        // 1. Cargar el historial inicial
         fetchMessages();
-        const interval = setInterval(fetchMessages, 3000); // Polling every 3 seconds
-        return () => clearInterval(interval);
-    }, [trabajoId, isOpen, inlineMode]);
+
+        // 2. Escuchar nuevos mensajes en tiempo real por WebSockets (Reverb)
+        const channel = echo.private(`trabajo.${trabajoId}`);
+        channel.listen('.ChatMessageSent', (e: { chat: Message }) => {
+            if (e.chat) {
+                setMessages(prev => {
+                    if (prev.some(m => m.id === e.chat.id)) return prev;
+                    return [...prev, e.chat];
+                });
+                if (!isOpen) {
+                    setUnreadCount(prev => prev + 1);
+                }
+            }
+        });
+
+        return () => {
+            channel.stopListening('.ChatMessageSent');
+        };
+    }, [trabajoId]);
 
     useEffect(() => {
         if (isOpen) {

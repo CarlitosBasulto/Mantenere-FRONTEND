@@ -47,9 +47,30 @@ const getCleanNotes = (text: string) => {
     return cleanLines.join('\n').trim();
 };
 
+/**
+ * Compresses an image src (URL or base64) to a JPEG data URL at reduced scale/quality.
+ * This dramatically reduces the size of images embedded in the PDF.
+ */
+const compressImageToJpeg = (src: string, maxWidth = 800, quality = 0.55): Promise<string> =>
+    new Promise((resolve) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+            const scale = Math.min(1, maxWidth / img.width);
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.round(img.width * scale);
+            canvas.height = Math.round(img.height * scale);
+            const ctx = canvas.getContext('2d')!;
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            resolve(canvas.toDataURL('image/jpeg', quality));
+        };
+        img.onerror = () => resolve(src); // fallback: use original if compression fails
+        img.src = src;
+    });
+
 export const generateMaintenanceReportPDF = async (data: PDFReportData, returnBlob = false) => {
     try {
-        const doc = new jsPDF();
+        const doc = new jsPDF({ compress: true });
         const dynamicFolio = data.folio || `REP-${data.id.toString().padStart(5, '0')}`;
         const goldColor = [201, 155, 33]; // Dorado aproximado del logo
         const navyColor = [30, 41, 59]; // Navy slate
@@ -129,14 +150,14 @@ export const generateMaintenanceReportPDF = async (data: PDFReportData, returnBl
         drawFieldHalf("Inició:", data.fechaInicio || data.fecha, leftX, leftY);
         leftY += 8;
 
-        // Draw technician avatar if present
+        // Draw technician avatar if present (compressed)
         if (data.tecnicoAvatar) {
             try {
-                const format = data.tecnicoAvatar.includes('png') ? 'PNG' : 'JPEG';
+                const compressedAvatar = await compressImageToJpeg(data.tecnicoAvatar, 120, 0.6);
                 doc.setDrawColor(220, 220, 220);
                 doc.setFillColor(255, 255, 255);
                 doc.rect(84, 42, 16, 16, 'FD');
-                doc.addImage(data.tecnicoAvatar, format, 84.5, 42.5, 15, 15);
+                doc.addImage(compressedAvatar, 'JPEG', 84.5, 42.5, 15, 15);
             } catch (e) {
                 console.error("Error drawing technician avatar in PDF:", e);
             }
@@ -366,42 +387,12 @@ export const generateMaintenanceReportPDF = async (data: PDFReportData, returnBl
         }
 
         // --- 7. PÁGINA 2: EVIDENCIA Y OBSERVACIONES ---
-        doc.addPage();
-        drawHeader("TESTIGOS FOTOGRÁFICOS");
-        nextY = 35;
-
-        nextY = drawSectionTitle("Testigos Fotográficos", nextY);
-
+        // Build the lists of main images and observation images to determine if page 2 is needed
         const mainImages: { src: string; label: string }[] = [];
         if (data.imagenes.antes) mainImages.push({ src: data.imagenes.antes, label: 'ANTES' });
         if (data.imagenes.durante) mainImages.push({ src: data.imagenes.durante, label: 'DURANTE' });
         if (data.imagenes.despues) mainImages.push({ src: data.imagenes.despues, label: 'DESPUÉS' });
 
-        const imgSize = 55;
-        const gap = 8;
-        const startX = 15;
-        let currentX = startX;
-        let currentY = nextY;
-
-        if (mainImages.length > 0) {
-            mainImages.forEach((img) => {
-                if (img.src) {
-                    const format = img.src.includes('png') ? 'PNG' : 'JPEG';
-                    try {
-                        doc.addImage(img.src, format, currentX, currentY, imgSize, imgSize);
-                    } catch (e) {
-                        console.error("Error adding image to PDF:", e);
-                    }
-                    doc.setFontSize(9);
-                    doc.setFont("helvetica", "bold");
-                    doc.text(img.label, currentX + (imgSize / 2), currentY + imgSize + 5, { align: 'center' });
-                }
-                currentX += imgSize + gap;
-            });
-            currentY += imgSize + 15;
-        }
-
-        // Draw structured observations list
         let obsListToRender = data.observacionesList;
         if (!obsListToRender || obsListToRender.length === 0) {
             const extraImgs = Array.isArray(data.imagenes.extra)
@@ -418,78 +409,106 @@ export const generateMaintenanceReportPDF = async (data: PDFReportData, returnBl
             }
         }
 
-        if (obsListToRender && obsListToRender.length > 0) {
-            // Draw section title for observations
-            if (currentY > 240) {
-                doc.addPage();
-                drawHeader("TESTIGOS FOTOGRÁFICOS");
-                currentY = 35;
-            }
-            currentY = drawSectionTitle("Observaciones y Evidencias", currentY);
+        // Only add the photo page if there is actual content to show
+        const hasObsImages = obsListToRender.some(o => o.imagenes && o.imagenes.length > 0);
+        const hasPhotoPageContent = mainImages.length > 0 || hasObsImages || obsListToRender.some(o => o.texto && o.texto.trim());
 
-            obsListToRender.forEach((obs, idx) => {
-                // Check page spacing before drawing this observation block
+        if (hasPhotoPageContent) {
+            doc.addPage();
+            drawHeader("TESTIGOS FOTOGRÁFICOS");
+            nextY = 35;
+
+            nextY = drawSectionTitle("Testigos Fotográficos", nextY);
+
+            const imgSize = 55;
+            const gap = 8;
+            const startX = 15;
+            let currentX = startX;
+            let currentY = nextY;
+
+            if (mainImages.length > 0) {
+                for (const img of mainImages) {
+                    if (img.src) {
+                        try {
+                            const compressed = await compressImageToJpeg(img.src, 600, 0.6);
+                            doc.addImage(compressed, 'JPEG', currentX, currentY, imgSize, imgSize);
+                        } catch (e) {
+                            console.error("Error adding image to PDF:", e);
+                        }
+                        doc.setFontSize(9);
+                        doc.setFont("helvetica", "bold");
+                        doc.text(img.label, currentX + (imgSize / 2), currentY + imgSize + 5, { align: 'center' });
+                    }
+                    currentX += imgSize + gap;
+                }
+                currentY += imgSize + 15;
+            }
+
+            if (obsListToRender && obsListToRender.length > 0) {
                 if (currentY > 240) {
                     doc.addPage();
                     drawHeader("TESTIGOS FOTOGRÁFICOS");
                     currentY = 35;
                 }
+                currentY = drawSectionTitle("Observaciones y Evidencias", currentY);
 
-                // Title
-                doc.setFont("helvetica", "bold");
-                doc.setFontSize(9);
-                doc.setTextColor(navyColor[0], navyColor[1], navyColor[2]);
-                doc.text(`Observación #${idx + 1}:`, 15, currentY);
-                currentY += 4;
-
-                // Text content
-                const obsLines = doc.splitTextToSize(obs.texto || 'Sin observaciones registradas.', 180);
-                doc.setFont("helvetica", "normal");
-                doc.setFontSize(9);
-                doc.setTextColor(80, 80, 80);
-                doc.text(obsLines, 15, currentY);
-                currentY += (obsLines.length * 4) + 4;
-
-                // Images
-                if (obs.imagenes && obs.imagenes.length > 0) {
-                    const obsImgSize = 45;
-                    const obsGap = 5;
-                    let obsX = 15;
-
-                    // If images are too close to page boundary, page break
-                    if (currentY + obsImgSize + 10 > 280) {
+                for (const [idx, obs] of obsListToRender.entries()) {
+                    if (currentY > 240) {
                         doc.addPage();
                         drawHeader("TESTIGOS FOTOGRÁFICOS");
                         currentY = 35;
                     }
 
-                    obs.imagenes.forEach((img, imgIdx) => {
-                        if (imgIdx > 0 && imgIdx % 4 === 0) {
-                            obsX = 15;
-                            currentY += obsImgSize + 5;
-                            // Check boundary again
-                            if (currentY + obsImgSize + 10 > 280) {
-                                doc.addPage();
-                                drawHeader("TESTIGOS FOTOGRÁFICOS");
-                                currentY = 35;
-                            }
+                    doc.setFont("helvetica", "bold");
+                    doc.setFontSize(9);
+                    doc.setTextColor(navyColor[0], navyColor[1], navyColor[2]);
+                    doc.text(`Observación #${idx + 1}:`, 15, currentY);
+                    currentY += 4;
+
+                    const obsLines = doc.splitTextToSize(obs.texto || 'Sin observaciones registradas.', 180);
+                    doc.setFont("helvetica", "normal");
+                    doc.setFontSize(9);
+                    doc.setTextColor(80, 80, 80);
+                    doc.text(obsLines, 15, currentY);
+                    currentY += (obsLines.length * 4) + 4;
+
+                    if (obs.imagenes && obs.imagenes.length > 0) {
+                        const obsImgSize = 45;
+                        const obsGap = 5;
+                        let obsX = 15;
+
+                        if (currentY + obsImgSize + 10 > 280) {
+                            doc.addPage();
+                            drawHeader("TESTIGOS FOTOGRÁFICOS");
+                            currentY = 35;
                         }
 
-                        if (img) {
-                            const format = img.includes('png') ? 'PNG' : 'JPEG';
-                            try {
-                                doc.addImage(img, format, obsX, currentY, obsImgSize, obsImgSize);
-                            } catch (e) {
-                                console.error("Error adding observation image:", e);
+                        for (const [imgIdx, img] of obs.imagenes.entries()) {
+                            if (imgIdx > 0 && imgIdx % 4 === 0) {
+                                obsX = 15;
+                                currentY += obsImgSize + 5;
+                                if (currentY + obsImgSize + 10 > 280) {
+                                    doc.addPage();
+                                    drawHeader("TESTIGOS FOTOGRÁFICOS");
+                                    currentY = 35;
+                                }
                             }
+                            if (img) {
+                                try {
+                                    const compressed = await compressImageToJpeg(img, 500, 0.55);
+                                    doc.addImage(compressed, 'JPEG', obsX, currentY, obsImgSize, obsImgSize);
+                                } catch (e) {
+                                    console.error("Error adding observation image:", e);
+                                }
+                            }
+                            obsX += obsImgSize + obsGap;
                         }
-                        obsX += obsImgSize + obsGap;
-                    });
-                    currentY += obsImgSize + 10;
-                } else {
-                    currentY += 4;
+                        currentY += obsImgSize + 10;
+                    } else {
+                        currentY += 4;
+                    }
                 }
-            });
+            }
         }
 
         // Pie de página

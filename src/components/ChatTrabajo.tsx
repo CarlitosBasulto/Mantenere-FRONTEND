@@ -42,7 +42,11 @@ const ChatTrabajo: React.FC<ChatTrabajoProps> = ({ trabajoId, adminAutonomoId, o
 
     const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
+    const isFetchingRef = useRef(false);
+
     const fetchMessages = async () => {
+        if (!trabajoId || isFetchingRef.current) return;
+        isFetchingRef.current = true;
         try {
             const res = await fetch(`${API_URL}/trabajos/${trabajoId}/chat`, {
                 headers: { 'Authorization': `Bearer ${token}` }
@@ -50,7 +54,6 @@ const ChatTrabajo: React.FC<ChatTrabajoProps> = ({ trabajoId, adminAutonomoId, o
             if (res.ok) {
                 const data = await res.json();
                 
-                // Si la cantidad de mensajes aumentÃ³, avisar al padre
                 if (data.length > messages.length && messages.length > 0) {
                     if (onNewMessage) onNewMessage();
                 }
@@ -61,13 +64,18 @@ const ChatTrabajo: React.FC<ChatTrabajoProps> = ({ trabajoId, adminAutonomoId, o
             console.error("Error fetching chat:", error);
         } finally {
             setIsLoading(false);
+            isFetchingRef.current = false;
         }
     };
 
     useEffect(() => {
+        if (!trabajoId) return;
         fetchMessages();
-        // Polling cada 5 segundos
-        const interval = setInterval(fetchMessages, 5000);
+        const interval = setInterval(() => {
+            if (!document.hidden) {
+                fetchMessages();
+            }
+        }, 10000);
         return () => clearInterval(interval);
     }, [trabajoId]);
 

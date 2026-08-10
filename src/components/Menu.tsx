@@ -19,6 +19,7 @@ import {
     markAllNotificacionesAsRead 
 } from "../services/notificacionesService";
 import type { Notificacion } from "../services/notificacionesService";
+import echo from "../services/echo";
 
 
 const MenuLayout: React.FC = () => {
@@ -124,9 +125,19 @@ const MenuLayout: React.FC = () => {
 
     useEffect(() => {
         cargarNotificaciones();
-        // Polling suave cada 30 segundos para nuevas notificaciones
-        const interval = setInterval(cargarNotificaciones, 30000);
-        return () => clearInterval(interval);
+
+        if (!user?.id) return;
+
+        const channel = echo.private(`user.${user.id}`);
+        channel.listen('.NotificationSent', (e: { notificacion: any }) => {
+            if (e.notificacion) {
+                setNotificaciones(prev => [e.notificacion, ...prev]);
+            }
+        });
+
+        return () => {
+            channel.stopListening('.NotificationSent');
+        };
     }, [user?.id]);
 
     // Cerrar click outside

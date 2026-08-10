@@ -30,20 +30,28 @@ export const getCotizacionByTrabajoId = getCotizacionesByTrabajoId;
 
 // ➕ Crear una nueva cotización
 export const saveCotizacion = async (data: Partial<Cotizacion> | FormData): Promise<Cotizacion> => {
-    const isFormData = data instanceof FormData;
-    const response = await api.post('/cotizaciones', data, isFormData ? {
-        headers: { "Content-Type": "multipart/form-data" }
-    } : {});
-    return response.data.data;
+    try {
+        // NOTE: Do NOT set Content-Type manually for FormData — Axios sets it
+        // automatically with the correct multipart/form-data boundary.
+        const response = await api.post('/cotizaciones', data);
+        return response.data.data;
+    } catch (error: any) {
+        console.error('[saveCotizacion] error:', error?.response?.data);
+        throw error;
+    }
 };
 
 // ✏️ Editar una cotización existente
 export const updateCotizacion = async (id: number, data: FormData | Partial<Cotizacion>): Promise<Cotizacion> => {
-    const isFormData = data instanceof FormData;
-    const response = await api.put(`/cotizaciones/${id}`, data, isFormData ? {
-        headers: { "Content-Type": "multipart/form-data" }
-    } : {});
-    return response.data.data;
+    try {
+        // NOTE: Do NOT set Content-Type manually for FormData — Axios sets it
+        // automatically with the correct multipart/form-data boundary.
+        const response = await api.put(`/cotizaciones/${id}`, data);
+        return response.data.data;
+    } catch (error: any) {
+        console.error('[updateCotizacion] error:', error?.response?.data);
+        throw error;
+    }
 };
 
 // 🗑️ Eliminar una cotización

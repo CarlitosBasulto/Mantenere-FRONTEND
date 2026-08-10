@@ -1548,4 +1548,685 @@
     }
 }
 
+/* ════════════════════════════════════════════════════════════
+   CLIENTE — VISTA DE COTIZACIONES (REGISTRO STYLE)
+═══════════════════════════════════════════════════════════ */
+
+.clientCotizHeader {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 20px;
+}
+
+.clientCotizHeaderIcon {
+    width: 46px;
+    height: 46px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #f26522, #d14d13);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 14px rgba(242, 101, 34, 0.25);
+    flex-shrink: 0;
+}
+
+/* Card principal de cada cotización — estilo bitácora */
+.clientCotizCard {
+    background: #fff;
+    border-radius: 20px;
+    border: 2px solid #f1f5f9;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.04);
+    overflow: hidden;
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+    margin-bottom: 18px;
+    position: relative;
+}
+
+.clientCotizCard:hover {
+    box-shadow: 0 8px 30px rgba(0,0,0,0.08);
+    transform: translateY(-1px);
+}
+
+.clientCotizCard.approved {
+    border-color: #bbf7d0;
+    background: linear-gradient(135deg, #f0fdf4 0%, #fff 40%);
+}
+
+.clientCotizCard.rejected {
+    border-color: #fecaca;
+    background: linear-gradient(135deg, #fff5f5 0%, #fff 40%);
+}
+
+.clientCotizCard.recotizacion {
+    border-color: #fde68a;
+    background: linear-gradient(135deg, #fffbeb 0%, #fff 40%);
+}
+
+/* Stripe de color superior izquierda (como en registros de técnico) */
+.clientCotizStripe {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 5px;
+    border-radius: 20px 0 0 20px;
+    background: linear-gradient(180deg, #f26522, #d14d13);
+}
+
+.clientCotizCard.approved .clientCotizStripe {
+    background: linear-gradient(180deg, #10b981, #059669);
+}
+
+.clientCotizCard.rejected .clientCotizStripe {
+    background: linear-gradient(180deg, #ef4444, #dc2626);
+}
+
+.clientCotizCard.recotizacion .clientCotizStripe {
+    background: linear-gradient(180deg, #f59e0b, #d97706);
+}
+
+.clientCotizCardInner {
+    padding: 22px 24px 22px 30px;
+}
+
+/* Cabecera de la card */
+.clientCotizCardHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    gap: 12px;
+}
+
+.clientCotizCardTitle {
+    font-size: 16px;
+    font-weight: 800;
+    color: #1e293b;
+    margin: 0;
+}
+
+.clientCotizCardSubtitle {
+    font-size: 12px;
+    color: #94a3b8;
+    font-weight: 600;
+    margin: 2px 0 0 0;
+}
+
+.clientCotizPrice {
+    font-size: 26px;
+    font-weight: 900;
+    color: #1e293b;
+    line-height: 1;
+}
+
+.clientCotizPriceLabel {
+    font-size: 11px;
+    color: #64748b;
+    font-weight: 600;
+    text-align: right;
+    margin-bottom: 2px;
+}
+
+.clientCotizBadge {
+    padding: 5px 14px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.4px;
+    white-space: nowrap;
+}
+
+.clientCotizBadge.pending {
+    background: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fde68a;
+}
+
+.clientCotizBadge.approved {
+    background: #d1fae5;
+    color: #065f46;
+    border: 1px solid #6ee7b7;
+}
+
+.clientCotizBadge.rejected {
+    background: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #fca5a5;
+}
+
+.clientCotizBadge.recotizacion {
+    background: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fde68a;
+}
+
+/* Secciones internas (como en el registro del técnico) */
+.clientCotizSections {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.clientCotizSection {
+    background: #f8fafc;
+    border-radius: 12px;
+    padding: 14px;
+    border: 1px solid #e2e8f0;
+}
+
+.clientCotizSectionFull {
+    background: #f8fafc;
+    border-radius: 12px;
+    padding: 14px;
+    border: 1px solid #e2e8f0;
+    margin-bottom: 12px;
+}
+
+.clientCotizSectionLabel {
+    font-size: 10px;
+    font-weight: 800;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin: 0 0 8px 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.clientCotizSectionLabel span {
+    font-size: 13px;
+}
+
+.clientCotizItem {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 0;
+    border-bottom: 1px dashed #e2e8f0;
+    gap: 8px;
+}
+
+.clientCotizItem:last-child {
+    border-bottom: none;
+}
+
+.clientCotizItemName {
+    font-size: 13px;
+    color: #334155;
+    font-weight: 600;
+    flex: 1;
+}
+
+.clientCotizItemQty {
+    font-size: 11px;
+    color: #94a3b8;
+    font-weight: 600;
+    padding: 2px 8px;
+    background: #e2e8f0;
+    border-radius: 20px;
+    white-space: nowrap;
+}
+
+.clientCotizItemPrice {
+    font-size: 13px;
+    font-weight: 800;
+    color: #0f172a;
+    white-space: nowrap;
+}
+
+.clientCotizEmpty {
+    font-size: 12px;
+    color: #94a3b8;
+    font-style: italic;
+    margin: 0;
+}
+
+/* Total del monto */
+.clientCotizTotalRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: linear-gradient(135deg, #fef3c7, #fff7ed);
+    border: 1.5px solid #fde68a;
+    border-radius: 12px;
+    padding: 14px 18px;
+    margin-bottom: 18px;
+}
+
+.clientCotizTotalLabel {
+    font-size: 13px;
+    font-weight: 800;
+    color: #92400e;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.clientCotizTotalValue {
+    font-size: 24px;
+    font-weight: 900;
+    color: #b45309;
+}
+
+/* PDF Button */
+.clientCotizPdfBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    background: #eff6ff;
+    color: #1e40af;
+    border: 1.5px solid #bfdbfe;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-bottom: 18px;
+    text-decoration: none;
+}
+
+.clientCotizPdfBtn:hover {
+    background: #dbeafe;
+    transform: translateY(-1px);
+}
+
+/* Motivo de rechazo */
+.clientCotizRejectionBox {
+    background: #fff5f5;
+    border: 1.5px solid #fecaca;
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 14px;
+}
+
+.clientCotizRejectionTitle {
+    font-size: 12px;
+    font-weight: 800;
+    color: #991b1b;
+    margin: 0 0 6px 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.clientCotizRejectionText {
+    font-size: 13px;
+    color: #7f1d1d;
+    margin: 0;
+    line-height: 1.5;
+}
+
+/* Countdown de cancelación */
+.clientCotizCountdownBox {
+    background: #fffbeb;
+    border: 1.5px solid #fde68a;
+    border-radius: 12px;
+    padding: 12px 16px;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.clientCotizCountdownText {
+    font-size: 12px;
+    font-weight: 700;
+    color: #92400e;
+    margin: 0;
+}
+
+.clientCotizCountdownTimer {
+    font-size: 18px;
+    font-weight: 900;
+    color: #d97706;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 1px;
+}
+
+/* Botones de acción del cliente */
+.clientCotizActions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.clientCotizBtnAccept {
+    flex: 2;
+    min-width: 140px;
+    padding: 13px 20px;
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: #fff;
+    border: none;
+    border-radius: 14px;
+    font-size: 14px;
+    font-weight: 800;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 14px rgba(16,185,129,0.25);
+}
+
+.clientCotizBtnAccept:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(16,185,129,0.35);
+}
+
+.clientCotizBtnReject {
+    flex: 1;
+    min-width: 110px;
+    padding: 13px 16px;
+    background: #fff;
+    color: #ef4444;
+    border: 1.5px solid #fecaca;
+    border-radius: 14px;
+    font-size: 13px;
+    font-weight: 800;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    transition: all 0.2s ease;
+}
+
+.clientCotizBtnReject:hover {
+    background: #fef2f2;
+    transform: translateY(-1px);
+}
+
+.clientCotizBtnRecotizar {
+    flex: 1;
+    min-width: 110px;
+    padding: 13px 16px;
+    background: #fff;
+    color: #f59e0b;
+    border: 1.5px solid #fde68a;
+    border-radius: 14px;
+    font-size: 13px;
+    font-weight: 800;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    transition: all 0.2s ease;
+}
+
+.clientCotizBtnRecotizar:hover {
+    background: #fffbeb;
+    transform: translateY(-1px);
+}
+
+.clientCotizBtnCancelReject {
+    width: 100%;
+    padding: 11px 16px;
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: #fff;
+    border: none;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 800;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    transition: all 0.2s ease;
+    margin-bottom: 8px;
+}
+
+.clientCotizBtnCancelReject:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(245, 158, 11, 0.3);
+}
+
+.clientCotizBtnReactivate {
+    width: 100%;
+    padding: 11px 16px;
+    background: #fff;
+    color: #6366f1;
+    border: 1.5px solid #c7d2fe;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 800;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    transition: all 0.2s ease;
+    margin-bottom: 8px;
+}
+
+.clientCotizBtnReactivate:hover {
+    background: #eef2ff;
+    transform: translateY(-1px);
+}
+
+/* Aprobado / Rechazado final message */
+.clientCotizApprovedMsg {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #d1fae5;
+    color: #065f46;
+    border: 1.5px solid #6ee7b7;
+    border-radius: 12px;
+    padding: 14px 18px;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+/* Admin banner: re-cotización solicitada */
+.adminRecotizBanner {
+    background: linear-gradient(135deg, #fffbeb, #fef3c7);
+    border: 2px solid #fde68a;
+    border-radius: 16px;
+    padding: 20px 24px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+}
+
+.adminRecotizBannerIcon {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 22px;
+}
+
+.adminRecotizBannerContent {
+    flex: 1;
+}
+
+.adminRecotizBannerTitle {
+    font-size: 15px;
+    font-weight: 800;
+    color: #92400e;
+    margin: 0 0 4px 0;
+}
+
+.adminRecotizBannerText {
+    font-size: 13px;
+    color: #b45309;
+    margin: 0 0 12px 0;
+    line-height: 1.5;
+}
+
+.adminRecotizBannerActions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.adminRecotizBtnEdit {
+    padding: 9px 18px;
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 800;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+}
+
+.adminRecotizBtnEdit:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+}
+
+.adminRecotizBtnChat {
+    padding: 9px 18px;
+    background: #fff;
+    color: #f59e0b;
+    border: 1.5px solid #fde68a;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 800;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+}
+
+.adminRecotizBtnChat:hover {
+    background: #fffbeb;
+    transform: translateY(-1px);
+}
+
+.adminRecotizBtnReactivate {
+    padding: 9px 18px;
+    background: linear-gradient(135deg, #6366f1, #4f46e5);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 800;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+}
+
+.adminRecotizBtnReactivate:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+/* Modal re-cotización motivo */
+.recotizModal {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    backdrop-filter: blur(4px);
+    padding: 20px;
+}
+
+.recotizModalBox {
+    background: #fff;
+    border-radius: 24px;
+    padding: 32px;
+    max-width: 480px;
+    width: 100%;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+}
+
+.recotizModalTitle {
+    font-size: 20px;
+    font-weight: 800;
+    color: #1e293b;
+    margin: 0 0 8px 0;
+}
+
+.recotizModalSubtitle {
+    font-size: 13px;
+    color: #64748b;
+    margin: 0 0 20px 0;
+    line-height: 1.5;
+}
+
+.recotizModalTextarea {
+    width: 100%;
+    min-height: 100px;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 12px 14px;
+    font-size: 14px;
+    color: #1e293b;
+    resize: vertical;
+    font-family: inherit;
+    transition: border-color 0.2s ease;
+    box-sizing: border-box;
+    margin-bottom: 20px;
+    outline: none;
+}
+
+.recotizModalTextarea:focus {
+    border-color: #f59e0b;
+    box-shadow: 0 0 0 3px rgba(245,158,11,0.1);
+}
+
+.recotizModalActions {
+    display: flex;
+    gap: 10px;
+}
+
+.recotizModalBtnConfirm {
+    flex: 1;
+    padding: 12px;
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: #fff;
+    border: none;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.recotizModalBtnConfirm:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(245,158,11,0.3);
+}
+
+.recotizModalBtnCancel {
+    flex: 1;
+    padding: 12px;
+    background: #f1f5f9;
+    color: #64748b;
+    border: none;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.recotizModalBtnCancel:hover {
+    background: #e2e8f0;
+}
 

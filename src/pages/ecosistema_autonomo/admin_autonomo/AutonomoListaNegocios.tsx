@@ -65,7 +65,7 @@ const AutonomoListaNegocios: React.FC = () => {
                 });
                 setNegocios(mapped);
                 
-                if (user) {
+                if (user && normalizeRole(user?.role) === 'tecnico-normal') {
                     const jobsApi = await getTrabajos();
                     setGlobalJobs(jobsApi);
                 }

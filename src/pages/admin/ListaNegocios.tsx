@@ -77,8 +77,8 @@ const ListaNegocios: React.FC = () => {
                 if (stored) setNegocios(JSON.parse(stored));
             }
 
-            // 2. Cargar trabajos de forma independiente
-            if (user) {
+            // 2. Cargar trabajos ÚNICAMENTE para técnicos (los demás roles no los necesitan en esta vista)
+            if (user && normalizeRole(user?.role) === 'tecnico-normal') {
                 try {
                     const jobsApi = await getTrabajos();
                     setGlobalJobs(jobsApi);
