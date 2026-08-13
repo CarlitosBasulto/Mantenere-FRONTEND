@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import styles from "./AdminCotizacion.module.css";
 import { useModal } from "../../context/ModalContext";
 import { useAuth } from "../../context/AuthContext";
+import { isAutonomoAdmin } from "../../utils/roles";
 import { HiOutlineDocumentAdd } from "react-icons/hi";
 import { updateEstadoTrabajo } from "../../services/trabajosService";
 import { saveCotizacion } from "../../services/cotizacionesService";
@@ -80,7 +81,7 @@ const AdminCotizacion: React.FC = () => {
             window.dispatchEvent(new Event('storage'));
 
             showAlert("Éxito", "Cotización enviada exitosamente al cliente.", "success");
-            const basePath = user?.role === 'tecnico' ? '/tecnico' : (['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '') ? '/autonomo' : '/menu');
+            const basePath = user?.role === 'tecnico' ? '/tecnico' : (isAutonomoAdmin(user?.role) ? '/autonomo' : '/menu');
             navigate(`${basePath}/trabajo-detalle/${id}`);
         } catch (error: any) {
             console.error("Error al enviar cotización:", error);

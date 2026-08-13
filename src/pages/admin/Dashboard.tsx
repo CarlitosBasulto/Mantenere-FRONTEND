@@ -8,7 +8,7 @@ import { HiOutlineUsers, HiOutlineBriefcase, HiOutlineDocumentText, HiOutlineCli
 
 // Servicios
 import { getUsers } from '../../services/usersService';
-import { getNegocios } from '../../services/negociosService';
+import { getNegocios } from '../../services/base/negociosService';
 import { getTrabajos } from '../../services/trabajosService';
 import { getCotizacionesByTrabajoId } from '../../services/cotizacionesService';
 import { getMantenimientoSolicitudes } from '../../services/mantenimientoService';

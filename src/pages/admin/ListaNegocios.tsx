@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import styles from "./ListaNegocios.module.css";
 import menuStyles from "../../components/Menu.module.css";
 import { useAuth } from "../../context/AuthContext";
-import { normalizeRole } from "../../utils/roles";
+import { normalizeRole, isAutonomoAdmin } from "../../utils/roles";
 import { useModal } from "../../context/ModalContext";
 import { getNegocios } from "../../services/base/negociosService";
 import { getTrabajos } from "../../services/base/trabajosService";
@@ -129,7 +129,7 @@ const ListaNegocios: React.FC = () => {
 
     const handleCardClick = (id: number) => {
         const r = normalizeRole(user?.role);
-        const basePath = r === 'cliente' ? '/cliente' : (r === 'tecnico-normal' ? '/tecnico' : (r === 'gerente-sucursal' ? '/gerente-sucursal' : '/menu'));
+        const basePath = r === 'cliente' ? '/cliente' : (r === 'tecnico-normal' ? '/tecnico' : (r === 'gerente-sucursal' ? '/gerente-sucursal' : (isAutonomoAdmin(user?.role) ? '/autonomo' : '/menu')));
         navigate(`${basePath}/trabajo/${id}`);
     };
 
@@ -141,7 +141,7 @@ const ListaNegocios: React.FC = () => {
             navigate(`/encargado/sucursal?id=${id}`);
         } else if (normalizeRole(user?.role) === 'cliente') {
             navigate(`/cliente/perfil-empresa?id=${id}`);
-        } else if (['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '')) {
+        } else if (isAutonomoAdmin(user?.role)) {
             navigate(`/autonomo/perfil-empresa?id=${id}`);
         } else {
             navigate(`/menu/perfil-empresa?id=${id}`);
@@ -170,7 +170,7 @@ const ListaNegocios: React.FC = () => {
                                 Registrar
                             </button>
                         )}
-                        {['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '') && (
+                        {isAutonomoAdmin(user?.role) && (
                             <button
                                 className={styles.registrarBtn}
                                 onClick={() => navigate("/autonomo/perfil-empresa")}
@@ -234,8 +234,8 @@ const ListaNegocios: React.FC = () => {
                                         <div 
                                             className={styles.cardIcon} 
                                             onClick={(e) => handleEditClick(e, negocio.id)}
-                                            style={{ cursor: (normalizeRole(user?.role) === 'cliente' || normalizeRole(user?.role) === 'admin' || normalizeRole(user?.role) === 'gerente-sucursal' || ['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '')) ? 'pointer' : 'default' }}
-                                            title={(normalizeRole(user?.role) === 'cliente' || normalizeRole(user?.role) === 'admin' || normalizeRole(user?.role) === 'gerente-sucursal' || ['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '')) ? "Editar Perfil" : ""}
+                                            style={{ cursor: (normalizeRole(user?.role) === 'cliente' || normalizeRole(user?.role) === 'admin' || normalizeRole(user?.role) === 'gerente-sucursal' || isAutonomoAdmin(user?.role)) ? 'pointer' : 'default' }}
+                                            title={(normalizeRole(user?.role) === 'cliente' || normalizeRole(user?.role) === 'admin' || normalizeRole(user?.role) === 'gerente-sucursal' || isAutonomoAdmin(user?.role)) ? "Editar Perfil" : ""}
                                         >
                                             {negocio.imagenPerfil && !imageErrors[negocio.id] ? (
                                                 <img

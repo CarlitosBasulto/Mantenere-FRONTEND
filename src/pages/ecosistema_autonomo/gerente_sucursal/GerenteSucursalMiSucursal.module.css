@@ -1,0 +1,308 @@
+﻿/* =============================================
+   GERENTE SUCURSAL - MI SUCURSAL
+   Universo exclusivo del gerente de sucursal
+============================================= */
+
+.page {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    background: #f8fafc;
+    font-family: "Inter", sans-serif;
+}
+
+/* ── HERO BANNER ── */
+.heroBanner {
+    position: relative;
+    width: 100%;
+    min-height: 220px;
+    background: linear-gradient(135deg, #1e293b 0%, #334155 60%, #475569 100%);
+    background-size: cover;
+    background-position: center;
+    display: flex;
+    align-items: flex-end;
+    padding: 28px 36px;
+    gap: 24px;
+    overflow: hidden;
+}
+
+.heroOverlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(15,23,42,0.85) 0%, rgba(15,23,42,0.3) 60%, transparent 100%);
+    pointer-events: none;
+}
+
+.logoWrapper {
+    position: relative;
+    z-index: 2;
+    flex-shrink: 0;
+}
+
+.logoImg {
+    width: 90px;
+    height: 90px;
+    border-radius: 20px;
+    object-fit: cover;
+    border: 3px solid rgba(255,255,255,0.25);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+}
+
+.logoPlaceholder {
+    width: 90px;
+    height: 90px;
+    border-radius: 20px;
+    background: linear-gradient(135deg, #f26522, #d97706);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    font-weight: 800;
+    color: white;
+    border: 3px solid rgba(255,255,255,0.2);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+}
+
+.heroInfo {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-bottom: 4px;
+}
+
+.heroBadge {
+    display: inline-block;
+    background: rgba(242,101,34,0.85);
+    color: white;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    padding: 4px 12px;
+    border-radius: 20px;
+    width: fit-content;
+}
+
+.heroTitle {
+    font-size: 28px;
+    font-weight: 800;
+    color: #ffffff;
+    margin: 0;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    line-height: 1.2;
+}
+
+.heroCity {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 14px;
+    color: rgba(255,255,255,0.75);
+    margin: 0;
+}
+
+/* ── CONTENIDO ── */
+.content {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    max-width: 960px;
+    width: 100%;
+    margin: 28px auto 60px;
+    padding: 0 24px;
+}
+
+/* ── CARDS ── */
+.detailsCard,
+.actionsCard {
+    background: #ffffff;
+    border-radius: 20px;
+    padding: 28px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+    border: 1px solid #e2e8f0;
+}
+
+.cardTitle {
+    font-size: 15px;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0 0 20px;
+    padding-bottom: 14px;
+    border-bottom: 2px solid #f1f5f9;
+    letter-spacing: 0.3px;
+}
+
+/* ── DETALLES GRID ── */
+.detailGrid {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.detailItem {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+}
+
+.detailIcon {
+    font-size: 20px;
+    color: #f26522;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.detailItem > div {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.detailLabel {
+    font-size: 11px;
+    font-weight: 600;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+}
+
+.detailValue {
+    font-size: 14px;
+    font-weight: 500;
+    color: #334155;
+    line-height: 1.4;
+}
+
+/* ── ACCIONES ── */
+.actionButtons {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.actionBtn {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 18px;
+    background: #f8fafc;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 14px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    color: #334155;
+    transition: all 0.2s ease;
+    text-align: left;
+    width: 100%;
+}
+
+.actionBtn:hover {
+    background: #fff5ef;
+    border-color: #f26522;
+    color: #f26522;
+    transform: translateX(4px);
+    box-shadow: 0 4px 16px rgba(242,101,34,0.12);
+}
+
+.actionBtn svg:first-child {
+    color: #f26522;
+    flex-shrink: 0;
+}
+
+.actionBtn span {
+    flex: 1;
+}
+
+.actionArrow {
+    opacity: 0.4;
+    transition: opacity 0.2s, transform 0.2s;
+}
+
+.actionBtn:hover .actionArrow {
+    opacity: 1;
+    transform: translateX(4px);
+}
+
+/* ── ESTADOS ── */
+.loadingWrapper,
+.emptyWrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 60vh;
+    gap: 16px;
+    color: #64748b;
+    text-align: center;
+    padding: 40px;
+}
+
+.emptyIcon {
+    color: #cbd5e1;
+}
+
+.emptyWrapper h2 {
+    font-size: 22px;
+    font-weight: 700;
+    color: #334155;
+    margin: 0;
+}
+
+.emptyWrapper p {
+    font-size: 14px;
+    max-width: 320px;
+    margin: 0;
+    line-height: 1.6;
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid #e2e8f0;
+    border-top-color: #f26522;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ── RESPONSIVE ── */
+@media (max-width: 768px) {
+    .heroBanner {
+        min-height: 180px;
+        padding: 20px 20px;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 14px;
+    }
+
+    .logoImg,
+    .logoPlaceholder {
+        width: 64px;
+        height: 64px;
+        font-size: 20px;
+        border-radius: 14px;
+    }
+
+    .heroTitle {
+        font-size: 20px;
+    }
+
+    .content {
+        grid-template-columns: 1fr;
+        padding: 0 16px;
+        margin-top: 20px;
+        gap: 16px;
+    }
+
+    .detailsCard,
+    .actionsCard {
+        padding: 20px;
+        border-radius: 16px;
+    }
+}

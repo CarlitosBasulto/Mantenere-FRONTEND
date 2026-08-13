@@ -7,6 +7,7 @@ import { updateEstadoTrabajo, getTrabajo } from '../../services/trabajosService'
 import { createNotificacionByRole, createNotificacion, createNotificacionNegocio } from '../../services/notificacionesService';
 import { useAuth } from '../../context/AuthContext';
 import { useModal } from '../../context/ModalContext';
+import { isAutonomoAdmin } from '../../utils/roles';
 import { 
     HiOutlineCamera, 
     HiOutlineArrowUpTray,
@@ -568,7 +569,7 @@ const AdminReporte: React.FC = () => {
             showAlert("Éxito", "Reporte de la tarea guardado exitosamente.", "success");
         }
 
-        const basePath = user?.role === 'tecnico' ? '/tecnico' : (['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '') ? '/autonomo' : '/menu');
+        const basePath = user?.role === 'tecnico' ? '/tecnico' : (isAutonomoAdmin(user?.role) ? '/autonomo' : '/menu');
         const targetPath = `${basePath}/trabajo-detalle/${safeTrabajoId}`;
         navigate(targetPath, { replace: true });
     };

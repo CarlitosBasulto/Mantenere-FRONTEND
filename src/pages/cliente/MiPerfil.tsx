@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useModal } from "../../context/ModalContext";
+import { isAutonomoAdmin } from "../../utils/roles";
 import { getTrabajadores, updateTrabajador } from "../../services/trabajadoresService";
 import { getUserById, updateUser } from "../../services/usersService";
 import { getNegocios } from "../../services/negociosService";
@@ -243,7 +244,7 @@ const MiPerfil: React.FC = () => {
     };
 
     const handleSucursalClick = (id: number) => {
-        const basePath = user?.role === 'cliente' ? '/cliente' : (user?.role === 'tecnico' ? '/tecnico' : (user?.role === 'encargado' ? '/encargado' : (['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '') ? '/autonomo' : '/menu')));
+        const basePath = user?.role === 'cliente' ? '/cliente' : (user?.role === 'tecnico' ? '/tecnico' : (user?.role === 'encargado' ? '/encargado' : (isAutonomoAdmin(user?.role) ? '/autonomo' : '/menu')));
         navigate(`${basePath}/trabajo/${id}`);
     };
 

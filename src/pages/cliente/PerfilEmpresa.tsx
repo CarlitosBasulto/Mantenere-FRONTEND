@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import styles from "./PerfilEmpresa.module.css";
 import { useAuth } from "../../context/AuthContext";
 import { useModal } from "../../context/ModalContext";
+import { isAutonomoAdmin } from "../../utils/roles";
 
 import { 
     HiOutlineMapPin, 
@@ -501,7 +502,7 @@ const PerfilEmpresa: React.FC = () => {
             }
             if (user?.role === 'encargado') {
                 navigate('/encargado');
-            } else if (['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '')) {
+            } else if (isAutonomoAdmin(user?.role)) {
                 navigate('/autonomo/negocios');
             } else if (user?.role === 'admin') {
                 navigate('/menu/negocios');
@@ -531,7 +532,7 @@ const PerfilEmpresa: React.FC = () => {
                     
                     if (user?.role === 'encargado') {
                         navigate('/encargado');
-                    } else if (['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '')) {
+                    } else if (isAutonomoAdmin(user?.role)) {
                         navigate('/autonomo/negocios');
                     } else if (user?.role === 'admin') {
                         navigate('/menu/negocios');

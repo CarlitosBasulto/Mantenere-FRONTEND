@@ -552,7 +552,16 @@ const MenuLayout: React.FC = () => {
                                         <div className={styles.perfilHeader}>
                                             <p className={styles.userName}>{user?.name}</p>
                                             <p className={styles.userRole}>
-                                                {normalizeRole(user?.role) === 'admin' ? 'Administrador' : normalizeRole(user?.role) === 'tecnico-normal' ? 'Técnico' : normalizeRole(user?.role) === 'gerente-sucursal' ? 'Encargado de Sucursal' : normalizeRole(user?.role) === 'autonomo' ? 'Admin Autónomo' : normalizeRole(user?.role) === 'administrador-general' ? 'Encargado' : 'Cliente'}
+                                                {(() => {
+                                                    const roleRaw = typeof user?.role === 'object' && user?.role !== null ? (user.role as any).name : user?.role;
+                                                    const norm = normalizeRole(roleRaw);
+                                                    if (norm === 'admin') return 'Administrador';
+                                                    if (norm === 'tecnico-normal') return 'Técnico';
+                                                    if (norm === 'gerente-sucursal') return 'Encargado de Sucursal';
+                                                    if (norm === 'autonomo' || norm === 'propietario-autonomo') return 'Admin Autónomo';
+                                                    if (norm === 'administrador-general') return 'Administrador General';
+                                                    return 'Cliente';
+                                                })()}
                                             </p>
                                         </div>
                                         <div className={styles.dropdownDivider} />

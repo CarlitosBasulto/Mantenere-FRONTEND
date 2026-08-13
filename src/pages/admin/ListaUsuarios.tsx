@@ -3,6 +3,7 @@ import styles from "./ListaUsuarios.module.css";
 import { useNavigate } from "react-router-dom";
 import { HiOutlineUser, HiOutlineEnvelope, HiOutlineFingerPrint, HiOutlineUsers, HiOutlinePencil, HiOutlineLockClosed, HiOutlineLockOpen, HiOutlineKey, HiCheck, HiXMark, HiOutlineEye, HiOutlinePlus } from 'react-icons/hi2';
 import { getUsers, updateUser } from "../../services/usersService";
+import { getAutonomoUsers, updateAutonomoUser } from "../../services/autonomo/usuariosService";
 import { createAdminAutonomo } from "../../services/adminAutonomoService";
 import { useModal } from "../../context/ModalContext";
 import { useAuth } from "../../context/AuthContext";
@@ -45,7 +46,10 @@ export default function ListaUsuarios() {
 
     // ── Modal crear Admin Autónomo ──────────────────────────────────────────
     const [showCreateModal, setShowCreateModal] = useState(false);
-    const [newName, setNewName] = useState("");
+    const [newNombres, setNewNombres] = useState("");
+    const [newApellidos, setNewApellidos] = useState("");
+    const [newRFC, setNewRFC] = useState("");
+    const [newEmpresa, setNewEmpresa] = useState("");
     const [newEmail, setNewEmail] = useState("");
     const [newPass, setNewPass] = useState("");
     const [creatingAutonomo, setCreatingAutonomo] = useState(false);
@@ -53,7 +57,9 @@ export default function ListaUsuarios() {
     const fetchUsers = async () => {
         try {
             setLoading(true);
-            const data = await getUsers();
+            const data = (user?.role?.hierarchy_level >= 4) 
+                ? await getAutonomoUsers() 
+                : await getUsers();
 
             const storedWorkers = localStorage.getItem('trabajadores_list');
             const localList = storedWorkers ? JSON.parse(storedWorkers) : [];
@@ -107,7 +113,11 @@ export default function ListaUsuarios() {
     const handleSaveEmail = async () => {
         if (!editingUser) return;
         try {
-            await updateUser(editingUser.id, { email: editEmail });
+            if (user?.role?.hierarchy_level >= 4) {
+                await updateAutonomoUser(editingUser.id, { email: editEmail });
+            } else {
+                await updateUser(editingUser.id, { email: editEmail });
+            }
             setUsers(users.map(u => u.id === editingUser.id ? { ...u, email: editEmail } : u));
             setEditingUser(null);
             showAlert("Éxito", "Correo actualizado correctamente.", "success");
@@ -128,7 +138,11 @@ export default function ListaUsuarios() {
         if (!resetPasswordUserId) return;
         if (newPassword.length < 6) { showAlert("Atención", "La contraseña debe tener al menos 6 caracteres.", "warning"); return; }
         try {
-            await updateUser(resetPasswordUserId, { password: newPassword });
+            if (user?.role?.hierarchy_level >= 4) {
+                await updateAutonomoUser(resetPasswordUserId, { password: newPassword });
+            } else {
+                await updateUser(resetPasswordUserId, { password: newPassword });
+            }
             setResetPasswordUserId(null);
             setNewPassword("");
             showAlert("Éxito", "Contraseña cambiada correctamente.", "success");
@@ -137,16 +151,20 @@ export default function ListaUsuarios() {
         }
     };
 
-    const handleToggleBlock = (user: User) => {
-        const isBlocked = !user.active || user.active === 0;
+    const handleToggleBlock = (userObj: User) => {
+        const isBlocked = !userObj.active || userObj.active === 0;
         showConfirm(
             `¿Confirmar ${isBlocked ? 'desbloquear' : 'bloquear'}?`,
-            `¿Estás seguro de que deseas ${isBlocked ? 'desbloquear' : 'bloquear'} a ${user.name}?`,
+            `¿Estás seguro de que deseas ${isBlocked ? 'desbloquear' : 'bloquear'} a ${userObj.name}?`,
             async () => {
                 try {
                     const newActive = isBlocked ? 1 : 0;
-                    await updateUser(user.id, { active: newActive });
-                    setUsers(users.map(u => u.id === user.id ? { ...u, active: newActive } : u));
+                    if (user?.role?.hierarchy_level >= 4) {
+                        await updateAutonomoUser(userObj.id, { active: newActive });
+                    } else {
+                        await updateUser(userObj.id, { active: newActive });
+                    }
+                    setUsers(users.map(u => u.id === userObj.id ? { ...u, active: newActive } : u));
                     showAlert("Éxito", `Usuario ${isBlocked ? 'desbloqueado' : 'bloqueado'} con éxito.`, "success");
                 } catch {
                     showAlert("Error", "No se pudo cambiar el estado del usuario.", "error");
@@ -157,8 +175,8 @@ export default function ListaUsuarios() {
 
     // ── Crear Admin Autónomo ────────────────────────────────────────────────
     const handleCreateAutonomo = async () => {
-        if (!newName || !newEmail || !newPass) {
-            showAlert("Campos requeridos", "Completa nombre, correo y contraseña.", "warning");
+        if (!newNombres || !newApellidos || !newEmail || !newPass || !newEmpresa) {
+            showAlert("Campos requeridos", "Completa los campos obligatorios.", "warning");
             return;
         }
         if (newPass.length < 6) {
@@ -168,17 +186,19 @@ export default function ListaUsuarios() {
         setCreatingAutonomo(true);
         try {
             // Obtener el role_id del rol admin-autonomo de la BD
-            // El ID es 7 según la migración, pero lo buscamos dinámicamente del listado de usuarios si ya hay uno
+            // El ID es 4 según la migración, pero lo buscamos dinámicamente del listado de usuarios si ya hay uno
             // Por seguridad, enviamos el nombre del rol y el backend lo valida por su hierarchy_level
             await createAdminAutonomo({
-                name: newName,
+                name: `${newNombres} ${newApellidos}`,
                 email: newEmail,
                 password: newPass,
-                role_id: 7, // ID del rol admin-autonomo según migración
+                role_id: 4, // ID del rol propietario-autonomo según la BD
+                rfc: newRFC,
+                razon_social: newEmpresa
             });
-            showAlert("¡Admin Autónomo creado!", `${newName} ya puede iniciar sesión. Su panel estará en /autonomo.`, "success");
+            showAlert("¡Admin Autónomo creado!", `${newNombres} ${newApellidos} ya puede iniciar sesión. Su panel estará en /autonomo.`, "success");
             setShowCreateModal(false);
-            setNewName(""); setNewEmail(""); setNewPass("");
+            setNewNombres(""); setNewApellidos(""); setNewRFC(""); setNewEmpresa(""); setNewEmail(""); setNewPass("");
             fetchUsers();
         } catch (error: any) {
             const msg = error.response?.data?.message || "No se pudo crear el Admin Autónomo.";
@@ -412,40 +432,79 @@ export default function ListaUsuarios() {
 
             {/* ── MODAL CREAR ADMIN AUTÓNOMO ── */}
             {showCreateModal && (
-                <div className={styles.modalOverlay}>
-                    <div className={styles.modalContent} style={{ maxWidth: 460 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
-                            <h3 style={{ margin: 0, color: '#f26522', fontSize: 18 }}>🏢 Crear Admin Autónomo</h3>
-                            <button onClick={() => setShowCreateModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}>
-                                <HiXMark size={22} />
+                <div className={styles.modalOverlay} style={{ backdropFilter: 'blur(4px)' }}>
+                    <div className={styles.modalContent} style={{ maxWidth: 600, borderRadius: 16, padding: '24px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                <div style={{ background: '#fff0e8', padding: '8px', borderRadius: '10px' }}>
+                                    <HiOutlineUsers size={24} color="#f26522" />
+                                </div>
+                                <h3 style={{ margin: 0, color: '#1e293b', fontSize: 20, fontWeight: 800 }}>Crear Admin Autónomo</h3>
+                            </div>
+                            <button onClick={() => setShowCreateModal(false)} style={{ background: '#f1f5f9', border: 'none', cursor: 'pointer', color: '#64748b', borderRadius: '50%', width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}>
+                                <HiXMark size={20} />
                             </button>
                         </div>
-                        <p style={{ fontSize: 13, color: '#64748b', marginBottom: 18 }}>
-                            El Admin Autónomo tendrá su propio sistema completo — sucursales, técnicos, trabajos y cotizaciones completamente independientes.
+                        <p style={{ fontSize: 13, color: '#64748b', marginBottom: 16, paddingLeft: 52, marginTop: -12 }}>
+                            Completa los datos para registrar una nueva empresa. El Admin Autónomo tendrá control total sobre sus sucursales, técnicos y cotizaciones.
                         </p>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                            <div>
-                                <label style={{ fontSize: 12, fontWeight: 700, color: '#475569', display: 'block', marginBottom: 4 }}>Nombre completo</label>
-                                <input className={styles.modalInput} placeholder="Ej: Juan Rodríguez" value={newName} onChange={e => setNewName(e.target.value)} />
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 16px', background: '#f8fafc', padding: 16, borderRadius: 12, border: '1px solid #e2e8f0' }}>
+                            <div style={{ gridColumn: '1 / -1', borderBottom: '1px solid #cbd5e1', paddingBottom: 6, marginBottom: 4 }}>
+                                <h4 style={{ margin: 0, fontSize: 13, color: '#475569', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>Información Personal</h4>
                             </div>
                             <div>
-                                <label style={{ fontSize: 12, fontWeight: 700, color: '#475569', display: 'block', marginBottom: 4 }}>Correo electrónico</label>
-                                <input type="email" className={styles.modalInput} placeholder="correo@empresa.com" value={newEmail} onChange={e => setNewEmail(e.target.value)} />
+                                <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 4 }}>Nombre(s) *</label>
+                                <input className={styles.modalInput} placeholder="Ej: Juan" value={newNombres} onChange={e => setNewNombres(e.target.value)} style={{ borderRadius: 8, padding: '8px 12px' }} />
                             </div>
                             <div>
-                                <label style={{ fontSize: 12, fontWeight: 700, color: '#475569', display: 'block', marginBottom: 4 }}>Contraseña inicial</label>
-                                <input type="password" className={styles.modalInput} placeholder="Mínimo 6 caracteres" value={newPass} onChange={e => setNewPass(e.target.value)} />
+                                <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 4 }}>Apellidos *</label>
+                                <input className={styles.modalInput} placeholder="Ej: Rodríguez" value={newApellidos} onChange={e => setNewApellidos(e.target.value)} style={{ borderRadius: 8, padding: '8px 12px' }} />
+                            </div>
+                            
+                            <div style={{ gridColumn: '1 / -1', borderBottom: '1px solid #cbd5e1', paddingBottom: 6, marginBottom: 4, marginTop: 8 }}>
+                                <h4 style={{ margin: 0, fontSize: 13, color: '#475569', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>Información de la Empresa</h4>
+                            </div>
+                            <div>
+                                <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 4 }}>Nombre de la Empresa *</label>
+                                <input className={styles.modalInput} placeholder="Ej: Tech Solutions" value={newEmpresa} onChange={e => setNewEmpresa(e.target.value)} style={{ borderRadius: 8, padding: '8px 12px' }} />
+                            </div>
+                            <div>
+                                <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 4 }}>RFC (Opcional)</label>
+                                <input className={styles.modalInput} placeholder="Ej: XAXX010101000" value={newRFC} onChange={e => setNewRFC(e.target.value)} style={{ borderRadius: 8, padding: '8px 12px' }} />
+                            </div>
+
+                            <div style={{ gridColumn: '1 / -1', borderBottom: '1px solid #cbd5e1', paddingBottom: 6, marginBottom: 4, marginTop: 8 }}>
+                                <h4 style={{ margin: 0, fontSize: 13, color: '#475569', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>Credenciales de Acceso</h4>
+                            </div>
+                            <div>
+                                <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 4 }}>Correo electrónico *</label>
+                                <input type="email" className={styles.modalInput} placeholder="correo@empresa.com" value={newEmail} onChange={e => setNewEmail(e.target.value)} style={{ borderRadius: 8, padding: '8px 12px' }} />
+                            </div>
+                            <div>
+                                <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 4 }}>Contraseña inicial *</label>
+                                <input type="password" className={styles.modalInput} placeholder="Mínimo 6 caracteres" value={newPass} onChange={e => setNewPass(e.target.value)} style={{ borderRadius: 8, padding: '8px 12px' }} />
                             </div>
                         </div>
-                        <div className={styles.modalFooter} style={{ marginTop: 20 }}>
-                            <button className={styles.btnSecondary} onClick={() => setShowCreateModal(false)} disabled={creatingAutonomo}>Cancelar</button>
+
+                        <div className={styles.modalFooter} style={{ marginTop: 20, gap: 12 }}>
+                            <button 
+                                onClick={() => setShowCreateModal(false)} 
+                                disabled={creatingAutonomo}
+                                style={{ padding: '10px 20px', borderRadius: 8, border: '1px solid #cbd5e1', background: '#fff', color: '#475569', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s', fontSize: 13 }}
+                            >
+                                Cancelar
+                            </button>
                             <button
-                                className={styles.btnPrimary}
                                 onClick={handleCreateAutonomo}
                                 disabled={creatingAutonomo}
-                                style={{ background: 'linear-gradient(135deg, #f26522, #e05510)', border: 'none' }}
+                                style={{ padding: '10px 20px', borderRadius: 8, border: 'none', background: 'linear-gradient(135deg, #f26522, #e05510)', color: '#fff', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, boxShadow: '0 4px 12px rgba(242,101,34,0.3)', transition: 'all 0.2s', fontSize: 13 }}
                             >
-                                {creatingAutonomo ? 'Creando...' : 'Crear Admin Autónomo'}
+                                {creatingAutonomo ? 'Creando...' : (
+                                    <>
+                                        <HiOutlinePlus size={16} /> Registrar Empresa
+                                    </>
+                                )}
                             </button>
                         </div>
                     </div>

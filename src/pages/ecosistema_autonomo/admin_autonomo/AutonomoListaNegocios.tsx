@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import styles from "./AutonomoListaNegocios.module.css";
 import menuStyles from "../../../components/Menu.module.css";
 import { useAuth } from "../../../context/AuthContext";
+import { normalizeRole, isAutonomoAdmin } from "../../../utils/roles";
 import { getNegocios } from "../../../services/autonomo/negociosService";
 import { getTrabajos } from "../../../services/autonomo/trabajosService";
 
@@ -86,8 +87,8 @@ const AutonomoListaNegocios: React.FC = () => {
             return matchesSearch && (negocio.dueno === user.name || negocio.user_id === user.id);
         }
 
-        // FILTRO POR ROL: El encargado solo ve su sucursal asignada
-        if (user?.role === 'encargado') {
+        // FILTRO POR ROL: El encargado (legacy) o gerente-sucursal solo ven su sucursal asignada
+        if (user?.role === 'encargado' || normalizeRole(user?.role) === 'gerente-sucursal') {
             return matchesSearch && (negocio.id === user.negocio_id);
         }
 
@@ -113,19 +114,27 @@ const AutonomoListaNegocios: React.FC = () => {
     });
 
     const handleCardClick = (id: number) => {
-        const basePath = user?.role === 'cliente' ? '/cliente' : (user?.role === 'tecnico' ? '/tecnico' : (user?.role === 'encargado' ? '/encargado' : (['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '') ? '/autonomo' : '/menu')));
+        const role = normalizeRole(user?.role);
+        const basePath = role === 'cliente' ? '/cliente'
+            : role === 'tecnico-normal' ? '/tecnico'
+            : role === 'gerente-sucursal' ? '/gerente-sucursal'
+            : isAutonomoAdmin(user?.role) ? '/autonomo'
+            : '/menu';
         navigate(`${basePath}/trabajo/${id}`);
     };
 
     const handleEditClick = (e: React.MouseEvent, id: number) => {
         e.stopPropagation();
-        if (user?.role === 'tecnico') return; // El técnico no debe poder editar ni navegar aquí
-        
-        if (user?.role === 'encargado') {
+        const role = normalizeRole(user?.role);
+        if (role === 'tecnico-normal') return; // El técnico no puede editar
+
+        if (role === 'gerente-sucursal') {
+            navigate(`/gerente-sucursal/sucursal?id=${id}`);
+        } else if (user?.role === 'encargado') {
             navigate(`/encargado/sucursal?id=${id}`);
         } else if (user?.role === 'cliente') {
             navigate(`/cliente/perfil-empresa?id=${id}`);
-        } else if (['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '')) {
+        } else if (isAutonomoAdmin(user?.role)) {
             navigate(`/autonomo/perfil-empresa?id=${id}`);
         } else {
             navigate(`/menu/perfil-empresa?id=${id}`);
@@ -146,7 +155,7 @@ const AutonomoListaNegocios: React.FC = () => {
                         />
                     </div>
                     <div className={styles.actionButtons}>
-                        {['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '') && (
+                        {isAutonomoAdmin(user?.role) && (
                             <button
                                 className={styles.registrarBtn}
                                 onClick={() => navigate("/autonomo/perfil-empresa")}

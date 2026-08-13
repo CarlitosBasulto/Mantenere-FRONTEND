@@ -32,6 +32,7 @@ import AdminSolicitudesProveedores from "./pages/admin/AdminSolicitudesProveedor
 import PerfilEmpresa from "./pages/cliente/PerfilEmpresa";
 import MiPerfil from "./pages/cliente/MiPerfil";
 import AutonomoMiPerfil from "./pages/ecosistema_autonomo/admin_autonomo/AutonomoMiPerfil";
+import GerenteSucursalMiSucursal from "./pages/ecosistema_autonomo/gerente_sucursal/GerenteSucursalMiSucursal";
 import Cotizaciones from "./pages/cliente/Cotizaciones";
 import Historial from "./pages/cliente/Historial";
 import AdminHistorial from "./pages/admin/AdminHistorial";
@@ -130,8 +131,8 @@ function App() {
                             </ProtectedRoute>
                         }>
                             <Route index element={<Navigate to="/gerente-sucursal/negocios" replace />} />
-                            <Route path="negocios" element={<ListaNegocios />} />
-                            <Route path="sucursal" element={<PerfilEmpresa />} />
+                            <Route path="negocios" element={<GerenteSucursalMiSucursal />} />
+                            <Route path="sucursal" element={<AutonomoPerfilEmpresa />} />
                             <Route path="mi-perfil" element={<MiPerfil />} />
                             <Route path="cotizaciones" element={<Cotizaciones />} />
                             <Route path="historial" element={<Historial />} />
@@ -142,7 +143,7 @@ function App() {
 
                         {/* ADMIN AUTÓNOMO ROUTES */}
                         <Route path="/autonomo" element={
-                            <ProtectedRoute allowedRoles={['autonomo', 'administrador-general', 'propietario-autonomo']}>
+                            <ProtectedRoute allowedRoles={['autonomo', 'administrador-general', 'gerente-general', 'propietario-autonomo', 'admin-autonomo']}>
                                 <AutonomoLayout />
                             </ProtectedRoute>
                         }>

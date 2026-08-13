@@ -6,6 +6,7 @@ import menuStyles from "../../components/Menu.module.css";
 import styles from "./Trabajodetalles.module.css";
 import tableroStyles from "../autonomo/AutonomoTablero.module.css";
 import { useAuth } from "../../context/AuthContext";
+import { isAutonomoAdmin } from "../../utils/roles";
 import { useModal } from "../../context/ModalContext";
 import Historial from "../cliente/Historial";
 import Cotizaciones from "../cliente/Cotizaciones";
@@ -2016,7 +2017,7 @@ const TrabajoDetalle: React.FC = () => {
                                 onClick={(e) => {
                                     if (!(e.target as HTMLElement).closest('button')) {
                                         markCardAsSeen(userRole, trabajo.id, trabajo.estado);
-                                        const basePath = user?.role === 'tecnico' ? '/tecnico' : (user?.role === 'cliente' ? '/cliente' : (['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '') ? '/autonomo' : (user?.role === 'encargado' ? '/encargado' : '/menu')));
+                                        const basePath = user?.role === 'tecnico' ? '/tecnico' : (user?.role === 'cliente' ? '/cliente' : (isAutonomoAdmin(user?.role) ? '/autonomo' : (user?.role === 'encargado' ? '/encargado' : '/menu')));
                                         if (trabajo.isMantenimiento) {
                                             navigate(`${basePath}/mantenimiento-detalle/${trabajo.original_id}`);
                                         } else {
@@ -2234,7 +2235,7 @@ const TrabajoDetalle: React.FC = () => {
             return (
                 <div key={trabajo.id} style={{ padding: '12px', background: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', cursor: 'pointer', marginBottom: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', transition: 'transform 0.15s, box-shadow 0.15s' }} 
                     onClick={() => {
-                        const basePath = user?.role === 'tecnico' ? '/tecnico' : (user?.role === 'cliente' ? '/cliente' : (['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '') ? '/autonomo' : (user?.role === 'encargado' ? '/encargado' : '/menu')));
+                        const basePath = user?.role === 'tecnico' ? '/tecnico' : (user?.role === 'cliente' ? '/cliente' : (isAutonomoAdmin(user?.role) ? '/autonomo' : (user?.role === 'encargado' ? '/encargado' : '/menu')));
                         if (trabajo.isMantenimiento) {
                             navigate(`${basePath}/mantenimiento-detalle/${trabajo.original_id}`);
                         } else {
@@ -2741,7 +2742,7 @@ const TrabajoDetalle: React.FC = () => {
                                                     key={job.id} 
                                                     className={styles.recentJobItem}
                                                     onClick={() => {
-                                                        const basePath = user?.role === 'tecnico' ? '/tecnico' : (user?.role === 'cliente' ? '/cliente' : (['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '') ? '/autonomo' : (user?.role === 'encargado' ? '/encargado' : '/menu')));
+                                                        const basePath = user?.role === 'tecnico' ? '/tecnico' : (user?.role === 'cliente' ? '/cliente' : (isAutonomoAdmin(user?.role) ? '/autonomo' : (user?.role === 'encargado' ? '/encargado' : '/menu')));
                                                         if (job.isMantenimiento) {
                                                             navigate(`${basePath}/mantenimiento-detalle/${job.original_id}`);
                                                         } else {

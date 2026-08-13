@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import styles from "./AutonomoPerfilEmpresa.module.css";
 import { useAuth } from "../../../context/AuthContext";
 import { useModal } from "../../../context/ModalContext";
+import { isAutonomoAdmin } from "../../../utils/roles";
 
 import { 
     HiOutlineMapPin, 
@@ -101,7 +102,7 @@ const AutonomoPerfilEmpresa: React.FC = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
     const { showAlert, showConfirm, showPrompt } = useModal();
-    const canEdit = ['cliente', 'encargado', 'autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '');
+    const canEdit = ['cliente', 'encargado', 'autonomo', 'admin-autonomo', 'gerente-general', 'administrador-general', 'propietario-autonomo'].includes(user?.role || '');
 
     const [formData, setFormData] = useState<BusinessData>({
         nombreSucursal: "",
@@ -523,7 +524,7 @@ const AutonomoPerfilEmpresa: React.FC = () => {
             }
             if (user?.role === 'encargado') {
                 navigate('/encargado');
-            } else if (['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '')) {
+            } else if (isAutonomoAdmin(user?.role)) {
                 navigate('/autonomo/negocios');
             } else if (user?.role === 'admin') {
                 navigate('/menu/negocios');
@@ -990,7 +991,7 @@ const AutonomoPerfilEmpresa: React.FC = () => {
                         </div>
 
                         {/* CARD 3: ACCESO SUBGERENTE */}
-                        {editId && canEdit && (user?.role === 'gerente-general' || user?.role === 'admin-autonomo') && (
+                        {editId && canEdit && isAutonomoAdmin(user?.role) && (
                             <div className={styles.infoCard}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                                     <h3 style={{ fontSize: '16px', color: '#334155', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>

@@ -10,6 +10,7 @@ import type { UserRole } from '../../context/AuthContext';
 import { Eye, EyeOff, X } from 'lucide-react';
 import ReCAPTCHA from "react-google-recaptcha";
 import { TERMS_AND_CONDITIONS, PRIVACY_POLICY } from '../../constants/legalConstants';
+import { normalizeRole } from '../../utils/roles';
 
 const AuthPage: React.FC = () => {
     const [isRightPanelActive, setIsRightPanelActive] = useState(false);
@@ -52,6 +53,31 @@ const AuthPage: React.FC = () => {
         } else {
             setIsRightPanelActive(false);
         }
+
+        const storedUser = localStorage.getItem("user");
+        const token = localStorage.getItem("token");
+        if (token && storedUser) {
+            try {
+                const userObj = JSON.parse(storedUser);
+                const norm = normalizeRole(userObj.role);
+                let targetPath = '/cliente';
+                if (norm === 'admin' || userObj.role === 'root') targetPath = '/menu';
+                else if (norm === 'tecnico-normal' || userObj.role === 'tecnico' || userObj.role === 'tecnico-autonomo') targetPath = '/tecnico';
+                else if (norm === 'gerente-sucursal' || userObj.role === 'encargado') targetPath = '/gerente-sucursal';
+                else if (
+                    norm === 'autonomo' || 
+                    norm === 'administrador-general' || 
+                    norm === 'propietario-autonomo' || 
+                    userObj.role === 'gerente-general' || 
+                    userObj.role === 'administrador-general' || 
+                    userObj.role === 'admin-autonomo'
+                ) targetPath = '/autonomo';
+
+                navigate(targetPath, { replace: true });
+            } catch (e) {
+                // Ignore parse error
+            }
+        }
     }, [location.pathname]);
 
     const handleSignUpClick = () => {
@@ -72,8 +98,7 @@ const AuthPage: React.FC = () => {
             // Configurar token en axios si AuthContext no lo hace
             localStorage.setItem('token', data.token);
 
-            let roleStr = user.role.toLowerCase();
-            // Mapeamos explícitamente el rol "trabajador" y "tecnico-normal" de Laravel al rol "tecnico" del Frontend
+            let roleStr = user.role ? String(user.role).toLowerCase() : '';
             if (roleStr === 'trabajador' || roleStr === 'tecnico-normal') roleStr = 'tecnico';
             
             let role: UserRole = roleStr as UserRole;
@@ -91,13 +116,24 @@ const AuthPage: React.FC = () => {
             
             setWelcomeName(user.name);
             setShowWelcomeModal(true);
+            
+            const norm = normalizeRole(user.role);
+            let targetPath = '/cliente';
+            if (norm === 'admin' || user.role === 'root') targetPath = '/menu';
+            else if (norm === 'tecnico-normal' || user.role === 'tecnico' || user.role === 'tecnico-autonomo') targetPath = '/tecnico';
+            else if (norm === 'gerente-sucursal' || user.role === 'encargado') targetPath = '/gerente-sucursal';
+            else if (
+                norm === 'autonomo' || 
+                norm === 'administrador-general' || 
+                norm === 'propietario-autonomo' || 
+                user.role === 'gerente-general' || 
+                user.role === 'administrador-general' || 
+                user.role === 'admin-autonomo'
+            ) targetPath = '/autonomo';
+
             setTimeout(() => {
                 setShowWelcomeModal(false);
-                if (role === 'admin') navigate('/menu');
-                else if (role === 'tecnico') navigate('/tecnico');
-                else if (role === 'encargado') navigate('/encargado');
-                else if (role === 'autonomo' || role === 'gerente-general') navigate('/autonomo');
-                else navigate('/cliente');
+                navigate(targetPath);
             }, 5000);
         } catch (error: any) {
             console.error(error);
@@ -131,7 +167,7 @@ const AuthPage: React.FC = () => {
             const user = data.user;
             localStorage.setItem('token', data.token);
 
-            let roleStr = user.role.toLowerCase();
+            let roleStr = user.role ? String(user.role).toLowerCase() : '';
             if (roleStr === 'trabajador' || roleStr === 'tecnico-normal') roleStr = 'tecnico';
             
             let role: UserRole = roleStr as UserRole;
@@ -149,13 +185,24 @@ const AuthPage: React.FC = () => {
             
             setWelcomeName(user.name);
             setShowWelcomeModal(true);
+
+            const norm = normalizeRole(user.role);
+            let targetPath = '/cliente';
+            if (norm === 'admin' || user.role === 'root') targetPath = '/menu';
+            else if (norm === 'tecnico-normal' || user.role === 'tecnico' || user.role === 'tecnico-autonomo') targetPath = '/tecnico';
+            else if (norm === 'gerente-sucursal' || user.role === 'encargado') targetPath = '/gerente-sucursal';
+            else if (
+                norm === 'autonomo' || 
+                norm === 'administrador-general' || 
+                norm === 'propietario-autonomo' || 
+                user.role === 'gerente-general' || 
+                user.role === 'administrador-general' || 
+                user.role === 'admin-autonomo'
+            ) targetPath = '/autonomo';
+
             setTimeout(() => {
                 setShowWelcomeModal(false);
-                if (role === 'admin') navigate('/menu');
-                else if (role === 'tecnico') navigate('/tecnico');
-                else if (role === 'encargado') navigate('/encargado');
-                else if (role === 'autonomo') navigate('/autonomo');
-                else navigate('/cliente');
+                navigate(targetPath);
             }, 5000);
         } catch (error: any) {
             console.error(error);

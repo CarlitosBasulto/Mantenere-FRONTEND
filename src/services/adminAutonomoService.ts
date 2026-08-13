@@ -25,6 +25,8 @@ export const createAdminAutonomo = async (data: {
     email: string;
     password: string;
     role_id: number;
+    rfc?: string;
+    razon_social?: string;
 }) => {
     const res = await api.post("/users", data);
     return res.data;

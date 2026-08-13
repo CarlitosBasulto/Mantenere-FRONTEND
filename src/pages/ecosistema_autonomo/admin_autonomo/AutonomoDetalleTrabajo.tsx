@@ -40,6 +40,7 @@ import ReportePDFPreview from "../../../components/modals/ReportePDFPreview";
 import ChatTrabajo from "../../../components/ChatTrabajo";
 import NegotiationChatWidget from "../../../components/chat/NegotiationChatWidget";
 import UbicacionMapaModal from "../../../components/modals/UbicacionMapaModal";
+import { normalizeRole, isAutonomoAdmin } from "../../../utils/roles";
 
 
 export interface CotizacionData {
@@ -2637,7 +2638,7 @@ const AutonomoDetalleTrabajo: React.FC = () => {
                                     </span>
 
                                     {/* BOTÓN ACCIÓN — lógica diferente para SOS vs Normal */}
-                                    {(['admin', 'autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '')) && trabajo.estado !== 'Finalizado' && trabajo.estado !== 'Asignado' && trabajo.estado !== 'En Proceso' && (
+                                    {(user?.role === 'admin' || isAutonomoAdmin(user?.role)) && trabajo.estado !== 'Finalizado' && trabajo.estado !== 'Asignado' && trabajo.estado !== 'En Proceso' && (
                                         isSOS ? (
                                             // FLUJO SOS:
                                             // - Si está en Solicitud: primero debe crear cotización
@@ -4165,7 +4166,7 @@ const AutonomoDetalleTrabajo: React.FC = () => {
                     })()}
                     userRole={user?.role ?? undefined}
                     onEdit={() => {
-                        const baseRoute = user?.role === 'tecnico' ? '/tecnico' : (['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '') ? '/autonomo' : '/menu');
+                        const baseRoute = user?.role === 'tecnico' ? '/tecnico' : (isAutonomoAdmin(user?.role) ? '/autonomo' : '/menu');
                         navigate(`${baseRoute}/reporte-tarea/${trabajo?.id}`, { state: { trabajoId: trabajo?.id, actividadId: (selectedHistoryTask as any).id } });
                     }}
                 />
@@ -4192,7 +4193,7 @@ const AutonomoDetalleTrabajo: React.FC = () => {
                                 onClick={() => {
                                     if (selectedTaskForReport && trabajo) {
                                         setIsSecurityModalOpen(false);
-                                        const baseRoute = user?.role === 'tecnico' ? '/tecnico' : (['autonomo', 'admin-autonomo', 'gerente-general'].includes(user?.role || '') ? '/autonomo' : '/menu');
+                                        const baseRoute = user?.role === 'tecnico' ? '/tecnico' : (isAutonomoAdmin(user?.role) ? '/autonomo' : '/menu');
                                         navigate(`${baseRoute}/reporte-tarea/${trabajo.id}`, { state: { trabajoId: trabajo.id, actividadId: selectedTaskForReport.id } });
                                     }
                                 }}
