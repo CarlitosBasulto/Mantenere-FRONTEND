@@ -22,6 +22,7 @@ import TrabajoDetalle from "./pages/Trabajos detalles/Trabajodetalles";
 import AdminDetalleTrabajo from "./pages/admin/AdminDetalleTrabajo";
 import AutonomoDetalleTrabajo from "./pages/ecosistema_autonomo/admin_autonomo/AutonomoDetalleTrabajo";
 import AutonomoListaNegocios from "./pages/ecosistema_autonomo/admin_autonomo/AutonomoListaNegocios";
+import AdminGeneralMisSucursales from "./pages/ecosistema_autonomo/admin_autonomo/AdminGeneralMisSucursales";
 import AutonomoListaTrabajadores from "./pages/ecosistema_autonomo/admin_autonomo/AutonomoListaTrabajadores";
 import AutonomoPerfilEmpresa from "./pages/ecosistema_autonomo/admin_autonomo/AutonomoPerfilEmpresa";
 import AdminVerificacionEquipo from "./pages/admin/AdminVerificacionEquipo";
@@ -149,7 +150,7 @@ function App() {
                         }>
                             <Route index element={<Navigate to="/autonomo/negocios" replace />} />
                             <Route path="dashboard" element={<Navigate to="/autonomo/negocios" replace />} />
-                            <Route path="negocios" element={<AutonomoListaNegocios />} />
+                            <Route path="negocios" element={<AdminGeneralMisSucursales />} />
                             <Route path="trabajadores" element={<AutonomoListaTrabajadores />} />
                             <Route path="trabajador/:id" element={<AdminPerfilTrabajador />} />
                             <Route path="usuarios" element={<ListaUsuarios />} />
