@@ -3675,10 +3675,28 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                             </span>
                         )}
                         {(() => {
-                            const isTaskReportDone = tarea.estado === 'Completa' || !!localStorage.getItem(`report_data_${tarea.id}`);
+                            const isTaskReportDone = (
+                                tarea.estado === 'Completa' || 
+                                tarea.estado === 'Finalizado' || 
+                                trabajo?.estado === 'Finalizado' || 
+                                trabajo?.estado === 'Completado' || 
+                                !!reporteFinal || 
+                                !!localStorage.getItem(`report_data_${tarea.id}`) ||
+                                (tarea.baseId && tarea.pointIndex ? (!!localStorage.getItem(`report_data_${tarea.baseId}_${tarea.pointIndex}`) || !!localStorage.getItem(`report_data_temporal_${tarea.baseId}_${tarea.pointIndex}`)) : false) ||
+                                (tarea.baseId ? (!!localStorage.getItem(`report_data_${tarea.baseId}`) || !!localStorage.getItem(`report_data_temporal_${tarea.baseId}`)) : false) ||
+                                (trabajo?.id ? (!!localStorage.getItem(`report_data_${trabajo.id}`) || !!localStorage.getItem(`report_data_temporal_${trabajo.id}`)) : false)
+                            );
                             const execTasks = getExecutableTasks(subTareas);
                             const totalCount = execTasks.length || 1;
-                            const doneCount = execTasks.filter(t => t.estado === 'Completa' || !!localStorage.getItem(`report_data_${t.id}`)).length;
+                            const doneCount = (trabajo?.estado === 'Finalizado' || trabajo?.estado === 'Completado' || !!reporteFinal)
+                                ? totalCount
+                                : execTasks.filter(t => (
+                                    t.estado === 'Completa' || 
+                                    t.estado === 'Finalizado' || 
+                                    !!localStorage.getItem(`report_data_${t.id}`) ||
+                                    (t.baseId && t.pointIndex ? (!!localStorage.getItem(`report_data_${t.baseId}_${t.pointIndex}`) || !!localStorage.getItem(`report_data_temporal_${t.baseId}_${t.pointIndex}`)) : false) ||
+                                    (t.baseId ? (!!localStorage.getItem(`report_data_${t.baseId}`) || !!localStorage.getItem(`report_data_temporal_${t.baseId}`)) : false)
+                                )).length;
 
                             return (
                                 <span style={{
@@ -4054,9 +4072,19 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
 
                         {/* BOTÓN REALIZAR REPORTE / TRABAJO PARA TÉCNICO */}
                         {(() => {
-                            const isTaskReportDone = tarea.estado === 'Completa' || !!localStorage.getItem(`report_data_${tarea.id}`);
+                            const isTaskReportDone = (
+                                tarea.estado === 'Completa' || 
+                                tarea.estado === 'Finalizado' || 
+                                trabajo?.estado === 'Finalizado' || 
+                                trabajo?.estado === 'Completado' || 
+                                !!reporteFinal || 
+                                !!localStorage.getItem(`report_data_${tarea.id}`) ||
+                                (tarea.baseId && tarea.pointIndex ? (!!localStorage.getItem(`report_data_${tarea.baseId}_${tarea.pointIndex}`) || !!localStorage.getItem(`report_data_temporal_${tarea.baseId}_${tarea.pointIndex}`)) : false) ||
+                                (tarea.baseId ? (!!localStorage.getItem(`report_data_${tarea.baseId}`) || !!localStorage.getItem(`report_data_temporal_${tarea.baseId}`)) : false) ||
+                                (trabajo?.id ? (!!localStorage.getItem(`report_data_${trabajo.id}`) || !!localStorage.getItem(`report_data_temporal_${trabajo.id}`)) : false)
+                            );
                             const isTechOrAdmin = (user?.role === 'tecnico' || user?.role === 'tecnico-normal' || user?.role === 'tecnico-autonomo') || user?.role === 'admin' || user?.role === 'autonomo';
-                            const isJobQuoteApproved = ['Cotización Aceptada', 'Cotización Aprobada', 'En Proceso', 'En Ejecución', 'Aceptada'].includes(trabajo?.estado || '') || tarea.cotizacionEstado === 'Aprobada' || (cotizaciones && cotizaciones.some(c => c.estado === 'Aprobada'));
+                            const isJobQuoteApproved = ['Cotización Aceptada', 'Cotización Aprobada', 'En Proceso', 'En Ejecución', 'Finalizado', 'Completado', 'Aceptada'].includes(trabajo?.estado || '') || tarea.cotizacionEstado === 'Aprobada' || (cotizaciones && cotizaciones.some(c => c.estado === 'Aprobada'));
                             const isQuotePending = tarea.quoteData && !isJobQuoteApproved;
                             const canDoReport = isTechOrAdmin && !isQuotePending;
                             if (!canDoReport) return null;
@@ -6741,7 +6769,15 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                 {(() => {
                                     const execTasks = getExecutableTasks(subTareas);
                                     const total = execTasks.length || 1;
-                                    const completed = execTasks.filter(t => t.estado === 'Completa' || !!localStorage.getItem(`report_data_${t.id}`)).length;
+                                    const completed = (trabajo?.estado === 'Finalizado' || trabajo?.estado === 'Completado' || !!reporteFinal)
+                                        ? total
+                                        : execTasks.filter(t => (
+                                            t.estado === 'Completa' || 
+                                            t.estado === 'Finalizado' || 
+                                            !!localStorage.getItem(`report_data_${t.id}`) ||
+                                            (t.baseId && t.pointIndex ? (!!localStorage.getItem(`report_data_${t.baseId}_${t.pointIndex}`) || !!localStorage.getItem(`report_data_temporal_${t.baseId}_${t.pointIndex}`)) : false) ||
+                                            (t.baseId ? (!!localStorage.getItem(`report_data_${t.baseId}`) || !!localStorage.getItem(`report_data_temporal_${t.baseId}`)) : false)
+                                        )).length;
                                     const percentage = Math.round((completed / total) * 100);
 
                                     return (
@@ -6770,7 +6806,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                         fontSize: '20px',
                                                         fontWeight: '900'
                                                     }}>
-                                                        📊
+                                                        {completed === total ? '✅' : '📊'}
                                                     </div>
                                                     <div>
                                                         <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '850', color: completed === total ? '#065f46' : '#1e3a8a' }}>
