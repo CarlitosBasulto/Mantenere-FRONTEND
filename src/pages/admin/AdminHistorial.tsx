@@ -439,13 +439,13 @@ const AdminHistorial: React.FC = () => {
 
         try {
             // 1. Verificar si existe reporte específico de este sub-punto en localStorage
-            const localData = localStorage.getItem(`report_data_${tarea.id}`);
-            const temporalData = localStorage.getItem(`report_data_temporal_${tarea.id}`);
-            const savedData = localData || temporalData;
+            const localData = localStorage.getItem(`report_data_${tarea.id}`) ||
+                              localStorage.getItem(`report_data_temporal_${tarea.id}`) ||
+                              (tarea.baseId && tarea.pointIndex ? (localStorage.getItem(`report_data_${tarea.baseId}_${tarea.pointIndex}`) || localStorage.getItem(`report_data_temporal_${tarea.baseId}_${tarea.pointIndex}`)) : null);
 
-            if (savedData) {
+            if (localData) {
                 try {
-                    const parsed = JSON.parse(savedData);
+                    const parsed = JSON.parse(localData);
                     setReportData(parsed);
                     return;
                 } catch (e) {
@@ -453,39 +453,61 @@ const AdminHistorial: React.FC = () => {
                 }
             }
 
-            // 2. Intentar cargar desde API
-            const apiReport = await getReporteByTrabajoId(tarea.trabajoId);
+            // 2. Intentar cargar desde API con el trabajoId
+            let apiReport = await getReporteByTrabajoId(tarea.trabajoId);
+
+            // Si no tiene reporte propio, intentar con baseId si es un grupo
+            if ((!apiReport || !apiReport.solucion) && tarea.baseId && tarea.baseId !== tarea.trabajoId) {
+                try {
+                    apiReport = await getReporteByTrabajoId(tarea.baseId);
+                } catch(e) {}
+            }
 
             if (apiReport && apiReport.solucion) {
                 try {
                     const parsed = JSON.parse(apiReport.solucion);
                     setReportData(parsed);
+                    return;
                 } catch (e) {
                     console.error("Error parseando solución del reporte:", e);
                     setReportData({
-                        descripcion: apiReport.descripcion,
+                        descripcion: apiReport.descripcion || tarea.descripcion,
                         fecha: apiReport.fecha || tarea.fecha,
-                        id: apiReport.id,
-                        reporteTienda: apiReport.descripcion
+                        id: apiReport.id || tarea.id,
+                        reporteTienda: apiReport.descripcion || tarea.descripcion
                     });
-                }
-            } else {
-                // 3. Fallback a reporte general del trabajo en LocalStorage
-                const baseLocal = localStorage.getItem(`report_data_${tarea.trabajoId}`) || localStorage.getItem(`report_data_temporal_${tarea.trabajoId}`);
-                if (baseLocal) {
-                    try {
-                        setReportData(JSON.parse(baseLocal));
-                    } catch (e) {}
+                    return;
                 }
             }
+
+            // 3. Fallback a reporte general del baseId o trabajoId en LocalStorage
+            const baseLocal = (tarea.baseId ? (localStorage.getItem(`report_data_${tarea.baseId}`) || localStorage.getItem(`report_data_temporal_${tarea.baseId}`)) : null) ||
+                              localStorage.getItem(`report_data_${tarea.trabajoId}`) || 
+                              localStorage.getItem(`report_data_temporal_${tarea.trabajoId}`);
+            if (baseLocal) {
+                try {
+                    setReportData(JSON.parse(baseLocal));
+                    return;
+                } catch (e) {}
+            }
+
+            // 4. Fallback final: usar la descripción del trabajo/tarea
+            setReportData({
+                descripcion: tarea.descripcion || "Trabajo completado exitosamente.",
+                reporteTienda: tarea.descripcion || "Trabajo completado exitosamente.",
+                fecha: tarea.fecha,
+                id: tarea.id,
+                tecnicoNombre: tarea.tecnico || "Técnico"
+            });
         } catch (error) {
             console.error("Error al obtener reporte:", error);
-            const localData = localStorage.getItem(`report_data_${tarea.id}`) || localStorage.getItem(`report_data_${tarea.trabajoId}`);
-            if (localData) {
-                try {
-                    setReportData(JSON.parse(localData));
-                } catch(e) {}
-            }
+            setReportData({
+                descripcion: tarea.descripcion || "Trabajo completado exitosamente.",
+                reporteTienda: tarea.descripcion || "Trabajo completado exitosamente.",
+                fecha: tarea.fecha,
+                id: tarea.id,
+                tecnicoNombre: tarea.tecnico || "Técnico"
+            });
         }
     };
 

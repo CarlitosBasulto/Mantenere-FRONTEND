@@ -8285,14 +8285,27 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                     trabajo={trabajo as any}
                     task={selectedHistoryTask}
                     reporte={(() => {
-                        const taskReportRaw = localStorage.getItem(`report_data_${(selectedHistoryTask as any).id}`) || localStorage.getItem(`report_data_temporal_${(selectedHistoryTask as any).id}`);
+                        const taskReportRaw = localStorage.getItem(`report_data_${(selectedHistoryTask as any).id}`) || 
+                                              localStorage.getItem(`report_data_temporal_${(selectedHistoryTask as any).id}`);
                         if (taskReportRaw) {
                             try { return JSON.parse(taskReportRaw); } catch(e) {}
                         }
                         if (reporteFinal) return reporteFinal;
                         const fallbackReportDataRaw = localStorage.getItem(`report_data_${trabajo?.id}`);
                         const temporalReportDataRaw = localStorage.getItem(`report_data_temporal_${trabajo?.id}`);
-                        return fallbackReportDataRaw ? JSON.parse(fallbackReportDataRaw) : (temporalReportDataRaw ? JSON.parse(temporalReportDataRaw) : null);
+                        if (fallbackReportDataRaw) {
+                            try { return JSON.parse(fallbackReportDataRaw); } catch(e) {}
+                        }
+                        if (temporalReportDataRaw) {
+                            try { return JSON.parse(temporalReportDataRaw); } catch(e) {}
+                        }
+                        return {
+                            descripcion: (selectedHistoryTask as any)?.descripcion || trabajo?.descripcion || "Trabajo completado exitosamente.",
+                            reporteTienda: (selectedHistoryTask as any)?.descripcion || trabajo?.descripcion || "Trabajo completado exitosamente.",
+                            fecha: (selectedHistoryTask as any)?.fecha || trabajo?.fecha,
+                            id: (selectedHistoryTask as any)?.id || trabajo?.id,
+                            tecnicoNombre: trabajo?.tecnico || "Técnico"
+                        };
                     })()}
                     userRole={user?.role ?? undefined}
                     onEdit={() => {

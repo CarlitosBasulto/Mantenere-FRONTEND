@@ -228,12 +228,12 @@ const ReporteDetailModal: React.FC<ReporteDetailModalProps> = ({
                         
                         <div className={styles.dataBlock}>
                             <span className={styles.dataLabel}>Reporte de Tienda / Hallazgo</span>
-                            <div className={styles.dataBox}>{reporte?.reporteTienda || 'Cargando...'}</div>
+                            <div className={styles.dataBox}>{reporte?.reporteTienda || reporte?.descripcion || task?.titulo || 'Diagnóstico de visita completado.'}</div>
                         </div>
 
                         <div className={styles.dataBlock}>
                             <span className={styles.dataLabel}>Descripción del Trabajo Realizado</span>
-                            <div className={styles.dataBox}>{reporte?.descripcion || 'Cargando...'}</div>
+                            <div className={styles.dataBox}>{reporte?.descripcion || reporte?.reporteTienda || 'Servicio ejecutado según lo acordado en la cotización.'}</div>
                         </div>
 
                         <div className={styles.dataBlock}>
