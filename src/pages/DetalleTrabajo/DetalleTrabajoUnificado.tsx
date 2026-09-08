@@ -97,10 +97,10 @@ interface Trabajo {
 }
 
 interface SubTarea {
-    id: number;
+    id: number | string;
     titulo: string;
     descripcion: string;
-    estado: "Completa" | "Pendiente" | "Nueva"; // Added "Nueva"
+    estado: "Completa" | "Pendiente" | "Nueva" | "Pospuesto";
     tecnicoId?: number;
     tecnicoNombre?: string;
     esCotizacion?: boolean;
@@ -108,11 +108,18 @@ interface SubTarea {
     cotizacionDetalles?: string;
     cotizacionEstado?: "Pendiente" | "Aprobada" | "Rechazada" | "Sugerencia de Técnico";
     cotizacionArchivo?: string;
+    cleanDescripcion?: string;
+    photos?: string[];
+    hasQuote?: boolean;
+    baseId?: number;
+    pointIndex?: number;
     serviceData?: {
         marca: string;
         modelo: string;
         pieza?: string;
         garantia?: string;
+        tipoServicio?: string;
+        items?: any[];
     };
     refacciones?: { pieza: string, cantidad: number, costo_estimado?: string }[];
     quoteData?: { conceptos?: any[]; materiales?: any[]; comentarios?: string; monto?: string; detalles?: string };
@@ -218,6 +225,84 @@ const cleanQuoteDescription = (desc: string) => {
         }
     }
     return desc;
+};
+
+export const getExecutableTasks = (tasks: SubTarea[]): SubTarea[] => {
+    if (!tasks || !Array.isArray(tasks)) return [];
+    const result: SubTarea[] = [];
+
+    tasks.forEach(t => {
+        // Case 1: Multiple items stored in serviceData.items
+        if (t.serviceData?.items && Array.isArray(t.serviceData.items) && t.serviceData.items.length > 1) {
+            t.serviceData.items.forEach((item: any, idx: number) => {
+                const pIdx = idx + 1;
+                const subId = `${t.id}_${pIdx}`;
+                const subTipo = (item.tipo === 'Otro' ? item.customTipo : item.tipo) || t.titulo || 'Servicio';
+                const subDesc = item.descripcion || '';
+                const subPhoto = (t.photos && t.photos[idx]) ? [t.photos[idx]] : [];
+                const isReportDone = !!localStorage.getItem(`report_data_${subId}`);
+
+                result.push({
+                    ...t,
+                    id: subId as any,
+                    baseId: Number(t.id),
+                    pointIndex: pIdx,
+                    titulo: `${subTipo} (Punto ${pIdx})`,
+                    descripcion: subDesc,
+                    cleanDescripcion: subDesc,
+                    photos: subPhoto,
+                    estado: isReportDone ? 'Completa' : (t.estado === 'Pospuesto' ? 'Pospuesto' : 'Nueva'),
+                    serviceData: {
+                        ...t.serviceData,
+                        marca: item.marca || '',
+                        modelo: item.modelo || '',
+                        pieza: item.pieza || '',
+                        garantia: item.garantia || '',
+                        tipoServicio: subTipo
+                    }
+                } as any);
+            });
+            return;
+        }
+
+        // Case 2: Numbered points in cleanDescripcion or descripcion (e.g., "1. [Electricidad] ... \n\n 2. [Mantenimiento] ...")
+        const rawDesc = t.cleanDescripcion || t.descripcion || '';
+        const regexPoint = /(?:^|\n+)(\d+)\.\s*(?:\[([^\]]+)\]\s*)?([\s\S]*?)(?=(?:\n+\d+\.\s*)|$)/g;
+        const matches = Array.from(rawDesc.matchAll(regexPoint));
+
+        if (matches && matches.length > 1) {
+            matches.forEach((m, idx) => {
+                const pIdx = idx + 1;
+                const subId = `${t.id}_${pIdx}`;
+                const subTipo = m[2] ? m[2].trim() : t.titulo;
+                const subDesc = m[3] ? m[3].trim() : '';
+                const subPhoto = (t.photos && t.photos[idx]) ? [t.photos[idx]] : [];
+                const isReportDone = !!localStorage.getItem(`report_data_${subId}`);
+
+                result.push({
+                    ...t,
+                    id: subId as any,
+                    baseId: Number(t.id),
+                    pointIndex: pIdx,
+                    titulo: `${subTipo} (Punto ${pIdx})`,
+                    descripcion: subDesc,
+                    cleanDescripcion: subDesc,
+                    photos: subPhoto,
+                    estado: isReportDone ? 'Completa' : (t.estado === 'Pospuesto' ? 'Pospuesto' : 'Nueva')
+                } as any);
+            });
+            return;
+        }
+
+        // Case 3: Single task
+        const isReportDone = !!localStorage.getItem(`report_data_${t.id}`);
+        result.push({
+            ...t,
+            estado: isReportDone ? 'Completa' : t.estado
+        });
+    });
+
+    return result;
 };
 
 export interface DetalleTrabajoConfig {
@@ -523,15 +608,12 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                     if (data.tipo === "SOS") return "SOS";
                     if (data.tipo === "Trabajo") return "Trabajo";
                     if (data.tipo === "Visita") {
-                        if (["Cotización Aceptada", "Cotización Aprobada", "Finalizado"].includes(data.estado)) {
+                        if (["Cotización Aceptada", "Cotización Aprobada", "En Ejecución", "Finalizado"].includes(data.estado)) {
                             return "Trabajo";
-                        }
-                        if (data.estado === "En Proceso") {
-                            return data.visitado ? "Trabajo" : "Visita";
                         }
                         return "Visita";
                     }
-                    return (["Cotización Aceptada", "Cotización Aprobada", "Finalizado"].includes(data.estado) || data.visitado || (data.estado === "En Proceso" && data.visitado)) ? "Trabajo" : "Visita";
+                    return (["Cotización Aceptada", "Cotización Aprobada", "En Ejecución", "Finalizado"].includes(data.estado)) ? "Trabajo" : (data.tipo || "Visita");
                 })();
 
                 const mappedJob = {
@@ -671,7 +753,9 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                     setActiveTab(prev => prev === 'Trabajo' ? 'Registro' : prev);
                 } else if (['Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución'].includes(mappedJob.estado) && !rawTabParam && (user?.role === 'tecnico' || user?.role === 'tecnico-normal' || user?.role === 'tecnico-autonomo')) {
                     setActiveTab('Trabajo');
-                } else if (mappedJob.tipo === 'Trabajo' || mappedJob.tipo === 'SOS' || mappedJob.visitado) {
+                } else if (mappedJob.tipo === 'Visita' && mappedJob.visitado && !['Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución'].includes(mappedJob.estado)) {
+                    setActiveTab('Datos');
+                } else if (mappedJob.tipo === 'Trabajo' || mappedJob.tipo === 'SOS') {
                     setActiveTab(prev => prev === 'Registro' ? 'Trabajo' : prev);
                 }
 
@@ -1020,8 +1104,18 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
     const [newQuoteFileName, setNewQuoteFileName] = useState("");
     const [activityPhotos, setActivityPhotos] = useState<string[]>([]);
     const [showSendConfirmModal, setShowSendConfirmModal] = useState(false);
-    const [taskItems, setTaskItems] = useState<{ id: string; descripcion: string; foto: string }[]>([
-        { id: '1', descripcion: '', foto: '' }
+    const [taskItems, setTaskItems] = useState<{ 
+        id: string; 
+        descripcion: string; 
+        foto: string; 
+        tipoActividad?: string;
+        customTipoActividad?: string;
+        marca?: string;
+        modelo?: string;
+        pieza?: string;
+        garantia?: string;
+    }[]>([
+        { id: '1', descripcion: '', foto: '', tipoActividad: 'Mantenimiento', customTipoActividad: '', marca: '', modelo: '', pieza: '', garantia: '' }
     ]);
 
     // SERVICE TYPE FIELDS (NEW)
@@ -1059,7 +1153,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
         setActivityPhotos([]);
         setNewQuoteFileName("");
         setTaskItems([
-            { id: '1', descripcion: '', foto: '' }
+            { id: '1', descripcion: '', foto: '', tipoActividad: 'Mantenimiento', customTipoActividad: '', marca: '', modelo: '', pieza: '', garantia: '' }
         ]);
         setIsAddModalOpen(true);
     };
@@ -1323,21 +1417,51 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
 
             if (assignedNames) {
                 try {
-                    // Update in Backend
-                    await assignTrabajador(trabajo.id, selectedTechnicians[0]);
+                    // Update in Backend (for all grouped jobs if part of a group, or single job)
+                    const jobsToAssign = (groupedJobs && groupedJobs.length > 0) ? groupedJobs : [trabajo];
 
-                    // Si el trabajo es Visita y ya tiene una cotización enviada (ya se hizo la visita),
-                    // al reasignar el técnico debe preservar el estado de cotización, NO "Asignado".
+                    for (const currentJob of jobsToAssign) {
+                        await assignTrabajador(currentJob.id, selectedTechnicians[0]);
+
+                        const isQuoteState = currentJob.estado === "Cotización Enviada" || currentJob.estado === "Reasignación Solicitada";
+                        const isCotizacionAprobadaReassign = currentJob.estado === "Cotización Aceptada" || currentJob.estado === "Cotización Aprobada";
+                        
+                        let currentNewEstado: string;
+                        if (isQuoteState && currentJob.tipo === "Visita") {
+                            currentNewEstado = "Cotización Enviada";
+                        } else if (isCotizacionAprobadaReassign) {
+                            currentNewEstado = "Asignado";
+                        } else {
+                            const needsStateUpdate = currentJob.estado === "Pendiente" || currentJob.estado === "Solicitud" || currentJob.estado === "En Espera";
+                            currentNewEstado = needsStateUpdate ? "Asignado" : currentJob.estado;
+                        }
+
+                        let currentNuevoTitulo = currentJob.titulo || "";
+                        if (selectedType === "Trabajo" && currentNuevoTitulo.includes("(Visita)")) {
+                            currentNuevoTitulo = currentNuevoTitulo.replace("(Visita)", "(Reparación)");
+                        } else if (selectedType === "Visita" && currentNuevoTitulo.includes("(Reparación)")) {
+                            currentNuevoTitulo = currentNuevoTitulo.replace("(Reparación)", "(Visita)");
+                        }
+
+                        await updateEstadoTrabajo(currentJob.id, { 
+                            estado: currentNewEstado,
+                            visitado: selectedType === "Trabajo" 
+                        });
+
+                        await updateTrabajo(currentJob.id, {
+                            tipo: selectedType,
+                            titulo: currentNuevoTitulo
+                        });
+                    }
+
+                    // Calculate state for current single view job
                     const isQuoteState = trabajo.estado === "Cotización Enviada" || trabajo.estado === "Reasignación Solicitada";
                     const isCotizacionAprobadaReassign = trabajo.estado === "Cotización Aceptada" || trabajo.estado === "Cotización Aprobada";
                     
                     let newEstado: string;
                     if (isQuoteState && trabajo.tipo === "Visita") {
-                        // Reasignando técnico en fase de cotización → vuelve a "Cotización Enviada" 
-                        // para que el admin tenga que aprobar manualmente
                         newEstado = "Cotización Enviada";
                     } else if (isCotizacionAprobadaReassign) {
-                        // La cotización ya fue aprobada, se reasigna para ejecutar → "Asignado"
                         newEstado = "Asignado";
                     } else {
                         const needsStateUpdate = trabajo.estado === "Pendiente" || trabajo.estado === "Solicitud" || trabajo.estado === "En Espera";
@@ -1351,18 +1475,6 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                         nuevoTitulo = nuevoTitulo.replace("(Reparación)", "(Visita)");
                     }
 
-                    // Always sync visited status regardless of current state to allow reverting mistakes
-                    await updateEstadoTrabajo(trabajo.id, { 
-                        estado: newEstado,
-                        visitado: selectedType === "Trabajo" 
-                    });
-
-                    // Sync the type and title explicitly
-                    await updateTrabajo(trabajo.id, {
-                        tipo: selectedType,
-                        titulo: nuevoTitulo
-                    });
-
                     const updatedJob = {
                         ...trabajo,
                         tecnico: assignedNames,
@@ -1375,6 +1487,31 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                         horaAsignada: asignarHora
                     };
                     setTrabajo(updatedJob);
+
+                    if (groupedJobs && groupedJobs.length > 0) {
+                        setGroupedJobs(prev => prev.map(gj => {
+                            const isQuote = gj.estado === "Cotización Enviada" || gj.estado === "Reasignación Solicitada";
+                            const isCotApp = gj.estado === "Cotización Aceptada" || gj.estado === "Cotización Aprobada";
+                            let gEstado = gj.estado;
+                            if (isQuote && gj.tipo === "Visita") gEstado = "Cotización Enviada";
+                            else if (isCotApp) gEstado = "Asignado";
+                            else if (gj.estado === "Pendiente" || gj.estado === "Solicitud" || gj.estado === "En Espera") gEstado = "Asignado";
+
+                            let gTitulo = gj.titulo || "";
+                            if (selectedType === "Trabajo" && gTitulo.includes("(Visita)")) gTitulo = gTitulo.replace("(Visita)", "(Reparación)");
+                            else if (selectedType === "Visita" && gTitulo.includes("(Reparación)")) gTitulo = gTitulo.replace("(Reparación)", "(Visita)");
+
+                            return {
+                                ...gj,
+                                tecnico: assignedNames,
+                                estado: gEstado,
+                                tipo: selectedType,
+                                titulo: gTitulo,
+                                trabajador_id: selectedTechnicians[0],
+                                trabajador: { id: selectedTechnicians[0], user_id: selectedTechnicians[0], nombre: assignedNames }
+                            };
+                        }));
+                    }
 
                     // Notificaciones al técnico (backend + localStorage fallback)
                     const esSOS = trabajo.tipo === "SOS" || trabajo.titulo?.includes("SOS");
@@ -1651,21 +1788,37 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
         try {
             const activeItems = taskItems.filter(t => t.descripcion.trim() || t.foto);
             const combinedDesc = activeItems.length > 0
-                ? activeItems.map((item, idx) => activeItems.length > 1 ? `${idx + 1}. ${item.descripcion.trim()}` : item.descripcion.trim()).filter(Boolean).join('\n\n')
+                ? activeItems.map((item, idx) => {
+                    const tipoLabel = item.tipoActividad === 'Otro' ? (item.customTipoActividad || 'Otro') : (item.tipoActividad || 'Mantenimiento');
+                    const text = item.descripcion.trim();
+                    return activeItems.length > 1 ? `${idx + 1}. [${tipoLabel}] ${text}` : `[${tipoLabel}] ${text}`;
+                }).filter(Boolean).join('\n\n')
                 : newTaskDescription;
             const combinedPhotos = activeItems.map(t => t.foto).filter(Boolean);
 
             let desc = combinedDesc;
 
+            const primaryItem = activeItems[0] || taskItems[0];
+            const primaryTipo = (primaryItem?.tipoActividad === 'Otro' ? primaryItem?.customTipoActividad : primaryItem?.tipoActividad) || activeServiceType || 'Mantenimiento';
+
             // Serializar datos técnicos (Marca, Modelo, etc.)
             const serviceData = {
-                tipoServicio: activeServiceType,
-                marca: serviceMarca,
-                modelo: serviceModelo,
-                pieza: activeServiceType === 'Instalacion' ? servicePieza : '',
-                garantia: activeServiceType === 'Instalacion' ? serviceGarantia : '',
+                tipoServicio: primaryTipo,
+                marca: primaryItem?.marca || serviceMarca,
+                modelo: primaryItem?.modelo || serviceModelo,
+                pieza: primaryItem?.pieza || (primaryTipo === 'Instalacion' ? servicePieza : ''),
+                garantia: primaryItem?.garantia || (primaryTipo === 'Instalacion' ? serviceGarantia : ''),
                 llegadaConfirmada: confirmacionLlegada,
-                horaLlegada: horaLlegada
+                horaLlegada: horaLlegada,
+                items: activeItems.map(it => ({
+                    tipo: it.tipoActividad || 'Mantenimiento',
+                    customTipo: it.customTipoActividad || '',
+                    descripcion: it.descripcion,
+                    marca: it.marca || '',
+                    modelo: it.modelo || '',
+                    pieza: it.pieza || '',
+                    garantia: it.garantia || ''
+                }))
             };
             desc += ` \n|||SERVICE_DATA||| ${JSON.stringify(serviceData)}`;
 
@@ -1697,7 +1850,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
 
             const body = {
                 trabajo_id: Number(id),
-                tipo: activeServiceType === 'Otro' ? (customServiceType || 'Otro') : activeServiceType,
+                tipo: primaryTipo,
                 descripcion: desc,
                 refacciones: payloadRefacciones,
                 estado: 'Completa'
@@ -2250,10 +2403,11 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
     };
 
     /** Navegar al formulario de reporte para una tarea o trabajo general */
-    const handleAbrirReporteTarea = (tareaId?: number) => {
+    const handleAbrirReporteTarea = (tareaId?: number | string) => {
         if (!trabajo) return;
         const basePath = (user?.role === 'tecnico' || user?.role === 'tecnico-normal') ? '/tecnico' : (user?.role === 'tecnico-autonomo' ? '/tecnico-autonomo' : (user?.role === 'autonomo' ? '/autonomo' : '/menu'));
-        const url = (tareaId && tareaId > 0) ? `${basePath}/reporte-tarea/${trabajo.id}?subtareaId=${tareaId}` : `${basePath}/reporte-tarea/${trabajo.id}`;
+        const hasValidId = tareaId !== undefined && tareaId !== null && String(tareaId) !== '' && String(tareaId) !== '0' && Number(tareaId) !== 0;
+        const url = hasValidId ? `${basePath}/reporte-tarea/${trabajo.id}?subtareaId=${tareaId}` : `${basePath}/reporte-tarea/${trabajo.id}`;
         navigate(url);
     };
 
@@ -3497,7 +3651,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                 {tarea.titulo}
                             </h4>
                             <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                                Registro #{tarea.id}
+                                {typeof tarea.id === 'string' && tarea.id.includes('_') ? `Punto #${tarea.id.split('_')[1]} (Actividad #${tarea.id.split('_')[0]})` : `Registro #${tarea.id}`}
                             </span>
                         </div>
                     </div>
@@ -3518,8 +3672,9 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                         )}
                         {(() => {
                             const isTaskReportDone = tarea.estado === 'Completa' || !!localStorage.getItem(`report_data_${tarea.id}`);
-                            const totalCount = subTareas.length || 1;
-                            const doneCount = subTareas.filter(t => t.estado === 'Completa' || !!localStorage.getItem(`report_data_${t.id}`)).length;
+                            const execTasks = getExecutableTasks(subTareas);
+                            const totalCount = execTasks.length || 1;
+                            const doneCount = execTasks.filter(t => t.estado === 'Completa' || !!localStorage.getItem(`report_data_${t.id}`)).length;
 
                             return (
                                 <span style={{
@@ -4161,10 +4316,11 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                         return false;
                                     }
                                     if (trabajo.estado === 'Rechazada') return false;
-                                    if (['Cotización Aceptada', 'Cotización Aprobada', 'Aceptada', 'En Ejecución', 'En Proceso'].includes(trabajo.estado)) return true;
-                                    const quoteStates = ['Cotización Enviada', 'Sugerencia de Técnico', 'Cotización Rechazada', 'Cotización Reactivada', 'Pendiente de Cotización', 'Reasignación Solicitada'];
+                                    if (['Cotización Aceptada', 'Cotización Aprobada', 'Aceptada', 'En Ejecución'].includes(trabajo.estado)) return true;
+                                    const quoteStates = ['Cotización Enviada', 'En Espera', 'Sugerencia de Técnico', 'Cotización Rechazada', 'Cotización Reactivada', 'Pendiente de Cotización', 'Reasignación Solicitada'];
                                     if (quoteStates.includes(trabajo.estado)) return false;
-                                    return trabajo.tipo === 'Trabajo' || trabajo.tipo === 'SOS' || (trabajo.tipo === 'Visita' && trabajo.visitado);
+                                    if (trabajo.tipo === 'Visita' && !['Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución'].includes(trabajo.estado)) return false;
+                                    return trabajo.tipo === 'Trabajo' || trabajo.tipo === 'SOS';
                                 }
                                 return true;
                             })
@@ -4834,6 +4990,10 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '10px' }}>
                                                     {trabajo.tipo === 'Visita' && !trabajo.visitado ? (
                                                         <button onClick={() => handleEmpezarTrabajoTipo('Visita')} style={{ padding: '12px 10px', background: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)', color: '#fff', border: 'none', borderRadius: '12px', fontSize: '13px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 4px 12px rgba(30,41,59,0.2)', transition: 'all 0.2s ease' }} onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')} onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}>📍 Iniciar Visita</button>
+                                                    ) : trabajo.visitado ? (
+                                                        <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '12px', border: '1px solid #e2e8f0', textAlign: 'center', color: '#64748b', fontSize: '13px', fontWeight: '600' }}>
+                                                            ⏳ Visita completada. Esperando cotización del Administrador y aprobación del cliente.
+                                                        </div>
                                                     ) : (
                                                         <button onClick={() => handleEmpezarTrabajoTipo('Trabajo')} style={{ padding: '12px 10px', background: 'linear-gradient(135deg, #f26522 0%, #d14d13 100%)', color: '#fff', border: 'none', borderRadius: '12px', fontSize: '13px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 4px 12px rgba(242,101,34,0.25)', transition: 'all 0.2s ease' }} onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')} onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}>🛠️ Iniciar Trabajo</button>
                                                     )}
@@ -6575,8 +6735,9 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
 
                                 {/* BANNER DE AVANCE PROGRESIVO DE REPORTES (ej. 1/3 Completados) */}
                                 {(() => {
-                                    const total = subTareas.length || 1;
-                                    const completed = subTareas.filter(t => t.estado === 'Completa' || !!localStorage.getItem(`report_data_${t.id}`)).length;
+                                    const execTasks = getExecutableTasks(subTareas);
+                                    const total = execTasks.length || 1;
+                                    const completed = execTasks.filter(t => t.estado === 'Completa' || !!localStorage.getItem(`report_data_${t.id}`)).length;
                                     const percentage = Math.round((completed / total) * 100);
 
                                     return (
@@ -6685,16 +6846,16 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                         {/* Actividades ya registradas */}
                                         {subTareas.length > 0 && (
                                             <div className={styles.taskList}>
-                                                {[...subTareas].sort((a, b) => a.id - b.id).map(tarea => renderTaskCard(tarea, true))}
+                                                {getExecutableTasks(subTareas).map(tarea => renderTaskCard(tarea, true))}
                                             </div>
                                         )}
                                     </div>
                                 )}
 
-                                {/* Para trabajo normal (no SOS): muestra la lista existente de tareas */}
+                                {/* Para trabajo normal (no SOS): muestra la lista existente de tareas desglosadas */}
                                 {!isSOS && (
                                     <div className={styles.taskList}>
-                                        {[...subTareas].sort((a, b) => a.id - b.id).map(tarea => renderTaskCard(tarea, true))}
+                                        {getExecutableTasks(subTareas).map(tarea => renderTaskCard(tarea, true))}
                                     </div>
                                 )}
                                 
@@ -6713,8 +6874,9 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                 
                                 {/* Botones de acción del técnico al final de la pestaña Trabajo */}
                                 {((user?.role === 'tecnico' || user?.role === 'tecnico-normal' || user?.role === 'tecnico-autonomo') || user?.role === 'admin' || user?.role === 'autonomo') && (() => {
-                                    const totalCount = subTareas.length || 1;
-                                    const doneCount = subTareas.filter(t => t.estado === 'Completa' || !!localStorage.getItem(`report_data_${t.id}`)).length;
+                                    const execTasks = getExecutableTasks(subTareas);
+                                    const totalCount = execTasks.length || 1;
+                                    const doneCount = execTasks.filter(t => t.estado === 'Completa' || !!localStorage.getItem(`report_data_${t.id}`)).length;
                                     const isAllDone = doneCount === totalCount && doneCount > 0;
 
                                     return (
@@ -6746,7 +6908,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                     border: 'none',
                                                     borderRadius: '16px',
                                                     fontSize: '15px',
-                                                    fontWeight: '800',
+                                                    fontWeight: '850',
                                                     cursor: 'pointer',
                                                     boxShadow: isAllDone ? '0 6px 20px rgba(16, 185, 129, 0.25)' : '0 6px 20px rgba(15, 23, 42, 0.25)',
                                                     display: 'flex',
@@ -6907,14 +7069,20 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                 <h3 className={styles.sectionTitle}>Historial de Trabajos Realizados</h3>
                                 <div className={styles.taskList}>
                                     {(() => {
-                                        const tasksToShow = [...subTareas.filter(t => t.estado === 'Completa' || !!localStorage.getItem(`report_data_${t.id}`) || ((user?.role === 'admin' || (user?.role === 'tecnico' || user?.role === 'tecnico-normal')) && !!localStorage.getItem(`report_data_temporal_${t.id}`)) || (trabajo.estado === 'Finalizado' && !!localStorage.getItem(`report_data_${t.id}`)))];
+                                        const execTasks = getExecutableTasks(subTareas);
+                                        const tasksToShow = [...execTasks.filter(t => 
+                                            t.estado === 'Completa' || 
+                                            !!localStorage.getItem(`report_data_${t.id}`) || 
+                                            !!localStorage.getItem(`report_data_temporal_${t.id}`) || 
+                                            (trabajo.estado === 'Finalizado')
+                                        )];
                                         
-                                        // Para SOS Finalizado sin subtareas, agregar la tarea virtual al historial
-                                        if (isSOS && trabajo.estado === 'Finalizado' && subTareas.length === 0) {
+                                        // Si el trabajo está finalizado y no hay subtareas, crear tarea virtual
+                                        if (trabajo.estado === 'Finalizado' && tasksToShow.length === 0) {
                                             tasksToShow.push({
-                                                id: trabajo.id * -1,
-                                                titulo: trabajo.titulo || 'Emergencia SOS',
-                                                descripcion: trabajo.descripcion || 'Servicio de emergencia finalizado',
+                                                id: trabajo.id,
+                                                titulo: trabajo.titulo || (isSOS ? 'Emergencia SOS' : 'Trabajo Finalizado'),
+                                                descripcion: trabajo.descripcion || 'Servicio completado',
                                                 estado: 'Completa',
                                                 esCotizacion: false
                                             });
@@ -6922,7 +7090,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
 
                                         if (tasksToShow.length > 0) {
                                             const grouped = tasksToShow.reduce((acc, tarea) => {
-                                                const reportDataRaw = localStorage.getItem(`report_data_${tarea.id}`);
+                                                const reportDataRaw = localStorage.getItem(`report_data_${tarea.id}`) || localStorage.getItem(`report_data_temporal_${tarea.id}`) || localStorage.getItem(`report_data_${trabajo.id}`);
                                                 const reportData = reportDataRaw ? JSON.parse(reportDataRaw) : null;
                                                 // Intentar obtener fecha del reporte (ej. "12/06/2026"), o de fecha_programada, o created_at
                                                 let dateObj = new Date();
@@ -6959,7 +7127,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                         {isExpanded && (
                                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', paddingLeft: '15px', borderLeft: '2px solid #e2e8f0', marginLeft: '10px' }}>
                                                                 {tareasGroup.map(tarea => {
-                                                                    const hasTaskReport = tarea.estado === 'Completa' || !!localStorage.getItem(`report_data_${tarea.id}`);
+                                                                    const hasTaskReport = tarea.estado === 'Completa' || !!localStorage.getItem(`report_data_${tarea.id}`) || trabajo.estado === 'Finalizado';
                                                                     const isPreReport = !hasTaskReport && !!localStorage.getItem(`report_data_temporal_${tarea.id}`);
                                                                     return (
                                                                         <div
@@ -7533,140 +7701,74 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                             </div>
 
                             <div style={{ border: '2px solid #e0e0e0', borderRadius: '20px', padding: '30px', opacity: confirmacionLlegada ? 1 : 0.5, pointerEvents: confirmacionLlegada ? 'auto' : 'none', transition: 'opacity 0.3s ease' }}>
-                                <div style={{ marginBottom: '20px' }}>
-                                    <h4 style={{ fontSize: '14px', fontWeight: 'bold', color: '#64748b', marginBottom: '15px' }}>Tipo de Actividad</h4>
-                                    <div className={styles.categoryGrid}>
-                                        {[
-                                            { id: 'Mantenimiento', icon: <HiOutlineCog6Tooth size={20} />, label: 'Mantenimiento' },
-                                            { id: 'Instalacion', icon: <HiOutlineBuildingOffice2 size={20} />, label: 'Instalación' },
-                                            { id: 'Plomeria', icon: <HiOutlineWrench size={20} />, label: 'Plomería' },
-                                            { id: 'Electricidad', icon: <HiOutlineBolt size={20} />, label: 'Electricidad' },
-                                            { id: 'Albañileria', icon: <HiOutlineSquare3Stack3D size={20} />, label: 'Albañilería' },
-                                            { id: 'Carpinteria', icon: <HiOutlinePencilSquare size={20} />, label: 'Carpintería' },
-                                            { id: 'Pintura', icon: <HiOutlinePencilSquare size={20} />, label: 'Pintura' },
-                                            { id: 'Otro', icon: <HiOutlineDocumentText size={20} />, label: 'Otro (Especificar)' },
-                                        ].map((cat) => (
-                                            <div
-                                                key={cat.id}
-                                                className={`${styles.categoryItem} ${activeServiceType === cat.id ? styles.categoryItemSelected : ''}`}
-                                                onClick={() => setActiveServiceType(cat.id as any)}
-                                            >
-                                                {cat.icon}
-                                                <span className={styles.categoryLabel}>{cat.label}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                    {activeServiceType === 'Otro' && (
-                                        <div style={{ marginTop: '15px' }}>
-                                            <input
-                                                type="text"
-                                                placeholder="Especificar tipo de actividad..."
-                                                value={customServiceType}
-                                                onChange={(e) => setCustomServiceType(e.target.value)}
-                                                style={{ width: '100%', padding: '12px 15px', borderRadius: '10px', border: '1px solid #ccc', fontSize: '14px' }}
-                                                autoFocus
-                                            />
-                                        </div>
-                                    )}
-                                </div>
-
-                                {(activeServiceType === 'Mantenimiento' || activeServiceType === 'Instalacion' || activeServiceType === 'Otro') && (
-                                    <div className={styles.serviceFieldGrid}>
-                                        <div className={styles.serviceInputGroup}>
-                                            <label className={styles.serviceLabel}>Marca / Nombre del Equipo</label>
-                                            <input
-                                                className={styles.serviceInput}
-                                                value={serviceMarca}
-                                                onChange={(e) => setServiceMarca(e.target.value)}
-                                                placeholder="Ej. Daikin, York..."
-                                                disabled={!!serviceEquipoId && !!serviceMarca && serviceMarca !== "S/N"}
-                                                style={{ background: (!!serviceEquipoId && !!serviceMarca && serviceMarca !== "S/N") ? '#f1f5f9' : 'white', cursor: (!!serviceEquipoId && !!serviceMarca && serviceMarca !== "S/N") ? 'not-allowed' : 'text' }}
-                                            />
-                                        </div>
-                                        <div className={styles.serviceInputGroup}>
-                                            <label className={styles.serviceLabel}>Modelo</label>
-                                            <input
-                                                className={styles.serviceInput}
-                                                value={serviceModelo}
-                                                onChange={(e) => setServiceModelo(e.target.value)}
-                                                placeholder="Ej. R-410A..."
-                                                disabled={!!serviceEquipoId && !!serviceModelo && serviceModelo !== "S/N"}
-                                                style={{ background: (!!serviceEquipoId && !!serviceModelo && serviceModelo !== "S/N") ? '#f1f5f9' : 'white', cursor: (!!serviceEquipoId && !!serviceModelo && serviceModelo !== "S/N") ? 'not-allowed' : 'text' }}
-                                            />
-                                        </div>
-                                        {activeServiceType === 'Instalacion' && (
-                                            <>
-                                                <div className={styles.serviceInputGroup}>
-                                                    <label className={styles.serviceLabel}>Pieza</label>
-                                                    <input
-                                                        className={styles.serviceInput}
-                                                        value={servicePieza}
-                                                        onChange={(e) => setServicePieza(e.target.value)}
-                                                        placeholder="Ej. Evaporador..."
-                                                    />
-                                                </div>
-                                                <div className={styles.serviceInputGroup}>
-                                                    <label className={styles.serviceLabel}>Garantía (Meses)</label>
-                                                    <input
-                                                        className={styles.serviceInput}
-                                                        type="number"
-                                                        value={serviceGarantia}
-                                                        onChange={(e) => setServiceGarantia(e.target.value)}
-                                                        placeholder="Ej. 12"
-                                                    />
-                                                </div>
-                                            </>
-                                        )}
-                                    </div>
-                                )}
-
-
-
                                  {/* DETALLES DE LA ACTIVIDAD Y EVIDENCIAS (HASTA 10 BLOQUES) */}
                                  <div style={{ marginBottom: '25px' }}>
-                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                                         <label style={{ fontSize: '13px', fontWeight: 'bold', color: '#475569' }}>
-                                             Detalles de la Visita y Evidencias
-                                         </label>
+                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                                         <div>
+                                             <label style={{ fontSize: '15px', fontWeight: '800', color: '#1e293b', display: 'block' }}>
+                                                 Puntos de Revisión y Evidencias
+                                             </label>
+                                             <span style={{ fontSize: '12px', color: '#64748b' }}>
+                                                 Selecciona el tipo de actividad y describe el trabajo realizado por cada punto
+                                             </span>
+                                         </div>
                                          {taskItems.length < 3 && (
                                              <button
                                                  type="button"
-                                                 onClick={() => setTaskItems([...taskItems, { id: String(Date.now()), descripcion: '', foto: '' }])}
+                                                 onClick={() => setTaskItems([...taskItems, { id: String(Date.now()), descripcion: '', foto: '', tipoActividad: 'Mantenimiento', customTipoActividad: '', marca: '', modelo: '', pieza: '', garantia: '' }])}
                                                  style={{
                                                      background: '#fff3ed',
                                                      color: '#f26522',
-                                                     border: '1px solid #ffcca8',
-                                                     padding: '5px 12px',
-                                                     borderRadius: '8px',
+                                                     border: '1.5px solid #ffcca8',
+                                                     padding: '8px 14px',
+                                                     borderRadius: '10px',
                                                      fontSize: '12px',
                                                      fontWeight: '800',
                                                      cursor: 'pointer',
                                                      display: 'flex',
                                                      alignItems: 'center',
-                                                     gap: '4px'
+                                                     gap: '5px',
+                                                     boxShadow: '0 2px 5px rgba(242, 101, 34, 0.1)'
                                                  }}
                                              >
-                                                 + Añadir otra evidencia ({taskItems.length}/3)
+                                                 + Añadir otro punto ({taskItems.length}/3)
                                              </button>
                                          )}
                                      </div>
 
-                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                                          {taskItems.map((item, index) => (
                                              <div
                                                  key={item.id || index}
                                                  style={{
-                                                     background: '#f8fafc',
+                                                     background: '#ffffff',
                                                      border: '1.5px solid #e2e8f0',
-                                                     borderRadius: '14px',
-                                                     padding: '16px',
-                                                     position: 'relative'
+                                                     borderRadius: '16px',
+                                                     padding: '20px',
+                                                     position: 'relative',
+                                                     boxShadow: '0 2px 8px rgba(0,0,0,0.03)'
                                                  }}
                                              >
-                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                                                     <span style={{ fontSize: '12px', fontWeight: '800', color: '#f26522', textTransform: 'uppercase' }}>
-                                                         Punto de Revisión / Evidencia {index + 1}
-                                                     </span>
+                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                         <span style={{ 
+                                                             background: '#f26522', 
+                                                             color: 'white', 
+                                                             width: '24px', 
+                                                             height: '24px', 
+                                                             borderRadius: '50%', 
+                                                             display: 'flex', 
+                                                             alignItems: 'center', 
+                                                             justifyContent: 'center', 
+                                                             fontSize: '12px', 
+                                                             fontWeight: '900' 
+                                                         }}>
+                                                             {index + 1}
+                                                         </span>
+                                                         <span style={{ fontSize: '13px', fontWeight: '800', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+                                                             Punto de Revisión {index + 1}
+                                                         </span>
+                                                     </div>
                                                      {taskItems.length > 1 && (
                                                          <button
                                                              type="button"
@@ -7675,8 +7777,8 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                                  background: '#fef2f2',
                                                                  color: '#ef4444',
                                                                  border: '1px solid #fecaca',
-                                                                 borderRadius: '6px',
-                                                                 padding: '3px 8px',
+                                                                 borderRadius: '8px',
+                                                                 padding: '4px 10px',
                                                                  fontSize: '11px',
                                                                  fontWeight: '700',
                                                                  cursor: 'pointer'
@@ -7687,8 +7789,131 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                      )}
                                                  </div>
 
+                                                 {/* TIPO DE ACTIVIDAD PARA ESTE PUNTO */}
+                                                 <div style={{ marginBottom: '14px', background: '#f8fafc', padding: '14px', borderRadius: '12px', border: '1px solid #f1f5f9' }}>
+                                                     <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.3px' }}>
+                                                         Tipo de Actividad para este punto:
+                                                     </label>
+                                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '8px' }}>
+                                                         {[
+                                                             { id: 'Mantenimiento', icon: <HiOutlineCog6Tooth size={16} />, label: 'Mantenimiento' },
+                                                             { id: 'Instalacion', icon: <HiOutlineBuildingOffice2 size={16} />, label: 'Instalación' },
+                                                             { id: 'Plomeria', icon: <HiOutlineWrench size={16} />, label: 'Plomería' },
+                                                             { id: 'Electricidad', icon: <HiOutlineBolt size={16} />, label: 'Electricidad' },
+                                                             { id: 'Albañileria', icon: <HiOutlineSquare3Stack3D size={16} />, label: 'Albañilería' },
+                                                             { id: 'Carpinteria', icon: <HiOutlinePencilSquare size={16} />, label: 'Carpintería' },
+                                                             { id: 'Pintura', icon: <HiOutlinePencilSquare size={16} />, label: 'Pintura' },
+                                                             { id: 'Otro', icon: <HiOutlineDocumentText size={16} />, label: 'Otro' },
+                                                         ].map((cat) => {
+                                                             const isSelected = (item.tipoActividad || 'Mantenimiento') === cat.id;
+                                                             return (
+                                                                 <button
+                                                                     key={cat.id}
+                                                                     type="button"
+                                                                     onClick={() => setTaskItems(prev => prev.map((it, i) => i === index ? { ...it, tipoActividad: cat.id } : it))}
+                                                                     style={{
+                                                                         display: 'flex',
+                                                                         alignItems: 'center',
+                                                                         justifyContent: 'center',
+                                                                         gap: '6px',
+                                                                         padding: '8px 10px',
+                                                                         borderRadius: '10px',
+                                                                         border: isSelected ? '2px solid #f26522' : '1.5px solid #e2e8f0',
+                                                                         background: isSelected ? '#fff7ed' : '#ffffff',
+                                                                         color: isSelected ? '#ea580c' : '#475569',
+                                                                         fontWeight: isSelected ? '800' : '600',
+                                                                         fontSize: '12px',
+                                                                         cursor: 'pointer',
+                                                                         transition: 'all 0.15s ease',
+                                                                         boxShadow: isSelected ? '0 2px 6px rgba(242, 101, 34, 0.15)' : 'none'
+                                                                     }}
+                                                                 >
+                                                                     {cat.icon}
+                                                                     <span>{cat.label}</span>
+                                                                 </button>
+                                                             );
+                                                         })}
+                                                     </div>
+
+                                                     {item.tipoActividad === 'Otro' && (
+                                                         <div style={{ marginTop: '10px' }}>
+                                                             <input
+                                                                 type="text"
+                                                                 placeholder="Especificar tipo de actividad..."
+                                                                 value={item.customTipoActividad || ''}
+                                                                 onChange={(e) => {
+                                                                     const val = e.target.value;
+                                                                     setTaskItems(prev => prev.map((it, i) => i === index ? { ...it, customTipoActividad: val } : it));
+                                                                 }}
+                                                                 style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', boxSizing: 'border-box' }}
+                                                             />
+                                                         </div>
+                                                     )}
+
+                                                     {(item.tipoActividad === 'Mantenimiento' || item.tipoActividad === 'Instalacion' || item.tipoActividad === 'Otro') && (
+                                                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px', marginTop: '10px', background: '#fff', padding: '12px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                                                             <div>
+                                                                 <label style={{ display: 'block', fontSize: '10px', fontWeight: '700', color: '#64748b', marginBottom: '3px' }}>Marca / Equipo</label>
+                                                                 <input
+                                                                     placeholder="Ej. Daikin, York..."
+                                                                     value={item.marca || ''}
+                                                                     onChange={(e) => {
+                                                                         const val = e.target.value;
+                                                                         setTaskItems(prev => prev.map((it, i) => i === index ? { ...it, marca: val } : it));
+                                                                     }}
+                                                                     style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', boxSizing: 'border-box' }}
+                                                                 />
+                                                             </div>
+                                                             <div>
+                                                                 <label style={{ display: 'block', fontSize: '10px', fontWeight: '700', color: '#64748b', marginBottom: '3px' }}>Modelo</label>
+                                                                 <input
+                                                                     placeholder="Ej. R-410A..."
+                                                                     value={item.modelo || ''}
+                                                                     onChange={(e) => {
+                                                                         const val = e.target.value;
+                                                                         setTaskItems(prev => prev.map((it, i) => i === index ? { ...it, modelo: val } : it));
+                                                                     }}
+                                                                     style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', boxSizing: 'border-box' }}
+                                                                 />
+                                                             </div>
+                                                             {item.tipoActividad === 'Instalacion' && (
+                                                                 <>
+                                                                     <div>
+                                                                         <label style={{ display: 'block', fontSize: '10px', fontWeight: '700', color: '#64748b', marginBottom: '3px' }}>Pieza</label>
+                                                                         <input
+                                                                             placeholder="Ej. Evaporador..."
+                                                                             value={item.pieza || ''}
+                                                                             onChange={(e) => {
+                                                                                 const val = e.target.value;
+                                                                                 setTaskItems(prev => prev.map((it, i) => i === index ? { ...it, pieza: val } : it));
+                                                                             }}
+                                                                             style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', boxSizing: 'border-box' }}
+                                                                         />
+                                                                     </div>
+                                                                     <div>
+                                                                         <label style={{ display: 'block', fontSize: '10px', fontWeight: '700', color: '#64748b', marginBottom: '3px' }}>Garantía (Meses)</label>
+                                                                         <input
+                                                                             type="number"
+                                                                             placeholder="Ej. 12"
+                                                                             value={item.garantia || ''}
+                                                                             onChange={(e) => {
+                                                                                 const val = e.target.value;
+                                                                                 setTaskItems(prev => prev.map((it, i) => i === index ? { ...it, garantia: val } : it));
+                                                                             }}
+                                                                             style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', boxSizing: 'border-box' }}
+                                                                         />
+                                                                     </div>
+                                                                 </>
+                                                             )}
+                                                         </div>
+                                                     )}
+                                                 </div>
+
+                                                 <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '6px' }}>
+                                                     Descripción / Detalle del trabajo
+                                                 </label>
                                                  <textarea
-                                                     placeholder={`Describe el detalle o trabajo realizado (Punto ${index + 1})...`}
+                                                     placeholder={`Describe el detalle o trabajo realizado para el Punto ${index + 1}...`}
                                                      value={item.descripcion}
                                                      onChange={(e) => {
                                                          const val = e.target.value;
@@ -7703,7 +7928,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                          fontSize: '14px',
                                                          color: '#0f172a',
                                                          resize: 'none',
-                                                         marginBottom: '12px',
+                                                         marginBottom: '14px',
                                                          outline: 'none',
                                                          boxSizing: 'border-box'
                                                      }}
@@ -8055,7 +8280,12 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                     onClose={() => setSelectedHistoryTask(null)}
                     trabajo={trabajo as any}
                     task={selectedHistoryTask}
-                    reporte={reporteFinal || (() => {
+                    reporte={(() => {
+                        const taskReportRaw = localStorage.getItem(`report_data_${(selectedHistoryTask as any).id}`) || localStorage.getItem(`report_data_temporal_${(selectedHistoryTask as any).id}`);
+                        if (taskReportRaw) {
+                            try { return JSON.parse(taskReportRaw); } catch(e) {}
+                        }
+                        if (reporteFinal) return reporteFinal;
                         const fallbackReportDataRaw = localStorage.getItem(`report_data_${trabajo?.id}`);
                         const temporalReportDataRaw = localStorage.getItem(`report_data_temporal_${trabajo?.id}`);
                         return fallbackReportDataRaw ? JSON.parse(fallbackReportDataRaw) : (temporalReportDataRaw ? JSON.parse(temporalReportDataRaw) : null);
@@ -8063,7 +8293,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                     userRole={user?.role ?? undefined}
                     onEdit={() => {
                         const baseRoute = (user?.role === 'tecnico' || user?.role === 'tecnico-normal') ? '/tecnico' : (user?.role === 'tecnico-autonomo' ? '/tecnico-autonomo' : (isAutonomoAdmin(user?.role) ? '/autonomo' : '/menu'));
-                        navigate(`${baseRoute}/reporte-tarea/${trabajo?.id}`, { state: { trabajoId: trabajo?.id, actividadId: (selectedHistoryTask as any).id } });
+                        navigate(`${baseRoute}/reporte-tarea/${trabajo?.id}?subtareaId=${(selectedHistoryTask as any).id}`, { state: { trabajoId: trabajo?.id, actividadId: (selectedHistoryTask as any).id } });
                     }}
                 />
             )}
@@ -8553,26 +8783,48 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                 onClick={async () => {
                                     setShowSendConfirmModal(false);
                                     try {
-                                        // Marcar visita como completada sin cambiar a estado de cotización
-                                        await updateEstadoTrabajo(Number(id), { estado: 'En Proceso', visitado: true });
-                                        setTrabajo((prev: any) => prev ? { ...prev, visitado: true } : prev);
+                                        // 1. Actualizar trabajo actual a 'En Espera' y visitado: true
+                                        await updateEstadoTrabajo(Number(id), { estado: 'En Espera', visitado: true });
+                                        
+                                        // 2. Si pertenece a un grupo [Grupo: REQ-xxxx], sincronizar todos los trabajos hermanos
+                                        if (groupedJobs && groupedJobs.length > 0) {
+                                            for (const gJob of groupedJobs) {
+                                                if (gJob.id !== Number(id)) {
+                                                    try {
+                                                        await updateEstadoTrabajo(gJob.id, { estado: 'En Espera', visitado: true });
+                                                    } catch (gErr) {
+                                                        console.warn(`Error actualizando trabajo agrupado #${gJob.id}:`, gErr);
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        setTrabajo((prev: any) => prev ? { ...prev, estado: 'En Espera', visitado: true } : prev);
+                                        setActiveTab('Datos');
 
                                         const techName = user?.name || 'Técnico';
                                         const sucursalName = trabajo?.sucursal || trabajo?.negocio?.nombre || 'tu sucursal';
 
-                                        // Notificar SOLO al Admin General (jerarquía 1)
+                                        // Notificar al Admin General
                                         try {
                                             await createNotificacionByRole({
                                                 role: 'admin',
-                                                titulo: '📍 Visita Completada — Revisión Pendiente',
-                                                mensaje: `El técnico ${techName} ha finalizado la visita en ${sucursalName}. Revisa los registros y genera la cotización.`,
+                                                titulo: '📍 Visita Completada — Cotización Requerida',
+                                                mensaje: `El técnico ${techName} ha finalizado el registro de visita en ${sucursalName}. Revisa los problemas y envía la cotización al cliente.`,
                                                 enlace: `/menu/trabajo-detalle/${id}`
                                             });
                                         } catch (notiErr) {
                                             console.error("Error notificando al Admin:", notiErr);
                                         }
 
-                                        showAlert('Información Enviada', 'Los registros de la visita han sido enviados al Administrador correctamente.', 'success');
+                                        showAlert('Información Enviada', 'Los registros de la visita han sido enviados al Administrador. El trabajo queda en espera de cotización y aprobación.', 'success');
+
+                                        // Redirigir al técnico a su tablero para que el trabajo se retire de su panel activo
+                                        if (user?.role === 'tecnico' || user?.role === 'tecnico-normal') {
+                                            navigate('/tecnico/tablero');
+                                        } else if (user?.role === 'tecnico-autonomo') {
+                                            navigate('/tecnico-autonomo/solicitudes');
+                                        }
                                     } catch (err: any) {
                                         showAlert('Error', err?.message || 'No se pudo enviar la información', 'error');
                                     }

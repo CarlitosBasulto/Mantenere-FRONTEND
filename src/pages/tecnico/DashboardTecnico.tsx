@@ -79,9 +79,48 @@ const DashboardTecnico: React.FC = () => {
                     };
                 });
 
-            // 4. hora_llegada is natively present in the 'hora_llegada' column
+            // 4. Group multi-service requests [Grupo: REQ-xxxx] into single unified cards
+            const getGroupId = (descripcion?: string) => {
+                if (!descripcion) return null;
+                const match = descripcion.match(/\[Grupo:\s*(REQ-\d+)\]/);
+                return match ? match[1] : null;
+            };
 
-            setTrabajos(processedJobs);
+            const groupedByReq: { [key: string]: Trabajo[] } = {};
+            const singleJobsList: Trabajo[] = [];
+
+            processedJobs.forEach(job => {
+                const grpId = getGroupId(job.descripcion);
+                if (grpId) {
+                    if (!groupedByReq[grpId]) groupedByReq[grpId] = [];
+                    groupedByReq[grpId].push(job);
+                } else {
+                    singleJobsList.push(job);
+                }
+            });
+
+            Object.entries(groupedByReq).forEach(([grpId, jobsInGroup]) => {
+                jobsInGroup.sort((a, b) => Number(a.id) - Number(b.id));
+                const baseJob = { ...jobsInGroup[0] } as any;
+                baseJob.isGroupHeader = true;
+                baseJob.groupId = grpId;
+                baseJob.jobsInGroup = jobsInGroup;
+
+                const serviceTypes = jobsInGroup.map(j => (j.titulo || '').split(" - ")[0]);
+                const uniqueTypes = Array.from(new Set(serviceTypes));
+                const suffix = baseJob.titulo && baseJob.titulo.includes(" - ") ? " - " + baseJob.titulo.split(" - ").slice(1).join(" - ") : "";
+                baseJob.titulo = `${uniqueTypes.join(", ")}${suffix}`;
+
+                baseJob.descripcion = `[Grupo: ${grpId}]\n` + jobsInGroup.map((j, idx) => {
+                    const cleanDesc = j.descripcion?.replace(/\[Grupo:\s*REQ-\d+\]\s*\n?/, "") || "";
+                    const svcName = (j.titulo || '').split(" - ")[0];
+                    return `${idx + 1}. ${svcName}: ${cleanDesc}`;
+                }).join("\n");
+
+                singleJobsList.push(baseJob);
+            });
+
+            setTrabajos(singleJobsList);
             setLastUpdated(new Date());
         } catch (error) {
             console.error("Error fetching tablero data", error);
@@ -112,17 +151,18 @@ const DashboardTecnico: React.FC = () => {
     // 1. Solicitudes pendientes
     const colSolicitudes = trabajos.filter(t => ['Solicitud', 'Pendiente'].includes(t.estado));
     
-    // 2. Asignaciones de visitas (Visitas pendientes de evaluación/cotización)
+    // 2. Asignaciones de visitas (Visitas pendientes de evaluación del técnico en campo, antes de enviar al admin)
     const colVisita = trabajos.filter(t => 
-        ['En Proceso', 'Asignado', 'Aceptada', 'En Espera', 'Cotización Enviada', 'Cotización Rechazada'].includes(t.estado) && 
+        ['En Proceso', 'Asignado', 'Aceptada'].includes(t.estado) && 
         t.tipo === 'Visita' && 
-        !['Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución'].includes(t.estado)
+        !t.visitado &&
+        !['Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución', 'En Espera', 'Cotización Enviada', 'Cotización Rechazada'].includes(t.estado)
     );
     
-    // 3. Asignaciones de trabajo (Cotización Aceptada, En Ejecución, Trabajos Aceptados)
+    // 3. Asignaciones de trabajo (Cotización Aceptada por cliente, En Ejecución, Trabajos directos asignados)
     const colProceso = trabajos.filter(t => 
-        ['Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución', 'En Proceso', 'Asignado', 'Aceptada', 'En Espera'].includes(t.estado) && 
-        (t.tipo !== 'Visita' || ['Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución'].includes(t.estado))
+        ['Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución'].includes(t.estado) ||
+        (t.tipo !== 'Visita' && ['En Proceso', 'Asignado', 'Aceptada'].includes(t.estado) && !['En Espera', 'Cotización Enviada', 'Cotización Rechazada'].includes(t.estado))
     );
     
     // 4. Trabajos finalizados
@@ -139,6 +179,7 @@ const DashboardTecnico: React.FC = () => {
     const renderCard = (t: Trabajo, colKey: keyof typeof COL_COLORS = 'yellow') => {
         const rawDesc = t.descripcion_problema || (t as any).descripcion || (t as any).problema || (t as any).detalles || (t as any).observaciones || (t as any).reporteTienda || '';
         let problemaReportado = rawDesc;
+        problemaReportado = problemaReportado.replace(/\[Grupo:\s*REQ-\d+\]\s*\n?/gi, '').trim();
         const match = problemaReportado.match(/^\[Técnico sugerido:\s*([^\]]+)\]\s*/i);
         if (match) {
             problemaReportado = problemaReportado.substring(match[0].length).trim();
@@ -147,6 +188,7 @@ const DashboardTecnico: React.FC = () => {
         const userRole = user?.role || 'tecnico';
         const isSeen = isCardSeen(userRole, t.id, t.estado);
         const accent = COL_COLORS[colKey];
+        const isGroup = !!(t as any).isGroupHeader && (t as any).jobsInGroup?.length > 1;
 
         const handleCardClick = () => {
             markCardAsSeen(userRole, t.id, t.estado);
@@ -159,6 +201,19 @@ const DashboardTecnico: React.FC = () => {
                 <div className={styles.cardHeader}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <span className={styles.jobId}>#{t.id}</span>
+                        {isGroup && (
+                            <span style={{
+                                background: '#fef3c7',
+                                color: '#b45309',
+                                border: '1px solid #fde68a',
+                                fontSize: '10px',
+                                fontWeight: '800',
+                                padding: '2px 6px',
+                                borderRadius: '6px'
+                            }}>
+                                📦 {(t as any).jobsInGroup.length} Servicios
+                            </span>
+                        )}
                         {!isSeen && (
                             <span style={{
                                 background: accent.grad,
@@ -204,10 +259,10 @@ const DashboardTecnico: React.FC = () => {
                         boxShadow: '0 2px 5px rgba(234, 179, 8, 0.15)'
                     }}>
                         <span style={{ fontWeight: '900', color: '#d97706', display: 'block', marginBottom: '4px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
-                            📝 Problema Especificado por Encargado:
+                            {isGroup ? '📝 Problemas en esta Solicitud:' : '📝 Problema Especificado por Encargado:'}
                         </span>
-                        <span style={{ fontWeight: '600', color: '#1e293b', fontSize: '13px', lineHeight: '1.4', display: 'block' }}>
-                            "{problemaReportado}"
+                        <span style={{ fontWeight: '600', color: '#1e293b', fontSize: '13px', lineHeight: '1.4', display: 'block', whiteSpace: isGroup ? 'pre-line' : 'normal' }}>
+                            {isGroup ? problemaReportado : `"${problemaReportado}"`}
                         </span>
                     </div>
                 )}

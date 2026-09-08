@@ -3,20 +3,18 @@ import styles from "../cliente/Historial.module.css";
 import menuStyles from "../../components/Menu.module.css";
 import { useAuth } from "../../context/AuthContext";
 import { getTrabajos } from "../../services/trabajosService";
+import { getReporteByTrabajoId } from "../../services/reportesService";
+import ReporteDetailModal from "../../components/modals/ReporteDetailModal";
 import {
-    HiOutlineClipboardDocumentList,
-    HiOutlineIdentification,
-    HiOutlineClock,
-    HiOutlineBuildingOffice2,
-    HiOutlineUser,
-    HiOutlineWrench,
     HiOutlineCheckBadge,
     HiOutlineCheckCircle
 } from "react-icons/hi2";
 
-// Interfaz para el Trabajo
+// Interfaz para la Tarea del Historial
 interface TareaHistorial {
-    id: number;
+    id: number | string;
+    baseId: number;
+    pointIndex?: number;
     titulo: string;
     descripcion: string;
     estado: string;
@@ -25,6 +23,7 @@ interface TareaHistorial {
     tecnico?: string;
     trabajoId: number;
     monthYear?: string;
+    rawJob?: any;
 }
 
 const parseJobDate = (fechaStr?: string, createdAt?: string): Date => {
@@ -65,13 +64,256 @@ const getMonthYearString = (date: Date): string => {
     return `${months[date.getMonth()]} de ${date.getFullYear()}`;
 };
 
+const getGroupId = (descripcion?: string): string | null => {
+    if (!descripcion) return null;
+    const match = descripcion.match(/\[Grupo:\s*(REQ-\d+)\]/i);
+    return match ? match[1] : null;
+};
+
+const cleanDescriptionText = (desc?: string): string => {
+    if (!desc) return "Trabajo completado exitosamente.";
+    let cleaned = desc;
+    if (cleaned.includes('|||')) {
+        cleaned = cleaned.split('|||')[0].trim();
+    }
+    cleaned = cleaned.replace(/\[Grupo:\s*REQ-\d+\]\s*/gi, '').trim();
+    return cleaned || "Trabajo completado exitosamente.";
+};
+
+const extractServiceType = (job: any, pointIdx?: number, subId?: string | number): string => {
+    // 1. Revisar report_data en localStorage para este sub-punto o trabajo
+    if (subId) {
+        const local = localStorage.getItem(`report_data_${subId}`) || localStorage.getItem(`report_data_temporal_${subId}`);
+        if (local) {
+            try {
+                const parsed = JSON.parse(local);
+                if (parsed.tipoServicio) return parsed.tipoServicio;
+                if (parsed.tipo) return parsed.tipo;
+                if (parsed.equipoInfo?.tipo) return parsed.equipoInfo.tipo;
+            } catch(e) {}
+        }
+    }
+    if (job?.id) {
+        const local = localStorage.getItem(`report_data_${job.id}`) || localStorage.getItem(`report_data_temporal_${job.id}`);
+        if (local) {
+            try {
+                const parsed = JSON.parse(local);
+                if (parsed.tipoServicio) return parsed.tipoServicio;
+                if (parsed.tipo) return parsed.tipo;
+                if (parsed.equipoInfo?.tipo) return parsed.equipoInfo.tipo;
+            } catch(e) {}
+        }
+    }
+
+    // 2. Parsear |||SERVICE_DATA||| de la descripción
+    const rawDesc = job?.descripcion || '';
+    if (rawDesc.includes('|||SERVICE_DATA|||')) {
+        try {
+            const parts = rawDesc.split('|||SERVICE_DATA|||');
+            const dataStr = parts[1].split('|||')[0].trim();
+            const serviceData = JSON.parse(dataStr);
+            if (pointIdx !== undefined && serviceData.items && Array.isArray(serviceData.items) && serviceData.items[pointIdx - 1]) {
+                const it = serviceData.items[pointIdx - 1];
+                const itemTipo = (it.tipo === 'Otro' ? it.customTipo : it.tipo) || it.tipoActividad;
+                if (itemTipo) return itemTipo;
+            }
+            if (serviceData.tipoServicio) return serviceData.tipoServicio;
+        } catch (e) {}
+    }
+
+    // 3. Revisar objeto serviceData directo
+    if (job?.serviceData) {
+        if (pointIdx !== undefined && job.serviceData.items && Array.isArray(job.serviceData.items) && job.serviceData.items[pointIdx - 1]) {
+            const it = job.serviceData.items[pointIdx - 1];
+            const itemTipo = (it.tipo === 'Otro' ? it.customTipo : it.tipo) || it.tipoActividad;
+            if (itemTipo) return itemTipo;
+        }
+        if (job.serviceData.tipoServicio) return job.serviceData.tipoServicio;
+    }
+
+    // 4. Revisar etiquetas de puntos: "1. [Electricidad] ..." o "[Plomería] ..."
+    if (pointIdx !== undefined) {
+        const regexPoint = /(?:^|\n+)(\d+)\.\s*\[([^\]]+)\]/g;
+        const matches = Array.from(rawDesc.matchAll(regexPoint));
+        if (matches && matches[pointIdx - 1] && matches[pointIdx - 1][2]) {
+            return matches[pointIdx - 1][2].trim();
+        }
+    }
+    const singleBracketMatch = rawDesc.match(/\[(Electricidad|Plomer[ií]a|Pintura|Cerrajer[ií]a|Mantenimiento|Albañiler[ií]a|Aire Acondicionado|Herrer[ií]a|Tablaroca|Instalaci[oó]n|Reparaci[oó]n|Diagn[oó]stico|Otro)\]/i);
+    if (singleBracketMatch) {
+        return singleBracketMatch[1];
+    }
+
+    // 5. Extraer del título del trabajo
+    if (job?.titulo) {
+        const titleFirst = job.titulo.split(' - ')[0].trim();
+        if (titleFirst && !titleFirst.toLowerCase().includes('solicitud') && !titleFirst.toLowerCase().includes('requerimiento')) {
+            return titleFirst;
+        }
+    }
+
+    return job?.tipo || 'Servicio';
+};
+
+const decomposeJobToHistoryTasks = (job: any): TareaHistorial[] => {
+    const finalDate = parseJobDate(job.fecha_programada, job.created_at);
+    const dateFormatted = finalDate.toLocaleDateString('es-MX');
+    const monthYear = getMonthYearString(finalDate);
+    const ubicacion = job.negocio?.ubicacion || job.negocio?.nombre || "Sucursal";
+    const tecnico = job.trabajador?.nombre || job.tecnico || "Sin Asignar";
+
+    // 1. Caso: múltiples ítems estructurados en serviceData.items o dentro de |||SERVICE_DATA|||
+    let itemsFromDesc: any[] | null = null;
+    const rawDesc = job.descripcion || '';
+    if (rawDesc.includes('|||SERVICE_DATA|||')) {
+        try {
+            const parts = rawDesc.split('|||SERVICE_DATA|||');
+            const dataStr = parts[1].split('|||')[0].trim();
+            const serviceData = JSON.parse(dataStr);
+            if (serviceData.items && Array.isArray(serviceData.items) && serviceData.items.length > 1) {
+                itemsFromDesc = serviceData.items;
+            }
+        } catch(e) {}
+    }
+
+    const itemsToProcess = (job.serviceData?.items && Array.isArray(job.serviceData.items) && job.serviceData.items.length > 1)
+        ? job.serviceData.items
+        : itemsFromDesc;
+
+    if (itemsToProcess && itemsToProcess.length > 1) {
+        return itemsToProcess.map((item: any, idx: number) => {
+            const pIdx = idx + 1;
+            const subId = `${job.id}_${pIdx}`;
+            const subTipo = (item.tipo === 'Otro' ? item.customTipo : item.tipo) || extractServiceType(job, pIdx, subId);
+            const subDesc = cleanDescriptionText(item.descripcion || job.descripcion);
+            return {
+                id: subId,
+                baseId: job.id,
+                pointIndex: pIdx,
+                titulo: `${subTipo} (Punto ${pIdx})`,
+                descripcion: subDesc,
+                estado: job.estado || 'Completado',
+                ubicacion,
+                fecha: dateFormatted,
+                monthYear,
+                tecnico,
+                trabajoId: job.id,
+                rawJob: job
+            };
+        });
+    }
+
+    // 2. Caso: actividades registradas
+    if (job.actividades && Array.isArray(job.actividades) && job.actividades.length > 1) {
+        return job.actividades.map((act: any, idx: number) => {
+            const pIdx = idx + 1;
+            const subId = act.id ? String(act.id) : `${job.id}_${pIdx}`;
+            const subTipo = act.tipo || act.titulo || extractServiceType(job, pIdx, subId);
+            const subDesc = cleanDescriptionText(act.descripcion || job.descripcion);
+            return {
+                id: subId,
+                baseId: job.id,
+                pointIndex: pIdx,
+                titulo: `${subTipo} (Punto ${pIdx})`,
+                descripcion: subDesc,
+                estado: act.estado || job.estado || 'Completado',
+                ubicacion,
+                fecha: dateFormatted,
+                monthYear,
+                tecnico,
+                trabajoId: job.id,
+                rawJob: job
+            };
+        });
+    }
+
+    // 3. Caso: Puntos numerados en la descripción (ej. "1. [Electricidad] ... \n\n 2. [Plomería] ...")
+    const cleanRaw = cleanDescriptionText(rawDesc);
+    const regexPoint = /(?:^|\n+)(\d+)\.\s*(?:\[([^\]]+)\]\s*)?([\s\S]*?)(?=(?:\n+\d+\.\s*)|$)/g;
+    const matches = Array.from(cleanRaw.matchAll(regexPoint));
+
+    if (matches && matches.length > 1) {
+        return matches.map((m, idx) => {
+            const pIdx = idx + 1;
+            const subId = `${job.id}_${pIdx}`;
+            const subTipo = m[2] ? m[2].trim() : extractServiceType(job, pIdx, subId);
+            const subDesc = m[3] ? m[3].trim() : '';
+            return {
+                id: subId,
+                baseId: job.id,
+                pointIndex: pIdx,
+                titulo: subTipo.includes('(Punto') ? subTipo : `${subTipo} (Punto ${pIdx})`,
+                descripcion: subDesc || 'Trabajo completado exitosamente.',
+                estado: job.estado || 'Completado',
+                ubicacion,
+                fecha: dateFormatted,
+                monthYear,
+                tecnico,
+                trabajoId: job.id,
+                rawJob: job
+            };
+        });
+    }
+
+    // 4. Caso: Múltiples reportes guardados en localStorage para sub-puntos (ej. report_data_21_1, report_data_21_2, etc.)
+    const pointsFound: number[] = [];
+    for (let p = 1; p <= 10; p++) {
+        if (localStorage.getItem(`report_data_${job.id}_${p}`) || localStorage.getItem(`report_data_temporal_${job.id}_${p}`)) {
+            pointsFound.push(p);
+        }
+    }
+    if (pointsFound.length > 1) {
+        return pointsFound.map((pIdx) => {
+            const subId = `${job.id}_${pIdx}`;
+            const subTipo = extractServiceType(job, pIdx, subId);
+            const savedRaw = localStorage.getItem(`report_data_${subId}`) || localStorage.getItem(`report_data_temporal_${subId}`);
+            let subDesc = cleanDescriptionText(job.descripcion);
+            if (savedRaw) {
+                try {
+                    const parsed = JSON.parse(savedRaw);
+                    if (parsed.reporteTienda) subDesc = parsed.reporteTienda;
+                } catch(e) {}
+            }
+            return {
+                id: subId,
+                baseId: job.id,
+                pointIndex: pIdx,
+                titulo: `${subTipo} (Punto ${pIdx})`,
+                descripcion: subDesc,
+                estado: job.estado || 'Completado',
+                ubicacion,
+                fecha: dateFormatted,
+                monthYear,
+                tecnico,
+                trabajoId: job.id,
+                rawJob: job
+            };
+        });
+    }
+
+    // Por defecto: 1 solo trabajo
+    const singleTipo = extractServiceType(job);
+    return [{
+        id: job.id,
+        baseId: job.id,
+        titulo: singleTipo && !job.titulo.startsWith(singleTipo) ? `${singleTipo} - ${job.titulo}` : job.titulo,
+        descripcion: cleanDescriptionText(job.descripcion),
+        estado: job.estado || 'Completado',
+        ubicacion,
+        fecha: dateFormatted,
+        monthYear,
+        tecnico,
+        trabajoId: job.id,
+        rawJob: job
+    }];
+};
+
 const AdminHistorial: React.FC = () => {
     const { user } = useAuth();
     const [rawTareas, setRawTareas] = useState<TareaHistorial[]>([]);
     const [selectedHistoryTask, setSelectedHistoryTask] = useState<TareaHistorial | null>(null);
-    const [selectedZoomImage, setSelectedZoomImage] = useState<string | null>(null);
+    const [reportData, setReportData] = useState<any>(null);
     const [expandedMonths, setExpandedMonths] = useState<Record<string, boolean>>({});
-
     const [searchText, setSearchText] = useState("");
 
     useEffect(() => {
@@ -80,33 +322,99 @@ const AdminHistorial: React.FC = () => {
         const fetchHistory = async () => {
             try {
                 const apiJobs = await getTrabajos();
-                let terminados = apiJobs.filter((j: any) => j.estado === 'Finalizado' || j.estado === 'Cotización Aceptada');
 
-                // Si es técnico, filtrar solo los terminados que le pertenecen
+                // Filtrar según rol de técnico si aplica
+                let baseJobs = apiJobs;
                 if (user.role === 'tecnico') {
-                    terminados = terminados.filter((j: any) =>
+                    baseJobs = apiJobs.filter((j: any) =>
                         j.trabajador_id === user.id || j.trabajador?.user_id === user.id
                     );
                 }
 
-                const mappedTareas = terminados.map((job: any) => {
-                    const finalDate = parseJobDate(job.fecha_programada, job.created_at);
-                    return {
-                        id: job.id,
-                        titulo: job.titulo,
-                        descripcion: job.descripcion || "Trabajo completado exitosamente.",
-                        estado: job.estado,
-                        ubicacion: job.negocio?.ubicacion || job.negocio?.nombre || "Sucursal",
-                        fecha: finalDate.toLocaleDateString('es-MX'),
-                        monthYear: getMonthYearString(finalDate),
-                        tecnico: job.trabajador?.nombre || "Sin Asignar",
-                        trabajoId: job.id
-                    };
+                const isJobFinished = (j: any) => 
+                    j.estado === 'Finalizado' || 
+                    j.estado === 'Cotización Aceptada' || 
+                    j.estado === 'Completado';
+
+                // Detectar todos los grupos [Grupo: REQ-xxxx] que tengan al menos un trabajo finalizado
+                const finishedGroupIds = new Set<string>();
+                baseJobs.forEach((job: any) => {
+                    if (isJobFinished(job)) {
+                        const grpId = getGroupId(job.descripcion);
+                        if (grpId) finishedGroupIds.add(grpId);
+                    }
+                });
+
+                // Agrupar trabajos por grupo REQ o procesarlos individualmente
+                const groupedByReq: { [grpId: string]: any[] } = {};
+                const nonGroupedJobs: any[] = [];
+
+                baseJobs.forEach((job: any) => {
+                    const grpId = getGroupId(job.descripcion);
+                    if (grpId && (finishedGroupIds.has(grpId) || isJobFinished(job))) {
+                        if (!groupedByReq[grpId]) groupedByReq[grpId] = [];
+                        groupedByReq[grpId].push(job);
+                    } else if (isJobFinished(job)) {
+                        nonGroupedJobs.push(job);
+                    }
+                });
+
+                const allTasks: TareaHistorial[] = [];
+
+                // 1. Procesar grupos [Grupo: REQ-xxxx]
+                Object.entries(groupedByReq).forEach(([grpId, jobsInGroup]) => {
+                    jobsInGroup.sort((a, b) => Number(a.id) - Number(b.id));
+                    const baseJob = jobsInGroup[0];
+                    const finalDate = parseJobDate(baseJob.fecha_programada, baseJob.created_at);
+                    const dateFormatted = finalDate.toLocaleDateString('es-MX');
+                    const monthYear = getMonthYearString(finalDate);
+                    const ubicacion = baseJob.negocio?.ubicacion || baseJob.negocio?.nombre || "Sucursal";
+                    const tecnico = baseJob.trabajador?.nombre || baseJob.tecnico || "Sin Asignar";
+
+                    jobsInGroup.forEach((gJob, idx) => {
+                        const pIdx = idx + 1;
+                        // Extraer tipo de servicio preciso (revisando si el trabajo individual o el reporte del punto tiene el tipo elegido en visita)
+                        let serviceType = extractServiceType(gJob, pIdx, gJob.id);
+                        if (serviceType === 'Servicio' || serviceType === 'Mantenimiento') {
+                            const fromBase = extractServiceType(baseJob, pIdx, `${baseJob.id}_${pIdx}`);
+                            if (fromBase && fromBase !== 'Servicio') {
+                                serviceType = fromBase;
+                            }
+                        }
+
+                        const cleanDesc = cleanDescriptionText(gJob.descripcion);
+
+                        allTasks.push({
+                            id: gJob.id,
+                            baseId: baseJob.id,
+                            pointIndex: pIdx,
+                            titulo: `${serviceType} (Punto ${pIdx})`,
+                            descripcion: cleanDesc,
+                            estado: 'Completado',
+                            ubicacion,
+                            fecha: dateFormatted,
+                            monthYear,
+                            tecnico: gJob.trabajador?.nombre || tecnico,
+                            trabajoId: gJob.id,
+                            rawJob: gJob
+                        });
+                    });
+                });
+
+                // 2. Procesar trabajos individuales
+                nonGroupedJobs.forEach((job: any) => {
+                    const decomposed = decomposeJobToHistoryTasks(job);
+                    allTasks.push(...decomposed);
                 });
 
                 // Ordenar más recientes primero
-                mappedTareas.sort((a: TareaHistorial, b: TareaHistorial) => b.id - a.id);
-                setRawTareas(mappedTareas);
+                allTasks.sort((a: any, b: any) => {
+                    const aNum = typeof a.id === 'number' ? a.id : parseInt(String(a.id).split('_')[0], 10) || 0;
+                    const bNum = typeof b.id === 'number' ? b.id : parseInt(String(b.id).split('_')[0], 10) || 0;
+                    return bNum - aNum;
+                });
+
+                setRawTareas(allTasks);
             } catch (error) {
                 console.error("Error al obtener el historial de la API", error);
             }
@@ -114,6 +422,8 @@ const AdminHistorial: React.FC = () => {
 
         fetchHistory();
     }, [user]);
+
+
 
     // Filtrado
     const filtradas = rawTareas.filter(tarea => {
@@ -123,10 +433,64 @@ const AdminHistorial: React.FC = () => {
         return matchesText;
     });
 
+    const handleSelectTask = async (tarea: TareaHistorial) => {
+        setSelectedHistoryTask(tarea);
+        setReportData(null);
+
+        try {
+            // 1. Verificar si existe reporte específico de este sub-punto en localStorage
+            const localData = localStorage.getItem(`report_data_${tarea.id}`);
+            const temporalData = localStorage.getItem(`report_data_temporal_${tarea.id}`);
+            const savedData = localData || temporalData;
+
+            if (savedData) {
+                try {
+                    const parsed = JSON.parse(savedData);
+                    setReportData(parsed);
+                    return;
+                } catch (e) {
+                    console.error("Error al parsear reporte local:", e);
+                }
+            }
+
+            // 2. Intentar cargar desde API
+            const apiReport = await getReporteByTrabajoId(tarea.trabajoId);
+
+            if (apiReport && apiReport.solucion) {
+                try {
+                    const parsed = JSON.parse(apiReport.solucion);
+                    setReportData(parsed);
+                } catch (e) {
+                    console.error("Error parseando solución del reporte:", e);
+                    setReportData({
+                        descripcion: apiReport.descripcion,
+                        fecha: apiReport.fecha || tarea.fecha,
+                        id: apiReport.id,
+                        reporteTienda: apiReport.descripcion
+                    });
+                }
+            } else {
+                // 3. Fallback a reporte general del trabajo en LocalStorage
+                const baseLocal = localStorage.getItem(`report_data_${tarea.trabajoId}`) || localStorage.getItem(`report_data_temporal_${tarea.trabajoId}`);
+                if (baseLocal) {
+                    try {
+                        setReportData(JSON.parse(baseLocal));
+                    } catch (e) {}
+                }
+            }
+        } catch (error) {
+            console.error("Error al obtener reporte:", error);
+            const localData = localStorage.getItem(`report_data_${tarea.id}`) || localStorage.getItem(`report_data_${tarea.trabajoId}`);
+            if (localData) {
+                try {
+                    setReportData(JSON.parse(localData));
+                } catch(e) {}
+            }
+        }
+    };
+
     return (
         <div className={styles.container}>
-
-
             {/* BUSCADOR */}
             <div className={styles.searchSection}>
                 <div className={menuStyles.searchCard}>
@@ -149,7 +513,9 @@ const AdminHistorial: React.FC = () => {
                                 if (!acc[key]) acc[key] = [];
                                 acc[key].push(tarea);
                                 return acc;
-                            }, {} as Record<string, TareaHistorial[]>);                            return Object.entries(grouped).map(([monthYear, tareasGroup]) => {
+                            }, {} as Record<string, TareaHistorial[]>);
+
+                            return Object.entries(grouped).map(([monthYear, tareasGroup]) => {
                                 const isExpanded = expandedMonths[monthYear] !== false; // Default true
                                 return (
                                     <div key={monthYear} style={{ marginBottom: '10px' }}>
@@ -171,7 +537,7 @@ const AdminHistorial: React.FC = () => {
                                                         <div
                                                             key={`${tarea.id}-${index}`}
                                                             className={styles.card}
-                                                            onClick={() => setSelectedHistoryTask(tarea)}
+                                                            onClick={() => handleSelectTask(tarea)}
                                                             title="Haz clic para ver más detalles"
                                                         >
                                                             <div className={`${styles.cardIndicator} ${styles.borderSuccess}`}></div>
@@ -220,219 +586,29 @@ const AdminHistorial: React.FC = () => {
                 )}
             </div>
 
-            {/* MODAL HISTORIAL DETALLADO */}
-            {
-                selectedHistoryTask && (() => {
-                    const reportDataRaw = localStorage.getItem(`report_data_${selectedHistoryTask.id}`);
-                    const temporalReportDataRaw = localStorage.getItem(`report_data_temporal_${selectedHistoryTask.id}`);
-                    const reportData = reportDataRaw ? JSON.parse(reportDataRaw) : (temporalReportDataRaw ? JSON.parse(temporalReportDataRaw) : null);
-
-                    return (
-                        <div className={styles.premiumModalOverlay} onClick={(e) => {
-                            if (e.target === e.currentTarget) setSelectedHistoryTask(null);
-                        }}>
-                            <div className={styles.premiumModalContent}>
-                                <div className={styles.premiumModalHeader}>
-                                    <h2>
-                                        <HiOutlineClipboardDocumentList size={26} color="#3b82f6" />
-                                        Detalles del Reporte
-                                        {selectedHistoryTask.estado === 'Pre-Reporte' && <span style={{ color: '#f26522', fontSize: '13px', background: '#fffbeb', padding: '4px 10px', borderRadius: '10px', border: '1px solid #fef3c7', marginLeft: '10px' }}>Pre-Reporte</span>}
-                                    </h2>
-                                    <button
-                                        className={styles.closeButtonCircle}
-                                        onClick={() => setSelectedHistoryTask(null)}
-                                        title="Cerrar"
-                                    >
-                                        <span style={{ fontSize: '20px', fontWeight: 'bold', color: 'inherit' }}>✕</span>
-                                    </button>
-                                </div>
-
-                                <div className={styles.premiumModalBody}>
-                                    <div className={styles.infoGrid}>
-                                        <div className={styles.reportDetailCard} style={{ margin: 0 }}>
-                                            <div className={styles.detailSectionTitle}>
-                                                <HiOutlineIdentification size={18} />
-                                                Identificación
-                                            </div>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                <div>
-                                                    <span className={styles.dataLabel}>Folio de Reporte</span>
-                                                    <span className={styles.folioBadge}>#{reportData?.id || selectedHistoryTask.id}</span>
-                                                </div>
-                                                <div style={{ textAlign: 'right' }}>
-                                                    <span className={styles.dataLabel}>Estatus</span>
-                                                    <span style={{
-                                                        fontSize: '11px',
-                                                        fontWeight: '800',
-                                                        color: selectedHistoryTask.estado === 'Finalizado' ? '#059669' : '#b45309',
-                                                        background: selectedHistoryTask.estado === 'Finalizado' ? '#ecfdf5' : '#fffbeb',
-                                                        padding: '4px 10px',
-                                                        borderRadius: '8px',
-                                                        border: `1px solid ${selectedHistoryTask.estado === 'Finalizado' ? '#d1fae5' : '#fef3c7'}`
-                                                    }}>
-                                                        {selectedHistoryTask.estado.toUpperCase()}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className={styles.reportDetailCard} style={{ margin: 0 }}>
-                                            <div className={styles.detailSectionTitle}>
-                                                <HiOutlineClock size={18} />
-                                                Cronología
-                                            </div>
-                                            <span className={styles.dataLabel}>Fecha de Registro</span>
-                                            <span className={styles.dataText}>{selectedHistoryTask.fecha}</span>
-                                        </div>
-                                    </div>
-
-                                    <div className={styles.reportDetailCard}>
-                                        <div className={styles.detailSectionTitle}>
-                                            <HiOutlineBuildingOffice2 size={18} />
-                                            Información de Servicio
-                                        </div>
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-                                            <div className={styles.dataBlock}>
-                                                <span className={styles.dataLabel}>Sucursal</span>
-                                                <span className={styles.dataText}>{selectedHistoryTask.ubicacion}</span>
-                                            </div>
-                                            <div className={styles.dataBlock}>
-                                                <span className={styles.dataLabel}>Tipo de Trabajo</span>
-                                                <span className={styles.dataText}>{selectedHistoryTask.titulo}</span>
-                                            </div>
-                                            <div className={styles.dataBlock} style={{ gridColumn: 'span 2' }}>
-                                                <span className={styles.dataLabel}>Técnico Encargado</span>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
-                                                    <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>
-                                                        <HiOutlineUser size={16} />
-                                                    </div>
-                                                    <span className={styles.dataText}>{selectedHistoryTask.tecnico || "No asignado"}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {reportData ? (
-                                        <>
-                                            <div className={styles.reportDetailCard}>
-                                                <div className={styles.detailSectionTitle}>
-                                                    <HiOutlineClipboardDocumentList size={18} />
-                                                    Datos del Reporte
-                                                </div>
-
-                                                <div className={styles.dataBlock}>
-                                                    <span className={styles.dataLabel}>Reporte de Tienda / Hallazgo</span>
-                                                    <div className={styles.dataBox}>{reportData.reporteTienda || 'N/A'}</div>
-                                                </div>
-
-                                                <div className={styles.dataBlock}>
-                                                    <span className={styles.dataLabel}>Descripción del Trabajo Realizado</span>
-                                                    <div className={styles.dataBox}>{reportData.descripcion || 'N/A'}</div>
-                                                </div>
-
-                                                <div className={styles.dataBlock}>
-                                                    <span className={styles.dataLabel}>Materiales y Refacciones</span>
-                                                    <div className={styles.dataBox}>{reportData.materiales || 'No se utilizaron materiales.'}</div>
-                                                </div>
-
-                                                <div className={styles.dataBlock}>
-                                                    <span className={styles.dataLabel}>Observaciones Adicionales</span>
-                                                    <div className={styles.dataBox}>{reportData.observaciones || 'Sin observaciones adicionales.'}</div>
-                                                </div>
-                                            </div>
-
-                                            {(reportData.imagenes && (reportData.imagenes.antes || reportData.imagenes.durante || reportData.imagenes.despues || reportData.imagenObservacion || (reportData.imagenesObservacion && reportData.imagenesObservacion.length > 0))) && (
-                                                <div className={styles.reportDetailCard}>
-                                                    <div className={styles.detailSectionTitle}>
-                                                        <HiOutlineWrench size={18} />
-                                                        Evidencia Fotográfica
-                                                    </div>
-                                                    <div className={styles.evidenceGrid}>
-                                                        {['antes', 'durante', 'despues'].map(key => reportData.imagenes[key] && (
-                                                            <div key={key} className={styles.evidenceItem}>
-                                                                <img
-                                                                    src={reportData.imagenes[key]}
-                                                                    alt={key}
-                                                                    className={styles.evidenceThumb}
-                                                                    onClick={() => setSelectedZoomImage(reportData.imagenes[key])}
-                                                                />
-                                                                <span className={styles.evidenceLabel}>{key === 'despues' ? 'después' : key}</span>
-                                                            </div>
-                                                        ))}
-                                                        {reportData.imagenesObservacion && reportData.imagenesObservacion.length > 0 ? (
-                                                            reportData.imagenesObservacion.map((img: string, idx: number) => (
-                                                                <div key={idx} className={styles.evidenceItem}>
-                                                                    <img
-                                                                        src={img}
-                                                                        alt={`Extra ${idx + 1}`}
-                                                                        className={styles.evidenceThumb}
-                                                                        onClick={() => setSelectedZoomImage(img)}
-                                                                    />
-                                                                    <span className={styles.evidenceLabel}>Extra {idx + 1}</span>
-                                                                </div>
-                                                            ))
-                                                        ) : (
-                                                            reportData.imagenObservacion && (
-                                                                <div className={styles.evidenceItem}>
-                                                                    <img
-                                                                        src={reportData.imagenObservacion}
-                                                                        alt="Observación"
-                                                                        className={styles.evidenceThumb}
-                                                                        onClick={() => setSelectedZoomImage(reportData.imagenObservacion)}
-                                                                    />
-                                                                    <span className={styles.evidenceLabel}>Extra</span>
-                                                                </div>
-                                                            )
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {reportData.firmaEmpresa && (
-                                                <div className={styles.reportDetailCard} style={{ textAlign: 'center' }}>
-                                                    <span className={styles.dataLabel}>Firma de Validación (Cliente)</span>
-                                                    <div style={{ background: '#f8fafc', padding: '15px', borderRadius: '15px', display: 'inline-block', marginTop: '10px', border: '1px solid #f1f5f9' }}>
-                                                        <img
-                                                            src={reportData.firmaEmpresa}
-                                                            alt="Firma"
-                                                            style={{ height: '70px', objectFit: 'contain', cursor: 'zoom-in' }}
-                                                            onClick={() => setSelectedZoomImage(reportData.firmaEmpresa)}
-                                                        />
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </>
-                                    ) : (
-                                        <div style={{ background: '#fffbeb', padding: '24px', borderRadius: '25px', border: '1.5px solid #fef3c7', textAlign: 'center' }}>
-                                            <p style={{ margin: 0, color: '#b45309', fontSize: '14px', fontWeight: '600', fontStyle: 'italic' }}>
-                                                ⚠️ Aún no hay un reporte detallado registrado para esta actividad.
-                                            </p>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    );
-                })()
-            }
-
-            {/* MODAL VIEW IMAGE */}
-            {selectedZoomImage && (
-                <div
-                    style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.9)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                    onClick={() => setSelectedZoomImage(null)}
-                >
-                    <img
-                        src={selectedZoomImage}
-                        style={{ maxWidth: '90%', maxHeight: '90%', objectFit: 'contain', borderRadius: '10px' }}
-                    />
-                    <button
-                        onClick={() => setSelectedZoomImage(null)}
-                        style={{ position: 'absolute', top: '20px', right: '30px', background: 'none', border: 'none', color: 'white', fontSize: '40px', cursor: 'pointer' }}
-                    >
-                        ×
-                    </button>
-                </div>
+            {/* MODAL HISTORIAL UNIFICADO */}
+            {selectedHistoryTask && (
+                <ReporteDetailModal
+                    isOpen={!!selectedHistoryTask}
+                    onClose={() => {
+                        setSelectedHistoryTask(null);
+                        setReportData(null);
+                    }}
+                    trabajo={{
+                        id: selectedHistoryTask.trabajoId,
+                        sucursal: selectedHistoryTask.ubicacion,
+                        tecnico: selectedHistoryTask.tecnico,
+                        encargado: selectedHistoryTask.rawJob?.negocio?.dueno || selectedHistoryTask.rawJob?.negocio?.contacto || selectedHistoryTask.rawJob?.usuario?.name || "N/A",
+                        cotizacion: selectedHistoryTask.rawJob?.cotizacion
+                    }}
+                    task={{
+                        id: selectedHistoryTask.id,
+                        titulo: selectedHistoryTask.titulo,
+                        fecha: selectedHistoryTask.fecha
+                    }}
+                    reporte={reportData}
+                    userRole={user?.role}
+                />
             )}
         </div>
     );

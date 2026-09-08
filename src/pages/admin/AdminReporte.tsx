@@ -194,8 +194,19 @@ const AdminReporte: React.FC = () => {
                 const techMarker = "|||TECH_NAME|||";
 
                 let targetAct: any = null;
+                let pointIndex = 0;
+                let hasPointIndex = false;
+
                 if (subtareaIdParam) {
-                    targetAct = acts.find((a: any) => String(a.id) === String(subtareaIdParam));
+                    const subParamStr = String(subtareaIdParam);
+                    if (subParamStr.includes('_')) {
+                        const [baseIdStr, pIdxStr] = subParamStr.split('_');
+                        targetAct = acts.find((a: any) => String(a.id) === baseIdStr);
+                        pointIndex = (parseInt(pIdxStr, 10) || 1) - 1;
+                        hasPointIndex = true;
+                    } else {
+                        targetAct = acts.find((a: any) => String(a.id) === subParamStr);
+                    }
                 }
 
                 let taskTitle = jobData.titulo || "Servicio";
@@ -228,6 +239,49 @@ const AdminReporte: React.FC = () => {
                             }
                         } catch (e) {
                             console.error("Error parsing |||PHOTOS_DATA||| in AdminReporte:", e);
+                        }
+                    }
+
+                    // Extraer información del punto específico de revisión si aplica (7_1, 7_2, etc.)
+                    if (hasPointIndex) {
+                        let sData = null;
+                        if (rawDesc.includes(serviceMarker)) {
+                            try {
+                                const parts = rawDesc.split(serviceMarker);
+                                sData = JSON.parse(parts[1].split(quoteMarker)[0].split(techMarker)[0].split(photosMarker)[0].trim());
+                            } catch (e) {}
+                        }
+
+                        if (sData?.items && Array.isArray(sData.items) && sData.items[pointIndex]) {
+                            const item = sData.items[pointIndex];
+                            const itemTipo = (item.tipo === 'Otro' ? item.customTipo : item.tipo) || targetAct.tipo || 'Servicio';
+                            taskTitle = `${itemTipo} (Punto ${pointIndex + 1})`;
+                            taskCleanDesc = item.descripcion || '';
+                            if (taskPhotos[pointIndex]) {
+                                taskPhotos = [taskPhotos[pointIndex]];
+                            }
+                            if (item.marca || item.modelo) {
+                                setEquipoInfo({
+                                    tipo: itemTipo,
+                                    marca: item.marca || '',
+                                    modelo: item.modelo || '',
+                                    piezas: item.pieza || '',
+                                    garantia: item.garantia || ''
+                                });
+                                setInvolucraEquipo(true);
+                            }
+                        } else {
+                            const regexPoint = /(?:^|\n+)(\d+)\.\s*(?:\[([^\]]+)\]\s*)?([\s\S]*?)(?=(?:\n+\d+\.\s*)|$)/g;
+                            const matches = Array.from(taskCleanDesc.matchAll(regexPoint));
+                            if (matches && matches[pointIndex]) {
+                                const m = matches[pointIndex];
+                                const ptTipo = m[2] ? m[2].trim() : targetAct.tipo;
+                                taskTitle = `${ptTipo} (Punto ${pointIndex + 1})`;
+                                taskCleanDesc = m[3] ? m[3].trim() : '';
+                                if (taskPhotos[pointIndex]) {
+                                    taskPhotos = [taskPhotos[pointIndex]];
+                                }
+                            }
                         }
                     }
 
@@ -606,9 +660,10 @@ const AdminReporte: React.FC = () => {
 
         // Guardar registro del reporte en la BD (asociado a este trabajo)
         try {
+            const parsedActId = subtareaIdParam ? (String(subtareaIdParam).includes('_') ? parseInt(String(subtareaIdParam).split('_')[0], 10) : parseInt(String(subtareaIdParam), 10)) : undefined;
             const dataToSave = {
                 trabajo_id: Number(safeTrabajoId),
-                actividad_id: subtareaIdParam ? Number(subtareaIdParam) : undefined,
+                actividad_id: isNaN(parsedActId as any) ? undefined : parsedActId,
                 descripcion: `Reporte de Tarea: ${trabajoBase?.titulo || 'Servicio'}`,
                 solucion: JSON.stringify(reportData) 
             };

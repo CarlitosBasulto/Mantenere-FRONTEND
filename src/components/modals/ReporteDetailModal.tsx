@@ -50,7 +50,7 @@ interface ReporteDetailModalProps {
         };
     };
     task: {
-        id: number;
+        id: number | string;
         titulo: string;
         fecha?: string;
     };

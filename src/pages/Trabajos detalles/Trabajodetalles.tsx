@@ -377,22 +377,35 @@ const TrabajoDetalle: React.FC = () => {
                 : "Sin asignar";
             const newEstado = (selectedAssignments.length > 0 ? "Asignado" : "Solicitud") as any;
 
+            const getGroupId = (desc?: string) => {
+                if (!desc) return null;
+                const match = desc.match(/\[Grupo:\s*(REQ-\d+)\]/);
+                return match ? match[1] : null;
+            };
+
+            const grpId = getGroupId(trabajo?.descripcion);
+            const jobsToUpdate = grpId
+                ? trabajosData.filter(t => getGroupId(t.descripcion) === grpId)
+                : (trabajo ? [trabajo] : []);
+
             if (selectedJobId && selectedTechnicians.length > 0) {
                 try {
-                    await assignTrabajador(selectedJobId, selectedTechnicians[0]);
+                    for (const tJob of jobsToUpdate) {
+                        await assignTrabajador(tJob.id, selectedTechnicians[0]);
 
-                    const needsStateUpdate = trabajo?.estado === "Solicitud" || trabajo?.estado === "Cotización Aceptada" || trabajo?.estado === "Cotización Aprobada";
-                    const nuevoEstado = (needsStateUpdate ? "Asignado" : trabajo?.estado || "Asignado") as any;
+                        const needsStateUpdate = tJob?.estado === "Solicitud" || tJob?.estado === "Cotización Aceptada" || tJob?.estado === "Cotización Aprobada";
+                        const nuevoEstado = (needsStateUpdate ? "Asignado" : tJob?.estado || "Asignado") as any;
 
-                    let nuevoTitulo = trabajo?.titulo || "";
-                    if (selectedType === "Trabajo" && nuevoTitulo.includes("(Visita)")) {
-                        nuevoTitulo = nuevoTitulo.replace("(Visita)", "(Reparación)");
-                    } else if (selectedType === "Visita" && nuevoTitulo.includes("(Reparación)")) {
-                        nuevoTitulo = nuevoTitulo.replace("(Reparación)", "(Visita)");
+                        let nuevoTitulo = tJob?.titulo || "";
+                        if (selectedType === "Trabajo" && nuevoTitulo.includes("(Visita)")) {
+                            nuevoTitulo = nuevoTitulo.replace("(Visita)", "(Reparación)");
+                        } else if (selectedType === "Visita" && nuevoTitulo.includes("(Reparación)")) {
+                            nuevoTitulo = nuevoTitulo.replace("(Reparación)", "(Visita)");
+                        }
+
+                        await updateEstadoTrabajo(tJob.id, { estado: nuevoEstado, visitado: selectedType === "Trabajo" });
+                        await updateTrabajo(tJob.id, { tipo: selectedType, titulo: nuevoTitulo });
                     }
-
-                    await updateEstadoTrabajo(selectedJobId, { estado: nuevoEstado, visitado: selectedType === "Trabajo" });
-                    await updateTrabajo(selectedJobId, { tipo: selectedType, titulo: nuevoTitulo });
 
                     showAlert("Asignación Exitosa", "Cambio guardado en el servidor.", "success");
                 } catch (error: any) {
@@ -405,36 +418,39 @@ const TrabajoDetalle: React.FC = () => {
                     return;
                 }
             } else {
-                try {
-                    await assignTrabajador(selectedJobId, null as any);
-                    showAlert("Desasignación Exitosa", "Se retiró el técnico.", "success");
-                } catch (assignError: any) {
-                    if (assignError.response && (assignError.response.status === 422 || assignError.response.status === 405)) {
-                        try {
-                            await updateTrabajo(selectedJobId, { trabajador_id: null });
-                            showAlert("Desasignación Exitosa (B)", "Se actualizó el registro.", "success");
-                        } catch (e) {
-                            showAlert("Error", "No se pudo desasignar.", "error");
+                for (const tJob of jobsToUpdate) {
+                    try {
+                        await assignTrabajador(tJob.id, null as any);
+                    } catch (assignError: any) {
+                        if (assignError.response && (assignError.response.status === 422 || assignError.response.status === 405)) {
+                            try {
+                                await updateTrabajo(tJob.id, { trabajador_id: null });
+                            } catch (e) {
+                                console.error("Error al desasignar", tJob.id, e);
+                            }
                         }
-                    } else {
-                        showAlert("Error", "Ocurrió un error al desasignar.", "error");
                     }
                 }
+                showAlert("Desasignación Exitosa", "Se retiró el técnico.", "success");
             }
 
+            const targetIds = new Set(jobsToUpdate.map(j => j.id));
             const updated = trabajosData.map(job => {
-                if (job.id === selectedJobId) {
+                if (targetIds.has(job.id)) {
                     let nuevoTitulo = job.titulo || "";
                     if (selectedType === "Trabajo" && nuevoTitulo.includes("(Visita)")) {
                         nuevoTitulo = nuevoTitulo.replace("(Visita)", "(Reparación)");
                     } else if (selectedType === "Visita" && nuevoTitulo.includes("(Reparación)")) {
                         nuevoTitulo = nuevoTitulo.replace("(Reparación)", "(Visita)");
                     }
+                    const needsStateUpdate = job?.estado === "Solicitud" || job?.estado === "Cotización Aceptada" || job?.estado === "Cotización Aprobada";
+                    const nuevoEstado = (needsStateUpdate ? "Asignado" : job?.estado || "Asignado") as any;
+
                     return {
                         ...job,
                         tecnico: assignedNames,
                         titulo: nuevoTitulo,
-                        estado: (job.estado === "Solicitud" || job.estado === "Asignado") ? newEstado : job.estado,
+                        estado: (job.estado === "Solicitud" || job.estado === "Asignado") ? (selectedAssignments.length > 0 ? nuevoEstado : "Solicitud") : job.estado,
                         tipo: selectedType,
                         visitado: selectedType === "Trabajo",
                         asignaciones: selectedAssignments.length > 0 ? selectedAssignments : [],
