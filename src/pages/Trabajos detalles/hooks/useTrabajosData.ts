@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getTrabajos } from '../../../services/trabajosService';
+import { getTrabajos, updateEstadoTrabajo } from '../../../services/trabajosService';
 import { getMantenimientoSolicitudes } from '../../../services/mantenimientoService';
 import type { Trabajo } from '../../../types/trabajo.types';
 
@@ -38,20 +38,28 @@ export const useTrabajosData = (
                                 if (parsed.descripcion || parsed.reporteTienda) {
                                     mappedReportes.push({
                                         id: t.id,
-                                        problema_cliente: parsed.reporteTienda || '—',
-                                        trabajo_realizado: parsed.descripcion || '—',
-                                        fecha: t.fecha_programada || new Date(t.created_at).toLocaleDateString(),
-                                        tecnico: t.trabajador?.nombre || 'Técnico'
+                                        fecha: t.reporte.fecha,
+                                        diagnostico: parsed.reporteTienda || t.reporte.descripcion,
+                                        descripcion: parsed.descripcion || t.reporte.descripcion,
+                                        materiales: parsed.materiales,
+                                        tipo: t.tipo || 'Reparación',
+                                        imagenes: parsed.imagenes,
+                                        firmaEmpresa: parsed.firmaEmpresa,
+                                        solucion: t.reporte.solucion
                                     });
                                 }
-                            } catch (e) { /* ignorar JSON malformado */ }
+                            } catch (e) {
+                                console.error('Error parseando reporte:', e);
+                            }
                         }
                     });
+
                     return {
                         id: sol.id,
-                        levantamiento_equipo_id: sol.levantamiento_equipo_id,
-                        descripcion_problema: sol.descripcion_problema,
-                        fecha_creacion: new Date(sol.created_at).toLocaleDateString(),
+                        descripcion: sol.descripcion_problema,
+                        estado: sol.estado,
+                        fecha: new Date(sol.created_at).toLocaleDateString('es-MX'),
+                        tipo: 'Mantenimiento',
                         reportes: mappedReportes
                     };
                 });
@@ -70,16 +78,49 @@ export const useTrabajosData = (
         // 1. Obtener trabajos normales
         try {
             const data = await getTrabajos({ negocio_id: Number(id) });
+
+            const getGroupId = (descripcion?: string) => {
+                if (!descripcion) return null;
+                const match = descripcion.match(/\[Grupo:\s*(REQ-\d+)\]/i);
+                return match ? match[1] : null;
+            };
+
+            const finishedGroupIds = new Set<string>();
+            const acceptedGroupIds = new Set<string>();
+
+            data.forEach((j: any) => {
+                const grp = getGroupId(j.descripcion);
+                if (grp) {
+                    if (j.estado === 'Finalizado' || j.estado === 'Completado') {
+                        finishedGroupIds.add(grp);
+                    } else if (j.estado === 'Cotización Aceptada' || j.estado === 'Cotización Aprobada') {
+                        acceptedGroupIds.add(grp);
+                    }
+                }
+            });
+
             mappedTrabajos = data.map((j: any) => {
+                const grp = getGroupId(j.descripcion);
+                let actualEstado = j.estado === 'Pendiente' ? 'Solicitud' : j.estado;
+                if (grp) {
+                    if (finishedGroupIds.has(grp) && actualEstado !== 'Finalizado') {
+                        actualEstado = 'Finalizado';
+                        updateEstadoTrabajo(j.id, { estado: 'Finalizado' }).catch(() => {});
+                    } else if (acceptedGroupIds.has(grp) && !['Finalizado', 'Completado', 'Cotización Aceptada'].includes(actualEstado)) {
+                        actualEstado = 'Cotización Aceptada';
+                        updateEstadoTrabajo(j.id, { estado: 'Cotización Aceptada' }).catch(() => {});
+                    }
+                }
+
                 const isSOS = j.prioridad === 'Alta' || j.titulo?.includes('SOS');
                 let displayTipo = 'Nueva Solicitud';
                 if (isSOS) {
                     displayTipo = 'SOS';
                 } else if (j.tipo && ['Visita', 'Trabajo', 'Mantenimiento'].includes(j.tipo)) {
                     displayTipo = j.tipo;
-                } else if (j.estado !== 'Pendiente' && j.estado !== 'Solicitud') {
+                } else if (actualEstado !== 'Pendiente' && actualEstado !== 'Solicitud') {
                     const isTrabajoDefinitivo =
-                        ['Cotización Enviada', 'Cotización Rechazada', 'Cotización Aceptada', 'Cotización Aprobada', 'En Proceso', 'Finalizado'].includes(j.estado) || j.visitado;
+                        ['Cotización Enviada', 'Cotización Rechazada', 'Cotización Aceptada', 'Cotización Aprobada', 'En Proceso', 'Finalizado'].includes(actualEstado) || j.visitado;
                     displayTipo = isTrabajoDefinitivo ? 'Trabajo' : 'Visita';
                 }
 
@@ -99,7 +140,7 @@ export const useTrabajosData = (
                             ? j.fecha_programada.split('-').reverse().join('/')
                             : j.fecha_programada
                         : new Date(j.created_at).toLocaleDateString('es-MX'),
-                    estado: j.estado === 'Pendiente' ? 'Solicitud' : j.estado,
+                    estado: actualEstado,
                     visitado: Boolean(j.visitado),
                     tipo: displayTipo,
                     descripcion: j.descripcion,

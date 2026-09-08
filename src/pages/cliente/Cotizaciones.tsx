@@ -8,16 +8,16 @@ import { getTrabajos } from "../../services/trabajosService";
 import { getCotizacionByTrabajoId } from "../../services/cotizacionesService";
 import { getNegocios } from "../../services/negociosService";
 
-
 // Interfaz para el Trabajo con Cotización
 interface TrabajoCotizado {
-    id: number;
+    id: number | string;
     titulo: string;
     ubicacion: string;
     fecha: string;
     estado: string;
     descripcion?: string;
     cotizacion?: {
+        id?: number;
         costo: string;
         notas: string;
         archivo: string;
@@ -25,16 +25,96 @@ interface TrabajoCotizado {
     };
 }
 
-interface SubTarea {
-    id: number;
-    titulo: string;
-    descripcion: string;
-    estado: string;
-}
-
 interface CotizacionesProps {
     businessId?: number;
 }
+
+const getGroupId = (descripcion?: string): string | null => {
+    if (!descripcion) return null;
+    const match = descripcion.match(/\[Grupo:\s*(REQ-\d+)\]/i);
+    return match ? match[1] : null;
+};
+
+const cleanDescriptionText = (desc?: string): string => {
+    if (!desc) return "Sin descripción.";
+    let cleaned = desc;
+    if (cleaned.includes('|||')) {
+        cleaned = cleaned.split('|||')[0].trim();
+    }
+    cleaned = cleaned.replace(/\[Grupo:\s*REQ-\d+\]\s*/gi, '').trim();
+    return cleaned || "Sin descripción.";
+};
+
+const extractServiceType = (job: any, pointIdx?: number, subId?: string | number): string => {
+    if (subId) {
+        const local = localStorage.getItem(`report_data_${subId}`) || localStorage.getItem(`report_data_temporal_${subId}`);
+        if (local) {
+            try {
+                const parsed = JSON.parse(local);
+                if (parsed.tipoServicio) return parsed.tipoServicio;
+                if (parsed.tipo) return parsed.tipo;
+                if (parsed.equipoInfo?.tipo) return parsed.equipoInfo.tipo;
+            } catch(e) {}
+        }
+    }
+    if (job?.id) {
+        const local = localStorage.getItem(`report_data_${job.id}`) || localStorage.getItem(`report_data_temporal_${job.id}`);
+        if (local) {
+            try {
+                const parsed = JSON.parse(local);
+                if (parsed.tipoServicio) return parsed.tipoServicio;
+                if (parsed.tipo) return parsed.tipo;
+                if (parsed.equipoInfo?.tipo) return parsed.equipoInfo.tipo;
+            } catch(e) {}
+        }
+    }
+    const rawDesc = job?.descripcion || '';
+    if (rawDesc.includes('|||SERVICE_DATA|||')) {
+        try {
+            const parts = rawDesc.split('|||SERVICE_DATA|||');
+            const dataStr = parts[1].split('|||')[0].trim();
+            const serviceData = JSON.parse(dataStr);
+            if (pointIdx !== undefined && serviceData.items && Array.isArray(serviceData.items) && serviceData.items[pointIdx - 1]) {
+                const it = serviceData.items[pointIdx - 1];
+                const itemTipo = (it.tipo === 'Otro' ? it.customTipo : it.tipo) || it.tipoActividad;
+                if (itemTipo) return itemTipo;
+            }
+            if (serviceData.tipoServicio) return serviceData.tipoServicio;
+        } catch (e) {}
+    }
+    if (job?.titulo) {
+        const titleFirst = job.titulo.split(' - ')[0].trim();
+        if (titleFirst && !titleFirst.toLowerCase().includes('solicitud') && !titleFirst.toLowerCase().includes('requerimiento')) {
+            return titleFirst;
+        }
+    }
+    return job?.tipo || 'Servicio';
+};
+
+const parseJobDate = (fechaStr?: string, createdAt?: string): string => {
+    if (fechaStr) {
+        if (fechaStr.includes('-')) {
+            const parts = fechaStr.split('-');
+            if (parts.length === 3) {
+                const year = parseInt(parts[0], 10);
+                const month = parseInt(parts[1], 10) - 1;
+                const day = parseInt(parts[2], 10);
+                const d = new Date(year, month, day);
+                if (!isNaN(d.getTime())) return d.toLocaleDateString('es-MX');
+            }
+        }
+        if (fechaStr.includes('/')) {
+            return fechaStr;
+        }
+        const dateObj = new Date(fechaStr);
+        if (!isNaN(dateObj.getTime())) return dateObj.toLocaleDateString('es-MX');
+    }
+    if (createdAt) {
+        const dateObj = new Date(createdAt);
+        if (!isNaN(dateObj.getTime())) return dateObj.toLocaleDateString('es-MX');
+    }
+    return new Date().toLocaleDateString('es-MX');
+};
 
 const Cotizaciones: React.FC<CotizacionesProps> = ({ businessId }) => {
     const { user } = useAuth();
@@ -47,85 +127,230 @@ const Cotizaciones: React.FC<CotizacionesProps> = ({ businessId }) => {
     const [filterStatus, setFilterStatus] = useState<string>("Todas");
     const [tempFilter, setTempFilter] = useState("Todas");
 
-    const [selectedCotizacion, setSelectedCotizacion] = useState<TrabajoCotizado | null>(null);
-    const [cotizacionTasks] = useState<SubTarea[]>([]);
-    const [reportData] = useState<any>(null);
-    const [selectedZoomImage, setSelectedZoomImage] = useState<string | null>(null);
-
-    // Eliminado el modal local en favor de la navegación al detalle del trabajo
-
     useEffect(() => {
         if (!user) return;
 
         const fetchCotizaciones = async () => {
             try {
-                // 1. Obtener los negocios del cliente actual desde la API
-                const apiNegocios = await getNegocios();
+                // 1. Obtener los negocios del cliente actual
                 const negociosIds = new Set<number>();
+                const apiNegociosRaw = localStorage.getItem('negocios_list');
+                if (apiNegociosRaw) {
+                    try {
+                        const negocios = JSON.parse(apiNegociosRaw);
+                        negocios.forEach((n: any) => {
+                            if (n.user_id === user.id || n.dueno === user.name) {
+                                negociosIds.add(n.id);
+                            }
+                        });
+                    } catch(e) {}
+                }
 
-                apiNegocios.forEach((n: any) => {
-                    if (n.user_id === user.id) {
-                        negociosIds.add(n.id);
+                try {
+                    const apiNegocios = await getNegocios();
+                    if (Array.isArray(apiNegocios)) {
+                        apiNegocios.forEach((n: any) => {
+                            if (n.user_id === user.id || n.dueno === user.name) {
+                                negociosIds.add(n.id);
+                            }
+                        });
                     }
-                });
+                } catch (e) {}
 
                 const apiJobs = await getTrabajos();
+                if (!Array.isArray(apiJobs)) return;
 
-                const filtrados = apiJobs.filter((job: any) => {
+                // Filtrar según permisos del cliente o negocio
+                const userFilteredJobs = apiJobs.filter((job: any) => {
                     if (businessId && job.negocio_id !== businessId) return false;
-
-                    // Incluir trabajos que tienen o tuvieron cotización
-                    const isCotizado = job.cotizacion || ["Cotización Enviada", "Cotización Aceptada", "Cotización Rechazada", "Asignado", "En Proceso", "Finalizado"].includes(job.estado);
-                    const isVisible = negociosIds.has(job.negocio_id) || job.negocio?.user_id === user.id || user.role === 'admin' || (user.role === 'encargado' && job.negocio_id === user.negocio_id);
-
-                    return isCotizado && isVisible;
+                    if (user.role === 'admin' || user.role === 'cliente') return true;
+                    return negociosIds.has(job.negocio_id) || 
+                           job.negocio?.user_id === user.id || 
+                           job.negocio?.dueno === user.name ||
+                           (user.role === 'encargado' && job.negocio_id === user.negocio_id);
                 });
 
-                const mapeados: TrabajoCotizado[] = await Promise.all(filtrados.map(async (job: any) => {
-                    let cotizacionData = job.cotizacion;
-                    if (!cotizacionData && ["Cotización Enviada", "Cotización Aceptada", "Cotización Rechazada", "Asignado", "En Proceso", "Finalizado"].includes(job.estado)) {
-                        try {
-                            const coti = await getCotizacionByTrabajoId(job.id);
-                            if (coti && coti.length > 0) {
-                                const mainCoti = coti[0];
-                                cotizacionData = {
-                                    id: mainCoti.id,
-                                    costo: mainCoti.monto,
-                                    notas: mainCoti.descripcion,
-                                    archivo: mainCoti.archivo,
-                                    fecha: mainCoti.updated_at ? new Date(mainCoti.updated_at).toLocaleDateString('es-MX') : (job.fecha_programada || new Date(job.created_at).toLocaleDateString('es-MX'))
-                                };
+                // Detectar grupos [Grupo: REQ-xxxx]
+                const groupedByReq: { [grpId: string]: any[] } = {};
+                const nonGroupedJobs: any[] = [];
+
+                userFilteredJobs.forEach((job: any) => {
+                    const grpId = getGroupId(job.descripcion);
+                    if (grpId) {
+                        if (!groupedByReq[grpId]) groupedByReq[grpId] = [];
+                        groupedByReq[grpId].push(job);
+                    } else {
+                        nonGroupedJobs.push(job);
+                    }
+                });
+
+                const allCotizados: TrabajoCotizado[] = [];
+
+                // 1. Procesar grupos [Grupo: REQ-xxxx]
+                for (const [, jobsInGroup] of Object.entries(groupedByReq)) {
+                    if (!jobsInGroup || jobsInGroup.length === 0) continue;
+                    jobsInGroup.sort((a, b) => Number(a.id) - Number(b.id));
+                    const baseJob = jobsInGroup[0];
+
+                    // Revisar si algún trabajo del grupo tiene estado de cotización / finalizado
+                    const groupHasQuote = jobsInGroup.some(j => 
+                        j.cotizacion || 
+                        ["Cotización Enviada", "Cotización Aceptada", "Cotización Aprobada", "Cotización Rechazada", "Asignado", "En Proceso", "Finalizado", "Completado"].includes(j.estado) ||
+                        j.descripcion?.includes('|||QUOTE_DATA|||') ||
+                        localStorage.getItem(`quote_history_${j.id}`)
+                    );
+
+                    if (groupHasQuote) {
+                        // Buscar datos de cotización base
+                        let baseQuoteData = baseJob.cotizacion;
+                        if (!baseQuoteData) {
+                            const savedHistory = localStorage.getItem(`quote_history_${baseJob.id}`);
+                            if (savedHistory) {
+                                try {
+                                    const historyArr = JSON.parse(savedHistory);
+                                    if (historyArr && historyArr.length > 0) {
+                                        const lastH = historyArr[historyArr.length - 1];
+                                        baseQuoteData = {
+                                            id: lastH.id || baseJob.id,
+                                            costo: lastH.costo || lastH.monto || "0",
+                                            notas: lastH.notas || lastH.descripcion || "",
+                                            archivo: lastH.archivo || "",
+                                            fecha: lastH.fecha || parseJobDate(baseJob.fecha_programada, baseJob.created_at)
+                                        };
+                                    }
+                                } catch(e) {}
                             }
-                        } catch (e) {
-                            // Si tira 404 significa que no existe
                         }
+
+                        if (!baseQuoteData) {
+                            try {
+                                const coti = await getCotizacionByTrabajoId(baseJob.id);
+                                if (coti && coti.length > 0) {
+                                    const mainCoti = coti[0];
+                                    baseQuoteData = {
+                                        id: mainCoti.id,
+                                        costo: mainCoti.monto,
+                                        notas: mainCoti.descripcion,
+                                        archivo: mainCoti.archivo,
+                                        fecha: mainCoti.updated_at ? parseJobDate(mainCoti.updated_at) : parseJobDate(baseJob.fecha_programada, baseJob.created_at)
+                                    };
+                                }
+                            } catch(e) {}
+                        }
+
+                        if (!baseQuoteData && baseJob.descripcion?.includes('|||QUOTE_DATA|||')) {
+                            try {
+                                const parts = baseJob.descripcion.split('|||QUOTE_DATA|||');
+                                const quoteData = JSON.parse(parts[1].split('|||')[0].trim());
+                                const totalCosto = (quoteData.conceptos || []).reduce((acc: number, c: any) => acc + (parseFloat(c.costo) || 0), 0);
+                                baseQuoteData = {
+                                    id: baseJob.id,
+                                    costo: totalCosto > 0 ? String(totalCosto) : "0",
+                                    notas: quoteData.comentarios || (quoteData.conceptos || []).map((c: any) => c.descripcion).join(', '),
+                                    archivo: "",
+                                    fecha: parseJobDate(baseJob.fecha_programada, baseJob.created_at)
+                                };
+                            } catch(e) {}
+                        }
+
+                        // Sincronizar estado del grupo: si alguno está aceptado/finalizado, todos lo están
+                        const isFinalizedOrAccepted = jobsInGroup.some(j => ["Finalizado", "Completado", "Cotización Aceptada", "Cotización Aprobada"].includes(j.estado));
+                        const groupEstado = isFinalizedOrAccepted ? "Finalizado" : baseJob.estado;
+
+                        jobsInGroup.forEach((gJob, idx) => {
+                            const pIdx = idx + 1;
+                            const serviceType = extractServiceType(gJob, pIdx, gJob.id);
+                            const cleanDesc = cleanDescriptionText(gJob.descripcion);
+
+                            allCotizados.push({
+                                id: gJob.id,
+                                titulo: `${serviceType} (Punto ${pIdx})`,
+                                ubicacion: gJob.negocio?.ubicacion || gJob.negocio?.nombre || "Sucursal",
+                                fecha: parseJobDate(gJob.fecha_programada, gJob.created_at),
+                                estado: groupEstado || "Cotización Enviada",
+                                descripcion: cleanDesc,
+                                cotizacion: baseQuoteData || gJob.cotizacion
+                            });
+                        });
                     }
+                }
 
-                    return {
-                        id: job.id,
-                        titulo: job.titulo,
-                        ubicacion: job.negocio?.ubicacion || job.negocio?.nombre || "Sucursal",
-                        fecha: job.fecha_programada || new Date(job.created_at).toLocaleDateString('es-MX'),
-                        estado: job.estado,
-                        descripcion: job.descripcion,
-                        cotizacion: cotizacionData
-                    };
-                }));
+                // 2. Procesar trabajos individuales no agrupados
+                for (const job of nonGroupedJobs) {
+                    const isCotizado = job.cotizacion || 
+                        ["Cotización Enviada", "Cotización Aceptada", "Cotización Aprobada", "Cotización Rechazada", "Asignado", "En Proceso", "Finalizado", "Completado"].includes(job.estado) ||
+                        job.descripcion?.includes('|||QUOTE_DATA|||') ||
+                        localStorage.getItem(`quote_history_${job.id}`);
 
-                mapeados.sort((a, b) => {
-                    const dateA = a.cotizacion?.fecha || a.fecha;
-                    const dateB = b.cotizacion?.fecha || b.fecha;
-                    const partsA = dateA.split('/');
-                    const partsB = dateB.split('/');
-                    if (partsA.length === 3 && partsB.length === 3) {
-                        const [da, ma, ya] = partsA.map(Number);
-                        const [db, mb, yb] = partsB.map(Number);
-                        return new Date(yb, mb - 1, db).getTime() - new Date(ya, ma - 1, da).getTime();
+                    if (isCotizado) {
+                        let cotizacionData = job.cotizacion;
+                        if (!cotizacionData) {
+                            const savedHistory = localStorage.getItem(`quote_history_${job.id}`);
+                            if (savedHistory) {
+                                try {
+                                    const historyArr = JSON.parse(savedHistory);
+                                    if (historyArr && historyArr.length > 0) {
+                                        const lastH = historyArr[historyArr.length - 1];
+                                        cotizacionData = {
+                                            id: lastH.id || job.id,
+                                            costo: lastH.costo || lastH.monto || "0",
+                                            notas: lastH.notas || lastH.descripcion || "",
+                                            archivo: lastH.archivo || "",
+                                            fecha: lastH.fecha || parseJobDate(job.fecha_programada, job.created_at)
+                                        };
+                                    }
+                                } catch(e) {}
+                            }
+                        }
+
+                        if (!cotizacionData) {
+                            try {
+                                const coti = await getCotizacionByTrabajoId(job.id);
+                                if (coti && coti.length > 0) {
+                                    const mainCoti = coti[0];
+                                    cotizacionData = {
+                                        id: mainCoti.id,
+                                        costo: mainCoti.monto,
+                                        notas: mainCoti.descripcion,
+                                        archivo: mainCoti.archivo,
+                                        fecha: mainCoti.updated_at ? parseJobDate(mainCoti.updated_at) : parseJobDate(job.fecha_programada, job.created_at)
+                                    };
+                                }
+                            } catch (e) {}
+                        }
+
+                        if (!cotizacionData && job.descripcion?.includes('|||QUOTE_DATA|||')) {
+                            try {
+                                const parts = job.descripcion.split('|||QUOTE_DATA|||');
+                                const quoteData = JSON.parse(parts[1].split('|||')[0].trim());
+                                const totalCosto = (quoteData.conceptos || []).reduce((acc: number, c: any) => acc + (parseFloat(c.costo) || 0), 0);
+                                cotizacionData = {
+                                    id: job.id,
+                                    costo: totalCosto > 0 ? String(totalCosto) : "0",
+                                    notas: quoteData.comentarios || (quoteData.conceptos || []).map((c: any) => c.descripcion).join(', '),
+                                    archivo: "",
+                                    fecha: parseJobDate(job.fecha_programada, job.created_at)
+                                };
+                            } catch(e) {}
+                        }
+
+                        const singleTipo = extractServiceType(job);
+                        const displayTitle = singleTipo && !job.titulo?.startsWith(singleTipo) ? `${singleTipo} - ${job.titulo || 'Servicio'}` : (job.titulo || 'Servicio');
+
+                        allCotizados.push({
+                            id: job.id,
+                            titulo: displayTitle,
+                            ubicacion: job.negocio?.ubicacion || job.negocio?.nombre || "Sucursal",
+                            fecha: parseJobDate(job.fecha_programada, job.created_at),
+                            estado: job.estado || "Cotización Enviada",
+                            descripcion: cleanDescriptionText(job.descripcion),
+                            cotizacion: cotizacionData
+                        });
                     }
-                    return 0;
-                });
+                }
 
-                setRawCotizaciones(mapeados);
+                allCotizados.sort((a, b) => Number(b.id) - Number(a.id));
+                setRawCotizaciones(allCotizados);
             } catch (error) {
                 console.error("Error cargando cotizaciones:", error);
             }
@@ -134,14 +359,16 @@ const Cotizaciones: React.FC<CotizacionesProps> = ({ businessId }) => {
         fetchCotizaciones();
     }, [user, businessId]);
 
+
     // Lógica de Filtrado Reactiva (en vivo)
     const filtradas = rawCotizaciones.filter(coti => {
-        const matchesText = coti.titulo.toLowerCase().includes(searchText.toLowerCase()) ||
-            coti.ubicacion.toLowerCase().includes(searchText.toLowerCase());
+        const matchesText = (coti.titulo || '').toLowerCase().includes(searchText.toLowerCase()) ||
+            (coti.ubicacion || '').toLowerCase().includes(searchText.toLowerCase()) ||
+            (coti.descripcion || '').toLowerCase().includes(searchText.toLowerCase());
 
         let matchesStatus = true;
         if (filterStatus !== "Todas") {
-            const isPagadaFinalizada = ["Cotización Aceptada", "Asignado", "En Proceso", "Finalizado"].includes(coti.estado);
+            const isPagadaFinalizada = ["Cotización Aceptada", "Cotización Aprobada", "Asignado", "En Proceso", "Finalizado", "Completado"].includes(coti.estado);
 
             if (filterStatus === "Aceptadas" && !isPagadaFinalizada) matchesStatus = false;
             if (filterStatus === "Rechazadas" && coti.estado !== "Cotización Rechazada") matchesStatus = false;
@@ -164,10 +391,20 @@ const Cotizaciones: React.FC<CotizacionesProps> = ({ businessId }) => {
         setIsFilterModalOpen(false);
     };
 
+    // Helper para determinar la ruta base
+    const getBasePath = () => {
+        if (location.pathname.startsWith('/menu') || location.pathname.startsWith('/admin') || user?.role === 'admin') return '/menu';
+        if (location.pathname.startsWith('/gerente-sucursal') || location.pathname.startsWith('/encargado') || user?.role === 'gerente-sucursal' || user?.role === 'encargado') return '/gerente-sucursal';
+        if (location.pathname.startsWith('/autonomo') || user?.role === 'autonomo' || user?.role === 'admin-autonomo' || user?.role === 'administrador-general') return '/autonomo';
+        if (location.pathname.startsWith('/tecnico-autonomo') || user?.role === 'tecnico-autonomo') return '/tecnico-autonomo';
+        if (location.pathname.startsWith('/tecnico') || user?.role === 'tecnico' || user?.role === 'tecnico-normal') return '/tecnico';
+        return '/cliente';
+    };
+
     // Calcular estatus visual basado en el estado del trabajo
     const getEstatusInfo = (estado: string) => {
-        if (["Cotización Aceptada", "Asignado", "En Proceso"].includes(estado)) return { text: "Aceptada", cssClass: styles.badgeAccepted, borderClass: styles.borderAccepted };
-        if (estado === "Finalizado") return { text: "Finalizada", cssClass: styles.badgeAccepted, borderClass: styles.borderAccepted };
+        if (["Cotización Aceptada", "Cotización Aprobada", "Asignado", "En Proceso"].includes(estado)) return { text: "Aceptada", cssClass: styles.badgeAccepted, borderClass: styles.borderAccepted };
+        if (estado === "Finalizado" || estado === "Completado") return { text: "Finalizada", cssClass: styles.badgeAccepted, borderClass: styles.borderAccepted };
         if (estado === "Cotización Rechazada") return { text: "Rechazada", cssClass: styles.badgeRejected, borderClass: styles.borderRejected };
         return { text: "Pendiente", cssClass: styles.badgePending, borderClass: styles.borderPending };
     };
@@ -179,7 +416,7 @@ const Cotizaciones: React.FC<CotizacionesProps> = ({ businessId }) => {
                 <div className={menuStyles.searchCard}>
                     <input
                         type="text"
-                        placeholder="Buscar..."
+                        placeholder="Buscar cotización, detalle o sucursal..."
                         className={menuStyles.searchInput}
                         value={searchText}
                         onChange={(e) => setSearchText(e.target.value)}
@@ -187,6 +424,7 @@ const Cotizaciones: React.FC<CotizacionesProps> = ({ businessId }) => {
                     <button
                         className={menuStyles.filterBtn}
                         onClick={() => { setTempFilter(filterStatus); setIsFilterModalOpen(true); }}
+                        title="Filtrar cotizaciones"
                     >
                         <span style={{ fontSize: '18px' }}>⚙️</span>
                     </button>
@@ -203,8 +441,8 @@ const Cotizaciones: React.FC<CotizacionesProps> = ({ businessId }) => {
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                                 {cotizacionesAgrupadas[empresa].map((cotizacion) => {
                                     const estatusInfo = getEstatusInfo(cotizacion.estado);
+                                    const basePath = getBasePath();
 
-                                    const basePath = location.pathname.startsWith('/admin') || location.pathname.startsWith('/menu') ? '/menu' : location.pathname.startsWith('/encargado') ? '/encargado' : '/cliente';
                                     return (
                                         <div key={cotizacion.id} className={styles.card}
                                             onClick={() => navigate(`${basePath}/trabajo-detalle/${cotizacion.id}?tab=cotizacion`)}
@@ -227,7 +465,7 @@ const Cotizaciones: React.FC<CotizacionesProps> = ({ businessId }) => {
 
                                                         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                                                             <div className={`${styles.statusBadge} ${estatusInfo.cssClass}`}>
-                                                                {estatusInfo.text === "Aceptada" ? (
+                                                                {estatusInfo.text === "Aceptada" || estatusInfo.text === "Finalizada" ? (
                                                                     <HiOutlineCheckCircle className={styles.statusIcon} />
                                                                 ) : estatusInfo.text === "Rechazada" ? (
                                                                     <HiOutlineXCircle className={styles.statusIcon} />
@@ -255,219 +493,6 @@ const Cotizaciones: React.FC<CotizacionesProps> = ({ businessId }) => {
                     </div>
                 )}
             </div>
-
-            {/* MODAL DETALLE DE COTIZACION Y REPORTE */}
-            {selectedCotizacion && (
-                <div className={menuStyles.modalOverlay} onClick={(e) => {
-                    if (e.target === e.currentTarget) setSelectedCotizacion(null);
-                }}>
-                    <div className={menuStyles.modalContent} style={{ maxWidth: '700px', width: '90%', padding: '30px', maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '2px solid #eee', paddingBottom: '15px' }}>
-                            <h2 style={{ margin: 0, color: '#333' }}>Detalles de Cotización</h2>
-                            <button
-                                onClick={() => setSelectedCotizacion(null)}
-                                style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#999' }}
-                            >
-                                ×
-                            </button>
-                        </div>
-
-                        <div style={{ display: 'grid', gap: '20px' }}>
-                            <div style={{ background: '#f8f9fa', padding: '20px', borderRadius: '15px', borderLeft: '4px solid #f26522' }}>
-                                <h3 style={{ margin: '0 0 10px 0', color: '#d49a00', fontSize: '18px' }}>{selectedCotizacion.titulo}</h3>
-                                <p style={{ margin: 0, color: '#555', fontSize: '15px', lineHeight: '1.5' }}>{selectedCotizacion.descripcion || 'Sin descripción.'}</p>
-                                <div style={{ marginTop: '15px', display: 'flex', gap: '10px' }}>
-                                    <span style={{ background: '#fff9e6', color: '#d49a00', padding: '5px 10px', borderRadius: '15px', fontSize: '12px', fontWeight: 'bold' }}>
-                                        Estado: {selectedCotizacion.estado}
-                                    </span>
-                                </div>
-                            </div>
-
-                            {selectedCotizacion.cotizacion && (
-                                <div style={{ background: '#fff', padding: '20px', borderRadius: '15px', border: '1px solid #eee' }}>
-                                    <h4 style={{ margin: '0 0 15px 0', color: '#333', fontSize: '16px' }}>💰 Información de Cotización</h4>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                            <span style={{ color: '#777', fontSize: '14px' }}>Costo:</span>
-                                            <span style={{ fontWeight: 'bold', color: '#333', fontSize: '14px' }}>${selectedCotizacion.cotizacion.costo}</span>
-                                        </div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                            <span style={{ color: '#777', fontSize: '14px' }}>Fecha:</span>
-                                            <span style={{ fontWeight: 'bold', color: '#333', fontSize: '14px' }}>{selectedCotizacion.cotizacion.fecha}</span>
-                                        </div>
-                                        <div>
-                                            <span style={{ color: '#777', fontSize: '14px', display: 'block', marginBottom: '5px' }}>Notas:</span>
-                                            <p style={{ margin: 0, color: '#555', fontSize: '14px', fontStyle: 'italic', background: '#fafafa', padding: '10px', borderRadius: '8px' }}>
-                                                "{selectedCotizacion.cotizacion.notas || "Sin notas adicionales."}"
-                                            </p>
-                                        </div>
-                                        {selectedCotizacion.cotizacion.archivo && (
-                                            <div style={{ marginTop: '10px' }}>
-                                                <a
-                                                    href={selectedCotizacion.cotizacion.archivo}
-                                                    target="_blank"
-                                                    rel="noreferrer"
-                                                    style={{ display: 'inline-flex', padding: '8px 15px', background: '#007bff', color: 'white', textDecoration: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: 'bold' }}
-                                                >
-                                                    📎 Ver Documento PDF
-                                                </a>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* REPORTE CENTRALIZADO (SI EXISTE) */}
-                            {reportData ? (
-                                <div style={{ borderTop: '2px solid #eaeaea', paddingTop: '20px', marginTop: '10px' }}>
-                                    <h3 style={{ marginBottom: '15px', color: '#2e7d32' }}>Reporte de Finalización</h3>
-                                    <div style={{ background: '#fff', padding: '20px', borderRadius: '15px', border: '1px solid #ddd' }}>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                                            {reportData.reporteTienda && (
-                                                <div>
-                                                    <span style={{ color: '#777', fontSize: '13px', display: 'block', marginBottom: '4px' }}>Diagnóstico / Tienda:</span>
-                                                    <div style={{ background: '#fafafa', padding: '10px', borderRadius: '8px', fontSize: '14px', color: '#333' }}>
-                                                        {reportData.reporteTienda}
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {reportData.descripcion && (
-                                                <div>
-                                                    <span style={{ color: '#777', fontSize: '13px', display: 'block', marginBottom: '4px' }}>Descripción del trabajo:</span>
-                                                    <div style={{ background: '#fafafa', padding: '10px', borderRadius: '8px', fontSize: '14px', color: '#333' }}>
-                                                        {reportData.descripcion}
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {reportData.materiales && (
-                                                <div>
-                                                    <span style={{ color: '#777', fontSize: '13px', display: 'block', marginBottom: '4px' }}>Materiales utilizados:</span>
-                                                    <div style={{ background: '#fafafa', padding: '10px', borderRadius: '8px', fontSize: '14px', color: '#333' }}>
-                                                        {reportData.materiales}
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {reportData.observaciones && (
-                                                <div>
-                                                    <span style={{ color: '#777', fontSize: '13px', display: 'block', marginBottom: '4px' }}>Observaciones adicionales:</span>
-                                                    <div style={{ background: '#fafafa', padding: '10px', borderRadius: '8px', fontSize: '14px', color: '#333' }}>
-                                                        {reportData.observaciones}
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {/* Evidencia Fotográfica */}
-                                            {reportData.imagenes && (reportData.imagenes.antes || reportData.imagenes.durante || reportData.imagenes.despues || reportData.imagenObservacion) && (
-                                                <div>
-                                                    <span style={{ color: '#777', fontSize: '13px', display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Evidencia Fotográfica:</span>
-                                                    <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
-                                                        {reportData.imagenes.antes && (
-                                                            <div style={{ textAlign: 'center' }}>
-                                                                <span style={{ fontSize: '12px', color: '#666', marginBottom: '4px', display: 'block' }}>Antes</span>
-                                                                <img
-                                                                    src={reportData.imagenes.antes}
-                                                                    alt="Antes"
-                                                                    onClick={(e) => { e.stopPropagation(); setSelectedZoomImage(reportData.imagenes.antes); }}
-                                                                    style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #ddd', cursor: 'pointer' }}
-                                                                />
-                                                            </div>
-                                                        )}
-                                                        {reportData.imagenes.durante && (
-                                                            <div style={{ textAlign: 'center' }}>
-                                                                <span style={{ fontSize: '12px', color: '#666', marginBottom: '4px', display: 'block' }}>Durante</span>
-                                                                <img
-                                                                    src={reportData.imagenes.durante}
-                                                                    alt="Durante"
-                                                                    onClick={(e) => { e.stopPropagation(); setSelectedZoomImage(reportData.imagenes.durante); }}
-                                                                    style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #ddd', cursor: 'pointer' }}
-                                                                />
-                                                            </div>
-                                                        )}
-                                                        {reportData.imagenes.despues && (
-                                                            <div style={{ textAlign: 'center' }}>
-                                                                <span style={{ fontSize: '12px', color: '#666', marginBottom: '4px', display: 'block' }}>Después</span>
-                                                                <img
-                                                                    src={reportData.imagenes.despues}
-                                                                    alt="Después"
-                                                                    onClick={(e) => { e.stopPropagation(); setSelectedZoomImage(reportData.imagenes.despues); }}
-                                                                    style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #ddd', cursor: 'pointer' }}
-                                                                />
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {/* Firma de Validación */}
-                                            {reportData.firmaEmpresa && (
-                                                <div style={{ marginTop: '10px' }}>
-                                                    <span style={{ color: '#777', fontSize: '13px', display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Firma de Validación:</span>
-                                                    <div style={{ background: '#f5f5f5', padding: '10px', borderRadius: '8px', display: 'inline-block' }}>
-                                                        <img
-                                                            src={reportData.firmaEmpresa}
-                                                            alt="Firma"
-                                                            onClick={(e) => { e.stopPropagation(); setSelectedZoomImage(reportData.firmaEmpresa); }}
-                                                            style={{ height: '60px', objectFit: 'contain', cursor: 'pointer' }}
-                                                        />
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div style={{ borderTop: '2px solid #eaeaea', paddingTop: '20px', marginTop: '10px' }}>
-                                    <h3 style={{ marginBottom: '15px' }}>Tareas del Trabajo</h3>
-                                    {cotizacionTasks.length > 0 ? (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                                            {cotizacionTasks.map(tarea => (
-                                                <div key={tarea.id} style={{ background: '#f8f9fa', padding: '15px', borderRadius: '12px', border: '1px solid #eee' }}>
-                                                    <h4 style={{ margin: '0 0 5px 0', fontSize: '15px', color: '#333' }}>{tarea.titulo}</h4>
-                                                    <p style={{ margin: 0, fontSize: '13px', color: '#666' }}>{tarea.descripcion}</p>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <p style={{ color: '#999', fontStyle: 'italic', fontSize: '14px', textAlign: 'center' }}>No hay tareas detalladas registradas.</p>
-                                    )}
-                                </div>
-                            )}
-
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* IMAGE ZOOM MODAL */}
-            {selectedZoomImage && (
-                <div
-                    style={{
-                        position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
-                        background: 'rgba(0, 0, 0, 0.85)', zIndex: 9999, display: 'flex',
-                        alignItems: 'center', justifyContent: 'center', padding: '20px',
-                        backdropFilter: 'blur(5px)'
-                    }}
-                    onClick={(e) => { e.stopPropagation(); setSelectedZoomImage(null); }}
-                >
-                    <div style={{ position: 'relative', maxWidth: '95%', maxHeight: '95%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                        <button
-                            onClick={(e) => { e.stopPropagation(); setSelectedZoomImage(null); }}
-                            style={{ position: 'absolute', top: '-40px', right: '0', background: 'none', border: 'none', color: '#fff', fontSize: '30px', cursor: 'pointer', fontWeight: 'bold' }}
-                        >
-                            ×
-                        </button>
-                        <img
-                            src={selectedZoomImage}
-                            alt="Zoomed Evidence"
-                            style={{ maxWidth: '100%', maxHeight: '90vh', objectFit: 'contain', borderRadius: '15px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}
-                            onClick={(e) => e.stopPropagation()}
-                        />
-                    </div>
-                </div>
-            )}
 
             {/* MODAL DE FILTRO */}
             {isFilterModalOpen && (

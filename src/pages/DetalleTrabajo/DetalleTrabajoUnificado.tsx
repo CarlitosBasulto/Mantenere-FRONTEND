@@ -694,6 +694,10 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                             try {
                                 const parsed = JSON.parse(dbReport.solucion);
                                 setReporteFinal({ ...parsed, dbId: dbReport.id });
+                                localStorage.setItem(`report_data_${id}`, dbReport.solucion);
+                                if (parsed.subtareaId) {
+                                    localStorage.setItem(`report_data_${parsed.subtareaId}`, dbReport.solucion);
+                                }
                             } catch (e) {
                                 console.error("Error parsing report JSON:", e);
                             }
