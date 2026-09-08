@@ -20,6 +20,7 @@ import ListaTrabajadores from "./pages/admin/ListaTrabajadores";
 import ListaSolicitudes from "./pages/admin/ListaSolicitudes";
 import TrabajoDetalle from "./pages/Trabajos detalles/Trabajodetalles";
 import AdminDetalleTrabajo from "./pages/admin/AdminDetalleTrabajo";
+import GerenteSucursalDetalleTrabajo from "./pages/ecosistema_autonomo/gerente_sucursal/GerenteSucursalDetalleTrabajo";
 import AutonomoDetalleTrabajo from "./pages/ecosistema_autonomo/admin_autonomo/AutonomoDetalleTrabajo";
 import AutonomoListaNegocios from "./pages/ecosistema_autonomo/admin_autonomo/AutonomoListaNegocios";
 import AdminGeneralMisSucursales from "./pages/ecosistema_autonomo/admin_autonomo/AdminGeneralMisSucursales";
@@ -45,10 +46,10 @@ import EncargadoLayout from "./layouts/EncargadoLayout";
 import AutonomoLayout from "./layouts/AutonomoLayout";
 import DashboardCliente from "./pages/cliente/DashboardCliente";
 
-import DashboardAutonomo from "./pages/autonomo/DashboardAutonomo";
-import AutonomoTablero from "./pages/autonomo/AutonomoTablero";
+
 import DetalleAdminAutonomo from "./pages/admin/DetalleAdminAutonomo";
 import DashboardTecnico from "./pages/tecnico/DashboardTecnico";
+import DashboardTecnicoAutonomo from "./pages/ecosistema_autonomo/tecnico_autonomo/DashboardTecnicoAutonomo";
 
 function App() {
     return (
@@ -125,6 +126,21 @@ function App() {
                             <Route path="reporte-tarea/:id" element={<AdminReporte />} />
                         </Route>
 
+                        {/* TECNICO AUTÓNOMO ROUTES */}
+                        <Route path="/tecnico-autonomo" element={
+                            <ProtectedRoute allowedRoles={['tecnico-autonomo']}>
+                                <TecnicoLayout />
+                            </ProtectedRoute>
+                        }>
+                            <Route index element={<DashboardTecnicoAutonomo />} />
+                            <Route path="solicitudes" element={<ListaSolicitudes />} />
+                            <Route path="mi-perfil" element={<MiPerfil />} />
+                            <Route path="historial" element={<AdminHistorial />} />
+                            <Route path="trabajo/:id" element={<TrabajoDetalle />} />
+                            <Route path="trabajo-detalle/:id" element={<AdminDetalleTrabajo />} />
+                            <Route path="reporte-tarea/:id" element={<AdminReporte />} />
+                        </Route>
+
                         {/* ENCARGADO ROUTES */}
                         <Route path="/gerente-sucursal" element={
                             <ProtectedRoute allowedRoles={['gerente-sucursal', 'encargado']}>
@@ -138,7 +154,7 @@ function App() {
                             <Route path="cotizaciones" element={<Cotizaciones />} />
                             <Route path="historial" element={<Historial />} />
                             <Route path="trabajo/:id" element={<TrabajoDetalle />} />
-                            <Route path="trabajo-detalle/:id" element={<AdminDetalleTrabajo />} />
+                            <Route path="trabajo-detalle/:id" element={<GerenteSucursalDetalleTrabajo />} />
                             <Route path="mantenimiento-detalle/:id" element={<MantenimientoDetalle />} />
                         </Route>
 

@@ -1,4 +1,4 @@
-﻿/* =============================================
+/* =============================================
    GERENTE SUCURSAL - MI SUCURSAL
    Universo exclusivo del gerente de sucursal
 ============================================= */
@@ -305,4 +305,103 @@
         padding: 20px;
         border-radius: 16px;
     }
+}
+/* --- MINI-TABLERO ------------------------------------------- */
+.miniTablero {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 16px;
+}
+.miniTableroHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+.miniTableroTitle {
+    font-size: 13px;
+    font-weight: 700;
+    color: #334155;
+    letter-spacing: 0.2px;
+}
+.miniLoading {
+    font-size: 11px;
+    color: #94a3b8;
+    font-style: italic;
+}
+.miniTableroGrid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+}
+.miniCard {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 12px 8px;
+    border-radius: 12px;
+    border: 1px solid transparent;
+    transition: transform 0.15s ease;
+}
+.miniCard:hover { transform: translateY(-2px); }
+
+.miniCardRed    { background: #fef2f2; border-color: #fecaca; }
+.miniCardYellow { background: #fefce8; border-color: #fef08a; }
+.miniCardBlue   { background: #eff6ff; border-color: #bfdbfe; }
+.miniCardOrange { background: #fff7ed; border-color: #fed7aa; }
+.miniCardGreen  { background: #f0fdf4; border-color: #bbf7d0; }
+.miniCardPurple { background: #faf5ff; border-color: #e9d5ff; }
+
+.miniIcon { font-size: 18px; }
+.miniCount {
+    font-size: 18px;
+    font-weight: 900;
+    color: #0f172a;
+}
+.miniLabel {
+    font-size: 10px;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    text-align: center;
+}
+.miniRefreshBtn {
+    background: #e2e8f0;
+    color: #475569;
+    border: none;
+    border-radius: 6px;
+    padding: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+.miniRefreshBtn:hover:not(:disabled) {
+    background: #cbd5e1;
+    color: #1e293b;
+}
+.spin {
+    animation: spin 1s linear infinite;
+}
+
+.miniTableroBtn {
+    width: 100%;
+    padding: 9px 16px;
+    background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+    margin-top: 14px;
+}
+
+.miniTableroBtn:hover {
+    opacity: 0.92;
+    transform: translateY(-1px);
 }

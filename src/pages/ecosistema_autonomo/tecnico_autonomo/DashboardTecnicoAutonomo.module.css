@@ -1,0 +1,411 @@
+﻿.tableroContainer {
+    width: 100%;
+    max-width: 100%;
+    display: flex;
+    flex-direction: column;
+    background-color: transparent;
+    padding: 0;
+}
+
+.header {
+    margin-bottom: 24px;
+    flex-shrink: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.header h1 {
+    font-size: 24px;
+    font-weight: 800;
+    color: #1e293b;
+    margin: 0;
+}
+
+.header p {
+    color: #64748b;
+    margin: 4px 0 0 0;
+    font-size: 14px;
+}
+
+.refreshBadge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #e0f2fe;
+    color: #0284c7;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 0.8; }
+    50% { opacity: 1; }
+    100% { opacity: 0.8; }
+}
+
+/* Branch Cards Layout */
+.branchesList {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    width: 100%;
+    padding-bottom: 30px;
+}
+
+.branchCard {
+    background: #ffffff;
+    border-radius: 16px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+}
+
+.branchHeader {
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    background: #ffffff;
+}
+
+.branchTitleRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.branchTitleInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.branchTitle {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 18px;
+    font-weight: 800;
+    color: #1e293b;
+}
+
+.branchAddress {
+    font-size: 14px;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: 36px;
+}
+
+.branchIcon {
+    color: #3b82f6;
+    background: #eff6ff;
+    padding: 8px;
+    border-radius: 8px;
+}
+
+/* Metrics Dashboard (Mini Tablero) */
+.metricsGrid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-left: 36px;
+}
+
+.metricBox {
+    flex: 1;
+    min-width: 100px;
+    max-width: 140px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+}
+
+.metricIconWrapper {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+}
+
+.metricValue {
+    font-size: 20px;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.metricLabel {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    text-align: center;
+}
+
+/* Colors for Metrics */
+.metricSos { border-color: #fca5a5; background: #fff5f5; }
+.metricSos .metricIconWrapper { background: #fee2e2; color: #ef4444; }
+.metricSos .metricValue { color: #b91c1c; }
+.metricSos .metricLabel { color: #dc2626; }
+
+.metricNuevas { border-color: #fde047; background: #fefce8; }
+.metricNuevas .metricIconWrapper { background: #fef08a; color: #ca8a04; }
+.metricNuevas .metricValue { color: #a16207; }
+.metricNuevas .metricLabel { color: #ca8a04; }
+
+.metricVisitas { border-color: #93c5fd; background: #eff6ff; }
+.metricVisitas .metricIconWrapper { background: #dbeafe; color: #2563eb; }
+.metricVisitas .metricValue { color: #1d4ed8; }
+.metricVisitas .metricLabel { color: #2563eb; }
+
+.metricCotizaciones { border-color: #d8b4fe; background: #faf5ff; }
+.metricCotizaciones .metricIconWrapper { background: #f3e8ff; color: #9333ea; }
+.metricCotizaciones .metricValue { color: #7e22ce; }
+.metricCotizaciones .metricLabel { color: #9333ea; }
+
+.metricHacer { border-color: #86efac; background: #f0fdf4; }
+.metricHacer .metricIconWrapper { background: #dcfce7; color: #16a34a; }
+.metricHacer .metricValue { color: #15803d; }
+.metricHacer .metricLabel { color: #16a34a; }
+
+/* Toggle Button */
+.toggleButton {
+    margin-top: 8px;
+    margin-left: 36px;
+    width: fit-content;
+    background: #f97316;
+    color: #ffffff;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s;
+}
+
+.toggleButton:hover {
+    background: #ea580c;
+}
+
+/* Accordion Body */
+.branchBody {
+    padding: 24px;
+    background: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.categorySection {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 20px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+}
+
+.categoryTitle {
+    font-size: 15px;
+    font-weight: 800;
+    color: #475569;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 2px solid #f1f5f9;
+    padding-bottom: 12px;
+}
+
+.cardsGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 16px;
+}
+
+/* INDIVIDUAL CARDS (Reused) */
+.card {
+    background: #ffffff;
+    border-radius: 10px;
+    padding: 16px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+    border: 1px solid #e2e8f0;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.card:hover {
+    box-shadow: 0 10px 15px -3px rgba(0,0,0,0.08);
+    transform: translateY(-2px);
+    border-color: #cbd5e1;
+}
+
+.cardHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+}
+
+.jobId {
+    font-size: 12px;
+    font-weight: 800;
+    color: #94a3b8;
+    background: #f8fafc;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.priorityBadge {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.priorityAlta { background: #fee2e2; color: #ef4444; }
+.priorityMedia { background: #fef3c7; color: #f59e0b; }
+.priorityBaja { background: #e0f2fe; color: #0ea5e9; }
+
+.cardTitle {
+    font-size: 15px;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0 0 12px 0;
+    line-height: 1.3;
+}
+
+.infoRow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: #475569;
+    margin-bottom: 8px;
+}
+
+.infoRow svg {
+    color: #94a3b8;
+    flex-shrink: 0;
+}
+
+.strongText {
+    font-weight: 600;
+    color: #1e293b;
+}
+
+.cardFooter {
+    margin-top: auto;
+    padding-top: 12px;
+    border-top: 1px solid #f1f5f9;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+    color: #94a3b8;
+}
+
+.dateText {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* TABLERO DETALLES GLOBAL */
+
+/* TABLERO DETALLES GLOBAL */
+.tableroWrapper {
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 16px 20px;
+    margin-bottom: 32px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+}
+.tableroTitle {
+    color: #2563eb;
+    font-size: 13px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 0;
+    margin-bottom: 12px;
+}
+.tableroGrid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+}
+.tableroCard {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 10px;
+    border-radius: 12px;
+    border: 1px solid;
+    transition: transform 0.2s;
+}
+.tableroCard:hover {
+    transform: translateY(-2px);
+}
+.tableroCount {
+    font-size: 20px;
+    font-weight: 900;
+    color: #1e293b;
+    margin-bottom: 4px;
+    margin-top: 8px;
+}
+.tableroLabel {
+    font-size: 10px;
+    font-weight: 800;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Dots 3D */
+.dotYellow, .dotRed, .dotBlue, .dotOrange, .dotGreen, .dotPurple {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    box-shadow: inset -2px -2px 6px rgba(0,0,0,0.2), 2px 4px 8px rgba(0,0,0,0.1);
+}
+.dotYellow { background: radial-gradient(circle at 30% 30%, #fde047, #eab308); }
+.dotRed { background: radial-gradient(circle at 30% 30%, #fca5a5, #ef4444); }
+.dotBlue { background: radial-gradient(circle at 30% 30%, #93c5fd, #3b82f6); }
+.dotOrange { background: radial-gradient(circle at 30% 30%, #fdba74, #f97316); }
+.dotGreen { background: radial-gradient(circle at 30% 30%, #86efac, #22c55e); }
+.dotPurple { background: radial-gradient(circle at 30% 30%, #d8b4fe, #a855f7); }
+
+/* Backgrounds & Borders */
+.bgYellow { background: #fefce8; border-color: #fef08a; }
+.bgRed { background: #fef2f2; border-color: #fecaca; }
+.bgBlue { background: #eff6ff; border-color: #bfdbfe; }
+.bgOrange { background: #fff7ed; border-color: #fed7aa; }
+.bgGreen { background: #f0fdf4; border-color: #bbf7d0; }
+.bgPurple { background: #faf5ff; border-color: #e9d5ff; }

@@ -438,7 +438,7 @@ const MiPerfil: React.FC = () => {
                                 {formData.nombre || 'Mi Perfil'}
                             </h1>
                             <p style={{ margin: '0 0 4px', fontSize: '11px', color: '#f26522', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                                {user?.role === 'admin' ? 'Administrador' : user?.role === 'tecnico' ? 'Técnico' : user?.role === 'encargado' ? 'Encargado de Sucursal' : (user?.role === 'autonomo' || user?.role === 'admin-autonomo') ? 'Admin Autónomo' : user?.role === 'gerente-general' ? 'Encargado' : 'Cliente'}
+                                {user?.role === 'admin' ? 'Administrador' : user?.role === 'tecnico' ? 'Técnico' : user?.role === 'encargado' ? 'Encargado de Sucursal' : user?.role === 'gerente-general' ? 'Encargado General' : isAutonomoAdmin(user?.role) ? 'Administrador General' : 'Cliente'}
                             </p>
                             <p style={{ margin: 0, fontSize: '11px', color: '#94a3b8' }}>
                                 Toca la foto para editarla
@@ -506,7 +506,7 @@ const MiPerfil: React.FC = () => {
                     </div>
 
                     {/* CARGA DE CURRÍCULUM (Solo Autonomo) */}
-                    {user?.role === 'autonomo' && (
+                    {isAutonomoAdmin(user?.role) && (
                         <div className="perfil-card" style={{ marginTop: '20px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
                                 <p style={{ fontSize: '12px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
@@ -551,7 +551,7 @@ const MiPerfil: React.FC = () => {
             </div>
 
             {/* DATOS FISCALES (solo clientes o admin-autonomo) */}
-            {(user?.role === 'cliente' || user?.role === 'autonomo') && (
+            {(user?.role === 'cliente' || isAutonomoAdmin(user?.role)) && (
                 <div className="perfil-fiscal-container">
                     <div className="perfil-card">
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
@@ -581,7 +581,7 @@ const MiPerfil: React.FC = () => {
             )}
 
             {/* GERENTE GENERAL (solo admin-autonomo) */}
-            {user?.role === 'autonomo' && (
+            {isAutonomoAdmin(user?.role) && (
                 <div className="perfil-fiscal-container">
                     <div className="perfil-card" style={{ marginTop: '20px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>

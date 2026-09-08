@@ -382,3 +382,81 @@
         font-size: 16px;
     }
 }
+
+/* TABLERO DETALLES GLOBAL */
+.tableroWrapper {
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 16px 20px;
+    margin-bottom: 32px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+}
+.tableroTitle {
+    color: #2563eb;
+    font-size: 13px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 0;
+    margin-bottom: 12px;
+}
+.tableroGrid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+}
+.tableroCard {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 10px;
+    border-radius: 12px;
+    border: 1px solid;
+    transition: transform 0.2s;
+}
+.tableroCard:hover {
+    transform: translateY(-2px);
+}
+.tableroCount {
+    font-size: 20px;
+    font-weight: 900;
+    color: #1e293b;
+    margin-bottom: 4px;
+    margin-top: 8px;
+}
+.tableroLabel {
+    font-size: 10px;
+    font-weight: 800;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Dots 3D */
+.dotYellow, .dotRed, .dotBlue, .dotOrange, .dotGreen, .dotPurple {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    box-shadow: inset -2px -2px 6px rgba(0,0,0,0.2), 2px 4px 8px rgba(0,0,0,0.1);
+}
+.dotYellow { background: radial-gradient(circle at 30% 30%, #fde047, #eab308); }
+.dotRed { background: radial-gradient(circle at 30% 30%, #fca5a5, #ef4444); }
+.dotBlue { background: radial-gradient(circle at 30% 30%, #93c5fd, #3b82f6); }
+.dotOrange { background: radial-gradient(circle at 30% 30%, #fdba74, #f97316); }
+.dotGreen { background: radial-gradient(circle at 30% 30%, #86efac, #22c55e); }
+.dotPurple { background: radial-gradient(circle at 30% 30%, #d8b4fe, #a855f7); }
+
+/* Backgrounds & Borders */
+.bgYellow { background: #fefce8; border-color: #fef08a; }
+.bgRed { background: #fef2f2; border-color: #fecaca; }
+.bgBlue { background: #eff6ff; border-color: #bfdbfe; }
+.bgOrange { background: #fff7ed; border-color: #fed7aa; }
+.bgGreen { background: #f0fdf4; border-color: #bbf7d0; }
+.bgPurple { background: #faf5ff; border-color: #e9d5ff; }
+
+@media (max-width: 768px) {
+    .tableroGrid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}

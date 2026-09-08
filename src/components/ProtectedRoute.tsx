@@ -1,6 +1,6 @@
 import { Navigate, useLocation } from "react-router-dom";
 import MandatoryPasswordModal from "./modals/MandatoryPasswordModal";
-import { normalizeRole } from "../utils/roles";
+import { normalizeRole, isAutonomoAdmin } from "../utils/roles";
 
 interface Props {
     children: React.ReactNode;
@@ -43,16 +43,10 @@ const ProtectedRoute = ({ children, allowedRoles }: Props) => {
     if (!isAllowed) {
         let userHome = '/cliente';
         if (role === 'admin' || rawRole === 'root') userHome = '/menu';
-        else if (role === 'tecnico-normal' || rawRole === 'tecnico' || rawRole === 'tecnico-autonomo') userHome = '/tecnico';
+        else if (role === 'tecnico-normal' || rawRole === 'tecnico') userHome = '/tecnico';
+        else if (rawRole === 'tecnico-autonomo') userHome = '/tecnico-autonomo';
         else if (role === 'gerente-sucursal' || rawRole === 'encargado') userHome = '/gerente-sucursal';
-        else if (
-            role === 'autonomo' || 
-            role === 'administrador-general' || 
-            role === 'propietario-autonomo' || 
-            rawRole === 'gerente-general' || 
-            rawRole === 'administrador-general' || 
-            rawRole === 'admin-autonomo'
-        ) userHome = '/autonomo';
+        else if (isAutonomoAdmin(role) || isAutonomoAdmin(rawRole)) userHome = '/autonomo';
 
         console.log(`🔴 [ProtectedRoute] RECHAZADO: El rol '${rawRole}' (normalizado: '${role}') no está permitido en '${location.pathname}'. Redirigiendo a su portal: ${userHome}`);
         return <Navigate to={userHome} replace />;

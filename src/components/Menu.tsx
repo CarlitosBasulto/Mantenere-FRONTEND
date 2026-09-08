@@ -85,6 +85,7 @@ const MenuLayout: React.FC = () => {
         if (role === 'admin') return "/menu";
         if (role === 'cliente') return "/cliente";
         if (role === 'tecnico-normal') return "/tecnico";
+        if (user.role === 'tecnico-autonomo') return "/tecnico-autonomo";
         if (role === 'gerente-sucursal') return "/gerente-sucursal";
         if (role === 'autonomo' || role === 'administrador-general' || role === 'propietario-autonomo') return "/autonomo";
         return "/";
@@ -101,6 +102,9 @@ const MenuLayout: React.FC = () => {
         }
         if (normalizeRole(user?.role) === 'tecnico-normal') {
             return path !== "/tecnico";
+        }
+        if (user?.role === 'tecnico-autonomo') {
+            return path !== "/tecnico-autonomo";
         }
         if (normalizeRole(user?.role) === 'gerente-sucursal') {
             return path !== "/gerente-sucursal" && path !== "/gerente-sucursal/resumen";
@@ -126,7 +130,12 @@ const MenuLayout: React.FC = () => {
     useEffect(() => {
         cargarNotificaciones();
 
-        if (!user?.id) return;
+        // Polling de respaldo cada 30 segundos para garantizar notificaciones en producción
+        const interval = setInterval(() => {
+            cargarNotificaciones();
+        }, 30000);
+
+        if (!user?.id) return () => clearInterval(interval);
 
         const channel = echo.private(`user.${user.id}`);
         channel.listen('.NotificationSent', (e: { notificacion: any }) => {
@@ -136,6 +145,7 @@ const MenuLayout: React.FC = () => {
         });
 
         return () => {
+            clearInterval(interval);
             channel.stopListening('.NotificationSent');
         };
     }, [user?.id]);
@@ -187,6 +197,8 @@ const MenuLayout: React.FC = () => {
             baseOptions = ["Mis Negocios", "Cotizaciones", "Historial"];
         } else if (normalizeRole(user.role) === 'tecnico-normal') {
             baseOptions = ["Mis Trabajos", "Nueva Solicitud", "Historial de Trabajo"];
+        } else if (user.role === 'tecnico-autonomo') {
+            baseOptions = ["Mis Trabajos", "Historial de Trabajo"];
         } else if (normalizeRole(user.role) === 'gerente-sucursal') {
             baseOptions = ["Mi Sucursal", "Cotizaciones", "Historial"];
         }
@@ -224,6 +236,10 @@ const MenuLayout: React.FC = () => {
                 else if (path.includes("negocios") || path.includes("perfil-empresa")) setActiveOption("Mis Negocios");
                 else if (path.includes("cotizaciones")) setActiveOption("Cotizaciones");
                 else if (path.includes("historial")) setActiveOption("Historial");
+            } else if (path.startsWith("/tecnico-autonomo")) {
+                if (path === "/tecnico-autonomo" || path === "/tecnico-autonomo/") setActiveOption("Mis Trabajos");
+                else if (path.includes("mi-perfil")) setActiveOption("Mi Perfil");
+                else if (path.includes("historial")) setActiveOption("Historial de Trabajo");
             } else if (path.startsWith("/tecnico")) {
                 if (path === "/tecnico" || path === "/tecnico/") setActiveOption("Mis Trabajos");
                 else if (path.includes("solicitudes")) setActiveOption("Nueva Solicitud");
@@ -278,14 +294,22 @@ const MenuLayout: React.FC = () => {
 
         if (option === "Historial") {
             if (normalizeRole(user?.role) === 'tecnico-normal') navigate("/tecnico/historial");
+            else if (user?.role === 'tecnico-autonomo') navigate("/tecnico-autonomo/historial");
             else if (normalizeRole(user?.role) === 'gerente-sucursal') navigate("/gerente-sucursal/historial");
             else if (normalizeRole(user?.role) === 'autonomo' || normalizeRole(user?.role) === 'propietario-autonomo' || normalizeRole(user?.role) === 'administrador-general') navigate("/autonomo/historial");
             else navigate("/cliente/historial");
         }
 
-        if (option === "Mis Trabajos") navigate("/tecnico");
+        if (option === "Mis Trabajos") {
+            if (user?.role === 'tecnico-autonomo') navigate("/tecnico-autonomo");
+            else navigate("/tecnico");
+        }
         if (option === "Nueva Solicitud") navigate("/tecnico/solicitudes");
-        if (option === "Historial de Trabajo") navigate("/tecnico/historial");
+        if (option === "Mi Perfil") navigate("/tecnico-autonomo/mi-perfil");
+        if (option === "Historial de Trabajo") {
+            if (user?.role === 'tecnico-autonomo') navigate("/tecnico-autonomo/historial");
+            else navigate("/tecnico/historial");
+        }
 
         // Lógica para Admin dentro de una sucursal
         if (option === "Trabajos" && location.pathname.includes("/menu/trabajo/")) {
@@ -310,12 +334,16 @@ const MenuLayout: React.FC = () => {
                 else if (normalizeRole(user?.role) === 'cliente') navigate("/cliente/negocios");
                 else if (normalizeRole(user?.role) === 'gerente-sucursal') navigate("/gerente-sucursal/negocios");
                 else if (normalizeRole(user?.role) === 'tecnico-normal') navigate("/tecnico");
+                else if (user?.role === 'tecnico-autonomo') navigate("/tecnico-autonomo");
                 else navigate(-1);
             }
         } else {
             navigate(-1);
         }
     };
+
+    // Helper to detect tecnico-autonomo role
+    const isTecnicoAutonomo = user?.role === 'tecnico-autonomo';
 
     const getIconForOption = (option: string) => {
         switch (option) {
@@ -453,7 +481,9 @@ const MenuLayout: React.FC = () => {
                                 <button
                                     className={styles.iconBtn}
                                     onClick={() => {
-                                        setMostrarNotificaciones(!mostrarNotificaciones);
+                                        const next = !mostrarNotificaciones;
+                                        setMostrarNotificaciones(next);
+                                        if (next) cargarNotificaciones();
                                     }}
                                 >
                                     <HiOutlineBell size={24} />
@@ -491,12 +521,14 @@ const MenuLayout: React.FC = () => {
 
                                                         if (targetUrl) {
                                                             const rolePrefix = normalizeRole(user?.role) === 'tecnico-normal' ? '/tecnico/' :
+                                                                               normalizeRole(user?.role) === 'tecnico-autonomo' ? '/tecnico-autonomo/' :
                                                                                normalizeRole(user?.role) === 'gerente-sucursal' ? '/gerente-sucursal/' :
                                                                                normalizeRole(user?.role) === 'cliente' ? '/cliente/' :
                                                                                (normalizeRole(user?.role) === 'autonomo' || normalizeRole(user?.role) === 'propietario-autonomo' || normalizeRole(user?.role) === 'administrador-general') ? '/autonomo/' : '/menu/';
 
                                                             if (targetUrl.startsWith('/menu/')) targetUrl = targetUrl.replace('/menu/', rolePrefix);
                                                             else if (targetUrl.startsWith('/tecnico/')) targetUrl = targetUrl.replace('/tecnico/', rolePrefix);
+                                                            else if (targetUrl.startsWith('/tecnico-autonomo/')) targetUrl = targetUrl.replace('/tecnico-autonomo/', rolePrefix);
                                                             else if (targetUrl.startsWith('/gerente-sucursal/')) targetUrl = targetUrl.replace('/gerente-sucursal/', rolePrefix);
                                                             else if (targetUrl.startsWith('/cliente/')) targetUrl = targetUrl.replace('/cliente/', rolePrefix);
                                                             else if (targetUrl.startsWith('/autonomo/')) targetUrl = targetUrl.replace('/autonomo/', rolePrefix);
@@ -557,6 +589,7 @@ const MenuLayout: React.FC = () => {
                                                     const norm = normalizeRole(roleRaw);
                                                     if (norm === 'admin') return 'Administrador';
                                                     if (norm === 'tecnico-normal') return 'Técnico';
+                                                    if (norm === 'tecnico-autonomo') return 'Técnico Autónomo';
                                                     if (norm === 'gerente-sucursal') return 'Encargado de Sucursal';
                                                     if (norm === 'autonomo' || norm === 'propietario-autonomo') return 'Admin Autónomo';
                                                     if (norm === 'administrador-general') return 'Administrador General';
@@ -574,6 +607,7 @@ const MenuLayout: React.FC = () => {
                                                 else if (normalizeRole(user?.role) === 'tecnico-normal') navigate("/tecnico/mi-perfil");
                                                 else if (normalizeRole(user?.role) === 'gerente-sucursal') navigate("/gerente-sucursal/mi-perfil");
                                                 else if (normalizeRole(user?.role) === 'autonomo' || normalizeRole(user?.role) === 'propietario-autonomo' || normalizeRole(user?.role) === 'administrador-general') navigate("/autonomo/mi-perfil");
+                                                else if (user?.role === 'tecnico-autonomo') navigate("/tecnico-autonomo/mi-perfil");
                                                 else navigate("/cliente/mi-perfil");
                                             }}
                                         >

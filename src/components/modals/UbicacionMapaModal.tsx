@@ -28,6 +28,7 @@ interface UbicacionMapaModalProps {
     tecnicoName?: string;
     tecnicoCoords?: { lat: number; lng: number } | null;
     llegadaConfirmadaAt?: string | null;
+    sucursalCoordsProp?: { lat: number; lng: number } | null;
     onConfirmLlegada?: (coords: { lat: number; lng: number }) => void;
     userRole?: string;
     jobId?: number | string;
@@ -43,8 +44,15 @@ const UbicacionMapaModal: React.FC<UbicacionMapaModalProps> = ({
     llegadaConfirmadaAt,
     onConfirmLlegada,
     userRole = 'encargado',
+    sucursalCoordsProp,
     jobId
 }) => {
+    const formatLlegadaDate = (val: string | null) => {
+        if (!val || val === 'Registrada') return val || '';
+        const date = new Date(val);
+        return isNaN(date.getTime()) ? val : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    };
+
     const mapContainerRef = useRef<HTMLDivElement>(null);
     const mapInstanceRef = useRef<L.Map | null>(null);
 
@@ -125,6 +133,12 @@ const UbicacionMapaModal: React.FC<UbicacionMapaModalProps> = ({
         let isMounted = true;
         setIsGeocoding(true);
         setGeocodingError(null);
+
+        if (sucursalCoordsProp) {
+            setSucursalCoords(sucursalCoordsProp);
+            setIsGeocoding(false);
+            return;
+        }
 
         const geocodeAddress = async () => {
             try {
@@ -273,9 +287,7 @@ const UbicacionMapaModal: React.FC<UbicacionMapaModalProps> = ({
                 popupAnchor: [0, -46]
             });
 
-            const horaText = liveLlegadaAt 
-                ? (liveLlegadaAt.includes(':') ? liveLlegadaAt : new Date(liveLlegadaAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })) 
-                : 'Llegada confirmada';
+            const horaText = liveLlegadaAt ? formatLlegadaDate(liveLlegadaAt) : 'Llegada confirmada';
 
             L.marker([liveTecnicoCoords.lat, liveTecnicoCoords.lng], { icon: tecnicoIcon })
                 .addTo(map)
@@ -485,7 +497,7 @@ const UbicacionMapaModal: React.FC<UbicacionMapaModalProps> = ({
                                 <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', padding: '4px 10px', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                     <HiOutlineCheckCircle color="#059669" size={16} />
                                     <span style={{ fontSize: '12px', fontWeight: '800', color: '#047857' }}>
-                                        Llegada Confirmada {liveLlegadaAt ? `(${liveLlegadaAt.includes(':') ? liveLlegadaAt : new Date(liveLlegadaAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})` : ''}
+                                        Llegada Confirmada {liveLlegadaAt ? `(${formatLlegadaDate(liveLlegadaAt)})` : ''}
                                     </span>
                                 </div>
                             ) : (
@@ -625,3 +637,5 @@ const UbicacionMapaModal: React.FC<UbicacionMapaModalProps> = ({
 };
 
 export default UbicacionMapaModal;
+
+

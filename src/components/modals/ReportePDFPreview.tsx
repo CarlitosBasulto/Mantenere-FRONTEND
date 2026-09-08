@@ -22,7 +22,8 @@ const getAvatarForTech = (nombre: string) => {
             if (worker && worker.avatar) return worker.avatar;
         } catch(e) {}
     }
-    return `https://ui-avatars.com/api/?name=${encodeURIComponent(nombre)}&background=0e7490&color=fff&bold=true`;
+    const initials = (nombre || 'T').trim().split(' ').filter(Boolean).map(n => n[0]).slice(0, 2).join('').toUpperCase() || 'T';
+    return `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 80 80"><circle cx="40" cy="40" r="40" fill="%230e7490"/><text x="50%" y="54%" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="28" font-weight="bold" fill="%23ffffff">${initials}</text></svg>`;
 };
 
 interface ReportePDFPreviewProps {

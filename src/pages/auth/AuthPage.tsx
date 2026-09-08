@@ -10,7 +10,7 @@ import type { UserRole } from '../../context/AuthContext';
 import { Eye, EyeOff, X } from 'lucide-react';
 import ReCAPTCHA from "react-google-recaptcha";
 import { TERMS_AND_CONDITIONS, PRIVACY_POLICY } from '../../constants/legalConstants';
-import { normalizeRole } from '../../utils/roles';
+import { normalizeRole, isAutonomoAdmin } from '../../utils/roles';
 
 const AuthPage: React.FC = () => {
     const [isRightPanelActive, setIsRightPanelActive] = useState(false);
@@ -62,16 +62,10 @@ const AuthPage: React.FC = () => {
                 const norm = normalizeRole(userObj.role);
                 let targetPath = '/cliente';
                 if (norm === 'admin' || userObj.role === 'root') targetPath = '/menu';
-                else if (norm === 'tecnico-normal' || userObj.role === 'tecnico' || userObj.role === 'tecnico-autonomo') targetPath = '/tecnico';
+                else if (norm === 'tecnico-normal' || userObj.role === 'tecnico') targetPath = '/tecnico';
+                else if (userObj.role === 'tecnico-autonomo') targetPath = '/tecnico-autonomo';
                 else if (norm === 'gerente-sucursal' || userObj.role === 'encargado') targetPath = '/gerente-sucursal';
-                else if (
-                    norm === 'autonomo' || 
-                    norm === 'administrador-general' || 
-                    norm === 'propietario-autonomo' || 
-                    userObj.role === 'gerente-general' || 
-                    userObj.role === 'administrador-general' || 
-                    userObj.role === 'admin-autonomo'
-                ) targetPath = '/autonomo';
+                else if (isAutonomoAdmin(norm) || isAutonomoAdmin(userObj.role)) targetPath = '/autonomo';
 
                 navigate(targetPath, { replace: true });
             } catch (e) {
@@ -120,16 +114,10 @@ const AuthPage: React.FC = () => {
             const norm = normalizeRole(user.role);
             let targetPath = '/cliente';
             if (norm === 'admin' || user.role === 'root') targetPath = '/menu';
-            else if (norm === 'tecnico-normal' || user.role === 'tecnico' || user.role === 'tecnico-autonomo') targetPath = '/tecnico';
+            else if (norm === 'tecnico-normal' || user.role === 'tecnico') targetPath = '/tecnico';
+            else if (user.role === 'tecnico-autonomo') targetPath = '/tecnico-autonomo';
             else if (norm === 'gerente-sucursal' || user.role === 'encargado') targetPath = '/gerente-sucursal';
-            else if (
-                norm === 'autonomo' || 
-                norm === 'administrador-general' || 
-                norm === 'propietario-autonomo' || 
-                user.role === 'gerente-general' || 
-                user.role === 'administrador-general' || 
-                user.role === 'admin-autonomo'
-            ) targetPath = '/autonomo';
+            else if (isAutonomoAdmin(norm) || isAutonomoAdmin(user.role)) targetPath = '/autonomo';
 
             setTimeout(() => {
                 setShowWelcomeModal(false);
@@ -189,16 +177,10 @@ const AuthPage: React.FC = () => {
             const norm = normalizeRole(user.role);
             let targetPath = '/cliente';
             if (norm === 'admin' || user.role === 'root') targetPath = '/menu';
-            else if (norm === 'tecnico-normal' || user.role === 'tecnico' || user.role === 'tecnico-autonomo') targetPath = '/tecnico';
+            else if (norm === 'tecnico-normal' || user.role === 'tecnico') targetPath = '/tecnico';
+            else if (user.role === 'tecnico-autonomo') targetPath = '/tecnico-autonomo';
             else if (norm === 'gerente-sucursal' || user.role === 'encargado') targetPath = '/gerente-sucursal';
-            else if (
-                norm === 'autonomo' || 
-                norm === 'administrador-general' || 
-                norm === 'propietario-autonomo' || 
-                user.role === 'gerente-general' || 
-                user.role === 'administrador-general' || 
-                user.role === 'admin-autonomo'
-            ) targetPath = '/autonomo';
+            else if (isAutonomoAdmin(norm) || isAutonomoAdmin(user.role)) targetPath = '/autonomo';
 
             setTimeout(() => {
                 setShowWelcomeModal(false);

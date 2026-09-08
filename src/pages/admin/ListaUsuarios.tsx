@@ -7,6 +7,7 @@ import { getAutonomoUsers, updateAutonomoUser } from "../../services/autonomo/us
 import { createAdminAutonomo } from "../../services/adminAutonomoService";
 import { useModal } from "../../context/ModalContext";
 import { useAuth } from "../../context/AuthContext";
+import { isAutonomoAdmin } from "../../utils/roles";
 
 interface User {
     id: number;
@@ -210,7 +211,7 @@ export default function ListaUsuarios() {
 
     const isAutonomo = (u: User) => {
         const role = getRoleName(u.role).toLowerCase();
-        return role === 'admin-autonomo' || role === 'autonomo';
+        return isAutonomoAdmin(role);
     };
 
     const filteredUsers = users.filter(u => {
@@ -268,7 +269,7 @@ export default function ListaUsuarios() {
                                 <option value="EncargadoSucursal">Encargados de Sucursal</option>
                             </>
                         )}
-                        {(user?.role === 'autonomo' || user?.role === 'gerente-general' || user?.role === 'admin-autonomo') && (
+                        {isAutonomoAdmin(user?.role) && (
                             <>
                                 <option value="Encargado">Encargados (G. Generales)</option>
                                 <option value="EncargadoSucursal">Encargados de Sucursal</option>

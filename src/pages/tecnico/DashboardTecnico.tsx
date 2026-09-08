@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import styles from './DashboardTecnico.module.css';
 import { getTrabajos } from '../../services/trabajosService';
 import { getUsers } from '../../services/usersService';
+import { isAutonomoAdmin } from '../../utils/roles';
 import { HiOutlineUser, HiOutlineClock, HiArrowPath, HiOutlineBuildingOffice } from 'react-icons/hi2';
 import { useAuth } from '../../context/AuthContext';
 import { isCardSeen, markCardAsSeen } from '../../utils/seenCards';
@@ -54,7 +55,7 @@ const DashboardTecnico: React.FC = () => {
             // 2. Map subgerentes / encargados
             const subgerentesMap = new Map<number, string>();
             usersData.forEach((u: any) => {
-                if (u.role?.name === 'admin-autonomo' || u.role?.name === 'encargado' || u.role?.name === 'subgerente') {
+                if (isAutonomoAdmin(u.role?.name) || u.role?.name === 'encargado' || u.role?.name === 'subgerente') {
                     subgerentesMap.set(u.id, u.name);
                 }
             });
@@ -149,7 +150,8 @@ const DashboardTecnico: React.FC = () => {
 
         const handleCardClick = () => {
             markCardAsSeen(userRole, t.id, t.estado);
-            navigate(`/tecnico/trabajo-detalle/${t.id}`);
+            const basePath = user?.role === 'tecnico-autonomo' ? '/tecnico-autonomo' : '/tecnico';
+            navigate(`${basePath}/trabajo-detalle/${t.id}`);
         };
 
         return (

@@ -1,0 +1,179 @@
+import { useState, useEffect } from 'react';
+import { getTrabajos } from '../../../services/trabajosService';
+import { getMantenimientoSolicitudes } from '../../../services/mantenimientoService';
+import type { Trabajo } from '../../../types/trabajo.types';
+
+export interface TrabajosDataReturn {
+    trabajosData: Trabajo[];
+    setTrabajosData: React.Dispatch<React.SetStateAction<Trabajo[]>>;
+    saveJobs: (data: Trabajo[]) => void;
+    reloadTrabajosList: () => Promise<void>;
+    allSolicitudes: any[];
+}
+
+/**
+ * Hook que centraliza la carga y transformación de trabajos y solicitudes
+ * de mantenimiento de una sucursal. Se re-ejecuta cuando el businessName
+ * deja de estar en "Cargando..." (señal de que el negocio ya está disponible).
+ */
+export const useTrabajosData = (
+    id: string | undefined,
+    businessName: string
+): TrabajosDataReturn => {
+    const [trabajosData, setTrabajosData] = useState<Trabajo[]>([]);
+    const [allSolicitudes, setAllSolicitudes] = useState<any[]>([]);
+
+    // Cargar historial de solicitudes de mantenimiento
+    useEffect(() => {
+        const fetchHistory = async () => {
+            if (!id) return;
+            try {
+                const solicitudesBackend = await getMantenimientoSolicitudes(Number(id));
+                const mappedSolicitudes = solicitudesBackend.map((sol: any) => {
+                    const mappedReportes: any[] = [];
+                    [sol.visita_trabajo, sol.reparacion_trabajo].forEach(t => {
+                        if (t?.reporte?.solucion) {
+                            try {
+                                const parsed = JSON.parse(t.reporte.solucion);
+                                if (parsed.descripcion || parsed.reporteTienda) {
+                                    mappedReportes.push({
+                                        id: t.id,
+                                        problema_cliente: parsed.reporteTienda || '—',
+                                        trabajo_realizado: parsed.descripcion || '—',
+                                        fecha: t.fecha_programada || new Date(t.created_at).toLocaleDateString(),
+                                        tecnico: t.trabajador?.nombre || 'Técnico'
+                                    });
+                                }
+                            } catch (e) { /* ignorar JSON malformado */ }
+                        }
+                    });
+                    return {
+                        id: sol.id,
+                        levantamiento_equipo_id: sol.levantamiento_equipo_id,
+                        descripcion_problema: sol.descripcion_problema,
+                        fecha_creacion: new Date(sol.created_at).toLocaleDateString(),
+                        reportes: mappedReportes
+                    };
+                });
+                setAllSolicitudes(mappedSolicitudes);
+            } catch (err) {
+                console.error('Error loading maintenance history:', err);
+            }
+        };
+        fetchHistory();
+    }, [id]);
+
+    const reloadTrabajosList = async () => {
+        let mappedTrabajos: Trabajo[] = [];
+        let mappedMantenimientos: Trabajo[] = [];
+
+        // 1. Obtener trabajos normales
+        try {
+            const data = await getTrabajos({ negocio_id: Number(id) });
+            mappedTrabajos = data.map((j: any) => {
+                const isSOS = j.prioridad === 'Alta' || j.titulo?.includes('SOS');
+                let displayTipo = 'Nueva Solicitud';
+                if (isSOS) {
+                    displayTipo = 'SOS';
+                } else if (j.tipo && ['Visita', 'Trabajo', 'Mantenimiento'].includes(j.tipo)) {
+                    displayTipo = j.tipo;
+                } else if (j.estado !== 'Pendiente' && j.estado !== 'Solicitud') {
+                    const isTrabajoDefinitivo =
+                        ['Cotización Enviada', 'Cotización Rechazada', 'Cotización Aceptada', 'Cotización Aprobada', 'En Proceso', 'Finalizado'].includes(j.estado) || j.visitado;
+                    displayTipo = isTrabajoDefinitivo ? 'Trabajo' : 'Visita';
+                }
+
+                return {
+                    id: j.id.toString(),
+                    original_id: j.id,
+                    titulo: j.titulo,
+                    ubicacion: j.negocio
+                        ? (j.negocio.nombrePlaza || j.negocio.nombre_plaza)
+                            ? `${j.negocio.nombre} - ${j.negocio.nombrePlaza || j.negocio.nombre_plaza}`
+                            : j.negocio.nombre
+                        : businessName,
+                    tecnico: j.trabajador?.nombre || 'Sin asignar',
+                    tecnicoUserId: j.trabajador?.user_id || null,
+                    fecha: j.fecha_programada
+                        ? j.fecha_programada.includes('-')
+                            ? j.fecha_programada.split('-').reverse().join('/')
+                            : j.fecha_programada
+                        : new Date(j.created_at).toLocaleDateString('es-MX'),
+                    estado: j.estado === 'Pendiente' ? 'Solicitud' : j.estado,
+                    visitado: Boolean(j.visitado),
+                    tipo: displayTipo,
+                    descripcion: j.descripcion,
+                    isEmergency: isSOS,
+                    fechaSolicitud: j.created_at
+                        ? new Date(j.created_at).toLocaleString('es-MX', {
+                              day: '2-digit', month: '2-digit', year: 'numeric',
+                              hour: '2-digit', minute: '2-digit', hour12: true
+                          })
+                        : 'No registrada',
+                    foto_url: j.foto_url,
+                    hora_llegada: j.hora_llegada || null,
+                    negocio: j.negocio
+                } as Trabajo;
+            });
+        } catch (error) {
+            console.error('Error al obtener trabajos: ', error);
+        }
+
+        // 2. Obtener solicitudes de mantenimiento
+        try {
+            const mantenimientos = await getMantenimientoSolicitudes(Number(id));
+            mappedMantenimientos = mantenimientos.map((m: any) => {
+                let estado = m.estado;
+                if (estado === 'Pendiente') estado = 'Solicitud';
+
+                const activeJob = m.reparacion_trabajo || m.visita_trabajo;
+                const createdAt = new Date(m.created_at);
+                const fechaFormateada = `${String(createdAt.getDate()).padStart(2, '0')}/${String(createdAt.getMonth() + 1).padStart(2, '0')}/${createdAt.getFullYear()}`;
+
+                return {
+                    id: `m-${m.id}`,
+                    original_id: m.id,
+                    titulo: `Mantenimiento: ${m.levantamiento_equipo?.nombre || 'Equipo'}`,
+                    descripcion: m.descripcion_problema || '',
+                    estado: estado,
+                    fecha: fechaFormateada,
+                    tipo: 'Mantenimiento',
+                    isMantenimiento: true,
+                    tecnico: activeJob?.trabajador?.nombre || 'Sin asignar',
+                    tecnicoUserId: activeJob?.trabajador?.user_id || null,
+                    ubicacion: businessName,
+                    fechaSolicitud: createdAt.toLocaleString('es-MX', {
+                        day: '2-digit', month: '2-digit', year: 'numeric',
+                        hour: '2-digit', minute: '2-digit', hour12: true
+                    }),
+                    foto_url: null,
+                    hora_llegada: activeJob?.hora_llegada || null
+                } as any;
+            });
+        } catch (error) {
+            console.error('Error al obtener solicitudes de mantenimiento: ', error);
+        }
+
+        setTrabajosData([...mappedTrabajos, ...mappedMantenimientos]);
+    };
+
+    // Recargar cuando el negocio ya esté disponible
+    useEffect(() => {
+        if (businessName !== 'Cargando...') {
+            reloadTrabajosList();
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [id, businessName]);
+
+    const saveJobs = (data: Trabajo[]) => {
+        setTrabajosData(data);
+    };
+
+    return {
+        trabajosData,
+        setTrabajosData,
+        saveJobs,
+        reloadTrabajosList,
+        allSolicitudes,
+    };
+};

@@ -5,6 +5,7 @@ import { useModal } from '../../context/ModalContext';
 import { HiOutlineCamera, HiOutlinePhoto, HiXMark, HiOutlineEnvelope, HiOutlinePhone, HiOutlineMapPin, HiOutlineWrenchScrewdriver, HiOutlineShare, HiOutlineUserMinus, HiOutlineUserPlus, HiOutlineUser } from 'react-icons/hi2';
 import api from '../../services/api';
 import { getUsers } from '../../services/usersService';
+import { isAutonomoAdmin } from '../../utils/roles';
 import { createNotificacionEcosistema, createNotificacion } from '../../services/notificacionesService';
 
 interface Trabajador {
@@ -44,8 +45,7 @@ const AdminPerfilTrabajador: React.FC = () => {
             const users = await getUsers();
             // Filtramos admin-autonomo, gerente-general, admin y root
             const admins = users.filter((u: any) => 
-                u.role?.name === 'admin-autonomo' || 
-                u.role?.name === 'gerente-general' || 
+                isAutonomoAdmin(u.role?.name) || 
                 u.role?.name === 'admin' || 
                 u.role?.name === 'root'
             );

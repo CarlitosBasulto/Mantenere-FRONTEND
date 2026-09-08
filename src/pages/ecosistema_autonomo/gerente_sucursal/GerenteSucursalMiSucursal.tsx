@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../../context/AuthContext";
 import { getNegocio } from "../../../services/autonomo/negociosService";
@@ -10,7 +10,9 @@ import {
     HiOutlineCalendarDays,
     HiOutlineArrowRight,
     HiOutlineExclamationCircle,
+    HiArrowPath,
 } from "react-icons/hi2";
+import { getTrabajos } from "../../../services/trabajosService";
 import styles from "./GerenteSucursalMiSucursal.module.css";
 
 const GerenteSucursalMiSucursal: React.FC = () => {
@@ -22,6 +24,31 @@ const GerenteSucursalMiSucursal: React.FC = () => {
     const [imageError, setImageError] = useState(false);
     const [coverError, setCoverError] = useState(false);
 
+    // TABLERO METRICS STATE
+    const [metricsLoading, setMetricsLoading] = useState(false);
+    const [metrics, setMetrics] = useState({ porAutorizar: 0, sosActivo: 0, autorizados: 0, porHacer: 0, enProceso: 0, finalizados: 0 });
+
+    const fetchMetrics = async () => {
+        if (!user?.negocio_id) return;
+        setMetricsLoading(true);
+        try {
+            const trabajos = await getTrabajos({ negocio_id: user.negocio_id });
+            
+            const porAutorizar = trabajos.filter((t: any) => ['Solicitud', 'Pendiente', 'Cotización Enviada'].includes(t.estado) && t.prioridad !== 'Emergencia').length;
+            const sosActivo = trabajos.filter((t: any) => t.prioridad === 'Emergencia' && !['Finalizado', 'Completado', 'Rechazada', 'Cotización Rechazada'].includes(t.estado)).length;
+            const autorizados = trabajos.filter((t: any) => ['En Espera', 'Aceptada', 'Cotización Aceptada'].includes(t.estado) && t.prioridad !== 'Emergencia').length;
+            const porHacer = trabajos.filter((t: any) => t.estado === 'Asignado' && t.tipo !== 'Trabajo' && t.prioridad !== 'Emergencia').length;
+            const enProceso = trabajos.filter((t: any) => (t.estado === 'En Proceso' || (t.estado === 'Asignado' && t.tipo === 'Trabajo')) && t.prioridad !== 'Emergencia').length;
+            const finalizados = trabajos.filter((t: any) => ['Finalizado', 'Completado'].includes(t.estado)).length;
+            
+            setMetrics({ porAutorizar, sosActivo, autorizados, porHacer, enProceso, finalizados });
+        } catch (error) {
+            console.error("Error al cargar trabajos para tablero", error);
+        } finally {
+            setMetricsLoading(false);
+        }
+    };
+
     useEffect(() => {
         const fetchSucursal = async () => {
             if (!user?.negocio_id) {
@@ -31,6 +58,7 @@ const GerenteSucursalMiSucursal: React.FC = () => {
             try {
                 const data = await getNegocio(user.negocio_id);
                 setNegocio(data);
+                fetchMetrics(); // Fetch metrics on load
             } catch (err) {
                 console.error("Error al cargar sucursal:", err);
             } finally {
@@ -120,9 +148,69 @@ const GerenteSucursalMiSucursal: React.FC = () => {
 
             {/* CONTENIDO */}
             <div className={styles.content}>
+                
+                {/* IZQUIERDA: TABLERO */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                    <div className={styles.miniTablero}>
+                        <div className={styles.miniTableroHeader}>
+                            <span className={styles.miniTableroTitle}>📊 Tablero de Control — {negocio.nombre}</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                {metricsLoading && <span className={styles.miniLoading}>Cargando...</span>}
+                                <button 
+                                    onClick={fetchMetrics}
+                                    className={styles.miniRefreshBtn}
+                                    title="Actualizar tablero"
+                                    disabled={metricsLoading}
+                                >
+                                    <HiArrowPath size={14} className={metricsLoading ? styles.spin : ''} />
+                                </button>
+                            </div>
+                        </div>
+                        <div className={styles.miniTableroGrid}>
+                            <div className={`${styles.miniCard} ${styles.miniCardYellow}`}>
+                                <span className={styles.miniIcon}>🟡</span>
+                                <span className={styles.miniCount}>{metricsLoading ? '...' : metrics.porAutorizar}</span>
+                                <span className={styles.miniLabel}>Por Autorizar</span>
+                            </div>
+                            <div className={`${styles.miniCard} ${styles.miniCardRed}`}>
+                                <span className={styles.miniIcon}>🔴</span>
+                                <span className={styles.miniCount}>{metricsLoading ? '...' : metrics.sosActivo}</span>
+                                <span className={styles.miniLabel}>SOS Activo</span>
+                            </div>
+                            <div className={`${styles.miniCard} ${styles.miniCardBlue}`}>
+                                <span className={styles.miniIcon}>🔵</span>
+                                <span className={styles.miniCount}>{metricsLoading ? '...' : metrics.autorizados}</span>
+                                <span className={styles.miniLabel}>Autorizados</span>
+                            </div>
+                            <div className={`${styles.miniCard} ${styles.miniCardOrange}`}>
+                                <span className={styles.miniIcon}>🟠</span>
+                                <span className={styles.miniCount}>{metricsLoading ? '...' : metrics.porHacer}</span>
+                                <span className={styles.miniLabel}>Por Hacer</span>
+                            </div>
+                            <div className={`${styles.miniCard} ${styles.miniCardGreen}`}>
+                                <span className={styles.miniIcon}>🟢</span>
+                                <span className={styles.miniCount}>{metricsLoading ? '...' : metrics.enProceso}</span>
+                                <span className={styles.miniLabel}>En Proceso</span>
+                            </div>
+                            <div className={`${styles.miniCard} ${styles.miniCardPurple}`}>
+                                <span className={styles.miniIcon}>🟣</span>
+                                <span className={styles.miniCount}>{metricsLoading ? '...' : metrics.finalizados}</span>
+                                <span className={styles.miniLabel}>Finalizados</span>
+                            </div>
+                        </div>
+                        <button
+                            className={styles.miniTableroBtn}
+                            onClick={() => navigate(`/gerente-sucursal/trabajo/${negocio.id}`)}
+                        >
+                            Ver Trabajos Detallados &rarr;
+                        </button>
+                    </div>
+                </div>
 
-                {/* DETALLES */}
-                <div className={styles.detailsCard}>
+                {/* DERECHA: DETALLES Y ACCIONES */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                    {/* DETALLES */}
+                    <div className={styles.detailsCard}>
                     <h2 className={styles.cardTitle}>Informacion de la Sucursal</h2>
                     <div className={styles.detailGrid}>
                         {ubicacion ? (
@@ -206,6 +294,7 @@ const GerenteSucursalMiSucursal: React.FC = () => {
                         </button>
 
                     </div>
+                </div>
                 </div>
 
             </div>

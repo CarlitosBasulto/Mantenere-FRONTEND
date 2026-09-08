@@ -15,33 +15,62 @@ import {
 } from 'react-icons/hi2';
 import ReportePDFPreview from '../../components/modals/ReportePDFPreview';
 
-const compressImage = (file: File, callback: (compressedBase64: string) => void) => {
+const safeLocalStorageSet = (key: string, value: string) => {
+    try {
+        localStorage.setItem(key, value);
+    } catch (e: any) {
+        if (e.name === 'QuotaExceededError' || e.code === 22 || e.code === 1014) {
+            console.warn(`LocalStorage quota exceeded for key ${key}. Limpiando borradores temporales antiguos...`);
+            try {
+                for (let i = localStorage.length - 1; i >= 0; i--) {
+                    const k = localStorage.key(i);
+                    if (k && k.startsWith('report_data_temporal_') && k !== key) {
+                        localStorage.removeItem(k);
+                    }
+                }
+                localStorage.setItem(key, value);
+            } catch (inner) {
+                console.warn("Espacio insuficiente en localStorage:", inner);
+            }
+        }
+    }
+};
+
+const compressImage = (
+    file: File, 
+    callback: (compressedBase64: string) => void,
+    maxWidth = 640,
+    maxHeight = 640,
+    quality = 0.45
+) => {
     const reader = new FileReader();
     reader.onload = (e) => {
         const img = new Image();
         img.onload = () => {
             const canvas = document.createElement('canvas');
-            const MAX_WIDTH = 800;
-            const MAX_HEIGHT = 800;
             let width = img.width;
             let height = img.height;
 
             if (width > height) {
-                if (width > MAX_WIDTH) {
-                    height *= MAX_WIDTH / width;
-                    width = MAX_WIDTH;
+                if (width > maxWidth) {
+                    height *= maxWidth / width;
+                    width = maxWidth;
                 }
             } else {
-                if (height > MAX_HEIGHT) {
-                    width *= MAX_HEIGHT / height;
-                    height = MAX_HEIGHT;
+                if (height > maxHeight) {
+                    width *= maxHeight / height;
+                    height = maxHeight;
                 }
             }
-            canvas.width = width;
-            canvas.height = height;
+            canvas.width = Math.round(width);
+            canvas.height = Math.round(height);
             const ctx = canvas.getContext('2d');
-            ctx?.drawImage(img, 0, 0, width, height);
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+            if (ctx) {
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'medium';
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            }
+            const dataUrl = canvas.toDataURL('image/jpeg', quality);
             callback(dataUrl);
         };
         if (e.target?.result) {
@@ -88,6 +117,8 @@ const AdminReporte: React.FC = () => {
 
     const [selectedZoomImage, setSelectedZoomImage] = useState<string | null>(null);
     const [showReportePreview, setShowReportePreview] = useState(false);
+    const [isDataLoaded, setIsDataLoaded] = useState(false);
+    const [isSavingReport, setIsSavingReport] = useState(false);
 
     const parseFotoUrls = (fotoUrl: any): string[] => {
         if (!fotoUrl) return [];
@@ -313,10 +344,63 @@ const AdminReporte: React.FC = () => {
                 initFechaInicio = new Date().toLocaleString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
             }
             setFechaInicio(initFechaInicio);
+            setIsDataLoaded(true);
         };
 
         loadReportData();
     }, [id]);
+
+    // Auto-guardado en tiempo real (debounced) para que ningún dato se pierda al salir o recargar
+    React.useEffect(() => {
+        if (!isDataLoaded) return;
+        const safeId = trabajoId || id;
+        if (!safeId) return;
+
+        const queryParams = new URLSearchParams(location.search);
+        const subtareaIdParam = queryParams.get('subtareaId') || location.state?.subtareaId || location.state?.actividadId;
+        const activeKey = subtareaIdParam ? String(subtareaIdParam) : String(safeId);
+
+        const timer = setTimeout(() => {
+            const filteredObsList = observacionesList.filter(o => o.texto.trim() || o.imagenes.length > 0);
+            const compiledObservaciones = filteredObsList.map(o => o.texto).filter(Boolean).join('\n\n');
+
+            const draftData = {
+                id,
+                subtareaId: activeKey,
+                reporteTienda,
+                descripcion,
+                materiales,
+                refaccionesList,
+                observaciones: compiledObservaciones,
+                imagenes,
+                observacionesList: filteredObsList,
+                firmaEmpresa,
+                involucraEquipo,
+                equipoInfo: involucraEquipo ? equipoInfo : null,
+                fecha: new Date().toLocaleDateString('es-MX'),
+                tecnicoNombre: trabajoBase?.trabajador?.nombre || user?.name || trabajoBase?.tecnico || 'Técnico',
+                tecnicoAvatar: user?.avatar || null,
+                fechaInicio: fechaInicio || new Date().toLocaleString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }),
+                isVisita: trabajoBase?.tipo === 'Visita' || trabajoBase?.originalTipo === 'Visita'
+            };
+
+            safeLocalStorageSet(`report_data_temporal_${activeKey}`, JSON.stringify(draftData));
+        }, 500);
+
+        return () => clearTimeout(timer);
+    }, [
+        isDataLoaded,
+        reporteTienda,
+        descripcion,
+        materiales,
+        refaccionesList,
+        imagenes,
+        observacionesList,
+        firmaEmpresa,
+        involucraEquipo,
+        equipoInfo,
+        fechaInicio
+    ]);
 
     const handleEquipoInfoChange = (field: string, value: string) => {
         setEquipoInfo(prev => ({ ...prev, [field]: value }));
@@ -374,6 +458,10 @@ const AdminReporte: React.FC = () => {
         const file = e.target.files?.[0];
         if (file) {
             if (file.type === "application/pdf") {
+                if (file.size > 400 * 1024) {
+                    showAlert("Archivo muy pesado", "El archivo de firma o sello no debe superar los 400KB. Te recomendamos subir una imagen (JPG o PNG).", "warning");
+                    return;
+                }
                 const reader = new FileReader();
                 reader.onload = (ev) => {
                     setFirmaEmpresa(ev.target?.result as string);
@@ -382,7 +470,7 @@ const AdminReporte: React.FC = () => {
             } else {
                 compressImage(file, (base64) => {
                     setFirmaEmpresa(base64);
-                });
+                }, 500, 300, 0.5);
             }
         }
     };
@@ -509,13 +597,12 @@ const AdminReporte: React.FC = () => {
             isVisita: trabajoBase?.tipo === 'Visita' || trabajoBase?.originalTipo === 'Visita'
         };
 
+        setIsSavingReport(true);
         // Guardar reporte individual en localStorage para la tarea específica
+        safeLocalStorageSet(`report_data_${activeKey}`, JSON.stringify(reportData));
         try {
-            localStorage.setItem(`report_data_${activeKey}`, JSON.stringify(reportData));
             localStorage.removeItem(`report_data_temporal_${activeKey}`);
-        } catch (e) {
-            console.error("Error al guardar reporte localmente:", e);
-        }
+        } catch (e) {}
 
         // Guardar registro del reporte en la BD (asociado a este trabajo)
         try {
@@ -569,8 +656,14 @@ const AdminReporte: React.FC = () => {
             showAlert("Éxito", "Reporte de la tarea guardado exitosamente.", "success");
         }
 
-        const basePath = user?.role === 'tecnico' ? '/tecnico' : (isAutonomoAdmin(user?.role) ? '/autonomo' : '/menu');
-        const targetPath = `${basePath}/trabajo-detalle/${safeTrabajoId}`;
+        const getBasePath = () => {
+            if (user?.role === 'tecnico' || user?.role === 'tecnico-normal') return '/tecnico';
+            if (user?.role === 'tecnico-autonomo') return '/tecnico-autonomo';
+            if (isAutonomoAdmin(user?.role) || user?.role === 'autonomo') return '/autonomo';
+            return '/menu';
+        };
+        const basePath = getBasePath();
+        const targetPath = `${basePath}/trabajo-detalle/${safeTrabajoId}?tab=trabajo`;
         navigate(targetPath, { replace: true });
     };
 
@@ -600,8 +693,8 @@ const AdminReporte: React.FC = () => {
                             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                                 <button
                                     onClick={() => {
-                                        const basePath = user?.role === 'tecnico' ? '/tecnico' : (user?.role === 'autonomo' ? '/autonomo' : '/menu');
-                                        const targetPath = `${basePath}/trabajo-detalle/${trabajoId || id}`;
+                                        const basePath = (user?.role === 'tecnico' || user?.role === 'tecnico-normal') ? '/tecnico' : (user?.role === 'tecnico-autonomo' ? '/tecnico-autonomo' : ((isAutonomoAdmin(user?.role) || user?.role === 'autonomo') ? '/autonomo' : '/menu'));
+                                        const targetPath = `${basePath}/trabajo-detalle/${trabajoId || id}?tab=trabajo`;
                                         navigate(targetPath);
                                     }}
                                     style={{
@@ -1222,24 +1315,27 @@ const AdminReporte: React.FC = () => {
                             </div>
                         </div>
 
-                        <div className={styles.footer}>
-                            <button
-                                onClick={() => handleGuardarInformacion(true)}
-                                className={`${styles.saveButton} ${styles.secondaryBtn}`}
-                            >
-                                Guardar Información
-                            </button>
+                        <div className={styles.footer} style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '16px', flexWrap: 'wrap' }}>
+                            <div style={{ marginRight: 'auto', display: 'flex', alignItems: 'center', gap: '6px', background: '#ecfdf5', padding: '8px 14px', borderRadius: '12px', border: '1px solid #a7f3d0' }}>
+                                <span style={{ fontSize: '14px' }}>🛡️</span>
+                                <span style={{ fontSize: '12px', fontWeight: '700', color: '#047857' }}>
+                                    Avance respaldado automáticamente
+                                </span>
+                            </div>
                             <button
                                 onClick={handleGuardarYPrevisualizar}
                                 className={`${styles.saveButton} ${styles.pdfBtn}`}
+                                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
                             >
-                                Guardar y Previsualizar PDF
+                                📄 Guardar y Previsualizar PDF
                             </button>
                             <button
                                 onClick={handleOpenConfirm}
+                                disabled={isSavingReport}
                                 className={styles.saveButton}
+                                style={{ display: 'flex', alignItems: 'center', gap: '6px', opacity: isSavingReport ? 0.7 : 1, cursor: isSavingReport ? 'not-allowed' : 'pointer' }}
                             >
-                                💾 Guardar Reporte de Tarea
+                                {isSavingReport ? '⏳ Guardando Reporte...' : '💾 Guardar Reporte de Tarea'}
                             </button>
                         </div>
                     </div>

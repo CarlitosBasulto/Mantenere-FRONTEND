@@ -105,3 +105,16 @@ export const deleteNegocio = async (id: number) => {
     return res.data;
 };
 
+
+export interface ResumenNegocio {
+    sos:            number;
+    solicitud:      number;
+    en_proceso:     number;
+    finalizado_hoy: number;
+}
+
+// Mini-tablero: conteos de trabajos por estado para una sucursal
+export const getResumenNegocio = async (id: number): Promise<ResumenNegocio> => {
+    const res = await api.get(`/autonomo/negocios/${id}/resumen`);
+    return res.data;
+};

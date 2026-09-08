@@ -516,12 +516,11 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(15, 23, 42, 0.4);
+    background: rgba(15, 23, 42, 0.7);
     display: flex;
     justify-content: center;
     align-items: center;
     z-index: 1000;
-    backdrop-filter: blur(8px);
     padding: 20px;
 }
 
@@ -2062,4 +2061,43 @@
         flex: 1 !important;
         overflow: hidden !important;
     }
+}
+
+.miniTableroGrid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+}
+.miniCard {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 12px 8px;
+    border-radius: 12px;
+    border: 1px solid transparent;
+    transition: transform 0.15s ease;
+    cursor: pointer;
+}
+.miniCard:hover { transform: translateY(-2px); }
+
+.miniCardRed    { background: #fef2f2; border-color: #fecaca; }
+.miniCardYellow { background: #fefce8; border-color: #fef08a; }
+.miniCardBlue   { background: #eff6ff; border-color: #bfdbfe; }
+.miniCardOrange { background: #fff7ed; border-color: #fed7aa; }
+.miniCardGreen  { background: #f0fdf4; border-color: #bbf7d0; }
+.miniCardPurple { background: #faf5ff; border-color: #e9d5ff; }
+
+.miniIcon { font-size: 18px; }
+.miniCount {
+    font-size: 18px;
+    font-weight: 900;
+    color: #0f172a;
+}
+.miniLabel {
+    font-size: 10px;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    text-align: center;
 }

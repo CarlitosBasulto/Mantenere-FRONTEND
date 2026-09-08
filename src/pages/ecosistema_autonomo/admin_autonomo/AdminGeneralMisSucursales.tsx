@@ -41,6 +41,8 @@ const AdminGeneralMisSucursales: React.FC = () => {
     const { user } = useAuth();
 
     const [negocios, setNegocios] = useState<Negocio[]>([]);
+    const [rechazados, setRechazados] = useState<any[]>([]);
+    const [allTrabajos, setAllTrabajos] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [imageErrors, setImageErrors] = useState<Record<number, boolean>>({});
     const [coverErrors, setCoverErrors] = useState<Record<number, boolean>>({});
@@ -49,7 +51,10 @@ const AdminGeneralMisSucursales: React.FC = () => {
     useEffect(() => {
         const fetchNegocios = async () => {
             try {
-                const data = await getNegocios();
+                const [data, trabajosData] = await Promise.all([getNegocios(), import('../../../services/trabajosService').then(m => m.getTrabajos())]);
+                setAllTrabajos(trabajosData || []);
+                const rejectedJobs = (trabajosData || []).filter((t: any) => t.estado === 'Rechazada');
+                setRechazados(rejectedJobs);
                 setNegocios(Array.isArray(data) ? data : []);
                 // Abre el primero por defecto
                 if (Array.isArray(data) && data.length > 0) {
@@ -130,6 +135,42 @@ const AdminGeneralMisSucursales: React.FC = () => {
                 </button>
             </div>
 
+
+
+            {/* SECCIÓN DE TRABAJOS RECHAZADOS */}
+            {rechazados.length > 0 && (
+                <div style={{ marginBottom: "32px", background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: "16px", padding: "24px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "20px" }}>
+                        <h2 style={{ margin: 0, color: "#991b1b", fontSize: "20px", fontWeight: "800" }}>Trabajos Rechazados ({rechazados.length})</h2>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "16px" }}>
+                        {rechazados.map((t) => (
+                            <div key={t.id} style={{ background: "#ffffff", borderRadius: "12px", padding: "20px", boxShadow: "0 2px 4px rgba(0,0,0,0.05)", border: "1px solid #fee2e2" }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px" }}>
+                                    <span style={{ fontSize: "12px", fontWeight: "800", color: "#ef4444", background: "#fef2f2", padding: "4px 8px", borderRadius: "6px" }}>#{t.id} • RECHAZADA</span>
+                                    <span style={{ fontSize: "12px", color: "#64748b" }}>{new Date(t.created_at).toLocaleDateString()}</span>
+                                </div>
+                                <h4 style={{ margin: "0 0 12px 0", fontSize: "16px", color: "#1e293b" }}>{t.titulo}</h4>
+                                <p style={{ fontSize: "13px", color: "#475569", margin: "0 0 8px 0" }}><strong>Sucursal:</strong> {t.negocio?.nombre || "N/A"}</p>
+                                <p style={{ fontSize: "13px", color: "#475569", margin: "0 0 12px 0" }}><strong>Rechazado por:</strong> {t.rechazado_por_nombre || "Técnico"}</p>
+                                <div style={{ background: "#f8fafc", padding: "12px", borderRadius: "8px", borderLeft: "3px solid #ef4444", marginBottom: "16px" }}>
+                                    <span style={{ fontSize: "11px", fontWeight: "800", color: "#94a3b8", display: "block", marginBottom: "4px", textTransform: "uppercase" }}>Motivo:</span>
+                                    <span style={{ fontSize: "13px", color: "#334155", fontStyle: "italic" }}>"{t.motivo_rechazo || "Sin motivo especificado"}"</span>
+                                </div>
+                                <button 
+                                    onClick={() => navigate(`/autonomo/trabajo-detalle/${t.id}`)}
+                                    style={{ width: "100%", padding: "10px", background: "#ef4444", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "bold", cursor: "pointer", transition: "background 0.2s" }}
+                                    onMouseOver={(e) => (e.currentTarget.style.background = "#dc2626")}
+                                    onMouseOut={(e) => (e.currentTarget.style.background = "#ef4444")}
+                                >
+                                    Reasignar Trabajo →
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {/* Lista acordeón */}
             <div className={styles.accordionList}>
                 {negocios.map((negocio) => {
@@ -202,6 +243,55 @@ const AdminGeneralMisSucursales: React.FC = () => {
                             {/* ── CUERPO DESPLEGABLE ── */}
                             <div className={`${styles.accordionBody} ${isOpen ? styles.open : ""}`}>
                                 <div className={styles.accordionContent}>
+
+                                    {/* TABLERO DETALLES */}
+                                    <div className={styles.tableroWrapper} style={{ marginBottom: '24px' }}>
+                                        <h3 className={styles.tableroTitle}>TABLERO DETALLES</h3>
+                                        <div className={styles.tableroGrid}>
+                                            <div className={`${styles.tableroCard} ${styles.bgYellow}`}>
+                                                <div className={styles.dotYellow}></div>
+                                                <div className={styles.tableroCount}>
+                                                    {allTrabajos.filter(t => t.negocio_id === negocio.id && ['Solicitud', 'Pendiente'].includes(t.estado) && t.prioridad !== 'Emergencia').length}
+                                                </div>
+                                                <div className={styles.tableroLabel}>POR AUTORIZAR</div>
+                                            </div>
+                                            <div className={`${styles.tableroCard} ${styles.bgRed}`}>
+                                                <div className={styles.dotRed}></div>
+                                                <div className={styles.tableroCount}>
+                                                    {allTrabajos.filter(t => t.negocio_id === negocio.id && t.prioridad === 'Emergencia' && !['Finalizado', 'Completado', 'Rechazada', 'Cotización Rechazada'].includes(t.estado)).length}
+                                                </div>
+                                                <div className={styles.tableroLabel}>SOS ACTIVO</div>
+                                            </div>
+                                            <div className={`${styles.tableroCard} ${styles.bgBlue}`}>
+                                                <div className={styles.dotBlue}></div>
+                                                <div className={styles.tableroCount}>
+                                                    {allTrabajos.filter(t => t.negocio_id === negocio.id && ['En Espera', 'Aceptada', 'Cotización Aceptada'].includes(t.estado) && t.prioridad !== 'Emergencia').length}
+                                                </div>
+                                                <div className={styles.tableroLabel}>AUTORIZADOS</div>
+                                            </div>
+                                            <div className={`${styles.tableroCard} ${styles.bgOrange}`}>
+                                                <div className={styles.dotOrange}></div>
+                                                <div className={styles.tableroCount}>
+                                                    {allTrabajos.filter(t => t.negocio_id === negocio.id && t.estado === 'Asignado' && t.tipo !== 'Trabajo' && t.prioridad !== 'Emergencia').length}
+                                                </div>
+                                                <div className={styles.tableroLabel}>POR HACER</div>
+                                            </div>
+                                            <div className={`${styles.tableroCard} ${styles.bgGreen}`}>
+                                                <div className={styles.dotGreen}></div>
+                                                <div className={styles.tableroCount}>
+                                                    {allTrabajos.filter(t => t.negocio_id === negocio.id && (t.estado === 'En Proceso' || (t.estado === 'Asignado' && t.tipo === 'Trabajo')) && t.prioridad !== 'Emergencia').length}
+                                                </div>
+                                                <div className={styles.tableroLabel}>EN PROCESO</div>
+                                            </div>
+                                            <div className={`${styles.tableroCard} ${styles.bgPurple}`}>
+                                                <div className={styles.dotPurple}></div>
+                                                <div className={styles.tableroCount}>
+                                                    {allTrabajos.filter(t => t.negocio_id === negocio.id && t.estado === 'Cotización Enviada' && t.prioridad !== 'Emergencia').length}
+                                                </div>
+                                                <div className={styles.tableroLabel}>COTIZACIONES</div>
+                                            </div>
+                                        </div>
+                                    </div>
 
                                     {/* Información de la sucursal */}
                                     <div className={styles.detailsCard}>
@@ -287,6 +377,19 @@ const AdminGeneralMisSucursales: React.FC = () => {
                                         </div>
                                     </div>
 
+                                    {/* BOT�N VER TRABAJOS */}
+                                    <div style={{ marginTop: '24px' }}>
+                                        <button 
+                                            onClick={() => navigate(`/autonomo/trabajo/${negocio.id}`)}
+                                            style={{ width: '100%', padding: '14px', background: '#f97316', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: 'bold', fontSize: '15px', cursor: 'pointer', transition: 'background 0.2s', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}
+                                            onMouseOver={(e) => (e.currentTarget.style.background = '#ea580c')}
+                                            onMouseOut={(e) => (e.currentTarget.style.background = '#f97316')}
+                                        >
+                                            <HiOutlineClipboardDocumentList size={22} />
+                                            Ver Detalles de Trabajo
+                                        </button>
+                                    </div>
+
                                 </div>
                             </div>
                         </div>
@@ -298,3 +401,8 @@ const AdminGeneralMisSucursales: React.FC = () => {
 };
 
 export default AdminGeneralMisSucursales;
+
+
+
+
+
