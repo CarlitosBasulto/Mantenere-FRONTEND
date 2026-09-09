@@ -512,14 +512,14 @@ const AdminHistorial: React.FC = () => {
             const subId = String(tarea.id);
             const baseId = tarea.baseId;
             const pIdx = tarea.pointIndex;
+            const wId = tarea.trabajoId;
 
-            // 1. Verificar si existe reporte específico de este sub-punto en localStorage
+            // 1. Verificar si existe reporte específico de este sub-punto en localStorage (aislado por trabajoId)
             const candidateKeys = [
-                `report_data_${subId}`,
-                `report_data_temporal_${subId}`,
+                wId && pIdx ? `report_data_${wId}_${pIdx}` : '',
+                wId && subId ? (subId.startsWith(`${wId}_`) ? `report_data_${subId}` : `report_data_${wId}_${subId}`) : '',
                 baseId && pIdx ? `report_data_${baseId}_${pIdx}` : '',
-                tarea.trabajoId && pIdx ? `report_data_${tarea.trabajoId}_${pIdx}` : '',
-                pIdx ? `report_data_${pIdx}` : ''
+                wId ? `report_data_${wId}` : ''
             ].filter(Boolean);
 
             for (const k of candidateKeys) {
@@ -544,7 +544,7 @@ const AdminHistorial: React.FC = () => {
                 const apiReport = await getReporteByTrabajoId(tarea.trabajoId);
                 if (apiReport && apiReport.solucion) {
                     const parsed = typeof apiReport.solucion === 'string' ? JSON.parse(apiReport.solucion) : apiReport.solucion;
-                    matchedReport = findMatchingSubReport(parsed, tarea);
+                    matchedReport = findMatchingSubReport(parsed, { ...tarea, trabajoId: wId });
                 }
             } catch (_) {}
 

@@ -188,39 +188,37 @@ const JobCard: React.FC<JobCardProps> = ({
             )}
 
             {/* Cuerpo de la tarjeta */}
-            <div className={styles.cardBodyWrapper} style={{ display: 'flex', flexDirection: 'row', gap: '20px', padding: '0 30px', alignItems: 'center', boxSizing: 'border-box', width: '100%' }}>
+            <div className={styles.cardBodyWrapper}>
 
-                {/* Foto / Placeholder */}
-                <div style={{ position: 'relative', width: '100px', height: '100px', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+                {/* Fotos / Placeholder a la izquierda */}
+                <div className={styles.verticalCarousel} onClick={e => e.stopPropagation()}>
                     {currentPhotos.length > 0 ? (
-                        <img
-                            src={currentPhotos[0]}
-                            alt={`Evidencia ${activeSlide + 1}`}
-                            className={styles.carouselImg}
-                            style={{ width: '100%', height: '100%', borderRadius: '16px', border: '1.5px solid #e2e8f0', cursor: 'zoom-in' }}
-                            onClick={() => onZoomImage(currentPhotos[0])}
-                        />
+                        currentPhotos.map((photoUrl, pIdx) => (
+                            <img
+                                key={`${currentItem.id}-photo-${pIdx}`}
+                                src={photoUrl}
+                                alt={`Evidencia ${pIdx + 1} de ${currentPhotos.length}`}
+                                className={styles.carouselImg}
+                                onClick={() => onZoomImage(photoUrl)}
+                                title={`Ver foto ${pIdx + 1}`}
+                            />
+                        ))
                     ) : (
-                        <div style={{ width: '100%', height: '100%', background: '#f1f5f9', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: '24px', border: '1.5px solid #e2e8f0' }}>
+                        <div className={styles.placeholderImg}>
                             📷
                         </div>
                     )}
                 </div>
 
                 {/* Contenido principal */}
-                <div className={styles.cardContent} style={{ flex: 1, padding: 0, display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', minWidth: 0 }}>
-                    <div className={styles.cardLeftDetails} style={{ flex: 1, minWidth: 0 }}>
+                <div className={styles.cardContent}>
+                    <div className={styles.cardLeftDetails}>
 
                         {/* Fechas y badge NUEVO */}
-                        <div className={styles.headerRow} style={{ marginBottom: '8px' }}>
-                            <div className={styles.dateGroup} style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <div className={styles.headerRow}>
+                            <div className={styles.dateGroup}>
                                 {!isCardSeen(userRole, trabajo.id, trabajo.estado) && (
-                                    <span style={{
-                                        background: seenAccent.grad, color: '#ffffff', fontSize: '10px', fontWeight: '900',
-                                        padding: '3px 8px', borderRadius: '20px', boxShadow: `0 2px 8px ${seenAccent.shadow}`,
-                                        display: 'inline-flex', alignItems: 'center', gap: '3px',
-                                        textTransform: 'uppercase', letterSpacing: '0.5px'
-                                    }}>
+                                    <span className={styles.newBadgeMini} style={{ background: seenAccent.grad, boxShadow: `0 2px 8px ${seenAccent.shadow}` }}>
                                         {seenAccent.dot} NUEVO
                                     </span>
                                 )}
@@ -228,7 +226,7 @@ const JobCard: React.FC<JobCardProps> = ({
                                     📅 Cita solicitada: {trabajo.fechaAsignada || trabajo.fecha}
                                 </p>
                                 {(trabajo as any).hora_llegada && (
-                                    <p className={styles.strikingDate} style={{ color: '#059669', background: '#ecfdf5', display: 'inline-block', padding: '2px 8px', borderRadius: '8px', fontSize: '12px' }}>
+                                    <p className={styles.technicianArrivalTag}>
                                         📍 Técnico en sitio (Llegada: {(trabajo as any).hora_llegada})
                                     </p>
                                 )}
@@ -237,36 +235,34 @@ const JobCard: React.FC<JobCardProps> = ({
 
                         {/* Info */}
                         <div className={styles.cardInfo}>
-                            <h3 className={styles.jobTitle} style={{ fontSize: '18px', marginBottom: '8px' }}>
+                            <h3 className={styles.jobTitle}>
                                 {currentItem.titulo.split(' - ')[0]}
                             </h3>
 
-                            <div className={styles.descriptionBox} style={{ margin: 0 }}>
-                                <p style={{ fontSize: '13px' }}>
+                            <div className={styles.descriptionBox}>
+                                <p>
                                     {currentItem.descripcion?.replace(/\[Grupo:\s*REQ-\d+\]\s*\n?/, '') || 'Servicio solicitado sin descripción adicional.'}
                                 </p>
                             </div>
 
                             {/* Cotización */}
                             {((['Cotización Enviada', 'Cotización Aceptada', 'Cotización Rechazada', 'Cotización'].includes(trabajo.estado) || trabajo.estado.toLowerCase().includes('cotizaci')) && trabajo.cotizacion) && (
-                                <div style={{ background: '#fef3c7', padding: '10px', borderRadius: '10px', marginTop: '10px', border: '1px solid #fcd34d' }} onClick={e => e.stopPropagation()}>
-                                    <p style={{ fontWeight: 'bold', color: '#92400e', marginBottom: '5px', fontSize: '13px' }}>
+                                <div className={styles.cotizacionPreviewBox} onClick={e => e.stopPropagation()}>
+                                    <p className={styles.cotizacionPreviewText}>
                                         {userRole === 'admin' ? '💰 Cotización Enviada' : '💰 Cotización del Trabajo'}: ${trabajo.cotizacion.costo}
                                     </p>
                                     {userRole === 'cliente' && trabajo.estado === 'Cotización Enviada' && (
-                                        <div style={{ display: 'flex', gap: '5px' }}>
+                                        <div style={{ display: 'flex', gap: '5px', marginTop: '6px' }}>
                                             <button onClick={() => onAceptarCotizacion(trabajo.id)} style={{ flex: 1, padding: '5px', background: '#22c55e', color: 'white', borderRadius: '5px', border: 'none', fontSize: '12px', cursor: 'pointer' }}>Aceptar</button>
                                             <button onClick={() => onRechazarCotizacion(trabajo.id)} style={{ flex: 1, padding: '5px', background: '#ef4444', color: 'white', borderRadius: '5px', border: 'none', fontSize: '12px', cursor: 'pointer' }}>Rechazar</button>
                                         </div>
                                     )}
                                 </div>
                             )}
-
-
                         </div>
 
                         {/* Footer: técnico y acciones */}
-                        <div className={styles.footerRow} style={{ marginTop: '15px' }}>
+                        <div className={styles.footerRow}>
                             <div className={styles.technicianInfo}>
                                 {trabajo.tecnico !== 'Sin asignar' ? `👤 ${trabajo.tecnico}` : `🏢 ${trabajo.ubicacion}`}
                             </div>
@@ -298,7 +294,6 @@ const JobCard: React.FC<JobCardProps> = ({
                                         className={styles.editBtnSmall}
                                         onClick={e => { e.stopPropagation(); onEdit(e, trabajo); }}
                                         title="Editar"
-                                        style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '34px', height: '34px', borderRadius: '50%', background: '#f1f5f9', border: '1px solid #cbd5e1', cursor: 'pointer', transition: 'all 0.2s' }}
                                     >
                                         <HiOutlinePencil size={15} />
                                     </button>
@@ -318,17 +313,17 @@ const JobCard: React.FC<JobCardProps> = ({
 
                                 {/* Carousel multi-servicio */}
                                 {items.length > 1 && (
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '15px' }} onClick={e => e.stopPropagation()}>
+                                    <div className={styles.multiServicePager} onClick={e => e.stopPropagation()}>
                                         <button
                                             onClick={() => onSlideChange(String(trabajo.id), Math.max(0, activeSlide - 1))}
                                             disabled={activeSlide === 0}
-                                            style={{ background: activeSlide === 0 ? '#e2e8f0' : '#f97316', color: activeSlide === 0 ? '#94a3b8' : 'white', border: 'none', borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: activeSlide === 0 ? 'not-allowed' : 'pointer', fontSize: '11px' }}
+                                            className={`${styles.pagerBtn} ${activeSlide === 0 ? styles.pagerBtnDisabled : ''}`}
                                         >▲</button>
-                                        <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#64748b' }}>{activeSlide + 1}/{items.length}</span>
+                                        <span className={styles.pagerText}>{activeSlide + 1}/{items.length}</span>
                                         <button
                                             onClick={() => onSlideChange(String(trabajo.id), Math.min(items.length - 1, activeSlide + 1))}
                                             disabled={activeSlide === items.length - 1}
-                                            style={{ background: activeSlide === items.length - 1 ? '#e2e8f0' : '#f97316', color: activeSlide === items.length - 1 ? '#94a3b8' : 'white', border: 'none', borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: activeSlide === items.length - 1 ? 'not-allowed' : 'pointer', fontSize: '11px' }}
+                                            className={`${styles.pagerBtn} ${activeSlide === items.length - 1 ? styles.pagerBtnDisabled : ''}`}
                                         >▼</button>
                                     </div>
                                 )}

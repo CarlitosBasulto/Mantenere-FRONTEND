@@ -177,18 +177,18 @@ const NuevoServicioModal: React.FC<NuevoServicioModalProps> = ({
                     </div>
                 </div>
 
-                <div style={{ maxHeight: '50vh', overflowY: 'auto', paddingRight: '6px', marginBottom: '20px' }}>
+                <div className={styles.modalScrollArea}>
                     {formServices.map((svc, index) => (
-                        <div key={svc.id} style={{ marginBottom: '20px', padding: '18px', background: '#f8fafc', borderRadius: '16px', border: '1px solid #cbd5e1' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: svc.isMinimized ? '0' : '15px', borderBottom: svc.isMinimized ? 'none' : '1px solid #e2e8f0', paddingBottom: svc.isMinimized ? '0' : '10px' }}>
-                                <span style={{ fontSize: '13px', fontWeight: 800, color: '#1e293b', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <div key={svc.id} className={styles.serviceCardItem}>
+                            <div className={`${styles.serviceHeaderRow} ${svc.isMinimized ? styles.serviceHeaderRowMinimized : ''}`}>
+                                <span className={styles.serviceHeaderTitle}>
                                     🛠️ SERVICIO #{index + 1} {svc.isMinimized ? `— ${svc.categoria}` : ''}
                                 </span>
                                 <div style={{ display: 'flex', gap: '8px' }}>
                                     <button
                                         type="button"
                                         onClick={() => toggleMinimize(svc.id)}
-                                        style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '8px', color: '#475569', padding: '6px 12px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }}
+                                        className={styles.serviceHeaderBtn}
                                     >
                                         {svc.isMinimized ? 'Expandir ↙' : 'Minimizar ↗'}
                                     </button>
@@ -196,7 +196,7 @@ const NuevoServicioModal: React.FC<NuevoServicioModalProps> = ({
                                         <button
                                             type="button"
                                             onClick={() => removeServiceForm(svc.id, svc.dbId)}
-                                            style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', color: '#ef4444', padding: '6px 12px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }}
+                                            className={styles.serviceDeleteBtn}
                                         >
                                             Eliminar 🗑️
                                         </button>
@@ -264,7 +264,7 @@ const NuevoServicioModal: React.FC<NuevoServicioModalProps> = ({
                                             placeholder="Detalla lo que sucede o los requerimientos del servicio..."
                                             value={svc.descripcion}
                                             onChange={(e) => updateFormService(svc.id, 'descripcion', e.target.value)}
-                                            style={{ margin: 0, minHeight: '90px' }}
+                                            style={{ margin: 0 }}
                                         />
                                     </div>
 
@@ -334,14 +334,11 @@ const NuevoServicioModal: React.FC<NuevoServicioModalProps> = ({
                     ))}
 
                     {formServices.length < 10 && (
-                        <div style={{ display: 'flex', justifyContent: 'center', marginTop: '15px', marginBottom: '15px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'center', marginTop: '12px', marginBottom: '10px' }}>
                             <button
                                 type="button"
                                 onClick={addMoreServiceForm}
-                                style={{
-                                    background: '#fff', border: '1.5px dashed #f26522', color: '#f26522',
-                                    padding: '10px 20px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s', fontSize: '13px'
-                                }}
+                                className={styles.addMoreServiceBtn}
                             >
                                 ➕ Agregar más servicio ({formServices.length}/10)
                             </button>

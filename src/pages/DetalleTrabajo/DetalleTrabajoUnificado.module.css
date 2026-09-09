@@ -370,22 +370,51 @@
 }
 
 @media (max-width: 768px) {
+    .dashboardLayout {
+        padding: 10px 8px;
+    }
+    .scrollableContent {
+        padding-right: 0;
+    }
+    .headerContainer {
+        margin-bottom: 16px;
+    }
+    .pageTitle {
+        font-size: 24px;
+    }
+    .tabsContainer {
+        gap: 8px;
+        margin-bottom: 20px;
+    }
+    .tabButton {
+        padding: 8px 16px;
+        font-size: 13px;
+    }
     .bentoGrid {
-        grid-template-columns: 1fr;
-        padding: 5px;
+        grid-template-columns: 1fr !important;
+        padding: 0;
+        gap: 12px;
+        width: 100%;
+        box-sizing: border-box;
     }
     .colSpan4, .colSpan6, .colSpan8, .colSpan12 {
-        grid-column: span 1;
+        grid-column: span 1 !important;
+        width: 100%;
+        box-sizing: border-box;
     }
     .bentoCard {
-        padding: 15px;
+        padding: 16px;
+        border-radius: 18px;
+        box-sizing: border-box;
+        width: 100%;
+        max-width: 100%;
     }
     .estadoCard {
         position: static !important;
-        order: 1;
+        order: 2;
     }
     .sucursalCard {
-        order: 2;
+        order: 1;
     }
     .equipoCard {
         order: 3;
@@ -2229,4 +2258,145 @@
 .recotizModalBtnCancel:hover {
     background: #e2e8f0;
 }
+
+/* Transparent Custom Scrollbar for Cards */
+.cardTransparentScroll {
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 4px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(242, 101, 34, 0.25) transparent;
+}
+
+.cardTransparentScroll::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.cardTransparentScroll::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.cardTransparentScroll::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.12);
+    border-radius: 10px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+    transition: background 0.2s ease;
+}
+
+.cardTransparentScroll::-webkit-scrollbar-thumb:hover {
+    background: rgba(242, 101, 34, 0.4);
+}
+
+/* Drawer overlay & slide-panel for Tech Quotes & Chat */
+.techDrawerOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(15, 23, 42, 0.45);
+    backdrop-filter: blur(3px);
+    z-index: 1200;
+    transition: opacity 0.3s ease;
+}
+
+.techDrawerPanel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(92vw, 470px);
+    background: #f8fafc;
+    box-shadow: -10px 0 35px rgba(0, 0, 0, 0.18);
+    z-index: 1210;
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    border-left: 1.5px solid #e2e8f0;
+}
+
+.techDrawerHeader {
+    padding: 16px 20px;
+    background: #ffffff;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.03);
+}
+
+.techDrawerContent {
+    flex: 1;
+    overflow-y: auto;
+    padding: 18px 16px 30px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.techDrawerDesktopTrigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);
+    color: #ea580c;
+    border: 1.5px solid #fed7aa;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(242, 101, 34, 0.12);
+    transition: all 0.2s ease;
+    margin-left: auto;
+}
+
+.techDrawerDesktopTrigger:hover {
+    background: linear-gradient(135deg, #ffedd5 0%, #fed7aa 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(242, 101, 34, 0.2);
+}
+
+@media (max-width: 768px) {
+    .techDrawerDesktopTrigger {
+        display: none !important;
+    }
+}
+
+.techDrawerFloatingTrigger {
+    display: none;
+    position: fixed;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    background: linear-gradient(135deg, #f26522, #ea580c);
+    color: #ffffff;
+    border: none;
+    border-top-left-radius: 16px;
+    border-bottom-left-radius: 16px;
+    padding: 14px 10px 14px 14px;
+    cursor: pointer;
+    box-shadow: -4px 6px 20px rgba(242, 101, 34, 0.4);
+    z-index: 999;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.25s ease;
+}
+
+.techDrawerFloatingTrigger:hover {
+    transform: translateY(-50%) translateX(-4px);
+    box-shadow: -6px 8px 24px rgba(242, 101, 34, 0.5);
+}
+
+@media (max-width: 768px) {
+    .techDrawerFloatingTrigger {
+        display: flex !important;
+    }
+}
+
+
+
 

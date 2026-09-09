@@ -339,31 +339,43 @@ const AdminReporte: React.FC = () => {
                     acts.some((a: any) => a.tipo === 'Mantenimiento' || a.tipo === 'Instalacion' || a.tipo === 'Instalación');
                 setShowEquiposSection(isEquipoTask);
 
-                // 2. Cargar el borrador / reporte guardado de ESTA tarea específica (activeKey)
-                let temporalData = localStorage.getItem(`report_data_${activeKey}`) || 
-                                   localStorage.getItem(`report_data_temporal_${activeKey}`) ||
-                                   (pointIndex !== undefined ? (localStorage.getItem(`report_data_${safeId}_${pointIndex + 1}`) || localStorage.getItem(`report_data_${pointIndex + 1}`)) : null);
+                // 2. Cargar el borrador / reporte guardado de ESTA tarea específica (activeStorageKey)
+                const activeStorageKey = subtareaIdParam ? (String(subtareaIdParam).startsWith(`${safeId}_`) ? String(subtareaIdParam) : `${safeId}_${subtareaIdParam}`) : String(safeId);
+                let temporalData = localStorage.getItem(`report_data_${activeStorageKey}`) || 
+                                   localStorage.getItem(`report_data_temporal_${activeStorageKey}`);
                 
+                let isExplicitTaskDraft = false;
+                if (temporalData) {
+                    try {
+                        const parsed = JSON.parse(temporalData);
+                        if (parsed.isExecutionReport && !parsed.isVisita) {
+                            isExplicitTaskDraft = true;
+                        }
+                    } catch (_) {}
+                }
+
                 if (!temporalData) {
                     try {
                         const existingDb = await getReporteByTrabajoId(Number(safeId));
                         if (existingDb && existingDb.solucion) {
                             const parsedDb = typeof existingDb.solucion === 'string' ? JSON.parse(existingDb.solucion) : existingDb.solucion;
-                            const matched = findMatchingSubReport(parsedDb, { id: activeKey, pointIndex: isNaN(pointIndex) ? undefined : pointIndex + 1, titulo: taskTitle });
-                            if (matched && (matched.imagenes || matched.descripcion || matched.reporteTienda)) {
+                            const matched = findMatchingSubReport(parsedDb, { id: activeStorageKey, pointIndex: isNaN(pointIndex) ? undefined : pointIndex + 1, titulo: taskTitle });
+                            if (matched && !matched.isVisita && (matched.isExecutionReport || jobData.estado === 'Finalizado')) {
                                 temporalData = JSON.stringify(matched);
+                                isExplicitTaskDraft = true;
                             }
                         }
                     } catch (_) {}
                 }
 
-                if (temporalData) {
+                if (temporalData && isExplicitTaskDraft) {
                     try {
                         const parsed = JSON.parse(temporalData);
                         if (parsed.fechaInicio) initFechaInicio = parsed.fechaInicio;
                         setReporteTienda(parsed.reporteTienda || taskCleanDesc);
                         setDescripcion(parsed.descripcion || '');
                         setMateriales(parsed.materiales || '');
+
                         setImagenes({
                             antes: parsed.imagenes?.antes || null,
                             durante: parsed.imagenes?.durante || null,
@@ -406,6 +418,7 @@ const AdminReporte: React.FC = () => {
                     }
                 } else {
                     // Formulario completamente NUEVO y EN BLANCO para esta tarea individual
+                    setReporteTienda(taskCleanDesc);
                     setDescripcion('');
                     setMateriales('');
                     setImagenes({ antes: null, durante: null, despues: null });
@@ -437,6 +450,7 @@ const AdminReporte: React.FC = () => {
         const queryParams = new URLSearchParams(location.search);
         const subtareaIdParam = queryParams.get('subtareaId') || location.state?.subtareaId || location.state?.actividadId;
         const activeKey = subtareaIdParam ? String(subtareaIdParam) : String(safeId);
+        const activeStorageKey = subtareaIdParam ? (String(subtareaIdParam).startsWith(`${safeId}_`) ? String(subtareaIdParam) : `${safeId}_${subtareaIdParam}`) : String(safeId);
 
         const timer = setTimeout(() => {
             const filteredObsList = observacionesList.filter(o => o.texto.trim() || o.imagenes.length > 0);
@@ -459,10 +473,11 @@ const AdminReporte: React.FC = () => {
                 tecnicoNombre: trabajoBase?.trabajador?.nombre || user?.name || trabajoBase?.tecnico || 'Técnico',
                 tecnicoAvatar: user?.avatar || null,
                 fechaInicio: fechaInicio || new Date().toLocaleString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }),
-                isVisita: trabajoBase?.tipo === 'Visita' || trabajoBase?.originalTipo === 'Visita'
+                isVisita: trabajoBase?.tipo === 'Visita' || trabajoBase?.originalTipo === 'Visita',
+                isExecutionReport: true
             };
 
-            safeLocalStorageSet(`report_data_temporal_${activeKey}`, JSON.stringify(draftData));
+            safeLocalStorageSet(`report_data_temporal_${activeStorageKey}`, JSON.stringify(draftData));
         }, 500);
 
         return () => clearTimeout(timer);
@@ -568,12 +583,18 @@ const AdminReporte: React.FC = () => {
             return;
         }
 
+        const queryParams = new URLSearchParams(location.search);
+        const subtareaIdParam = queryParams.get('subtareaId') || location.state?.subtareaId || location.state?.actividadId;
+        const activeKey = subtareaIdParam ? String(subtareaIdParam) : String(safeId);
+        const activeStorageKey = subtareaIdParam ? (String(subtareaIdParam).startsWith(`${safeId}_`) ? String(subtareaIdParam) : `${safeId}_${subtareaIdParam}`) : String(safeId);
+
         const filteredObsList = observacionesList.filter(o => o.texto.trim() || o.imagenes.length > 0);
         const compiledObservaciones = filteredObsList.map(o => o.texto).filter(Boolean).join('\n\n');
         const compiledImagenesObservacion = filteredObsList.reduce((acc, o) => [...acc, ...o.imagenes], [] as string[]);
 
         const reportData = {
             id,
+            subtareaId: activeKey,
             reporteTienda,
             descripcion,
             materiales,
@@ -590,64 +611,52 @@ const AdminReporte: React.FC = () => {
             tecnicoNombre: trabajoBase?.trabajador?.nombre || user?.name || trabajoBase?.tecnico || 'Técnico',
             tecnicoAvatar: user?.avatar || null,
             fechaInicio: fechaInicio || new Date().toLocaleString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }),
-            isVisita: trabajoBase?.tipo === 'Visita' || trabajoBase?.originalTipo === 'Visita'
+            isVisita: trabajoBase?.tipo === 'Visita' || trabajoBase?.originalTipo === 'Visita',
+            isExecutionReport: true
         };
-        
-        const queryParams = new URLSearchParams(location.search);
-        const subtareaIdParam = queryParams.get('subtareaId') || location.state?.subtareaId || location.state?.actividadId;
-        const activeKey = subtareaIdParam ? String(subtareaIdParam) : String(safeId);
 
         try {
-            localStorage.setItem(`report_data_temporal_${activeKey}`, JSON.stringify(reportData));
-            localStorage.setItem(`report_data_${activeKey}`, JSON.stringify(reportData));
+            safeLocalStorageSet(`report_data_temporal_${activeStorageKey}`, JSON.stringify(reportData));
+            safeLocalStorageSet(`report_data_${activeStorageKey}`, JSON.stringify(reportData));
         } catch (e) {
             console.error("Error al guardar localmente el reporte de la tarea:", e);
         }
 
         try {
             // Recopilar reportes existentes para no sobreescribir los otros puntos de la actividad/trabajo
-            let existingSubReports: Record<string, any> = {};
+            let cleanSubReports: Record<string, any> = {};
             try {
                 const existingDbReport = await getReporteByTrabajoId(Number(safeId));
                 if (existingDbReport && existingDbReport.solucion) {
                     const parsedExisting = typeof existingDbReport.solucion === 'string' ? JSON.parse(existingDbReport.solucion) : existingDbReport.solucion;
                     if (parsedExisting?.subReports && typeof parsedExisting.subReports === 'object') {
-                        existingSubReports = { ...parsedExisting.subReports };
-                    }
-                    if (parsedExisting?.subtareaId) {
-                        existingSubReports[String(parsedExisting.subtareaId)] = parsedExisting;
+                        Object.entries(parsedExisting.subReports).forEach(([k, v]) => {
+                            if (k.startsWith(`${safeId}_`) || k === String(safeId)) {
+                                cleanSubReports[k] = v;
+                            }
+                        });
                     }
                 }
             } catch (_) {}
 
-            // También recopilar desde localStorage de este dispositivo los otros puntos
+            // Cargar desde localStorage los otros puntos de este trabajo
             for (let p = 1; p <= 10; p++) {
-                const pKeys = [`report_data_${safeId}_${p}`, `report_data_${activeKey.split('_')[0]}_${p}`];
-                pKeys.forEach(k => {
-                    const raw = localStorage.getItem(k);
-                    if (raw) {
-                        try {
-                            const pObj = JSON.parse(raw);
-                            existingSubReports[`${safeId}_${p}`] = pObj;
-                            existingSubReports[`${activeKey.split('_')[0]}_${p}`] = pObj;
-                        } catch (_) {}
-                    }
-                });
+                const raw = localStorage.getItem(`report_data_${safeId}_${p}`);
+                if (raw) {
+                    try {
+                        cleanSubReports[`${safeId}_${p}`] = JSON.parse(raw);
+                    } catch (_) {}
+                }
             }
 
-            existingSubReports[activeKey] = reportData;
-            if (activeKey.includes('_')) {
-                const ptNum = activeKey.split('_')[1];
-                existingSubReports[`${safeId}_${ptNum}`] = reportData;
-                existingSubReports[String(ptNum)] = reportData;
-            }
+            cleanSubReports[activeStorageKey] = reportData;
 
             const dataToSave = {
                 trabajo_id: Number(safeId),
                 descripcion: descripcion || "Reporte generado",
                 solucion: JSON.stringify({
                     ...reportData,
-                    subReports: existingSubReports
+                    subReports: cleanSubReports
                 }) 
             };
             await createReporte(dataToSave);
@@ -688,6 +697,7 @@ const AdminReporte: React.FC = () => {
         const queryParams = new URLSearchParams(location.search);
         const subtareaIdParam = queryParams.get('subtareaId') || location.state?.subtareaId || location.state?.actividadId;
         const activeKey = subtareaIdParam ? String(subtareaIdParam) : String(safeTrabajoId);
+        const activeStorageKey = subtareaIdParam ? (String(subtareaIdParam).startsWith(`${safeTrabajoId}_`) ? String(subtareaIdParam) : `${safeTrabajoId}_${subtareaIdParam}`) : String(safeTrabajoId);
 
         const filteredObsList = observacionesList.filter(o => o.texto.trim() || o.imagenes.length > 0);
         const compiledObservaciones = filteredObsList.map(o => o.texto).filter(Boolean).join('\n\n');
@@ -712,18 +722,21 @@ const AdminReporte: React.FC = () => {
             tecnicoNombre: trabajoBase?.trabajador?.nombre || user?.name || trabajoBase?.tecnico || 'Técnico',
             tecnicoAvatar: user?.avatar || null,
             fechaInicio: fechaInicio || new Date().toLocaleString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }),
-            isVisita: trabajoBase?.tipo === 'Visita' || trabajoBase?.originalTipo === 'Visita'
+            isVisita: trabajoBase?.tipo === 'Visita' || trabajoBase?.originalTipo === 'Visita',
+            isExecutionReport: true,
+            isReportFinalizado: true
         };
 
         setIsSavingReport(true);
         // Guardar reporte individual en localStorage para la tarea específica
-        safeLocalStorageSet(`report_data_${activeKey}`, JSON.stringify(reportData));
-        if (activeKey.includes('_')) {
-            const ptNum = activeKey.split('_')[1];
-            safeLocalStorageSet(`report_data_${safeTrabajoId}_${ptNum}`, JSON.stringify(reportData));
-        }
+        safeLocalStorageSet(`report_data_${activeStorageKey}`, JSON.stringify(reportData));
         try {
-            localStorage.removeItem(`report_data_temporal_${activeKey}`);
+            localStorage.setItem(`tarea_finalizada_${activeStorageKey}`, 'true');
+            if (subtareaIdParam) {
+                localStorage.setItem(`tarea_finalizada_${subtareaIdParam}`, 'true');
+                localStorage.setItem(`tarea_finalizada_${safeTrabajoId}_${subtareaIdParam}`, 'true');
+            }
+            localStorage.removeItem(`report_data_temporal_${activeStorageKey}`);
         } catch (e) {}
 
         // Guardar registro del reporte en la BD (acumulando todos los sub-puntos)
@@ -731,41 +744,32 @@ const AdminReporte: React.FC = () => {
             const parsedActId = subtareaIdParam ? (String(subtareaIdParam).includes('_') ? parseInt(String(subtareaIdParam).split('_')[0], 10) : parseInt(String(subtareaIdParam), 10)) : undefined;
             
             // Recopilar reportes existentes para no sobreescribir los otros puntos de la actividad/trabajo
-            let existingSubReports: Record<string, any> = {};
+            let cleanSubReports: Record<string, any> = {};
             try {
                 const existingDbReport = await getReporteByTrabajoId(Number(safeTrabajoId));
                 if (existingDbReport && existingDbReport.solucion) {
                     const parsedExisting = typeof existingDbReport.solucion === 'string' ? JSON.parse(existingDbReport.solucion) : existingDbReport.solucion;
                     if (parsedExisting?.subReports && typeof parsedExisting.subReports === 'object') {
-                        existingSubReports = { ...parsedExisting.subReports };
-                    }
-                    if (parsedExisting?.subtareaId) {
-                        existingSubReports[String(parsedExisting.subtareaId)] = parsedExisting;
+                        Object.entries(parsedExisting.subReports).forEach(([k, v]) => {
+                            if (k.startsWith(`${safeTrabajoId}_`) || k === String(safeTrabajoId)) {
+                                cleanSubReports[k] = v;
+                            }
+                        });
                     }
                 }
             } catch (_) {}
 
-            // También recopilar desde localStorage de este dispositivo los otros puntos
+            // Cargar desde localStorage los otros puntos de este trabajo
             for (let p = 1; p <= 10; p++) {
-                const pKeys = [`report_data_${safeTrabajoId}_${p}`, `report_data_${activeKey.split('_')[0]}_${p}`];
-                pKeys.forEach(k => {
-                    const raw = localStorage.getItem(k);
-                    if (raw) {
-                        try {
-                            const pObj = JSON.parse(raw);
-                            existingSubReports[`${safeTrabajoId}_${p}`] = pObj;
-                            existingSubReports[`${activeKey.split('_')[0]}_${p}`] = pObj;
-                        } catch (_) {}
-                    }
-                });
+                const raw = localStorage.getItem(`report_data_${safeTrabajoId}_${p}`);
+                if (raw) {
+                    try {
+                        cleanSubReports[`${safeTrabajoId}_${p}`] = JSON.parse(raw);
+                    } catch (_) {}
+                }
             }
 
-            existingSubReports[activeKey] = reportData;
-            if (activeKey.includes('_')) {
-                const ptNum = activeKey.split('_')[1];
-                existingSubReports[`${safeTrabajoId}_${ptNum}`] = reportData;
-                existingSubReports[String(ptNum)] = reportData;
-            }
+            cleanSubReports[activeStorageKey] = reportData;
 
             const dataToSave = {
                 trabajo_id: Number(safeTrabajoId),
@@ -773,7 +777,7 @@ const AdminReporte: React.FC = () => {
                 descripcion: `Reporte de Tarea: ${trabajoBase?.titulo || 'Servicio'}`,
                 solucion: JSON.stringify({
                     ...reportData,
-                    subReports: existingSubReports
+                    subReports: cleanSubReports
                 }) 
             };
             await createReporte(dataToSave);

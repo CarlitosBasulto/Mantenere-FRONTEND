@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styles from './DashboardTecnico.module.css';
 import { getTrabajos } from '../../services/trabajosService';
@@ -39,7 +39,28 @@ const DashboardTecnico: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [lastUpdated, setLastUpdated] = useState(new Date());
+    const [activeColIndex, setActiveColIndex] = useState(0);
+    const boardRef = useRef<HTMLDivElement>(null);
 
+    const scrollToColumn = (index: number) => {
+        setActiveColIndex(index);
+        if (boardRef.current) {
+            const columns = boardRef.current.querySelectorAll(`.${styles.column}`);
+            if (columns[index]) {
+                columns[index].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+            }
+        }
+    };
+
+    const handleBoardScroll = () => {
+        if (!boardRef.current) return;
+        const scrollLeft = boardRef.current.scrollLeft;
+        const width = boardRef.current.clientWidth;
+        const index = Math.round(scrollLeft / (width * 0.85));
+        if (index >= 0 && index <= 3 && index !== activeColIndex) {
+            setActiveColIndex(index);
+        }
+    };
 
     const fetchData = async (isSilent = false) => {
         if (!isSilent) setLoading(true);
@@ -307,7 +328,35 @@ const DashboardTecnico: React.FC = () => {
                 )}
             </div>
 
-            <div className={styles.board}>
+            {/* TABS DE COLUMNA PARA MÓVIL */}
+            <div className={styles.mobileColumnTabs}>
+                <button
+                    className={`${styles.tabBtn} ${styles.tabYellow} ${activeColIndex === 0 ? styles.tabActive : ''}`}
+                    onClick={() => scrollToColumn(0)}
+                >
+                    🟡 Solicitudes ({colSolicitudes.length})
+                </button>
+                <button
+                    className={`${styles.tabBtn} ${styles.tabOrange} ${activeColIndex === 1 ? styles.tabActive : ''}`}
+                    onClick={() => scrollToColumn(1)}
+                >
+                    🟣 Visitas ({colVisita.length})
+                </button>
+                <button
+                    className={`${styles.tabBtn} ${styles.tabGreen} ${activeColIndex === 2 ? styles.tabActive : ''}`}
+                    onClick={() => scrollToColumn(2)}
+                >
+                    🟠 Trabajos ({colProceso.length})
+                </button>
+                <button
+                    className={`${styles.tabBtn} ${styles.tabPurple} ${activeColIndex === 3 ? styles.tabActive : ''}`}
+                    onClick={() => scrollToColumn(3)}
+                >
+                    🟢 Finalizados ({colFinalizadas.length})
+                </button>
+            </div>
+
+            <div className={styles.board} ref={boardRef} onScroll={handleBoardScroll}>
                 {/* SOLICITUDES PENDIENTES */}
                 <div className={styles.column}>
                     <div className={`${styles.columnHeader} ${styles.colSolicitudes}`}>

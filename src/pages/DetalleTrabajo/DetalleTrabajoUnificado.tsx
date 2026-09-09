@@ -26,7 +26,12 @@ import {
     HiOutlineDocumentText,
     HiOutlineArrowLeft,
     HiOutlineDocumentPlus,
-    HiOutlineArrowPath
+    HiOutlineArrowPath,
+    HiOutlineChevronDown,
+    HiOutlineChevronUp,
+    HiOutlineChevronLeft,
+    HiOutlineChevronRight,
+    HiOutlinePaperAirplane
 } from "react-icons/hi2";
 import ReporteDetailModal from "../../components/modals/ReporteDetailModal";
 import { getTrabajo, updateEstadoTrabajo, assignTrabajador, updateTrabajo, getTrabajos } from "../../services/trabajosService";
@@ -227,7 +232,7 @@ const cleanQuoteDescription = (desc: string) => {
     return desc;
 };
 
-export const getExecutableTasks = (tasks: SubTarea[]): SubTarea[] => {
+export const getExecutableTasks = (tasks: SubTarea[], reporteFinal?: any, trabajoId?: any): SubTarea[] => {
     if (!tasks || !Array.isArray(tasks)) return [];
     const result: SubTarea[] = [];
 
@@ -294,7 +299,89 @@ export const getExecutableTasks = (tasks: SubTarea[]): SubTarea[] => {
             return;
         }
 
-        // Case 3: Single task
+        // Case 3: Check if subReports in reporteFinal has multiple sub-reports for this task/trabajo
+        const subReportsEntries = (reporteFinal?.subReports && typeof reporteFinal.subReports === 'object')
+            ? Object.entries(reporteFinal.subReports).filter(([k, v]: [string, any]) => {
+                const isMatch = k.startsWith(`${t.id}_`) || (trabajoId && k.startsWith(`${trabajoId}_`));
+                return isMatch && v && (v.descripcion || v.reporteTienda || v.imagenes);
+            })
+            : [];
+
+        if (subReportsEntries.length > 1) {
+            subReportsEntries.sort(([kA], [kB]) => {
+                const numA = parseInt(kA.split('_')[1] || '0', 10);
+                const numB = parseInt(kB.split('_')[1] || '0', 10);
+                return numA - numB;
+            });
+
+            subReportsEntries.forEach(([subKey, subData]: [string, any], idx: number) => {
+                const pIdx = parseInt(subKey.split('_')[1] || String(idx + 1), 10);
+                const subTipo = subData.equipoInfo?.tipo || subData.tipoServicio || (subData.reporteTienda ? subData.reporteTienda.split('(')[0].trim() : '') || t.titulo || 'Servicio';
+                const subDesc = subData.descripcion || subData.reporteTienda || '';
+                const subPhotos = subData.imagenes ? [subData.imagenes.antes, subData.imagenes.durante, subData.imagenes.despues].filter(Boolean) : [];
+
+                result.push({
+                    ...t,
+                    id: subKey as any,
+                    baseId: Number(t.id),
+                    pointIndex: pIdx,
+                    titulo: `${subTipo} (Punto ${pIdx})`,
+                    descripcion: subDesc,
+                    cleanDescripcion: subDesc,
+                    photos: subPhotos,
+                    estado: 'Completa',
+                    tecnicoNombre: subData.tecnicoNombre || t.tecnicoNombre,
+                    serviceData: {
+                        ...t.serviceData,
+                        marca: subData.equipoInfo?.marca || '',
+                        modelo: subData.equipoInfo?.modelo || '',
+                        pieza: subData.equipoInfo?.piezas || '',
+                        garantia: subData.equipoInfo?.garantia || '',
+                        tipoServicio: subTipo
+                    }
+                } as any);
+            });
+            return;
+        }
+
+        // Case 4: Multiple points in localStorage for this work order
+        const localPoints: { pIdx: number; key: string; data: any }[] = [];
+        const checkWorkId = trabajoId || t.id;
+        for (let p = 1; p <= 10; p++) {
+            const raw = localStorage.getItem(`report_data_${checkWorkId}_${p}`);
+            if (raw) {
+                try {
+                    const parsed = JSON.parse(raw);
+                    if (parsed && (parsed.descripcion || parsed.reporteTienda || parsed.imagenes)) {
+                        localPoints.push({ pIdx: p, key: `${checkWorkId}_${p}`, data: parsed });
+                    }
+                } catch (_) {}
+            }
+        }
+
+        if (localPoints.length > 1) {
+            localPoints.forEach(({ pIdx, key, data }) => {
+                const subTipo = data.equipoInfo?.tipo || data.tipoServicio || (data.reporteTienda ? data.reporteTienda.split('(')[0].trim() : '') || t.titulo || 'Servicio';
+                const subDesc = data.descripcion || data.reporteTienda || '';
+                const subPhotos = data.imagenes ? [data.imagenes.antes, data.imagenes.durante, data.imagenes.despues].filter(Boolean) : [];
+
+                result.push({
+                    ...t,
+                    id: key as any,
+                    baseId: Number(t.id),
+                    pointIndex: pIdx,
+                    titulo: `${subTipo} (Punto ${pIdx})`,
+                    descripcion: subDesc,
+                    cleanDescripcion: subDesc,
+                    photos: subPhotos,
+                    estado: 'Completa',
+                    tecnicoNombre: data.tecnicoNombre || t.tecnicoNombre
+                } as any);
+            });
+            return;
+        }
+
+        // Case 5: Single task
         const isReportDone = !!localStorage.getItem(`report_data_${t.id}`);
         result.push({
             ...t,
@@ -366,6 +453,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
     ]);
 
     const [minimizedTechQuotes, setMinimizedTechQuotes] = useState<Record<number, boolean>>({});
+    const [isTechDrawerOpen, setIsTechDrawerOpen] = useState<boolean>(false);
 
     const toggleMinimizeQuote = (quoteId: number) => {
         setMinimizedTechQuotes(prev => ({
@@ -498,6 +586,9 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
     // Historial Tab State
     const [expandedHistoryMonths, setExpandedHistoryMonths] = useState<Record<string, boolean>>({});
 
+    // Dropdown Tipo de Actividad para Registro
+    const [openActivityDropdown, setOpenActivityDropdown] = useState<number | null>(null);
+
     // MODAL DE SEGURIDAD
     const [isSecurityModalOpen, setIsSecurityModalOpen] = useState(false);
     const [selectedTaskForReport, setSelectedTaskForReport] = useState<SubTarea | null>(null);
@@ -541,15 +632,19 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
         let parsedManoObra = 0;
         for (const line of lines) {
             const trimmed = line.trim();
-            if (trimmed.startsWith('- ')) {
+            if (!trimmed) continue;
+            if (trimmed.startsWith('=== TÍTULO:') || trimmed.startsWith('=== TITULO:')) {
+                continue;
+            }
+            if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
                 if (trimmed.toUpperCase().includes("MANO DE OBRA")) {
-                    const match = trimmed.match(/-\s+.*?-\s*\$(.+)$/i);
+                    const match = trimmed.match(/[-\*]\s+.*?-\s*\$?([0-9,.]+)/i);
                     if (match) {
                         parsedManoObra = parseFloat(match[1].replace(/,/g, '')) || 0;
                     }
                     continue;
                 }
-                const match = trimmed.match(/^-\s+(.+?)\s*\((.*?)\)(?:\s*-\s*\$(.+?))?$/);
+                const match = trimmed.match(/^[-\*]\s+(.+?)\s*\((.*?)\)(?:\s*-\s*\$?([0-9,.]+))?/);
                 if (match) {
                     parsedMaterials.push({
                         material: match[1].trim(),
@@ -559,7 +654,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                 } else {
                     parsedMaterials.push({
                         material: trimmed.substring(2).trim(),
-                        piezas: "",
+                        piezas: "1",
                         precio: ""
                     });
                 }
@@ -722,7 +817,6 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                             if (subKey.includes('_')) {
                                                 const ptNum = subKey.split('_')[1];
                                                 localStorage.setItem(`report_data_${id}_${ptNum}`, JSON.stringify(subData));
-                                                localStorage.setItem(`report_data_${ptNum}`, JSON.stringify(subData));
                                             }
                                         } catch (_) {}
                                     });
@@ -3729,14 +3823,57 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
         return mergedRefaccionesList;
     };
 
+    const isTaskReportFinalized = (t: any): boolean => {
+        if (t.estado === 'Completa' || t.estado === 'Finalizado' || trabajo?.estado === 'Finalizado' || trabajo?.estado === 'Completado') {
+            return true;
+        }
+        const tId = String(t.id);
+        const pIdx = t.pointIndex;
+        const baseId = t.baseId;
+        const workId = trabajo?.id;
+
+        const checkKeys = [
+            workId && pIdx !== undefined ? `${workId}_${pIdx}` : null,
+            workId && tId ? `${workId}_${tId}` : null,
+            tId,
+            baseId && pIdx !== undefined ? `${baseId}_${pIdx}` : null,
+            baseId ? `${baseId}` : null
+        ].filter(Boolean);
+
+        for (const k of checkKeys) {
+            if (localStorage.getItem(`tarea_finalizada_${k}`) === 'true') return true;
+            const raw = localStorage.getItem(`report_data_${k}`);
+            if (raw) {
+                try {
+                    const parsed = JSON.parse(raw);
+                    if (parsed.isReportFinalizado && !parsed.isVisita) return true;
+                } catch (_) {}
+            }
+        }
+
+        if (reporteFinal && reporteFinal.solucion) {
+            try {
+                const parsedSol = typeof reporteFinal.solucion === 'string' ? JSON.parse(reporteFinal.solucion) : reporteFinal.solucion;
+                if (!parsedSol.isVisita && (parsedSol.isReportFinalizado || parsedSol.isExecutionReport)) {
+                    if (parsedSol.subReports && typeof parsedSol.subReports === 'object') {
+                        for (const k of checkKeys) {
+                            if (parsedSol.subReports[k as string]?.isReportFinalizado) return true;
+                        }
+                    }
+                }
+            } catch (_) {}
+        }
+
+        return false;
+    };
+
     const renderTaskCard = (tarea: SubTarea, isInteractive: boolean = true) => {
         let taskReport: any = null;
         const candidateKeys = [
             `report_data_${tarea.id}`,
             `report_data_temporal_${tarea.id}`,
             tarea.baseId && tarea.pointIndex ? `report_data_${tarea.baseId}_${tarea.pointIndex}` : '',
-            trabajo?.id && tarea.pointIndex ? `report_data_${trabajo.id}_${tarea.pointIndex}` : '',
-            tarea.pointIndex ? `report_data_${tarea.pointIndex}` : ''
+            trabajo?.id && tarea.pointIndex ? `report_data_${trabajo.id}_${tarea.pointIndex}` : ''
         ].filter(Boolean);
 
         for (const k of candidateKeys) {
@@ -3864,39 +4001,43 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
             setShowActivityPDFPreview(true);
         };
 
-        // Combine photos from taskReport (localStorage cache / DB subReport) and subTarea (db synced)
+        // Combine photos from subTarea (visita / levantamiento) and taskReport (reporte de ejecución)
         const photosListToRender: { label: string; url: string }[] = [];
         const rawUrls: string[] = [];
 
-        if (taskReport?.imagenes?.antes) rawUrls.push(taskReport.imagenes.antes);
-        if (taskReport?.imagenes?.durante) rawUrls.push(taskReport.imagenes.durante);
-        if (taskReport?.imagenes?.despues) rawUrls.push(taskReport.imagenes.despues);
-
-        if (Array.isArray(taskReport?.imagenes)) {
-            taskReport.imagenes.forEach((img: any) => {
-                const u = typeof img === 'string' ? img : (img?.ruta || img?.url);
-                if (u) rawUrls.push(u);
-            });
-        }
-        if (Array.isArray(taskReport?.photos)) {
-            taskReport.photos.forEach((img: any) => {
-                const u = typeof img === 'string' ? img : (img?.ruta || img?.url);
-                if (u) rawUrls.push(u);
-            });
-        }
-
-        if (taskReport?.imagenesObservacion && taskReport.imagenesObservacion.length > 0) {
-            taskReport.imagenesObservacion.forEach((img: string) => {
-                if (img) rawUrls.push(img);
-            });
-        } else if (taskReport?.imagenObservacion) {
-            rawUrls.push(taskReport.imagenObservacion);
-        }
-
-        if (rawUrls.length === 0 && tarea.photos && tarea.photos.length > 0) {
+        // 1. Evidencia fotográfica tomada por el técnico para este punto/actividad (Fotos de Visita / Levantamiento)
+        if (tarea.photos && Array.isArray(tarea.photos) && tarea.photos.length > 0) {
             tarea.photos.forEach((url) => {
                 if (url) rawUrls.push(url);
             });
+        }
+
+        // 2. Si hay fotos del reporte de ejecución (Antes / Durante / Después) explícitamente guardadas para esta tarea
+        if (taskReport?.isExecutionReport || tarea.estado === 'Completa' || trabajo?.estado === 'Finalizado') {
+            if (taskReport?.imagenes?.antes) rawUrls.push(taskReport.imagenes.antes);
+            if (taskReport?.imagenes?.durante) rawUrls.push(taskReport.imagenes.durante);
+            if (taskReport?.imagenes?.despues) rawUrls.push(taskReport.imagenes.despues);
+
+            if (Array.isArray(taskReport?.imagenes)) {
+                taskReport.imagenes.forEach((img: any) => {
+                    const u = typeof img === 'string' ? img : (img?.ruta || img?.url);
+                    if (u) rawUrls.push(u);
+                });
+            }
+            if (Array.isArray(taskReport?.photos)) {
+                taskReport.photos.forEach((img: any) => {
+                    const u = typeof img === 'string' ? img : (img?.ruta || img?.url);
+                    if (u) rawUrls.push(u);
+                });
+            }
+
+            if (taskReport?.imagenesObservacion && taskReport.imagenesObservacion.length > 0) {
+                taskReport.imagenesObservacion.forEach((img: string) => {
+                    if (img) rawUrls.push(img);
+                });
+            } else if (taskReport?.imagenObservacion) {
+                rawUrls.push(taskReport.imagenObservacion);
+            }
         }
 
         const uniqueUrls = Array.from(new Set(rawUrls.filter(Boolean)));
@@ -4039,28 +4180,12 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                             </span>
                         )}
                         {(() => {
-                            const isTaskReportDone = (
-                                tarea.estado === 'Completa' || 
-                                tarea.estado === 'Finalizado' || 
-                                trabajo?.estado === 'Finalizado' || 
-                                trabajo?.estado === 'Completado' || 
-                                !!reporteFinal || 
-                                !!localStorage.getItem(`report_data_${tarea.id}`) ||
-                                (tarea.baseId && tarea.pointIndex ? (!!localStorage.getItem(`report_data_${tarea.baseId}_${tarea.pointIndex}`) || !!localStorage.getItem(`report_data_temporal_${tarea.baseId}_${tarea.pointIndex}`)) : false) ||
-                                (tarea.baseId ? (!!localStorage.getItem(`report_data_${tarea.baseId}`) || !!localStorage.getItem(`report_data_temporal_${tarea.baseId}`)) : false) ||
-                                (trabajo?.id ? (!!localStorage.getItem(`report_data_${trabajo.id}`) || !!localStorage.getItem(`report_data_temporal_${trabajo.id}`)) : false)
-                            );
-                            const execTasks = getExecutableTasks(subTareas);
+                            const isTaskReportDone = isTaskReportFinalized(tarea);
+                            const execTasks = getExecutableTasks(subTareas, reporteFinal, trabajo?.id);
                             const totalCount = execTasks.length || 1;
-                            const doneCount = (trabajo?.estado === 'Finalizado' || trabajo?.estado === 'Completado' || !!reporteFinal)
+                            const doneCount = (trabajo?.estado === 'Finalizado' || trabajo?.estado === 'Completado')
                                 ? totalCount
-                                : execTasks.filter(t => (
-                                    t.estado === 'Completa' || 
-                                    t.estado === 'Finalizado' || 
-                                    !!localStorage.getItem(`report_data_${t.id}`) ||
-                                    (t.baseId && t.pointIndex ? (!!localStorage.getItem(`report_data_${t.baseId}_${t.pointIndex}`) || !!localStorage.getItem(`report_data_temporal_${t.baseId}_${t.pointIndex}`)) : false) ||
-                                    (t.baseId ? (!!localStorage.getItem(`report_data_${t.baseId}`) || !!localStorage.getItem(`report_data_temporal_${t.baseId}`)) : false)
-                                )).length;
+                                : execTasks.filter(t => isTaskReportFinalized(t)).length;
 
                             return (
                                 <span style={{
@@ -4445,17 +4570,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                 return null;
                             }
 
-                            const isTaskReportDone = (
-                                tarea.estado === 'Completa' || 
-                                tarea.estado === 'Finalizado' || 
-                                trabajo?.estado === 'Finalizado' || 
-                                trabajo?.estado === 'Completado' || 
-                                !!reporteFinal || 
-                                !!localStorage.getItem(`report_data_${tarea.id}`) ||
-                                (tarea.baseId && tarea.pointIndex ? (!!localStorage.getItem(`report_data_${tarea.baseId}_${tarea.pointIndex}`) || !!localStorage.getItem(`report_data_temporal_${tarea.baseId}_${tarea.pointIndex}`)) : false) ||
-                                (tarea.baseId ? (!!localStorage.getItem(`report_data_${tarea.baseId}`) || !!localStorage.getItem(`report_data_temporal_${tarea.baseId}`)) : false) ||
-                                (trabajo?.id ? (!!localStorage.getItem(`report_data_${trabajo.id}`) || !!localStorage.getItem(`report_data_temporal_${trabajo.id}`)) : false)
-                            );
+                            const isTaskReportDone = isTaskReportFinalized(tarea);
                             const isTechOrAdmin = (user?.role === 'tecnico' || user?.role === 'tecnico-normal' || user?.role === 'tecnico-autonomo') || user?.role === 'admin' || user?.role === 'autonomo';
                             const isJobQuoteApproved = isExecutionPhase || tarea.cotizacionEstado === 'Aprobada' || (cotizaciones && cotizaciones.some(c => c.estado === 'Aprobada' || c.estado === 'Aceptada'));
                             const isQuotePending = tarea.quoteData && !isJobQuoteApproved;
@@ -4814,27 +4929,32 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                         <div className={styles.bentoGrid}>
                             {/* BANNER 1: CONFIRMACIÓN DE FECHA Y HORA DE EJECUCIÓN (COTIZACIÓN ACEPTADA) */}
                             {['Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución', 'En Proceso'].includes(trabajo.estado) && (
-                                <div style={{
-                                    gridColumn: 'span 12',
-                                    background: 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)',
-                                    border: '2px solid #10b981',
-                                    borderRadius: '20px',
-                                    padding: '16px 20px',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    gap: '12px',
-                                    boxShadow: '0 4px 16px rgba(16, 185, 129, 0.12)'
-                                }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                            <div style={{ background: '#10b981', color: 'white', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', fontWeight: 'bold' }}>
+                                <div 
+                                    className={`${styles.bentoCard} ${styles.colSpan12}`}
+                                    style={{
+                                        background: 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)',
+                                        border: '2px solid #10b981',
+                                        borderRadius: '20px',
+                                        padding: '16px 20px',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: '12px',
+                                        boxShadow: '0 4px 16px rgba(16, 185, 129, 0.12)',
+                                        boxSizing: 'border-box',
+                                        maxWidth: '100%',
+                                        overflow: 'hidden'
+                                    }}
+                                >
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', minWidth: 0, width: '100%' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1 }}>
+                                            <div style={{ background: '#10b981', color: 'white', borderRadius: '50%', width: '36px', height: '36px', minWidth: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', fontWeight: 'bold', flexShrink: 0 }}>
                                                 ✓
                                             </div>
-                                            <div>
-                                                <h4 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#065f46' }}>
+                                            <div style={{ minWidth: 0, flex: 1 }}>
+                                                <h4 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#065f46', wordBreak: 'break-word', lineHeight: '1.3' }}>
                                                     Cotización Aceptada — Confirmación de Ejecución de Trabajo
                                                 </h4>
-                                                <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#047857' }}>
+                                                <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#047857', wordBreak: 'break-word' }}>
                                                     El trabajo ha sido confirmado para su ejecución por el técnico asignado.
                                                 </p>
                                             </div>
@@ -4878,107 +4998,43 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '14px' }}>
                                                 <div>
                                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                                                        <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#334155' }}>Fecha de Ejecución *</label>
-                                                        <div style={{ display: 'flex', gap: '5px' }}>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setExecFecha(new Date().toISOString().split('T')[0])}
-                                                                style={{
-                                                                    fontSize: '11px',
-                                                                    fontWeight: '600',
-                                                                    padding: '2px 7px',
-                                                                    borderRadius: '6px',
-                                                                    border: '1px solid #cbd5e1',
-                                                                    background: '#fff',
-                                                                    color: '#475569',
-                                                                    cursor: 'pointer'
-                                                                }}
-                                                            >
-                                                                Hoy
-                                                            </button>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => {
-                                                                    const tom = new Date();
-                                                                    tom.setDate(tom.getDate() + 1);
-                                                                    setExecFecha(tom.toISOString().split('T')[0]);
-                                                                }}
-                                                                style={{
-                                                                    fontSize: '11px',
-                                                                    fontWeight: '600',
-                                                                    padding: '2px 7px',
-                                                                    borderRadius: '6px',
-                                                                    border: '1px solid #cbd5e1',
-                                                                    background: '#fff',
-                                                                    color: '#475569',
-                                                                    cursor: 'pointer'
-                                                                }}
-                                                            >
-                                                                Mañana
-                                                            </button>
-                                                        </div>
+                                                        <label style={{ fontSize: '12px', fontWeight: '800', color: '#334155' }}>
+                                                            📅 Fecha de Ejecución
+                                                        </label>
+                                                        {trabajo.fecha_programada && (
+                                                            <span style={{ fontSize: '10px', color: '#059669', background: '#ecfdf5', padding: '1px 6px', borderRadius: '4px', fontWeight: '700' }}>
+                                                                Solicitada: {trabajo.fecha_programada.includes('-') ? trabajo.fecha_programada.split('-').reverse().join('/') : trabajo.fecha_programada}
+                                                            </span>
+                                                        )}
                                                     </div>
-                                                    <input 
-                                                        type="date" 
-                                                        value={execFecha} 
-                                                        onChange={e => setExecFecha(e.target.value)}
-                                                        style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1.5px solid #cbd5e1', fontSize: '13px', outline: 'none', background: '#fff', fontWeight: '600', color: '#0f172a' }}
+                                                    <input
+                                                        type="date"
+                                                        value={execFecha}
+                                                        onChange={(e) => setExecFecha(e.target.value)}
+                                                        min={new Date().toISOString().split('T')[0]}
+                                                        style={{ width: '100%', padding: '9px 12px', border: '1.5px solid #cbd5e1', borderRadius: '10px', fontSize: '13px', fontWeight: '600', color: '#1e293b', outline: 'none', boxSizing: 'border-box' }}
                                                     />
                                                 </div>
                                                 <div>
-                                                    <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>Hora Confirmada *</label>
-                                                    <select
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                                        <label style={{ fontSize: '12px', fontWeight: '800', color: '#334155' }}>
+                                                            ⏰ Hora de Llegada
+                                                        </label>
+                                                        {(trabajo.horaAsignada || trabajo.hora_programada) && (
+                                                            <span style={{ fontSize: '10px', color: '#059669', background: '#ecfdf5', padding: '1px 6px', borderRadius: '4px', fontWeight: '700' }}>
+                                                                Actual: {(trabajo.horaAsignada || trabajo.hora_programada || '').substring(0, 5)}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <input
+                                                        type="time"
                                                         value={execHora}
                                                         onChange={(e) => setExecHora(e.target.value)}
-                                                        style={{
-                                                            width: '100%',
-                                                            padding: '10px 12px',
-                                                            borderRadius: '10px',
-                                                            border: '1.5px solid #cbd5e1',
-                                                            fontSize: '13px',
-                                                            fontWeight: '600',
-                                                            color: '#0f172a',
-                                                            background: '#fff',
-                                                            outline: 'none',
-                                                            cursor: 'pointer'
-                                                        }}
-                                                    >
-                                                        <option value="">-- Seleccionar Hora --</option>
-                                                        {[
-                                                            { val: '07:00', lbl: '07:00 AM' },
-                                                            { val: '07:30', lbl: '07:30 AM' },
-                                                            { val: '08:00', lbl: '08:00 AM' },
-                                                            { val: '08:30', lbl: '08:30 AM' },
-                                                            { val: '09:00', lbl: '09:00 AM (Mañana)' },
-                                                            { val: '09:30', lbl: '09:30 AM' },
-                                                            { val: '10:00', lbl: '10:00 AM' },
-                                                            { val: '10:30', lbl: '10:30 AM' },
-                                                            { val: '11:00', lbl: '11:00 AM' },
-                                                            { val: '11:30', lbl: '11:30 AM' },
-                                                            { val: '12:00', lbl: '12:00 PM (Mediodía)' },
-                                                            { val: '12:30', lbl: '12:30 PM' },
-                                                            { val: '13:00', lbl: '01:00 PM' },
-                                                            { val: '13:30', lbl: '01:30 PM' },
-                                                            { val: '14:00', lbl: '02:00 PM' },
-                                                            { val: '14:30', lbl: '02:30 PM' },
-                                                            { val: '15:00', lbl: '03:00 PM (Tarde)' },
-                                                            { val: '15:30', lbl: '03:30 PM' },
-                                                            { val: '16:00', lbl: '04:00 PM' },
-                                                            { val: '16:30', lbl: '04:30 PM' },
-                                                            { val: '17:00', lbl: '05:00 PM' },
-                                                            { val: '17:30', lbl: '05:30 PM' },
-                                                            { val: '18:00', lbl: '06:00 PM' },
-                                                            { val: '18:30', lbl: '06:30 PM' },
-                                                            { val: '19:00', lbl: '07:00 PM' },
-                                                            { val: '19:30', lbl: '07:30 PM' },
-                                                            { val: '20:00', lbl: '08:00 PM' }
-                                                        ].map(h => (
-                                                            <option key={h.val} value={h.val}>{h.lbl}</option>
-                                                        ))}
-                                                    </select>
+                                                        style={{ width: '100%', padding: '9px 12px', border: '1.5px solid #cbd5e1', borderRadius: '10px', fontSize: '13px', fontWeight: '600', color: '#1e293b', outline: 'none', boxSizing: 'border-box' }}
+                                                    />
                                                 </div>
                                             </div>
-                                            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '4px' }}>
+                                            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '4px', flexWrap: 'wrap' }}>
                                                 <button
                                                     onClick={() => setIsEditingExecutionTime(false)}
                                                     style={{ padding: '9px 16px', background: '#f1f5f9', color: '#64748b', border: 'none', borderRadius: '10px', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }}
@@ -4995,17 +5051,17 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                             </div>
                                         </div>
                                     ) : (
-                                        <div style={{ display: 'flex', gap: '24px', background: 'white', padding: '14px 18px', borderRadius: '14px', border: '1px solid #a7f3d0', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
-                                            <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', alignItems: 'center' }}>
-                                                <div>
+                                        <div style={{ display: 'flex', gap: '16px', background: 'white', padding: '14px 18px', borderRadius: '14px', border: '1px solid #a7f3d0', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', minWidth: 0, width: '100%', boxSizing: 'border-box' }}>
+                                            <div style={{ display: 'flex', gap: '16px 24px', flexWrap: 'wrap', alignItems: 'center', minWidth: 0, flex: 1 }}>
+                                                <div style={{ minWidth: '120px' }}>
                                                     <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', display: 'block' }}>📅 Fecha de Ejecución</span>
-                                                    <span style={{ fontSize: '14px', fontWeight: '800', color: '#0f172a' }}>
+                                                    <span style={{ fontSize: '14px', fontWeight: '800', color: '#0f172a', wordBreak: 'break-word' }}>
                                                         {trabajo.fecha_programada ? (trabajo.fecha_programada.includes('-') ? trabajo.fecha_programada.split('-').reverse().join('/') : trabajo.fecha_programada) : 'Pendiente'}
                                                     </span>
                                                 </div>
-                                                <div>
+                                                <div style={{ minWidth: '120px' }}>
                                                     <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', display: 'block' }}>⏰ Hora Confirmada</span>
-                                                    <span style={{ fontSize: '14px', fontWeight: '800', color: '#0f172a' }}>
+                                                    <span style={{ fontSize: '14px', fontWeight: '800', color: '#0f172a', wordBreak: 'break-word' }}>
                                                         {(() => {
                                                             const rawH = trabajo.horaAsignada || trabajo.hora_programada;
                                                             if (!rawH) return 'Pendiente';
@@ -5013,9 +5069,9 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                         })()}
                                                     </span>
                                                 </div>
-                                                <div>
+                                                <div style={{ minWidth: '120px' }}>
                                                     <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', display: 'block' }}>👷 Técnico Asignado</span>
-                                                    <span style={{ fontSize: '14px', fontWeight: '800', color: '#059669' }}>
+                                                    <span style={{ fontSize: '14px', fontWeight: '800', color: '#059669', wordBreak: 'break-word' }}>
                                                         {trabajo.tecnico || 'Técnico de Servicio'}
                                                     </span>
                                                 </div>
@@ -5047,19 +5103,24 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
 
                             {/* BANNER SOS: ASIGNACIÓN DE TÉCNICO URGENTE */}
                             {isSOS && isAdminUser && (trabajo.estado === 'Solicitud' || trabajo.estado === 'Pendiente' || !trabajo.trabajador_id) && (
-                                <div style={{
-                                    gridColumn: 'span 12',
-                                    background: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)',
-                                    border: '2px solid #ef4444',
-                                    borderRadius: '20px',
-                                    padding: '18px 24px',
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center',
-                                    flexWrap: 'wrap',
-                                    gap: '16px',
-                                    boxShadow: '0 4px 20px rgba(239, 68, 68, 0.15)'
-                                }}>
+                                <div 
+                                    className={`${styles.bentoCard} ${styles.colSpan12}`}
+                                    style={{
+                                        background: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)',
+                                        border: '2px solid #ef4444',
+                                        borderRadius: '20px',
+                                        padding: '18px 24px',
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        flexWrap: 'wrap',
+                                        gap: '16px',
+                                        boxShadow: '0 4px 20px rgba(239, 68, 68, 0.15)',
+                                        boxSizing: 'border-box',
+                                        maxWidth: '100%',
+                                        overflow: 'hidden'
+                                    }}
+                                >
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
                                         <div style={{
                                             background: '#ef4444',
@@ -5111,17 +5172,22 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
 
                             {/* BANNER 2: REASIGNACIÓN DE TÉCNICO SOLICITADA */}
                             {(trabajo.estado === 'Reasignación Solicitada' || trabajo.motivo_reasignacion || localStorage.getItem(`reassign_reason_${trabajo.id}`)) && (
-                                <div style={{
-                                    gridColumn: 'span 12',
-                                    background: 'linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%)',
-                                    border: '2px solid #f43f5e',
-                                    borderRadius: '20px',
-                                    padding: '16px 20px',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    gap: '12px',
-                                    boxShadow: '0 4px 16px rgba(244, 63, 94, 0.12)'
-                                }}>
+                                <div 
+                                    className={`${styles.bentoCard} ${styles.colSpan12}`}
+                                    style={{
+                                        background: 'linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%)',
+                                        border: '2px solid #f43f5e',
+                                        borderRadius: '20px',
+                                        padding: '16px 20px',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: '12px',
+                                        boxShadow: '0 4px 16px rgba(244, 63, 94, 0.12)',
+                                        boxSizing: 'border-box',
+                                        maxWidth: '100%',
+                                        overflow: 'hidden'
+                                    }}
+                                >
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                             <div style={{ background: '#f43f5e', color: 'white', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', fontWeight: 'bold' }}>
@@ -5181,14 +5247,14 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                     <h3 className={styles.cardTitle} style={{ cursor: 'pointer', textDecoration: 'underline' }}>Sucursal</h3>
                                 </div>
                                 <div className={styles.bentoContent}>
-                                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '15px' }}>
-                                        <div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '15px' }}>
+                                        <div style={{ minWidth: '160px', flex: '1 1 auto' }}>
                                             <span className={styles.bentoLabel}>Nombre</span>
-                                            <span className={styles.bentoValue} style={{ fontSize: '20px' }}>{trabajo.sucursal || "No registrado"}</span>
+                                            <span className={styles.bentoValue} style={{ fontSize: '20px', wordBreak: 'break-word' }}>{trabajo.sucursal || "No registrado"}</span>
                                             <span className={styles.badge} style={{ marginTop: '5px' }}>{trabajo.tipo || "Trabajo"}</span>
                                         </div>
-                                        <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end', justifyContent: 'center' }}>
-                                             <span style={{ fontSize: '13px', color: '#059669', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-start', justifyContent: 'center', flexShrink: 0 }}>
+                                             <span style={{ fontSize: '13px', color: '#059669', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
                                                  📅 Cita solicitada: {trabajo.fecha_programada ? (trabajo.fecha_programada.includes('-') ? trabajo.fecha_programada.split('-').reverse().join('/') : trabajo.fecha_programada) : trabajo.fecha}
                                              </span>
                                              {trabajo.latitud_llegada && user?.role !== 'tecnico' &&
@@ -5229,11 +5295,11 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                         const photos = parseFotoUrls(groupJob.foto_url);
                                                         return (
                                                             <div key={groupJob.id} style={{ padding: '14px', background: '#ffffff', borderRadius: '12px', border: '1px solid #cbd5e1' }}>
-                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', borderBottom: '1px solid #f1f5f9', paddingBottom: '6px' }}>
-                                                                    <span style={{ fontSize: '12px', fontWeight: '800', color: '#1e293b' }}>
+                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px', marginBottom: '8px', borderBottom: '1px solid #f1f5f9', paddingBottom: '6px' }}>
+                                                                    <span style={{ fontSize: '12px', fontWeight: '800', color: '#1e293b', flex: 1, minWidth: 0, wordBreak: 'break-word', lineHeight: '1.4' }}>
                                                                         🛠️ SERVICIO #{idx + 1}: {groupJob.titulo}
                                                                     </span>
-                                                                    <span className={styles.badge} style={{ margin: 0, fontSize: '10px', background: '#e2e8f0', color: '#475569' }}>
+                                                                    <span style={{ margin: 0, fontSize: '11px', fontWeight: '800', background: '#e2e8f0', color: '#334155', padding: '3px 8px', borderRadius: '8px', whiteSpace: 'nowrap', flexShrink: 0, display: 'inline-flex', alignItems: 'center', letterSpacing: '0.3px' }}>
                                                                         ID: {groupJob.id}
                                                                     </span>
                                                                 </div>
@@ -5299,7 +5365,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
 
                             {/* Card 1.5: Equipo en Mantenimiento (12/12) */}
                             {((trabajo as any).mantenimiento_solicitud_visita?.levantamiento_equipo || (trabajo as any).mantenimiento_solicitud_reparacion?.levantamiento_equipo) && (
-                                <div className={`${styles.bentoCard} ${styles.equipoCard}`} style={{ gridColumn: 'span 12', border: '1.5px solid #a7f3d0', background: 'linear-gradient(to right, #f8fafc, #ecfdf5)' }}>
+                                <div className={`${styles.bentoCard} ${styles.colSpan12} ${styles.equipoCard}`} style={{ border: '1.5px solid #a7f3d0', background: 'linear-gradient(to right, #f8fafc, #ecfdf5)', boxSizing: 'border-box', maxWidth: '100%' }}>
                                     <div className={styles.cardHeader} style={{ marginBottom: '10px' }}>
                                         <div className={`${styles.iconBox}`} style={{ background: '#059669', color: 'white' }}>
                                             <HiOutlineClipboardDocument size={20} />
@@ -5683,7 +5749,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                 <div className={`${styles.colSpan12}`} style={{ marginTop: '5px' }}>
                                     <div style={{ display: 'flex', gap: '10px' }}>
                                         {/* Para solicitudes NORMALES: mostrar "Crear Cotización" tras la visita */}
-                                        {!isSOS && (trabajo.estado === "Solicitud" && trabajo.visitado || trabajo.estado === "En Espera") && (
+                                        {!isSOS && Boolean((trabajo.estado === "Solicitud" && trabajo.visitado) || trabajo.estado === "En Espera") && (
                                             <button
                                                 onClick={() => setActiveTab('Cotización')}
                                                 className={styles.actionButton}
@@ -5856,12 +5922,34 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                                 <span className={styles.clientCotizTotalValue}>${Number(cotiz.monto).toLocaleString('es-MX')}</span>
                                                             </div>
 
-                                                            {/* PDF */}
-                                                            {cotiz.archivo && (
-                                                                <button onClick={() => setPreviewQuote(cotiz)} className={styles.clientCotizPdfBtn}>
-                                                                    <HiOutlineDocumentText size={18} /> Descargar Presupuesto Detallado.pdf
-                                                                </button>
-                                                            )}
+                                                            {/* Botón Ver y Descargar PDF Oficial */}
+                                                            <button 
+                                                                type="button"
+                                                                onClick={() => setPreviewQuote(cotiz)} 
+                                                                className={styles.clientCotizPdfBtn}
+                                                                style={{
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'center',
+                                                                    gap: '8px',
+                                                                    width: '100%',
+                                                                    padding: '13px 18px',
+                                                                    background: '#eff6ff',
+                                                                    color: '#1d4ed8',
+                                                                    border: '1.5px solid #bfdbfe',
+                                                                    borderRadius: '12px',
+                                                                    fontSize: '14px',
+                                                                    fontWeight: '800',
+                                                                    cursor: 'pointer',
+                                                                    boxSizing: 'border-box',
+                                                                    marginBottom: '16px',
+                                                                    boxShadow: '0 2px 8px rgba(37, 99, 235, 0.08)',
+                                                                    transition: 'all 0.2s ease'
+                                                                }}
+                                                            >
+                                                                <HiOutlineDocumentText size={20} color="#2563eb" /> 
+                                                                <span>Ver Presupuesto PDF (Descargar)</span>
+                                                            </button>
 
                                                             {/* Motivo de rechazo */}
                                                             {isRejected && rejectionReason && (
@@ -5937,13 +6025,45 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
 
                                     const canEditCotizacion = isSOS ? false : isAdminUser;
                                     const showLeftColumn = cotizaciones.length > 0 || canEditCotizacion || (isSOS && isTechRole);
+                                    const hasTechData = Boolean(subTareas.some(t => t.esCotizacion) || actualReporte || (quoteHistory && quoteHistory.length > 0));
 
                                     return (
-                                        <div style={{ display: 'grid', gridTemplateColumns: showLeftColumn ? '1.1fr 0.9fr' : '1fr', gap: '30px', alignItems: 'start' }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%', maxWidth: '100%', position: 'relative' }}>
                                             
-                                            {/* COLUMNA IZQUIERDA: lista de cotizaciones y formulario */}
+                                            {/* BOTÓN SUPERIOR DE ACCESO RÁPIDO A COTIZACIÓN DEL TÉCNICO Y CHAT (PC / DESKTOP) */}
+                                            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginBottom: '-6px' }}>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setIsTechDrawerOpen(true)}
+                                                    className={styles.techDrawerDesktopTrigger}
+                                                >
+                                                    <HiOutlineDocumentText size={17} color="#f26522" />
+                                                    <span>Ver Cotización del Técnico & Chat</span>
+                                                    <HiOutlineChevronLeft size={16} style={{ strokeWidth: 3 }} />
+                                                </button>
+                                            </div>
+
+                                            {/* BOTÓN FLOTANTE LATERAL EN EL BORDE DERECHO */}
+                                            {!isTechDrawerOpen && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setIsTechDrawerOpen(true)}
+                                                    className={styles.techDrawerFloatingTrigger}
+                                                    title="Ver Cotización del Técnico & Chat"
+                                                >
+                                                    <HiOutlineChevronLeft size={20} style={{ strokeWidth: 3 }} />
+                                                    <span style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', fontSize: '11px', fontWeight: '900', letterSpacing: '0.6px', textTransform: 'uppercase' }}>
+                                                        Técnico & Chat
+                                                    </span>
+                                                    {hasTechData && (
+                                                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#fff', boxShadow: '0 0 6px #fff' }} />
+                                                    )}
+                                                </button>
+                                            )}
+
+                                            {/* COLUMNA PRINCIPAL (ANCHO COMPLETO): lista de cotizaciones y formulario */}
                                             {showLeftColumn && (
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%', maxWidth: '100%' }}>
                                                     {/* Admin Banner for Re-Cotización / Rejected Quote */}
                                                     {(user?.role === 'admin' || user?.role === 'autonomo' || user?.role === 'admin-autonomo') && (trabajo?.estado === 'Cotización Rechazada' || cotizaciones.some(c => c.estado === 'Rechazada')) && (
                                                         <div className={styles.adminRecotizBanner}>
@@ -6157,24 +6277,26 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                     )}
 
                                                 {cotizaciones.length > 0 && (
-                                                    <div style={{ background: '#fff', borderRadius: '24px', padding: '28px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px', paddingBottom: '16px', borderBottom: '2px solid #f8fafc' }}>
-                                                            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }} />
-                                                            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#1e293b' }}>Cotizaciones Enviadas</h3>
-                                                            <span style={{ background: '#ecfdf5', color: '#065f46', fontSize: '12px', fontWeight: '800', padding: '4px 12px', borderRadius: '20px', border: '1px solid #a7f3d0' }}>
-                                                                {cotizaciones.length} cotizacion{cotizaciones.length !== 1 ? 'es' : ''}
-                                                            </span>
+                                                    <div style={{ background: '#fff', borderRadius: '24px', padding: '22px 18px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9', boxSizing: 'border-box', width: '100%', maxWidth: '100%' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '20px', paddingBottom: '16px', borderBottom: '2px solid #f8fafc', flexWrap: 'wrap' }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                                                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }} />
+                                                                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#1e293b' }}>Cotizaciones Enviadas</h3>
+                                                                <span style={{ background: '#ecfdf5', color: '#065f46', fontSize: '12px', fontWeight: '800', padding: '3px 10px', borderRadius: '20px', border: '1px solid #a7f3d0' }}>
+                                                                    {cotizaciones.length} cotizacion{cotizaciones.length !== 1 ? 'es' : ''}
+                                                                </span>
+                                                            </div>
                                                             {canEditCotizacion && (
                                                                 <button
                                                                     onClick={() => { setShowAddQuoteForm(true); setCosto(''); setNotas(''); }}
-                                                                    style={{ marginLeft: 'auto', padding: '7px 14px', background: 'linear-gradient(135deg, #f26522, #d14d13)', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '12px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', boxShadow: '0 4px 12px rgba(242,101,34,0.3)', whiteSpace: 'nowrap' }}
+                                                                    style={{ padding: '7px 14px', background: 'linear-gradient(135deg, #f26522, #d14d13)', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '12px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', boxShadow: '0 4px 12px rgba(242,101,34,0.3)', whiteSpace: 'nowrap' }}
                                                                 >
                                                                     <HiOutlineCurrencyDollar size={14} /> + Agregar otra
                                                                 </button>
                                                             )}
                                                         </div>
 
-                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
                                                             {cotizaciones.map((cotiz, idx) => {
                                                                 const isEditing = editingCotizacion?.id === cotiz.id;
                                                                 const estadoBadge: Record<string, string> = { Pendiente: '#fffbeb', Aprobada: '#ecfdf5', Rechazada: '#fef2f2' };
@@ -6182,10 +6304,10 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                                 const displayEstado = (trabajo?.estado === 'Cotización Aceptada') ? 'Aprobada' : (cotiz.estado || 'Pendiente');
                                                                 const displayEstadoText = (trabajo?.estado === 'Cotización Aceptada') ? 'Aceptada' : (cotiz.estado || 'Pendiente');
                                                                 return (
-                                                                    <div key={cotiz.id} style={{ background: '#fafafa', border: '1.5px solid #f1f5f9', borderRadius: '18px', padding: '18px' }}>
+                                                                    <div key={cotiz.id} style={{ background: '#fafafa', border: '1.5px solid #f1f5f9', borderRadius: '18px', padding: '16px', boxSizing: 'border-box', width: '100%' }}>
                                                                         {isEditing ? (
                                                                             /* FORMULARIO INLINE DE EDICIÓN */
-                                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%', boxSizing: 'border-box' }}>
                                                                                 <p style={{ margin: '0 0 4px 0', fontSize: '12px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase' }}>Editando Opción {idx + 1}</p>
                                                                                 <div style={{ position: 'relative' }}>
                                                                                     <span style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', fontWeight: '900', color: '#f26522', fontSize: '16px' }}>$</span>
@@ -6198,35 +6320,40 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                                                 <button onClick={() => editFileInputRef.current?.click()} style={{ padding: '10px', borderRadius: '10px', border: '2px dashed #e2e8f0', background: editArchivoFile ? '#f0fdf4' : '#f8fafc', color: editArchivoFile ? '#059669' : '#64748b', fontWeight: '700', fontSize: '13px', cursor: 'pointer' }}>
                                                                                     {editArchivoFile ? `✓ ${editNombreArchivo}` : '📎 Cambiar documento (opcional)'}
                                                                                 </button>
-                                                                                <div style={{ display: 'flex', gap: '8px' }}>
+                                                                                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                                                                                     <button onClick={handleUpdateCotizacion} style={{ flex: 1, padding: '12px', background: 'linear-gradient(135deg, #f26522, #d14d13)', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: '800', cursor: 'pointer', fontSize: '14px' }}>💾 Guardar cambios</button>
                                                                                     <button onClick={() => setEditingCotizacion(null)} style={{ padding: '12px 16px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', fontWeight: '700', cursor: 'pointer', fontSize: '14px', color: '#475569' }}>Cancelar</button>
                                                                                 </div>
                                                                             </div>
                                                                         ) : (
                                                                             /* VISTA DE LA COTIZACIÓN */
-                                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
-                                                                                <div>
-                                                                                    <p style={{ margin: '0 0 4px 0', fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
+                                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%', boxSizing: 'border-box' }}>
+                                                                                {/* Fila 1: Título y Estado */}
+                                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', flexWrap: 'wrap', width: '100%', boxSizing: 'border-box' }}>
+                                                                                    <p style={{ margin: 0, fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.8px', wordBreak: 'break-word', flex: '1 1 auto', minWidth: '120px' }}>
                                                                                         {getQuoteTitle(cotiz.descripcion || "", `Opción ${idx + 1}`)}
                                                                                     </p>
-                                                                                    <p style={{ margin: '0 0 6px 0', fontSize: '22px', fontWeight: '900', color: '#1e293b' }}>${Number(cotiz.monto).toLocaleString('es-MX')}</p>
-                                                                                    {cotiz.descripcion && <p style={{ margin: 0, fontSize: '12px', color: '#64748b', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cleanQuoteDescription(cotiz.descripcion)}</p>}
-                                                                                </div>
-                                                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
-                                                                                    <span style={{ padding: '4px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: '800', background: estadoBadge[displayEstado], color: estadoText[displayEstado] }}>
+                                                                                    <span style={{ padding: '4px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: '800', background: estadoBadge[displayEstado], color: estadoText[displayEstado], flexShrink: 0 }}>
                                                                                         {displayEstadoText}
                                                                                     </span>
-                                                                                    <div style={{ display: 'flex', gap: '6px' }}>
-                                                                                        <button onClick={() => { setCosto(cotiz.monto?.toString() || ''); setNotas(cotiz.descripcion || ''); setShowPDFPreview(true); }} style={{ padding: '7px 12px', borderRadius: '10px', background: '#fef2f2', border: '1px solid #fecaca', cursor: 'pointer', fontSize: '13px', fontWeight: '700', color: '#ef4444', display: 'flex', alignItems: 'center', gap: '4px' }}><HiOutlineDocumentText size={16} /> Preview PDF</button>
+                                                                                </div>
+
+                                                                                {/* Fila 2: Monto y Acciones */}
+                                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap', width: '100%', boxSizing: 'border-box' }}>
+                                                                                    <p style={{ margin: 0, fontSize: '22px', fontWeight: '900', color: '#1e293b' }}>${Number(cotiz.monto).toLocaleString('es-MX')}</p>
+                                                                                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center', maxWidth: '100%' }}>
+                                                                                        <button onClick={() => { setCosto(cotiz.monto?.toString() || ''); setNotas(cotiz.descripcion || ''); setShowPDFPreview(true); }} style={{ padding: '7px 11px', borderRadius: '10px', background: '#fef2f2', border: '1px solid #fecaca', cursor: 'pointer', fontSize: '12px', fontWeight: '700', color: '#ef4444', display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}><HiOutlineDocumentText size={15} /> Preview PDF</button>
                                                                                         {canEditCotizacion && (
                                                                                             <>
-                                                                                                <button onClick={() => handleEditarCotizacion(cotiz)} style={{ padding: '7px 12px', borderRadius: '10px', background: '#f1f5f9', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: '700', color: '#475569' }}>✏️ Editar</button>
-                                                                                                <button onClick={() => handleEliminarCotizacion(cotiz.id!)} style={{ padding: '7px 12px', borderRadius: '10px', background: '#fef2f2', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: '700', color: '#ef4444' }}>🗑️</button>
+                                                                                                <button onClick={() => handleEditarCotizacion(cotiz)} style={{ padding: '7px 11px', borderRadius: '10px', background: '#f1f5f9', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: '700', color: '#475569', whiteSpace: 'nowrap' }}>✏️ Editar</button>
+                                                                                                <button onClick={() => handleEliminarCotizacion(cotiz.id!)} style={{ padding: '7px 11px', borderRadius: '10px', background: '#fef2f2', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: '700', color: '#ef4444' }}>🗑️</button>
                                                                                             </>
                                                                                         )}
                                                                                     </div>
                                                                                 </div>
+
+                                                                                {/* Fila 3: Descripción */}
+                                                                                {cotiz.descripcion && <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#64748b', maxWidth: '100%', wordBreak: 'break-word' }}>{cleanQuoteDescription(cotiz.descripcion)}</p>}
                                                                             </div>
                                                                         )}
 
@@ -6310,10 +6437,10 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                     )
                                                 ) : (
                                                     /* FORMULARIO NUEVA COTIZACIÓN MÚLTIPLE */
-                                                    <div style={{ background: '#fff', borderRadius: '24px', padding: '28px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}>
-                                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '22px', paddingBottom: '16px', borderBottom: '2px solid #f8fafc' }}>
+                                                    <div style={{ background: '#fff', borderRadius: '24px', padding: '24px 18px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9', boxSizing: 'border-box', width: '100%', maxWidth: '100%' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '22px', paddingBottom: '16px', borderBottom: '2px solid #f8fafc', flexWrap: 'wrap', gap: '10px' }}>
                                                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                                <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'linear-gradient(135deg, #f26522, #d14d13)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'linear-gradient(135deg, #f26522, #d14d13)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                                                     <HiOutlineCurrencyDollar size={20} color="white" />
                                                                 </div>
                                                                 <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#1e293b' }}>
@@ -6334,15 +6461,15 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                             </button>
                                                         </div>
 
-                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '20px' }}>
+                                                        <div className={styles.cardTransparentScroll} style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '20px', maxHeight: '520px', width: '100%', boxSizing: 'border-box' }}>
                                                             {cotizacionesFormItems.map((item, idx) => {
                                                                 const itemMatsTotal = item.materials.reduce((acc, m) => acc + ((parseFloat(m.precio) || 0) * (parseFloat(m.piezas) || 1)), 0);
                                                                 const itemTotal = (parseFloat(item.manoObra) || 0) + itemMatsTotal;
 
                                                                 return (
-                                                                    <div key={item.id} style={{ background: '#fafafa', border: '1.5px solid #e2e8f0', borderRadius: '16px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                                    <div key={item.id} style={{ background: '#fafafa', border: '1.5px solid #e2e8f0', borderRadius: '16px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', width: '100%', boxSizing: 'border-box' }}>
                                                                         {/* Cabecera del item */}
-                                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '10px' }}>
+                                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
                                                                             <span style={{ fontSize: '14px', fontWeight: '800', color: '#1e293b' }}>
                                                                                 Propuesta #{idx + 1}{item.titulo ? ` - ${item.titulo}` : ''}
                                                                             </span>
@@ -6360,8 +6487,8 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                                                     <button
                                                                                         type="button"
                                                                                         onClick={() => {
-                                                                                            setCotizacionesFormItems(cotizacionesFormItems.filter(c => c.id !== item.id));
-                                                                                        }}
+                                                                                        setCotizacionesFormItems(cotizacionesFormItems.filter(c => c.id !== item.id));
+                                                                                    }}
                                                                                         style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '6px', padding: '4px 8px', fontSize: '11px', color: '#ef4444', cursor: 'pointer', fontWeight: '700' }}
                                                                                     >
                                                                                         ✕ Eliminar
@@ -6381,7 +6508,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                                         ) : (
                                                                             <>
                                                                                 {/* Detalle del item */}
-                                                                                <div style={{ marginBottom: '8px' }}>
+                                                                                <div style={{ marginBottom: '8px', width: '100%', boxSizing: 'border-box' }}>
                                                                                     <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Título de la Propuesta / Problema</label>
                                                                                     <input
                                                                                         type="text"
@@ -6390,12 +6517,12 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                                                         onChange={(e) => {
                                                                                             setCotizacionesFormItems(cotizacionesFormItems.map(c => c.id === item.id ? { ...c, titulo: e.target.value } : c));
                                                                                         }}
-                                                                                        style={{ width: '100%', padding: '8px 12px', borderRadius: '10px', border: '1.5px solid #cbd5e1', fontSize: '14px', boxSizing: 'border-box' }}
+                                                                                        style={{ width: '100%', minWidth: 0, padding: '8px 12px', borderRadius: '10px', border: '1.5px solid #cbd5e1', fontSize: '14px', boxSizing: 'border-box' }}
                                                                                     />
                                                                                 </div>
-                                                                                <div>
+                                                                                <div style={{ width: '100%', boxSizing: 'border-box' }}>
                                                                                     <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Mano de Obra ($)</label>
-                                                                                    <div style={{ position: 'relative' }}>
+                                                                                    <div style={{ position: 'relative', width: '100%', boxSizing: 'border-box' }}>
                                                                                         <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '16px', fontWeight: '900', color: '#f26522' }}>$</span>
                                                                                         <input
                                                                                             type="number"
@@ -6404,16 +6531,16 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                                                             onChange={(e) => {
                                                                                                 setCotizacionesFormItems(cotizacionesFormItems.map(c => c.id === item.id ? { ...c, manoObra: e.target.value } : c));
                                                                                             }}
-                                                                                            style={{ width: '100%', padding: '8px 12px 8px 28px', borderRadius: '10px', border: '1.5px solid #cbd5e1', fontSize: '14px', boxSizing: 'border-box' }}
+                                                                                            style={{ width: '100%', minWidth: 0, padding: '8px 12px 8px 28px', borderRadius: '10px', border: '1.5px solid #cbd5e1', fontSize: '14px', boxSizing: 'border-box' }}
                                                                                         />
                                                                                     </div>
                                                                                 </div>
 
-                                                                                <div>
+                                                                                <div style={{ width: '100%', boxSizing: 'border-box' }}>
                                                                                     <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Materiales y Piezas</label>
-                                                                                    <div style={{ background: '#f8fafc', padding: '10px', borderRadius: '10px', border: '1px solid #cbd5e1' }}>
+                                                                                    <div style={{ background: '#f8fafc', padding: '10px', borderRadius: '10px', border: '1px solid #cbd5e1', width: '100%', boxSizing: 'border-box' }}>
                                                                                         {item.materials.map((mat, mIdx) => (
-                                                                                            <div key={mIdx} style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '10px', paddingBottom: '10px', borderBottom: mIdx < item.materials.length - 1 ? '1px solid #e2e8f0' : 'none' }}>
+                                                                                            <div key={mIdx} style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '10px', paddingBottom: '10px', borderBottom: mIdx < item.materials.length - 1 ? '1px solid #e2e8f0' : 'none', width: '100%', boxSizing: 'border-box' }}>
                                                                                                 <input
                                                                                                     placeholder="Material / Refacción"
                                                                                                     value={mat.material}
@@ -6427,9 +6554,9 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                                                                             return c;
                                                                                                         }));
                                                                                                     }}
-                                                                                                    style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', boxSizing: 'border-box' }}
+                                                                                                    style={{ width: '100%', minWidth: 0, padding: '7px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', boxSizing: 'border-box' }}
                                                                                                 />
-                                                                                                <div style={{ display: 'flex', gap: '8px' }}>
+                                                                                                <div style={{ display: 'grid', gridTemplateColumns: item.materials.length > 1 ? 'minmax(0, 1fr) minmax(0, 1.4fr) auto' : 'minmax(0, 1fr) minmax(0, 1.4fr)', gap: '8px', alignItems: 'center', width: '100%', boxSizing: 'border-box' }}>
                                                                                                     <input
                                                                                                         type="number"
                                                                                                         placeholder="Cant"
@@ -6444,7 +6571,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                                                                                 return c;
                                                                                                             }));
                                                                                                         }}
-                                                                                                        style={{ flex: 1, padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', boxSizing: 'border-box' }}
+                                                                                                        style={{ width: '100%', minWidth: 0, padding: '7px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', boxSizing: 'border-box' }}
                                                                                                     />
                                                                                                     <input
                                                                                                         type="number"
@@ -6460,22 +6587,24 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                                                                                 return c;
                                                                                                             }));
                                                                                                         }}
-                                                                                                        style={{ flex: 1, padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', boxSizing: 'border-box' }}
+                                                                                                        style={{ width: '100%', minWidth: 0, padding: '7px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', boxSizing: 'border-box' }}
                                                                                                     />
-                                                                                                    <button
-                                                                                                        type="button"
-                                                                                                        onClick={() => {
-                                                                                                            setCotizacionesFormItems(cotizacionesFormItems.map(c => {
-                                                                                                                if (c.id === item.id) {
-                                                                                                                    return { ...c, materials: c.materials.filter((_, idx) => idx !== mIdx) };
-                                                                                                                }
-                                                                                                                return c;
-                                                                                                            }));
-                                                                                                        }}
-                                                                                                        style={{ background: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca', padding: '0 10px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
-                                                                                                    >
-                                                                                                        ✕
-                                                                                                    </button>
+                                                                                                    {item.materials.length > 1 && (
+                                                                                                        <button
+                                                                                                            type="button"
+                                                                                                            onClick={() => {
+                                                                                                                setCotizacionesFormItems(cotizacionesFormItems.map(c => {
+                                                                                                                    if (c.id === item.id) {
+                                                                                                                        return { ...c, materials: c.materials.filter((_, idx) => idx !== mIdx) };
+                                                                                                                    }
+                                                                                                                    return c;
+                                                                                                                }));
+                                                                                                            }}
+                                                                                                            style={{ background: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca', padding: '7px 10px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', flexShrink: 0, boxSizing: 'border-box' }}
+                                                                                                        >
+                                                                                                            ✕
+                                                                                                        </button>
+                                                                                                    )}
                                                                                                 </div>
                                                                                             </div>
                                                                                         ))}
@@ -6489,7 +6618,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                                                                     return c;
                                                                                                 }));
                                                                                             }}
-                                                                                            style={{ background: 'transparent', color: '#f26522', border: '1px dashed #f26522', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', width: '100%' }}
+                                                                                            style={{ background: 'transparent', color: '#f26522', border: '1px dashed #f26522', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', width: '100%', boxSizing: 'border-box' }}
                                                                                         >
                                                                                             + Añadir material o refacción
                                                                                         </button>
@@ -6559,7 +6688,6 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                                 </button>
                                                             </div>
                                                         )}
-
                                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                                             <button 
                                                                 type="button"
@@ -6583,11 +6711,61 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                             )}
 
 
-                                            {/* COLUMNA DERECHA: Reporte, sugerencias y PDF del técnico */}
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                                                {/* Card 1: Reporte del Técnico se eliminó de la pestaña de cotización para evitar duplicidad e información amontonada */}
+                                            {/* SLIDE-OVER DRAWER LATERAL: Reporte, sugerencias, PDF del técnico y Chat */}
+                                            {isTechDrawerOpen && (
+                                                <div 
+                                                    className={styles.techDrawerOverlay} 
+                                                    onClick={() => setIsTechDrawerOpen(false)}
+                                                />
+                                            )}
 
-                                                {/* Card 2: Evidencia Fotográfica */}
+                                            <div 
+                                                className={styles.techDrawerPanel}
+                                                style={{
+                                                    transform: isTechDrawerOpen ? 'translateX(0)' : 'translateX(105%)'
+                                                }}
+                                            >
+                                                {/* CABECERA DEL DRAWER */}
+                                                <div className={styles.techDrawerHeader}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                        <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'linear-gradient(135deg, #f26522, #d14d13)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
+                                                            <HiOutlineDocumentText size={20} />
+                                                        </div>
+                                                        <div>
+                                                            <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#1e293b' }}>
+                                                                Cotización del Técnico & Chat
+                                                            </h3>
+                                                            <span style={{ fontSize: '11px', color: '#64748b' }}>
+                                                                Sugerencias, evidencias y negociación
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setIsTechDrawerOpen(false)}
+                                                        style={{
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center',
+                                                            gap: '4px',
+                                                            padding: '7px 12px',
+                                                            background: '#f1f5f9',
+                                                            border: 'none',
+                                                            borderRadius: '8px',
+                                                            color: '#475569',
+                                                            fontSize: '12px',
+                                                            fontWeight: '800',
+                                                            cursor: 'pointer',
+                                                            transition: 'all 0.2s'
+                                                        }}
+                                                    >
+                                                        <span>Cerrar</span>
+                                                        <HiOutlineChevronRight size={16} />
+                                                    </button>
+                                                </div>
+
+                                                {/* CONTENIDO DEL DRAWER CON SCROLL TRANSPARENTE */}
+                                                <div className={`${styles.techDrawerContent} ${styles.cardTransparentScroll}`}>
+                                                    {/* Card 2: Evidencia Fotográfica */}
                                                 {actualReporte && (actualReporte.imagenes?.antes || actualReporte.imagenes?.durante || actualReporte.imagenes?.despues || actualReporte.imagenObservacion || (actualReporte.imagenesObservacion && actualReporte.imagenesObservacion.length > 0)) && (
                                                     <div style={{ background: '#fff', borderRadius: '24px', padding: '24px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)', border: '1px solid #e2e8f0' }}>
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
@@ -6641,7 +6819,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                                     <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#f26522' }} />
                                                                     <span style={{ fontSize: '13px', fontWeight: '800', color: '#1e293b' }}>Sugerencias de monto del técnico</span>
                                                                 </div>
-                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                                                <div className={styles.cardTransparentScroll} style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '520px' }}>
                                                                     {subTareas.filter(t => t.esCotizacion).map(tarea => {
                                                                         let refaccionesSource = tarea.refacciones;
                                                                         if (!refaccionesSource || refaccionesSource.length === 0) {
@@ -7339,6 +7517,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                         )}
                                                     </div>
                                                 )}
+                                                </div>
                                             </div>
                                         </div>
                                     );
@@ -7585,7 +7764,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
 
                                 {/* BANNER DE AVANCE PROGRESIVO DE REPORTES (ej. 1/3 Completados) */}
                                 {(() => {
-                                    const execTasks = getExecutableTasks(subTareas);
+                                    const execTasks = getExecutableTasks(subTareas, reporteFinal, trabajo?.id);
                                     const total = execTasks.length || 1;
                                     const completed = (trabajo?.estado === 'Finalizado' || trabajo?.estado === 'Completado' || !!reporteFinal)
                                         ? total
@@ -7732,7 +7911,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                 
                                 {/* Botones de acción del técnico al final de la pestaña Trabajo */}
                                 {((user?.role === 'tecnico' || user?.role === 'tecnico-normal' || user?.role === 'tecnico-autonomo') || user?.role === 'admin' || user?.role === 'autonomo') && (() => {
-                                    const execTasks = getExecutableTasks(subTareas);
+                                    const execTasks = getExecutableTasks(subTareas, reporteFinal, trabajo?.id);
                                     const totalCount = execTasks.length || 1;
                                     const doneCount = execTasks.filter(t => t.estado === 'Completa' || !!localStorage.getItem(`report_data_${t.id}`)).length;
                                     const isAllDone = doneCount === totalCount && doneCount > 0;
@@ -7788,7 +7967,18 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
 
                     {
                         activeTab === 'Registro' && (
-                            <div style={{ padding: '24px', background: '#f8fafc', borderRadius: '24px', border: '1px solid #cbd5e1', minHeight: '300px' }}>
+                            <div style={{
+                                width: '100%',
+                                maxWidth: '520px',
+                                margin: '0 auto',
+                                padding: '24px 20px',
+                                background: '#ffffff',
+                                borderRadius: '24px',
+                                border: '1.5px solid #cbd5e1',
+                                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.07), 0 8px 10px -6px rgba(0, 0, 0, 0.04)',
+                                minHeight: '300px',
+                                boxSizing: 'border-box'
+                            }}>
                                 {/* CASO 1: TRABAJO EN ESTADO "ASIGNADO" (Debe aceptar asignación) */}
                                 {(isTechRole || user?.role === 'tecnico' || user?.role === 'tecnico-normal' || user?.role === 'tecnico-autonomo') && trabajo.estado === 'Asignado' && (
                                     <div style={{ textAlign: 'center', padding: '40px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
@@ -7870,7 +8060,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                 )}
 
                                 {/* CASO 3: TRABAJO EN PROCESO O FINALIZADO */}
-                                {(trabajo.estado === 'En Proceso' || trabajo.estado === 'Cotización Enviada' || trabajo.visitado) && (
+                                {Boolean(trabajo.estado === 'En Proceso' || trabajo.estado === 'Cotización Enviada' || trabajo.visitado) && (
                                     <div>
                                         {/* Botón de Agregar (Solo visible si está en proceso y no se ha finalizado/enviado) */}
                                         {((user?.role === 'tecnico' || user?.role === 'tecnico-normal') || user?.role === 'admin') && trabajo.tipo === 'Visita' && !trabajo.visitado && trabajo.estado === 'En Proceso' && (
@@ -7947,7 +8137,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                 <h3 className={styles.sectionTitle}>Historial de Trabajos Realizados</h3>
                                 <div className={styles.taskList}>
                                     {(() => {
-                                        const execTasks = getExecutableTasks(subTareas);
+                                        const execTasks = getExecutableTasks(subTareas, reporteFinal, trabajo?.id);
                                         const tasksToShow = [...execTasks.filter(t => 
                                             t.estado === 'Completa' || 
                                             !!localStorage.getItem(`report_data_${t.id}`) || 
@@ -8360,10 +8550,10 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
             {
                 isAddModalOpen && (
                     <div className={styles.modalOverlay}>
-                        <div className={styles.modalContent} style={{ width: isQuoteIncluded ? '800px' : '600px', maxWidth: '96vw', boxSizing: 'border-box', padding: '40px', borderRadius: '30px', maxHeight: '90vh', overflowY: 'auto', transition: 'width 0.3s ease' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
-                                <h2 style={{ fontSize: '24px', fontWeight: 'bold', margin: 0 }}>Registro de Actividad</h2>
-                                <span style={{ color: '#888', fontWeight: 'bold', fontSize: '20px' }}>Visita</span>
+                        <div className={styles.modalContent} style={{ width: isQuoteIncluded ? '960px' : '780px', maxWidth: '95vw', boxSizing: 'border-box', padding: '28px 32px', borderRadius: '24px', maxHeight: '90vh', overflowY: 'auto', transition: 'width 0.3s ease', boxShadow: '0 20px 45px -10px rgba(0, 0, 0, 0.2)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '22px' }}>
+                                <h2 style={{ fontSize: '22px', fontWeight: '800', color: '#0f172a', margin: 0, letterSpacing: '-0.3px' }}>Registro de Actividad</h2>
+                                <span style={{ color: '#64748b', fontWeight: '700', fontSize: '13px', background: '#f1f5f9', padding: '5px 14px', borderRadius: '20px', border: '1px solid #e2e8f0', letterSpacing: '0.3px' }}>Visita</span>
                             </div>
 
                             {/* INFORMACION DE LA SOLICITUD DEL CLIENTE */}
@@ -8374,9 +8564,9 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                 const currentReqPhotos = parseFotoUrls(currentReqItem.foto_url);
 
                                 return (
-                                    <div style={{ background: '#f8fafc', border: '1.5px solid #cbd5e1', borderRadius: '18px', padding: '20px', marginBottom: '25px', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+                                    <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '16px 20px', marginBottom: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                                            <h3 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <h3 style={{ margin: 0, fontSize: '13px', fontWeight: '800', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                 <span>📋</span> Información de la Solicitud
                                             </h3>
                                             {requestItems.length > 1 && (
@@ -8430,22 +8620,22 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                         
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                             <div>
-                                                <span style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '2px' }}>Servicio solicitado</span>
-                                                <span style={{ fontSize: '13px', fontWeight: '700', color: '#334155' }}>
+                                                <span style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '2px', letterSpacing: '0.4px' }}>Servicio solicitado</span>
+                                                <span style={{ fontSize: '13.5px', fontWeight: '700', color: '#1e293b' }}>
                                                     {currentReqItem.titulo || currentReqItem.tipo || 'Servicio de Mantenimiento'}
                                                 </span>
                                             </div>
                                             {currentReqItem.descripcion && (
                                                 <div>
-                                                    <span style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '2px' }}>Detalles / Notas del Cliente</span>
-                                                    <p style={{ fontSize: '12px', color: '#475569', margin: 0, whiteSpace: 'pre-wrap', fontStyle: 'italic', background: '#fff', padding: '8px 12px', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
+                                                    <span style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '3px', letterSpacing: '0.4px' }}>Detalles / Notas del Cliente</span>
+                                                    <p style={{ fontSize: '12.5px', color: '#475569', margin: 0, whiteSpace: 'pre-wrap', fontStyle: 'italic', background: '#fff', padding: '9px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', lineHeight: '1.4' }}>
                                                         "{cleanReqDesc}"
                                                     </p>
                                                 </div>
                                             )}
                                             {currentReqPhotos.length > 0 && (
-                                                <div style={{ marginTop: '5px' }}>
-                                                    <span style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '6px' }}>
+                                                <div style={{ marginTop: '4px' }}>
+                                                    <span style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '6px', letterSpacing: '0.4px' }}>
                                                         Fotos de Evidencia ({currentReqPhotos.length})
                                                     </span>
                                                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
@@ -8455,7 +8645,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                                 src={url} 
                                                                 alt={`Evidencia Solicitud ${idx + 1}`} 
                                                                 onClick={() => setSelectedZoomImage(url)}
-                                                                style={{ width: '55px', height: '55px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e2e8f0', cursor: 'pointer', transition: 'transform 0.15s ease' }} 
+                                                                style={{ width: '56px', height: '56px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #cbd5e1', cursor: 'pointer', transition: 'transform 0.15s ease' }} 
                                                                 onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
                                                                 onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
                                                             />
@@ -8469,8 +8659,8 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                             })()}
 
                             {/* CONFIRMACIÓN DE LLEGADA AL SITIO */}
-                            <div style={{ background: confirmacionLlegada ? '#ecfdf5' : '#fff', border: `2px solid ${confirmacionLlegada ? '#10b981' : '#e2e8f0'}`, borderRadius: '18px', padding: '20px', marginBottom: '25px', transition: 'all 0.3s ease', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: confirmacionLlegada ? '0 4px 12px rgba(16, 185, 129, 0.1)' : 'none' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                            <div style={{ background: confirmacionLlegada ? '#ecfdf5' : '#fff', border: `1.5px solid ${confirmacionLlegada ? '#10b981' : '#e2e8f0'}`, borderRadius: '16px', padding: '16px 20px', marginBottom: '20px', transition: 'all 0.3s ease', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: confirmacionLlegada ? '0 4px 12px rgba(16, 185, 129, 0.08)' : 'none' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
                                     <div 
                                         onClick={async () => {
                                             if (!confirmacionLlegada && !isLocating) {
@@ -8558,12 +8748,12 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                 }
                                             }
                                         }}
-                                        style={{ width: '32px', height: '32px', borderRadius: '50%', border: `2px solid ${confirmacionLlegada ? '#10b981' : (isLocating ? '#3b82f6' : '#cbd5e1')}`, background: confirmacionLlegada ? '#10b981' : (isLocating ? '#eff6ff' : '#f8fafc'), display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: (confirmacionLlegada || isLocating) ? 'default' : 'pointer', transition: 'all 0.2s ease' }}
+                                        style={{ width: '32px', height: '32px', minWidth: '32px', borderRadius: '50%', border: `2px solid ${confirmacionLlegada ? '#10b981' : (isLocating ? '#3b82f6' : '#cbd5e1')}`, background: confirmacionLlegada ? '#10b981' : (isLocating ? '#eff6ff' : '#f8fafc'), display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: (confirmacionLlegada || isLocating) ? 'default' : 'pointer', transition: 'all 0.2s ease' }}
                                     >
-                                        {confirmacionLlegada && <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="white"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+                                        {confirmacionLlegada && <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="white"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
                                     </div>
                                     <div>
-                                        <h4 style={{ margin: '0 0 4px 0', fontSize: '15px', fontWeight: 'bold', color: confirmacionLlegada ? '#065f46' : (isLocating ? '#1d4ed8' : '#334155') }}>
+                                        <h4 style={{ margin: '0 0 3px 0', fontSize: '14.5px', fontWeight: '700', color: confirmacionLlegada ? '#065f46' : (isLocating ? '#1d4ed8' : '#1e293b') }}>
                                             Confirmación de Llegada
                                         </h4>
                                         <p style={{ margin: 0, fontSize: '12px', color: confirmacionLlegada ? '#047857' : (isLocating ? '#2563eb' : '#64748b') }}>
@@ -8572,16 +8762,16 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                     </div>
                                 </div>
                                 {confirmacionLlegada && (
-                                    <div style={{ background: '#d1fae5', padding: '8px 12px', borderRadius: '10px', color: '#065f46', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <div style={{ background: '#d1fae5', padding: '6px 12px', borderRadius: '10px', color: '#065f46', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap' }}>
                                         📍 En sitio
                                     </div>
                                 )}
                             </div>
 
-                            <div style={{ border: '2px solid #e0e0e0', borderRadius: '20px', padding: '30px', opacity: confirmacionLlegada ? 1 : 0.5, pointerEvents: confirmacionLlegada ? 'auto' : 'none', transition: 'opacity 0.3s ease' }}>
+                            <div style={{ border: '1.5px solid #e2e8f0', borderRadius: '18px', padding: '20px', background: '#ffffff', opacity: confirmacionLlegada ? 1 : 0.5, pointerEvents: confirmacionLlegada ? 'auto' : 'none', transition: 'opacity 0.3s ease' }}>
                                  {/* DETALLES DE LA ACTIVIDAD Y EVIDENCIAS (HASTA 10 BLOQUES) */}
-                                 <div style={{ marginBottom: '25px' }}>
-                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                                 <div style={{ marginBottom: '20px' }}>
+                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
                                          <div>
                                              <label style={{ fontSize: '15px', fontWeight: '800', color: '#1e293b', display: 'block' }}>
                                                  Puntos de Revisión y Evidencias
@@ -8598,15 +8788,17 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                      background: '#fff3ed',
                                                      color: '#f26522',
                                                      border: '1.5px solid #ffcca8',
-                                                     padding: '8px 14px',
+                                                     padding: '8px 16px',
                                                      borderRadius: '10px',
                                                      fontSize: '12px',
                                                      fontWeight: '800',
                                                      cursor: 'pointer',
-                                                     display: 'flex',
+                                                     display: 'inline-flex',
                                                      alignItems: 'center',
-                                                     gap: '5px',
-                                                     boxShadow: '0 2px 5px rgba(242, 101, 34, 0.1)'
+                                                     gap: '6px',
+                                                     whiteSpace: 'nowrap',
+                                                     boxShadow: '0 2px 5px rgba(242, 101, 34, 0.1)',
+                                                     transition: 'all 0.2s ease'
                                                  }}
                                              >
                                                  + Añadir otro punto ({taskItems.length}/3)
@@ -8614,17 +8806,17 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                          )}
                                      </div>
 
-                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
                                          {taskItems.map((item, index) => (
                                              <div
                                                  key={item.id || index}
                                                  style={{
-                                                     background: '#ffffff',
-                                                     border: '1.5px solid #e2e8f0',
+                                                     background: '#f8fafc',
+                                                     border: '1px solid #e2e8f0',
                                                      borderRadius: '16px',
-                                                     padding: '20px',
+                                                     padding: '18px 20px',
                                                      position: 'relative',
-                                                     boxShadow: '0 2px 8px rgba(0,0,0,0.03)'
+                                                     boxShadow: '0 1px 4px rgba(0,0,0,0.02)'
                                                  }}
                                              >
                                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
@@ -8656,10 +8848,11 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                                  color: '#ef4444',
                                                                  border: '1px solid #fecaca',
                                                                  borderRadius: '8px',
-                                                                 padding: '4px 10px',
+                                                                 padding: '5px 12px',
                                                                  fontSize: '11px',
                                                                  fontWeight: '700',
-                                                                 cursor: 'pointer'
+                                                                 cursor: 'pointer',
+                                                                 transition: 'background 0.2s'
                                                              }}
                                                          >
                                                              🗑️ Eliminar
@@ -8668,50 +8861,111 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                  </div>
 
                                                  {/* TIPO DE ACTIVIDAD PARA ESTE PUNTO */}
-                                                 <div style={{ marginBottom: '14px', background: '#f8fafc', padding: '14px', borderRadius: '12px', border: '1px solid #f1f5f9' }}>
-                                                     <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.3px' }}>
+                                                 <div style={{ marginBottom: '14px', background: '#ffffff', padding: '14px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                                                     <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.4px' }}>
                                                          Tipo de Actividad para este punto:
                                                      </label>
-                                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '8px' }}>
-                                                         {[
-                                                             { id: 'Mantenimiento', icon: <HiOutlineCog6Tooth size={16} />, label: 'Mantenimiento' },
-                                                             { id: 'Instalacion', icon: <HiOutlineBuildingOffice2 size={16} />, label: 'Instalación' },
-                                                             { id: 'Plomeria', icon: <HiOutlineWrench size={16} />, label: 'Plomería' },
-                                                             { id: 'Electricidad', icon: <HiOutlineBolt size={16} />, label: 'Electricidad' },
-                                                             { id: 'Albañileria', icon: <HiOutlineSquare3Stack3D size={16} />, label: 'Albañilería' },
-                                                             { id: 'Carpinteria', icon: <HiOutlinePencilSquare size={16} />, label: 'Carpintería' },
-                                                             { id: 'Pintura', icon: <HiOutlinePencilSquare size={16} />, label: 'Pintura' },
-                                                             { id: 'Otro', icon: <HiOutlineDocumentText size={16} />, label: 'Otro' },
-                                                         ].map((cat) => {
-                                                             const isSelected = (item.tipoActividad || 'Mantenimiento') === cat.id;
-                                                             return (
+
+                                                     {/* BOTÓN DESPLEGABLE TIPO DE ACTIVIDAD */}
+                                                     {(() => {
+                                                         const categoriasActividad = [
+                                                             { id: 'Mantenimiento', icon: <HiOutlineCog6Tooth size={18} />, label: 'Mantenimiento' },
+                                                             { id: 'Instalacion', icon: <HiOutlineBuildingOffice2 size={18} />, label: 'Instalación' },
+                                                             { id: 'Plomeria', icon: <HiOutlineWrench size={18} />, label: 'Plomería' },
+                                                             { id: 'Electricidad', icon: <HiOutlineBolt size={18} />, label: 'Electricidad' },
+                                                             { id: 'Albañileria', icon: <HiOutlineSquare3Stack3D size={18} />, label: 'Albañilería' },
+                                                             { id: 'Carpinteria', icon: <HiOutlinePencilSquare size={18} />, label: 'Carpintería' },
+                                                             { id: 'Pintura', icon: <HiOutlinePencilSquare size={18} />, label: 'Pintura' },
+                                                             { id: 'Otro', icon: <HiOutlineDocumentText size={18} />, label: 'Otro' },
+                                                         ];
+                                                         const selectedCat = categoriasActividad.find(c => c.id === (item.tipoActividad || 'Mantenimiento')) || categoriasActividad[0];
+                                                         const isDropdownOpen = openActivityDropdown === index;
+                                                         return (
+                                                             <div style={{ position: 'relative' }}>
                                                                  <button
-                                                                     key={cat.id}
                                                                      type="button"
-                                                                     onClick={() => setTaskItems(prev => prev.map((it, i) => i === index ? { ...it, tipoActividad: cat.id } : it))}
+                                                                     onClick={() => setOpenActivityDropdown(isDropdownOpen ? null : index)}
                                                                      style={{
+                                                                         width: '100%',
                                                                          display: 'flex',
                                                                          alignItems: 'center',
-                                                                         justifyContent: 'center',
-                                                                         gap: '6px',
-                                                                         padding: '8px 10px',
+                                                                         justifyContent: 'space-between',
+                                                                         padding: '10px 14px',
                                                                          borderRadius: '10px',
-                                                                         border: isSelected ? '2px solid #f26522' : '1.5px solid #e2e8f0',
-                                                                         background: isSelected ? '#fff7ed' : '#ffffff',
-                                                                         color: isSelected ? '#ea580c' : '#475569',
-                                                                         fontWeight: isSelected ? '800' : '600',
-                                                                         fontSize: '12px',
+                                                                         border: isDropdownOpen ? '2px solid #f26522' : '1.5px solid #cbd5e1',
+                                                                         background: isDropdownOpen ? '#fff7ed' : '#ffffff',
+                                                                         color: '#1e293b',
+                                                                         fontSize: '13px',
+                                                                         fontWeight: '700',
                                                                          cursor: 'pointer',
-                                                                         transition: 'all 0.15s ease',
-                                                                         boxShadow: isSelected ? '0 2px 6px rgba(242, 101, 34, 0.15)' : 'none'
+                                                                         transition: 'all 0.2s ease',
+                                                                         boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
                                                                      }}
                                                                  >
-                                                                     {cat.icon}
-                                                                     <span>{cat.label}</span>
+                                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                         <span style={{ color: '#f26522', display: 'flex', alignItems: 'center' }}>
+                                                                             {selectedCat.icon}
+                                                                         </span>
+                                                                         <span style={{ color: '#1e293b', fontWeight: '800' }}>
+                                                                             {selectedCat.label}
+                                                                         </span>
+                                                                     </div>
+                                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#64748b', fontSize: '11.5px', fontWeight: '700' }}>
+                                                                         <span>{isDropdownOpen ? 'Cerrar' : 'Elegir actividad'}</span>
+                                                                         {isDropdownOpen ? <HiOutlineChevronUp size={16} /> : <HiOutlineChevronDown size={16} />}
+                                                                     </div>
                                                                  </button>
-                                                             );
-                                                         })}
-                                                     </div>
+
+                                                                 {/* OPCIONES DESPLEGADAS */}
+                                                                 {isDropdownOpen && (
+                                                                     <div style={{
+                                                                         marginTop: '8px',
+                                                                         padding: '10px',
+                                                                         background: '#ffffff',
+                                                                         border: '1.5px solid #fed7aa',
+                                                                         borderRadius: '12px',
+                                                                         display: 'grid',
+                                                                         gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+                                                                         gap: '8px',
+                                                                         boxShadow: '0 4px 14px rgba(242, 101, 34, 0.1)'
+                                                                     }}>
+                                                                         {categoriasActividad.map((cat) => {
+                                                                             const isSelected = (item.tipoActividad || 'Mantenimiento') === cat.id;
+                                                                             return (
+                                                                                 <button
+                                                                                     key={cat.id}
+                                                                                     type="button"
+                                                                                     onClick={() => {
+                                                                                         setTaskItems(prev => prev.map((it, i) => i === index ? { ...it, tipoActividad: cat.id } : it));
+                                                                                         setOpenActivityDropdown(null);
+                                                                                     }}
+                                                                                     style={{
+                                                                                         display: 'flex',
+                                                                                         alignItems: 'center',
+                                                                                         justifyContent: 'center',
+                                                                                         gap: '6px',
+                                                                                         padding: '9px 10px',
+                                                                                         borderRadius: '10px',
+                                                                                         border: isSelected ? '2px solid #f26522' : '1px solid #cbd5e1',
+                                                                                         background: isSelected ? '#fff7ed' : '#f8fafc',
+                                                                                         color: isSelected ? '#ea580c' : '#475569',
+                                                                                         fontWeight: isSelected ? '800' : '600',
+                                                                                         fontSize: '12px',
+                                                                                         cursor: 'pointer',
+                                                                                         transition: 'all 0.15s ease',
+                                                                                         boxShadow: isSelected ? '0 2px 6px rgba(242, 101, 34, 0.12)' : 'none'
+                                                                                     }}
+                                                                                 >
+                                                                                     <span style={{ display: 'flex', alignItems: 'center' }}>{cat.icon}</span>
+                                                                                     <span>{cat.label}</span>
+                                                                                 </button>
+                                                                             );
+                                                                         })}
+                                                                     </div>
+                                                                 )}
+                                                             </div>
+                                                         );
+                                                     })()}
 
                                                      {item.tipoActividad === 'Otro' && (
                                                          <div style={{ marginTop: '10px' }}>
@@ -8723,15 +8977,15 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                                      const val = e.target.value;
                                                                      setTaskItems(prev => prev.map((it, i) => i === index ? { ...it, customTipoActividad: val } : it));
                                                                  }}
-                                                                 style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', boxSizing: 'border-box' }}
+                                                                 style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', boxSizing: 'border-box' }}
                                                              />
                                                          </div>
                                                      )}
 
                                                      {(item.tipoActividad === 'Mantenimiento' || item.tipoActividad === 'Instalacion' || item.tipoActividad === 'Otro') && (
-                                                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px', marginTop: '10px', background: '#fff', padding: '12px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                                                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px', marginTop: '12px', background: '#f8fafc', padding: '12px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
                                                              <div>
-                                                                 <label style={{ display: 'block', fontSize: '10px', fontWeight: '700', color: '#64748b', marginBottom: '3px' }}>Marca / Equipo</label>
+                                                                 <label style={{ display: 'block', fontSize: '10.5px', fontWeight: '700', color: '#64748b', marginBottom: '4px' }}>Marca / Equipo</label>
                                                                  <input
                                                                      placeholder="Ej. Daikin, York..."
                                                                      value={item.marca || ''}
@@ -8739,11 +8993,11 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                                          const val = e.target.value;
                                                                          setTaskItems(prev => prev.map((it, i) => i === index ? { ...it, marca: val } : it));
                                                                      }}
-                                                                     style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', boxSizing: 'border-box' }}
+                                                                     style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12.5px', background: '#fff', boxSizing: 'border-box' }}
                                                                  />
                                                              </div>
                                                              <div>
-                                                                 <label style={{ display: 'block', fontSize: '10px', fontWeight: '700', color: '#64748b', marginBottom: '3px' }}>Modelo</label>
+                                                                 <label style={{ display: 'block', fontSize: '10.5px', fontWeight: '700', color: '#64748b', marginBottom: '4px' }}>Modelo</label>
                                                                  <input
                                                                      placeholder="Ej. R-410A..."
                                                                      value={item.modelo || ''}
@@ -8751,13 +9005,13 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                                          const val = e.target.value;
                                                                          setTaskItems(prev => prev.map((it, i) => i === index ? { ...it, modelo: val } : it));
                                                                      }}
-                                                                     style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', boxSizing: 'border-box' }}
+                                                                     style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12.5px', background: '#fff', boxSizing: 'border-box' }}
                                                                  />
                                                              </div>
                                                              {item.tipoActividad === 'Instalacion' && (
                                                                  <>
                                                                      <div>
-                                                                         <label style={{ display: 'block', fontSize: '10px', fontWeight: '700', color: '#64748b', marginBottom: '3px' }}>Pieza</label>
+                                                                         <label style={{ display: 'block', fontSize: '10.5px', fontWeight: '700', color: '#64748b', marginBottom: '4px' }}>Pieza</label>
                                                                          <input
                                                                              placeholder="Ej. Evaporador..."
                                                                              value={item.pieza || ''}
@@ -8765,11 +9019,11 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                                                  const val = e.target.value;
                                                                                  setTaskItems(prev => prev.map((it, i) => i === index ? { ...it, pieza: val } : it));
                                                                              }}
-                                                                             style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', boxSizing: 'border-box' }}
+                                                                             style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12.5px', background: '#fff', boxSizing: 'border-box' }}
                                                                          />
                                                                      </div>
                                                                      <div>
-                                                                         <label style={{ display: 'block', fontSize: '10px', fontWeight: '700', color: '#64748b', marginBottom: '3px' }}>Garantía (Meses)</label>
+                                                                         <label style={{ display: 'block', fontSize: '10.5px', fontWeight: '700', color: '#64748b', marginBottom: '4px' }}>Garantía (Meses)</label>
                                                                          <input
                                                                              type="number"
                                                                              placeholder="Ej. 12"
@@ -8778,7 +9032,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                                                  const val = e.target.value;
                                                                                  setTaskItems(prev => prev.map((it, i) => i === index ? { ...it, garantia: val } : it));
                                                                              }}
-                                                                             style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', boxSizing: 'border-box' }}
+                                                                             style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12.5px', background: '#fff', boxSizing: 'border-box' }}
                                                                          />
                                                                      </div>
                                                                  </>
@@ -8787,15 +9041,15 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                      )}
                                                  </div>
 
-                                                 <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '6px' }}>
+                                                 <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '6px', letterSpacing: '0.4px' }}>
                                                      Descripción / Detalle del trabajo
                                                  </label>
                                                  <textarea
                                                      placeholder={`Describe el detalle o trabajo realizado para el Punto ${index + 1}...`}
                                                      value={item.descripcion}
                                                      onChange={(e) => {
-                                                         const val = e.target.value;
-                                                         setTaskItems(prev => prev.map((it, i) => i === index ? { ...it, descripcion: val } : it));
+                                                        const val = e.target.value;
+                                                        setTaskItems(prev => prev.map((it, i) => i === index ? { ...it, descripcion: val } : it));
                                                      }}
                                                      style={{
                                                          width: '100%',
@@ -8803,12 +9057,14 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                          padding: '10px 12px',
                                                          borderRadius: '10px',
                                                          border: '1px solid #cbd5e1',
-                                                         fontSize: '14px',
+                                                         fontSize: '13.5px',
                                                          color: '#0f172a',
                                                          resize: 'none',
                                                          marginBottom: '14px',
                                                          outline: 'none',
-                                                         boxSizing: 'border-box'
+                                                         boxSizing: 'border-box',
+                                                         background: '#fff',
+                                                         lineHeight: '1.4'
                                                      }}
                                                  />
 
@@ -8819,11 +9075,11 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                      </label>
                                                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                                          {item.foto ? (
-                                                             <div style={{ position: 'relative', width: '80px', height: '80px' }}>
+                                                             <div style={{ position: 'relative', width: '75px', height: '75px' }}>
                                                                  <img
                                                                      src={item.foto}
                                                                      alt={`Foto Tarea ${index + 1}`}
-                                                                     style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '10px', border: '1.5px solid #cbd5e1' }}
+                                                                     style={{ width: '75px', height: '75px', objectFit: 'cover', borderRadius: '10px', border: '1.5px solid #cbd5e1' }}
                                                                  />
                                                                  <button
                                                                      type="button"
@@ -8870,7 +9126,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                                  <label
                                                                      htmlFor={`task-camera-uploader-${index}`}
                                                                      style={{
-                                                                         padding: '8px 12px',
+                                                                         padding: '8px 14px',
                                                                          borderRadius: '8px',
                                                                          border: '1.5px solid #f26522',
                                                                          background: '#fff3ed',
@@ -8880,7 +9136,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                                          cursor: 'pointer',
                                                                          display: 'inline-flex',
                                                                          alignItems: 'center',
-                                                                         gap: '5px'
+                                                                         gap: '6px'
                                                                      }}
                                                                  >
                                                                      📸 Abrir Cámara
@@ -8903,7 +9159,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                                  <label
                                                                      htmlFor={`task-gallery-uploader-${index}`}
                                                                      style={{
-                                                                         padding: '8px 12px',
+                                                                         padding: '8px 14px',
                                                                          borderRadius: '8px',
                                                                          border: '1.5px solid #cbd5e1',
                                                                          background: '#fff',
@@ -8913,7 +9169,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                                          cursor: 'pointer',
                                                                          display: 'inline-flex',
                                                                          alignItems: 'center',
-                                                                         gap: '5px'
+                                                                         gap: '6px'
                                                                      }}
                                                                  >
                                                                      🖼️ Galería
@@ -8928,8 +9184,8 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                  </div>
 
                                 { (
-                                    <div style={{ marginTop: '20px', background: '#f9f9f9', padding: '15px', borderRadius: '15px', border: '1px solid #eee' }}>
-                                        <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontWeight: 'bold', cursor: 'pointer' }}>
+                                    <div style={{ marginTop: '18px', background: '#f8fafc', padding: '16px 18px', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13.5px', fontWeight: '700', color: '#1e293b', cursor: 'pointer' }}>
                                             <input
                                                 type="checkbox"
                                                 checked={isQuoteIncluded}
@@ -8940,15 +9196,15 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                         </label>
 
                                         {isQuoteIncluded && (
-                                            <div style={{ marginTop: '15px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                            <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
                                                 {/* 1. CONCEPTOS DE SERVICIO */}
                                                 <div>
-                                                    <h4 style={{ color: '#d97706', fontSize: '15px', fontWeight: '800', borderBottom: '1px solid #d97706', paddingBottom: '5px', marginBottom: '15px', textTransform: 'uppercase' }}>1. Conceptos de Servicio</h4>
-                                                    <div style={{ background: '#fff', borderRadius: '10px', padding: '15px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                                                    <h4 style={{ color: '#d97706', fontSize: '14px', fontWeight: '800', borderBottom: '1.5px solid #fde68a', paddingBottom: '6px', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.3px' }}>1. Conceptos de Servicio</h4>
+                                                    <div style={{ background: '#fff', borderRadius: '12px', padding: '14px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                                         {quoteConceptos.map((concepto, i) => (
                                                             <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
                                                                 <div>
-                                                                    <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#1e293b', marginBottom: '4px', display: 'block' }}>Descripción del Servicio</label>
+                                                                    <label style={{ fontSize: '11.5px', fontWeight: 'bold', color: '#1e293b', marginBottom: '4px', display: 'block' }}>Descripción del Servicio</label>
                                                                     <input
                                                                         placeholder="Ej. Cambio de carbones a máquina..."
                                                                         value={concepto.descripcion}
@@ -8957,12 +9213,12 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                                             newC[i].descripcion = e.target.value;
                                                                             setQuoteConceptos(newC);
                                                                         }}
-                                                                        style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '14px', boxSizing: 'border-box' }}
+                                                                        style={{ width: '100%', padding: '9px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', boxSizing: 'border-box', background: '#fff' }}
                                                                     />
                                                                 </div>
                                                                 <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
                                                                     <div style={{ flex: 1 }}>
-                                                                        <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#1e293b', marginBottom: '4px', display: 'block' }}>Cant.</label>
+                                                                        <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#64748b', marginBottom: '4px', display: 'block' }}>Cant.</label>
                                                                         <input
                                                                             type="number"
                                                                             placeholder="1"
@@ -8972,11 +9228,11 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                                                 newC[i].cantidad = e.target.value;
                                                                                 setQuoteConceptos(newC);
                                                                             }}
-                                                                            style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '14px', boxSizing: 'border-box' }}
+                                                                            style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', boxSizing: 'border-box', background: '#fff' }}
                                                                         />
                                                                     </div>
                                                                     <div style={{ flex: 1 }}>
-                                                                        <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#1e293b', marginBottom: '4px', display: 'block' }}>Precio U. ($)</label>
+                                                                        <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#64748b', marginBottom: '4px', display: 'block' }}>Precio U. ($)</label>
                                                                         <input
                                                                             type="number"
                                                                             placeholder="0.00"
@@ -8986,12 +9242,12 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                                                 newC[i].precio = e.target.value;
                                                                                 setQuoteConceptos(newC);
                                                                             }}
-                                                                            style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '14px', boxSizing: 'border-box' }}
+                                                                            style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', boxSizing: 'border-box', background: '#fff' }}
                                                                         />
                                                                     </div>
                                                                     <button
                                                                         onClick={() => setQuoteConceptos(quoteConceptos.filter((_, idx) => idx !== i))}
-                                                                        style={{ background: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca', width: '40px', height: '40px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                                                        style={{ background: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca', width: '38px', height: '38px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                                                         title="Eliminar Concepto"
                                                                     >
                                                                         🗑️
@@ -9001,7 +9257,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                         ))}
                                                         <button
                                                             onClick={() => setQuoteConceptos([...quoteConceptos, { descripcion: '', cantidad: '1', precio: '' }])}
-                                                            style={{ background: '#f1f5f9', color: '#475569', border: '1px dashed #cbd5e1', padding: '10px 15px', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 'bold', width: '100%', boxSizing: 'border-box', transition: 'all 0.2s' }}
+                                                            style={{ background: '#f1f5f9', color: '#475569', border: '1px dashed #cbd5e1', padding: '9px 14px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold', width: '100%', boxSizing: 'border-box', transition: 'all 0.2s' }}
                                                             onMouseEnter={(e) => e.currentTarget.style.background = '#e2e8f0'}
                                                             onMouseLeave={(e) => e.currentTarget.style.background = '#f1f5f9'}
                                                         >
@@ -9012,15 +9268,15 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
 
                                                 {/* 2. MATERIALES */}
                                                 <div>
-                                                    <div style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid #d97706', paddingBottom: '5px', marginBottom: '15px', gap: '10px' }}>
-                                                        <h4 style={{ color: '#d97706', fontSize: '15px', fontWeight: '800', margin: 0, textTransform: 'uppercase' }}>2. Materiales</h4>
-                                                        <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#f59e0b', background: '#fffbeb', padding: '2px 8px', borderRadius: '12px', border: '1px solid #fde68a' }}>(Opcional)</span>
+                                                    <div style={{ display: 'flex', alignItems: 'center', borderBottom: '1.5px solid #fde68a', paddingBottom: '6px', marginBottom: '12px', gap: '10px' }}>
+                                                        <h4 style={{ color: '#d97706', fontSize: '14px', fontWeight: '800', margin: 0, textTransform: 'uppercase', letterSpacing: '0.3px' }}>2. Materiales</h4>
+                                                        <span style={{ fontSize: '10.5px', fontWeight: 'bold', color: '#f59e0b', background: '#fffbeb', padding: '2px 8px', borderRadius: '12px', border: '1px solid #fde68a' }}>(Opcional)</span>
                                                     </div>
-                                                    <div style={{ background: '#fff', borderRadius: '10px', padding: '15px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                                                    <div style={{ background: '#fff', borderRadius: '12px', padding: '14px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                                         {quoteMateriales.map((mat, i) => (
                                                             <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
                                                                 <div>
-                                                                    <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#1e293b', marginBottom: '4px', display: 'block' }}>Nombre del Material</label>
+                                                                    <label style={{ fontSize: '11.5px', fontWeight: 'bold', color: '#1e293b', marginBottom: '4px', display: 'block' }}>Nombre del Material</label>
                                                                     <input
                                                                         placeholder="Ej. Carbones..."
                                                                         value={mat.nombre}
@@ -9029,12 +9285,12 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                                             newM[i].nombre = e.target.value;
                                                                             setQuoteMateriales(newM);
                                                                         }}
-                                                                        style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '14px', boxSizing: 'border-box' }}
+                                                                        style={{ width: '100%', padding: '9px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', boxSizing: 'border-box', background: '#fff' }}
                                                                     />
                                                                 </div>
                                                                 <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
                                                                     <div style={{ flex: 1 }}>
-                                                                        <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#1e293b', marginBottom: '4px', display: 'block' }}>Cant.</label>
+                                                                        <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#64748b', marginBottom: '4px', display: 'block' }}>Cant.</label>
                                                                         <input
                                                                             type="number"
                                                                             placeholder="1"
@@ -9044,11 +9300,11 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                                                 newM[i].cantidad = e.target.value;
                                                                                 setQuoteMateriales(newM);
                                                                             }}
-                                                                            style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '14px', boxSizing: 'border-box' }}
+                                                                            style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', boxSizing: 'border-box', background: '#fff' }}
                                                                         />
                                                                     </div>
                                                                     <div style={{ flex: 1 }}>
-                                                                        <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#1e293b', marginBottom: '4px', display: 'block' }}>Costo U. ($)</label>
+                                                                        <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#64748b', marginBottom: '4px', display: 'block' }}>Costo U. ($)</label>
                                                                         <input
                                                                             type="number"
                                                                             placeholder="0.00"
@@ -9058,12 +9314,12 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                                                 newM[i].precio = e.target.value;
                                                                                 setQuoteMateriales(newM);
                                                                             }}
-                                                                            style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '14px', boxSizing: 'border-box' }}
+                                                                            style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', boxSizing: 'border-box', background: '#fff' }}
                                                                         />
                                                                     </div>
                                                                     <button
                                                                         onClick={() => setQuoteMateriales(quoteMateriales.filter((_, idx) => idx !== i))}
-                                                                        style={{ background: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca', width: '40px', height: '40px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                                                        style={{ background: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca', width: '38px', height: '38px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                                                         title="Eliminar Material"
                                                                     >
                                                                         🗑️
@@ -9073,7 +9329,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                         ))}
                                                         <button
                                                             onClick={() => setQuoteMateriales([...quoteMateriales, { nombre: '', cantidad: '1', precio: '' }])}
-                                                            style={{ background: '#f1f5f9', color: '#475569', border: '1px dashed #cbd5e1', padding: '10px 15px', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 'bold', width: '100%', boxSizing: 'border-box', transition: 'all 0.2s' }}
+                                                            style={{ background: '#f1f5f9', color: '#475569', border: '1px dashed #cbd5e1', padding: '9px 14px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold', width: '100%', boxSizing: 'border-box', transition: 'all 0.2s' }}
                                                             onMouseEnter={(e) => e.currentTarget.style.background = '#e2e8f0'}
                                                             onMouseLeave={(e) => e.currentTarget.style.background = '#f1f5f9'}
                                                         >
@@ -9083,20 +9339,20 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                 </div>
 
                                                 {/* COMENTARIOS INTERNOS */}
-                                                <div style={{ background: '#fffbeb', borderRadius: '10px', padding: '15px', border: '1px solid #fde68a' }}>
-                                                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '800', color: '#b45309', marginBottom: '8px' }}>COMENTARIOS INTERNOS (Solo Admin/Técnico):</label>
+                                                <div style={{ background: '#fffbeb', borderRadius: '12px', padding: '14px', border: '1px solid #fde68a' }}>
+                                                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '800', color: '#b45309', marginBottom: '6px' }}>COMENTARIOS INTERNOS (Solo Admin/Técnico):</label>
                                                     <textarea
                                                         value={quoteComentarios}
                                                         onChange={(e) => setQuoteComentarios(e.target.value)}
                                                         placeholder="Notas que el cliente NO verá..."
-                                                        style={{ width: '100%', height: '80px', padding: '12px', borderRadius: '8px', border: '1px solid #fcd34d', resize: 'none', background: '#fff', fontSize: '14px', boxSizing: 'border-box' }}
+                                                        style={{ width: '100%', height: '70px', padding: '10px 12px', borderRadius: '8px', border: '1px solid #fcd34d', resize: 'none', background: '#fff', fontSize: '13px', boxSizing: 'border-box' }}
                                                     />
                                                 </div>
 
                                                 {/* SUBTOTAL SUMMARY */}
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 20px', background: '#fff', borderRadius: '10px', border: '1px solid #e2e8f0', marginTop: '10px' }}>
-                                                    <span style={{ fontSize: '15px', fontWeight: 'bold', color: '#64748b' }}>Subtotal (Servicios + Materiales):</span>
-                                                    <span style={{ fontSize: '18px', fontWeight: '900', color: '#0f172a' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 18px', background: '#fff', borderRadius: '10px', border: '1px solid #e2e8f0', marginTop: '6px' }}>
+                                                    <span style={{ fontSize: '13.5px', fontWeight: 'bold', color: '#64748b' }}>Subtotal (Servicios + Materiales):</span>
+                                                    <span style={{ fontSize: '17px', fontWeight: '900', color: '#0f172a' }}>
                                                         ${(
                                                             quoteConceptos.reduce((sum, c) => sum + (parseFloat(c.precio) || 0) * (parseFloat(c.cantidad) || 1), 0) +
                                                             quoteMateriales.reduce((sum, m) => sum + (parseFloat(m.precio) || 0) * (parseFloat(m.cantidad) || 1), 0)
@@ -9109,7 +9365,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                 )}
                             </div>
 
-                            <div className={styles.modalActionsContainer}>
+                            <div className={styles.modalActionsContainer} style={{ marginTop: '22px' }}>
                                 <button
                                     onClick={handleGeneratePreview}
                                     className={styles.btnSavePdf}
@@ -9163,14 +9419,14 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                         const subId = String(selTask?.id || '');
                         const baseId = selTask?.baseId;
                         const pIdx = selTask?.pointIndex;
+                        const wId = trabajo?.id;
 
-                        // 1. Clave directa del sub-punto en localStorage
+                        // 1. Clave directa del sub-punto en localStorage (aislada por trabajoId)
                         const candidateKeys = [
-                            `report_data_${subId}`,
-                            `report_data_temporal_${subId}`,
+                            wId && pIdx ? `report_data_${wId}_${pIdx}` : '',
+                            wId && subId ? (subId.startsWith(`${wId}_`) ? `report_data_${subId}` : `report_data_${wId}_${subId}`) : '',
                             baseId && pIdx ? `report_data_${baseId}_${pIdx}` : '',
-                            trabajo?.id && pIdx ? `report_data_${trabajo.id}_${pIdx}` : '',
-                            pIdx ? `report_data_${pIdx}` : ''
+                            wId ? `report_data_${wId}` : ''
                         ].filter(Boolean);
 
                         for (const k of candidateKeys) {
@@ -9187,7 +9443,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
 
                         // 2. Buscar en subReports dentro de reporteFinal
                         if (reporteFinal) {
-                            const matched = findMatchingSubReport(reporteFinal, selTask);
+                            const matched = findMatchingSubReport(reporteFinal, { ...selTask, trabajoId: wId });
                             if (matched) return matched;
                         }
 
@@ -9542,11 +9798,11 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                     const photos = parseFotoUrls(groupJob.foto_url);
                                     return (
                                         <div key={groupJob.id} style={{ padding: '16px', background: '#f8fafc', borderRadius: '16px', border: '1px solid #cbd5e1' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', borderBottom: '1px solid #f1f5f9', paddingBottom: '6px' }}>
-                                                <span style={{ fontSize: '13px', fontWeight: '800', color: '#1e293b' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px', marginBottom: '8px', borderBottom: '1px solid #f1f5f9', paddingBottom: '6px' }}>
+                                                <span style={{ fontSize: '13px', fontWeight: '800', color: '#1e293b', flex: 1, minWidth: 0, wordBreak: 'break-word', lineHeight: '1.4' }}>
                                                     🛠️ SERVICIO #{idx + 1}: {groupJob.titulo}
                                                 </span>
-                                                <span style={{ fontSize: '11px', background: '#e2e8f0', color: '#475569', padding: '2px 8px', borderRadius: '6px' }}>
+                                                <span style={{ fontSize: '11px', fontWeight: '800', background: '#e2e8f0', color: '#334155', padding: '3px 8px', borderRadius: '8px', whiteSpace: 'nowrap', flexShrink: 0, display: 'inline-flex', alignItems: 'center', letterSpacing: '0.3px' }}>
                                                     ID: {groupJob.id}
                                                 </span>
                                             </div>
