@@ -21,7 +21,6 @@ const safeLocalStorageSet = (key: string, value: string) => {
         localStorage.setItem(key, value);
     } catch (e: any) {
         if (e.name === 'QuotaExceededError' || e.code === 22 || e.code === 1014) {
-            console.warn(`LocalStorage quota exceeded for key ${key}. Limpiando borradores temporales antiguos...`);
             try {
                 for (let i = localStorage.length - 1; i >= 0; i--) {
                     const k = localStorage.key(i);
@@ -31,7 +30,15 @@ const safeLocalStorageSet = (key: string, value: string) => {
                 }
                 localStorage.setItem(key, value);
             } catch (inner) {
-                console.warn("Espacio insuficiente en localStorage:", inner);
+                try {
+                    const parsed = JSON.parse(value);
+                    if (parsed.firmaEmpresa && parsed.firmaEmpresa.length > 200000) {
+                        parsed.firmaEmpresa = '__PDF_LOADED_IN_STATE__';
+                        localStorage.setItem(key, JSON.stringify(parsed));
+                    }
+                } catch (_) {
+                    console.warn("Espacio insuficiente en localStorage:", inner);
+                }
             }
         }
     }
@@ -180,14 +187,15 @@ const AdminReporte: React.FC = () => {
                 garantia: ''
             });
 
+            const safeId = trabajoId || id;
             const queryParams = new URLSearchParams(location.search);
             const subtareaIdParam = queryParams.get('subtareaId') || location.state?.subtareaId || location.state?.actividadId;
-            const activeKey = subtareaIdParam ? String(subtareaIdParam) : String(id);
+            const activeKey = subtareaIdParam ? String(subtareaIdParam) : String(safeId);
 
             try {
                 // 1. Obtener Trabajo y Actividades desde el Backend (Fuente de Verdad de la Solicitud)
-                const jobData = await getTrabajo(Number(id));
-                const acts = await getActividadesByTrabajo(Number(id));
+                const jobData = await getTrabajo(Number(safeId));
+                const acts = await getActividadesByTrabajo(Number(safeId));
 
                 const serviceMarker = "|||SERVICE_DATA|||";
                 const photosMarker = "|||PHOTOS_DATA|||";
@@ -418,7 +426,7 @@ const AdminReporte: React.FC = () => {
         };
 
         loadReportData();
-    }, [id]);
+    }, [id, trabajoId]);
 
     // Auto-guardado en tiempo real (debounced) para que ningún dato se pierda al salir o recargar
     React.useEffect(() => {
@@ -528,8 +536,8 @@ const AdminReporte: React.FC = () => {
         const file = e.target.files?.[0];
         if (file) {
             if (file.type === "application/pdf") {
-                if (file.size > 400 * 1024) {
-                    showAlert("Archivo muy pesado", "El archivo de firma o sello no debe superar los 400KB. Te recomendamos subir una imagen (JPG o PNG).", "warning");
+                if (file.size > 35 * 1024 * 1024) {
+                    showAlert("Archivo muy pesado", "El archivo PDF no debe superar los 35MB.", "warning");
                     return;
                 }
                 const reader = new FileReader();

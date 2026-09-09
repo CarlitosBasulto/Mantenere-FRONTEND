@@ -36,6 +36,8 @@ interface Negocio {
     imagen_portada?: string;
 }
 
+const isSOSJob = (t: any) => t.tipo === 'SOS' || t.prioridad === 'Emergencia' || (t.titulo || '').includes('SOS') || t.isEmergency;
+
 const AdminGeneralMisSucursales: React.FC = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
@@ -251,42 +253,42 @@ const AdminGeneralMisSucursales: React.FC = () => {
                                             <div className={`${styles.tableroCard} ${styles.bgYellow}`}>
                                                 <div className={styles.dotYellow}></div>
                                                 <div className={styles.tableroCount}>
-                                                    {allTrabajos.filter(t => t.negocio_id === negocio.id && ['Solicitud', 'Pendiente'].includes(t.estado) && t.prioridad !== 'Emergencia').length}
+                                                    {allTrabajos.filter(t => t.negocio_id === negocio.id && ['Solicitud', 'Pendiente'].includes(t.estado) && !isSOSJob(t)).length}
                                                 </div>
                                                 <div className={styles.tableroLabel}>POR AUTORIZAR</div>
                                             </div>
                                             <div className={`${styles.tableroCard} ${styles.bgRed}`}>
                                                 <div className={styles.dotRed}></div>
                                                 <div className={styles.tableroCount}>
-                                                    {allTrabajos.filter(t => t.negocio_id === negocio.id && t.prioridad === 'Emergencia' && !['Finalizado', 'Completado', 'Rechazada', 'Cotización Rechazada'].includes(t.estado)).length}
+                                                    {allTrabajos.filter(t => t.negocio_id === negocio.id && isSOSJob(t) && !['Finalizado', 'Completado', 'Rechazada', 'Cotización Rechazada'].includes(t.estado)).length}
                                                 </div>
                                                 <div className={styles.tableroLabel}>SOS ACTIVO</div>
                                             </div>
                                             <div className={`${styles.tableroCard} ${styles.bgBlue}`}>
                                                 <div className={styles.dotBlue}></div>
                                                 <div className={styles.tableroCount}>
-                                                    {allTrabajos.filter(t => t.negocio_id === negocio.id && ['En Espera', 'Aceptada', 'Cotización Aceptada'].includes(t.estado) && t.prioridad !== 'Emergencia').length}
+                                                    {allTrabajos.filter(t => t.negocio_id === negocio.id && ['En Espera', 'Aceptada', 'Cotización Aceptada'].includes(t.estado) && !isSOSJob(t)).length}
                                                 </div>
                                                 <div className={styles.tableroLabel}>AUTORIZADOS</div>
                                             </div>
                                             <div className={`${styles.tableroCard} ${styles.bgOrange}`}>
                                                 <div className={styles.dotOrange}></div>
                                                 <div className={styles.tableroCount}>
-                                                    {allTrabajos.filter(t => t.negocio_id === negocio.id && t.estado === 'Asignado' && t.tipo !== 'Trabajo' && t.prioridad !== 'Emergencia').length}
+                                                    {allTrabajos.filter(t => t.negocio_id === negocio.id && t.estado === 'Asignado' && t.tipo !== 'Trabajo' && !isSOSJob(t)).length}
                                                 </div>
                                                 <div className={styles.tableroLabel}>POR HACER</div>
                                             </div>
                                             <div className={`${styles.tableroCard} ${styles.bgGreen}`}>
                                                 <div className={styles.dotGreen}></div>
                                                 <div className={styles.tableroCount}>
-                                                    {allTrabajos.filter(t => t.negocio_id === negocio.id && (t.estado === 'En Proceso' || (t.estado === 'Asignado' && t.tipo === 'Trabajo')) && t.prioridad !== 'Emergencia').length}
+                                                    {allTrabajos.filter(t => t.negocio_id === negocio.id && (t.estado === 'En Proceso' || (t.estado === 'Asignado' && t.tipo === 'Trabajo')) && !isSOSJob(t)).length}
                                                 </div>
                                                 <div className={styles.tableroLabel}>EN PROCESO</div>
                                             </div>
                                             <div className={`${styles.tableroCard} ${styles.bgPurple}`}>
                                                 <div className={styles.dotPurple}></div>
                                                 <div className={styles.tableroCount}>
-                                                    {allTrabajos.filter(t => t.negocio_id === negocio.id && t.estado === 'Cotización Enviada' && t.prioridad !== 'Emergencia').length}
+                                                    {allTrabajos.filter(t => t.negocio_id === negocio.id && t.estado === 'Cotización Enviada' && !isSOSJob(t)).length}
                                                 </div>
                                                 <div className={styles.tableroLabel}>COTIZACIONES</div>
                                             </div>

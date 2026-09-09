@@ -24,11 +24,13 @@ const SummaryGrid: React.FC<SummaryGridProps> = ({
 }) => {
     const navigate = useNavigate();
 
-    const colPorAutorizar = flatJobs.filter(t => ['Solicitud', 'Pendiente', 'Cotización Enviada'].includes(t.estado) && t.prioridad !== 'Emergencia');
-    const colSosActivo = flatJobs.filter(t => t.prioridad === 'Emergencia' && !['Finalizado', 'Completado', 'Rechazada', 'Cotización Rechazada'].includes(t.estado));
-    const colAutorizados = flatJobs.filter(t => ['En Espera', 'Aceptada', 'Cotización Aceptada'].includes(t.estado) && t.prioridad !== 'Emergencia');
-    const colPorHacer = flatJobs.filter(t => t.estado === 'Asignado' && t.tipo !== 'Trabajo' && t.prioridad !== 'Emergencia');
-    const colEnProceso = flatJobs.filter(t => (t.estado === 'En Proceso' || (t.estado === 'Asignado' && t.tipo === 'Trabajo')) && t.prioridad !== 'Emergencia');
+    const isSOSJob = (t: any) => t.tipo === 'SOS' || t.prioridad === 'Emergencia' || (t.titulo || '').includes('SOS') || t.isEmergency;
+
+    const colPorAutorizar = flatJobs.filter(t => ['Solicitud', 'Pendiente', 'Cotización Enviada'].includes(t.estado) && !isSOSJob(t));
+    const colSosActivo = flatJobs.filter(t => isSOSJob(t) && !['Finalizado', 'Completado', 'Rechazada', 'Cotización Rechazada'].includes(t.estado));
+    const colAutorizados = flatJobs.filter(t => ['En Espera', 'Aceptada', 'Cotización Aceptada'].includes(t.estado) && !isSOSJob(t));
+    const colPorHacer = flatJobs.filter(t => t.estado === 'Asignado' && t.tipo !== 'Trabajo' && !isSOSJob(t));
+    const colEnProceso = flatJobs.filter(t => (t.estado === 'En Proceso' || (t.estado === 'Asignado' && t.tipo === 'Trabajo')) && !isSOSJob(t));
     const colFinalizados = flatJobs.filter(t => ['Finalizado', 'Completado'].includes(t.estado));
 
     const getBasePath = (): string => {

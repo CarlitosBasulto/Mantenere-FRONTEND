@@ -34,11 +34,13 @@ const GerenteSucursalMiSucursal: React.FC = () => {
         try {
             const trabajos = await getTrabajos({ negocio_id: user.negocio_id });
             
-            const porAutorizar = trabajos.filter((t: any) => ['Solicitud', 'Pendiente', 'Cotización Enviada'].includes(t.estado) && t.prioridad !== 'Emergencia').length;
-            const sosActivo = trabajos.filter((t: any) => t.prioridad === 'Emergencia' && !['Finalizado', 'Completado', 'Rechazada', 'Cotización Rechazada'].includes(t.estado)).length;
-            const autorizados = trabajos.filter((t: any) => ['En Espera', 'Aceptada', 'Cotización Aceptada'].includes(t.estado) && t.prioridad !== 'Emergencia').length;
-            const porHacer = trabajos.filter((t: any) => t.estado === 'Asignado' && t.tipo !== 'Trabajo' && t.prioridad !== 'Emergencia').length;
-            const enProceso = trabajos.filter((t: any) => (t.estado === 'En Proceso' || (t.estado === 'Asignado' && t.tipo === 'Trabajo')) && t.prioridad !== 'Emergencia').length;
+            const isSOSJob = (t: any) => t.tipo === 'SOS' || t.prioridad === 'Emergencia' || (t.titulo || '').includes('SOS') || t.isEmergency;
+
+            const porAutorizar = trabajos.filter((t: any) => ['Solicitud', 'Pendiente', 'Cotización Enviada'].includes(t.estado) && !isSOSJob(t)).length;
+            const sosActivo = trabajos.filter((t: any) => isSOSJob(t) && !['Finalizado', 'Completado', 'Rechazada', 'Cotización Rechazada'].includes(t.estado)).length;
+            const autorizados = trabajos.filter((t: any) => ['En Espera', 'Aceptada', 'Cotización Aceptada'].includes(t.estado) && !isSOSJob(t)).length;
+            const porHacer = trabajos.filter((t: any) => t.estado === 'Asignado' && t.tipo !== 'Trabajo' && !isSOSJob(t)).length;
+            const enProceso = trabajos.filter((t: any) => (t.estado === 'En Proceso' || (t.estado === 'Asignado' && t.tipo === 'Trabajo')) && !isSOSJob(t)).length;
             const finalizados = trabajos.filter((t: any) => ['Finalizado', 'Completado'].includes(t.estado)).length;
             
             setMetrics({ porAutorizar, sosActivo, autorizados, porHacer, enProceso, finalizados });

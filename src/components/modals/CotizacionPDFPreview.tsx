@@ -18,14 +18,14 @@ export default function CotizacionPDFPreview({ trabajo, subTareas, costo, notas,
         if (!pdfRef.current) return;
         setIsGenerating(true);
         try {
-            const canvas = await html2canvas(pdfRef.current, { scale: 2 }); // Higher quality scale
-            const imgData = canvas.toDataURL('image/png');
+            const canvas = await html2canvas(pdfRef.current, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+            const imgData = canvas.toDataURL('image/jpeg', 0.85);
             
-            const pdf = new jsPDF('p', 'mm', 'a4');
+            const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4', compress: true });
             const pdfWidth = pdf.internal.pageSize.getWidth();
             const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
             
-            pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+            pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
             pdf.save(`Cotizacion_${trabajo?.id || 'Nuevo'}.pdf`);
         } catch (error) {
             console.error('Error generating preview:', error);

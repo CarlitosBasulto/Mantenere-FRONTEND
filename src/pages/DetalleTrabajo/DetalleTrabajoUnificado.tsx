@@ -325,16 +325,27 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
     const searchParams = new URLSearchParams(location.search);
     const rawTabParam = (searchParams.get('tab') || '').toLowerCase();
     const isTechRole = user?.role === 'tecnico' || user?.role === 'tecnico-normal' || user?.role === 'tecnico-autonomo';
-    const isAutonomoAdminUser = isAutonomoAdmin(user?.role) || user?.role === 'autonomo' || user?.role === 'admin-autonomo' || user?.role === 'administrador-general' || user?.role === 'propietario-autonomo';
-    const initialTab = (rawTabParam === 'cotizacion' || rawTabParam === 'cotización') ? 'Cotización' : 
-                       (rawTabParam === 'historial') ? 'Historial' : 
-                       (rawTabParam === 'registro') ? 'Registro' : 
-                       (rawTabParam === 'trabajo' && !isAutonomoAdminUser) ? 'Trabajo' :
-                       (isTechRole ? 'Trabajo' : 'Datos');
+    const isAutonomoAdminUser = Boolean(
+        isAutonomoAdmin(user?.role) || 
+        user?.role === 'autonomo' || 
+        user?.role === 'admin-autonomo' || 
+        user?.role === 'administrador-general' || 
+        user?.role === 'propietario-autonomo' ||
+        config?.basePath === '/autonomo' ||
+        location.pathname.startsWith('/autonomo')
+    );
+    const isAdminUser = Boolean(user?.role === 'admin' || isAutonomoAdminUser);
+    const initialTab: "Datos" | "Trabajo" | "Registro" | "Historial" | "Cotización" = 
+        (rawTabParam === 'cotizacion' || rawTabParam === 'cotización') ? 'Cotización' : 
+        (rawTabParam === 'historial') ? 'Historial' : 
+        (rawTabParam === 'registro') ? 'Registro' : 
+        (rawTabParam === 'trabajo' && !isAutonomoAdminUser) ? 'Trabajo' :
+        'Datos';
     const [activeTab, setActiveTab] = useState<"Datos" | "Trabajo" | "Registro" | "Historial" | "Cotización">(initialTab);
 
     // MOCK DATA
     const [trabajo, setTrabajo] = useState<Trabajo | null>(null);
+    const isSOS = Boolean(trabajo?.tipo === "SOS" || trabajo?.prioridad === "Emergencia" || (trabajo?.titulo || '').includes("SOS") || (trabajo as any)?.isEmergency);
     const [groupedJobs, setGroupedJobs] = useState<any[]>([]);
     const [latestChatQuote, setLatestChatQuote] = useState<any>(null);
     const [subTareas, setSubTareas] = useState<SubTarea[]>([]);
@@ -362,6 +373,12 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
             [quoteId]: !prev[quoteId]
         }));
     };
+
+    // Estado específico para Cotización de Emergencia SOS (Simple: casi mandar un número)
+    const [sosQuoteMonto, setSosQuoteMonto] = useState<string>('');
+    const [sosQuoteConcepto, setSosQuoteConcepto] = useState<string>('');
+    const [sosQuoteNotas, setSosQuoteNotas] = useState<string>('');
+    const [isSubmittingSosQuote, setIsSubmittingSosQuote] = useState<boolean>(false);
 
     // Historial de Cotizaciones (Evidencia)
     const [quoteHistory, setQuoteHistory] = useState<any[]>(() => {
@@ -760,19 +777,46 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
 
                 setTrabajo(mappedJob as any);
 
-                // Forzar cambio de pestaña si el rol mandó a una pestaña oculta por defecto
-                if (mappedJob.estado === 'Rechazada') {
-                    setActiveTab('Datos');
-                } else if (isAutonomoAdminUser) {
-                    setActiveTab(prev => prev === 'Trabajo' ? 'Datos' : prev);
-                } else if (mappedJob.tipo === 'Visita' && !mappedJob.visitado) {
-                    setActiveTab(prev => prev === 'Trabajo' ? 'Registro' : prev);
-                } else if (['Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución'].includes(mappedJob.estado) && !rawTabParam && (user?.role === 'tecnico' || user?.role === 'tecnico-normal' || user?.role === 'tecnico-autonomo')) {
-                    setActiveTab('Trabajo');
-                } else if (mappedJob.tipo === 'Visita' && mappedJob.visitado && !['Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución'].includes(mappedJob.estado)) {
-                    setActiveTab('Datos');
-                } else if (mappedJob.tipo === 'Trabajo' || mappedJob.tipo === 'SOS') {
-                    setActiveTab(prev => prev === 'Registro' ? 'Trabajo' : prev);
+                // Ajuste inteligente de pestaña según el estado del trabajo y rol
+                const isJobSOS = Boolean(mappedJob.tipo === "SOS" || mappedJob.prioridad === "Emergencia" || (mappedJob.titulo || '').includes("SOS") || (mappedJob as any)?.isEmergency);
+
+                if (!rawTabParam) {
+                    if (mappedJob.estado === 'Rechazada') {
+                        setActiveTab('Datos');
+                    } else if (isAutonomoAdminUser) {
+                        setActiveTab(prev => prev === 'Trabajo' ? 'Datos' : prev);
+                    } else if (isJobSOS) {
+                        // En emergencias SOS:
+                        if (['Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución', 'En Proceso', 'Finalizado'].includes(mappedJob.estado) && isTechRole) {
+                            setActiveTab('Trabajo');
+                        } else if (mappedJob.estado === 'En Espera' && isTechRole) {
+                            setActiveTab('Cotización');
+                        } else {
+                            // Si está en Solicitud, Pendiente o Asignado, ver 'Datos' para revisar y Aceptar/Rechazar
+                            setActiveTab('Datos');
+                        }
+                    } else if (mappedJob.tipo === 'Visita') {
+                        if (!mappedJob.visitado) {
+                            setActiveTab('Registro');
+                        } else if (['Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución'].includes(mappedJob.estado) && isTechRole) {
+                            setActiveTab('Trabajo');
+                        } else {
+                            setActiveTab('Datos');
+                        }
+                    } else if (mappedJob.tipo === 'Trabajo') {
+                        if (['Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución', 'En Proceso'].includes(mappedJob.estado) && isTechRole) {
+                            setActiveTab('Trabajo');
+                        } else {
+                            setActiveTab('Datos');
+                        }
+                    } else {
+                        setActiveTab('Datos');
+                    }
+                }
+
+                // En SOS, el Administrador debe ver la pestaña 'Datos' hasta que el técnico envíe su cotización
+                if (isJobSOS && isAdminUser && (mappedJob.estado === 'Solicitud' || mappedJob.estado === 'Pendiente' || mappedJob.estado === 'Asignado' || mappedJob.estado === 'En Espera')) {
+                    setActiveTab(prev => prev === 'Cotización' ? 'Datos' : prev);
                 }
 
             } catch (error) {
@@ -800,6 +844,21 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
             window.removeEventListener('focus', handleWindowFocus);
         };
     }, [id]);
+
+    // Evitar cualquier desfase o "cruce de datos": si la pestaña activa no corresponde al estado actual de SOS o al rol
+    useEffect(() => {
+        if (!trabajo) return;
+        
+        // En SOS: si la cotización aún NO ha sido aceptada/aprobada, 'Trabajo' NO debe estar activa bajo ninguna circunstancia
+        if (isSOS && activeTab === 'Trabajo' && !['Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución', 'En Proceso', 'Finalizado'].includes(trabajo.estado)) {
+            setActiveTab(trabajo.estado === 'En Espera' && isTechRole ? 'Cotización' : 'Datos');
+        }
+
+        // Si el admin autónomo tiene 'Trabajo' activo
+        if (isAutonomoAdminUser && activeTab === 'Trabajo') {
+            setActiveTab('Datos');
+        }
+    }, [trabajo?.estado, isSOS, activeTab, isTechRole, isAutonomoAdminUser]);
 
     const handleQuoteAction = async (action: 'accept' | 'reject', reason?: string) => {
         try {
@@ -1035,9 +1094,6 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
     const [isTechRequestModalOpen, setIsTechRequestModalOpen] = useState(false);
     const [requestRole, setRequestRole] = useState("");
     const [selectedType, setSelectedType] = useState<"Visita" | "Trabajo">("Visita");
-
-    // Detectar SOS por tipo O por título (compat con solicitudes creadas antes del fix)
-    const isSOS = trabajo?.tipo === "SOS" || trabajo?.titulo?.includes("SOS");
 
     // Auto-seleccionar "Trabajo" si es SOS al abrir el modal
     const handleOpenAssignModal = () => {
@@ -1448,8 +1504,9 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                         } else if (isCotizacionAprobadaReassign) {
                             currentNewEstado = "Asignado";
                         } else {
-                            const needsStateUpdate = currentJob.estado === "Pendiente" || currentJob.estado === "Solicitud" || currentJob.estado === "En Espera";
+                            const needsStateUpdate = currentJob.estado === "Pendiente" || currentJob.estado === "Solicitud" || currentJob.estado === "En Espera" || currentJob.estado === "Reasignación Solicitada" || currentJob.estado === "Rechazada";
                             currentNewEstado = needsStateUpdate ? "Asignado" : currentJob.estado;
+                            localStorage.removeItem(`reassign_reason_${currentJob.id}`);
                         }
 
                         let currentNuevoTitulo = currentJob.titulo || "";
@@ -1464,9 +1521,12 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                             visitado: selectedType === "Trabajo" 
                         });
 
+                        const finalTipo = isSOS ? "SOS" : selectedType;
                         await updateTrabajo(currentJob.id, {
-                            tipo: selectedType,
-                            titulo: currentNuevoTitulo
+                            tipo: finalTipo,
+                            titulo: currentNuevoTitulo,
+                            motivo_reasignacion: null,
+                            motivo_rechazo: null
                         });
                     }
 
@@ -1480,9 +1540,11 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                     } else if (isCotizacionAprobadaReassign) {
                         newEstado = "Asignado";
                     } else {
-                        const needsStateUpdate = trabajo.estado === "Pendiente" || trabajo.estado === "Solicitud" || trabajo.estado === "En Espera";
+                        const needsStateUpdate = trabajo.estado === "Pendiente" || trabajo.estado === "Solicitud" || trabajo.estado === "En Espera" || trabajo.estado === "Reasignación Solicitada" || trabajo.estado === "Rechazada";
                         newEstado = needsStateUpdate ? "Asignado" : trabajo.estado;
                     }
+
+                    localStorage.removeItem(`reassign_reason_${trabajo.id}`);
 
                     let nuevoTitulo = trabajo.titulo || "";
                     if (selectedType === "Trabajo" && nuevoTitulo.includes("(Visita)")) {
@@ -1495,10 +1557,12 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                         ...trabajo,
                         tecnico: assignedNames,
                         estado: newEstado,
-                        tipo: selectedType,
-                        originalTipo: selectedType,
+                        tipo: isSOS ? "SOS" : selectedType,
+                        originalTipo: isSOS ? "SOS" : selectedType,
                         titulo: nuevoTitulo,
-                        visitado: selectedType === "Trabajo",
+                        motivo_reasignacion: null,
+                        motivo_rechazo: null,
+                        visitado: isSOS || selectedType === "Trabajo",
                         fechaAsignada: asignarFecha,
                         horaAsignada: asignarHora
                     };
@@ -1596,7 +1660,37 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
         try {
             await updateEstadoTrabajo(trabajo.id, { estado: "En Espera" });
             setTrabajo((prev: any) => prev ? { ...prev, estado: "En Espera" } : prev);
-            showAlert("Trabajo Aceptado", "Has aceptado la asignación. Ahora puedes iniciar el trabajo o visita cuando llegues.", "success");
+
+            try {
+                await createNotificacionByRole({
+                    role: 'admin',
+                    titulo: isSOS ? '🚨 Emergencia SOS Aceptada' : '✅ Asignación Aceptada',
+                    mensaje: `El técnico ${user?.name || 'asignado'} ha aceptado el trabajo en "${trabajo.sucursal || 'Sucursal'}".`,
+                    enlace: `/autonomo/trabajo-detalle/${trabajo.id}`
+                });
+            } catch (e) {}
+
+            if (trabajo.negocio_id) {
+                try {
+                    const negocioRes = await getNegocio(trabajo.negocio_id);
+                    const negocioData = negocioRes?.data || negocioRes;
+                    if (negocioData?.admin_autonomo_id) {
+                        await createNotificacionEcosistema({
+                            admin_autonomo_id: negocioData.admin_autonomo_id,
+                            titulo: isSOS ? '🚨 Emergencia SOS Aceptada' : '✅ Asignación Aceptada',
+                            mensaje: `El técnico ${user?.name || 'asignado'} ha aceptado el trabajo para ${negocioData.nombre || 'sucursal'}.`,
+                            tipo: 'Info'
+                        });
+                    }
+                } catch (e) {}
+            }
+
+            if (isSOS) {
+                setActiveTab('Cotización');
+                showAlert("Emergencia Aceptada", "Has aceptado la asignación de emergencia. Procede a elaborar la propuesta de cotización.", "success");
+            } else {
+                showAlert("Trabajo Aceptado", "Has aceptado la asignación. Ahora puedes iniciar el trabajo o visita cuando llegues.", "success");
+            }
             setShowZoomModal(false);
         } catch (error) {
             console.error("Error aceptando asignación:", error);
@@ -2728,6 +2822,179 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
         }
     };
 
+    // Enviar propuesta de cotización de emergencia SOS (Elaborada por el técnico)
+    const handleEnviarCotizacionSOSDirecta = async () => {
+        if (!trabajo) return;
+        const montoNum = parseFloat(sosQuoteMonto);
+        if (isNaN(montoNum) || montoNum <= 0) {
+            showAlert('Monto Requerido', 'Por favor ingresa el monto total estimado para atender la emergencia.', 'warning');
+            return;
+        }
+
+        setIsSubmittingSosQuote(true);
+        try {
+            const concepto = sosQuoteConcepto.trim() || `Atención de Emergencia SOS — ${trabajo.titulo || 'Servicio'}`;
+            const fullDescription = `=== TÍTULO: ${concepto} ===\n\n- Servicio Técnico de Emergencia SOS - $${montoNum}\n\n${sosQuoteNotas.trim() || 'Propuesta de cotización directa para resolución de emergencia.'}`;
+
+            let pdfFile: File | null = null;
+            try {
+                const dynamicFolio = `COT-SOS-${trabajo.id.toString().padStart(5, '0')}`;
+                const techName = user?.name || trabajo.tecnico || 'Técnico Autónomo';
+                pdfFile = await generateMaintenanceReportPDF({
+                    id: trabajo.id,
+                    folio: dynamicFolio,
+                    fecha: new Date().toLocaleDateString('es-MX'),
+                    sucursal: trabajo.sucursal || '---',
+                    encargado: trabajo.encargado || '---',
+                    tecnico: techName,
+                    diagnostico: concepto,
+                    descripcion: fullDescription,
+                    materiales: `- Servicio Técnico de Emergencia SOS: $${montoNum}`,
+                    observaciones: sosQuoteNotas.trim() || 'Atención de emergencia SOS',
+                    imagenes: {},
+                    isVisita: false,
+                    refaccionesList: [
+                        { pieza: `Atención Emergencia SOS: ${concepto}`, cantidad: 1, costo_estimado: String(montoNum) }
+                    ]
+                }, true) as any;
+            } catch (pdfErr) {
+                console.warn("No se pudo autogenerar el PDF para cotización SOS:", pdfErr);
+            }
+
+            const formData = new FormData();
+            formData.append('trabajo_id', String(trabajo.id));
+            formData.append('monto', String(montoNum));
+            formData.append('total', String(montoNum));
+            formData.append('descripcion', fullDescription);
+            formData.append('dias_estimados', '1');
+            formData.append('estado', 'Pendiente');
+            if (pdfFile) {
+                formData.append('archivo', pdfFile, (pdfFile as any).name || 'cotizacion_sos.pdf');
+            }
+
+            const savedCotiz = await saveCotizacion(formData as any);
+            setCotizaciones(prev => [...prev, savedCotiz]);
+
+            // Si el trabajo no tenía trabajador_id asignado, vincular al técnico actual
+            let currentTrabajadorId = trabajo.trabajador_id;
+            if (!currentTrabajadorId && isTechRole) {
+                try {
+                    const allTrabs = await getTrabajadores();
+                    const found = allTrabs.find((t: any) => 
+                        (user?.id && (t.user_id === user.id || t.userId === user.id)) ||
+                        (user?.email && t.correo && t.correo.toLowerCase() === user.email.toLowerCase()) ||
+                        (user?.name && t.nombre && t.nombre.toLowerCase().trim() === user.name.toLowerCase().trim())
+                    );
+                    if (found) {
+                        currentTrabajadorId = found.id;
+                        await assignTrabajador(trabajo.id, found.id);
+                        await updateTrabajo(trabajo.id, { trabajador_id: found.id, tecnico: found.nombre });
+                        setTrabajo(prev => prev ? { ...prev, trabajador_id: found.id, tecnico: found.nombre, tecnicoUserId: found.user_id } : prev);
+                    }
+                } catch (e) {
+                    console.error("Error auto-asignando técnico en cotización SOS:", e);
+                }
+            }
+
+            // Actualizar estado del trabajo a 'Cotización Enviada'
+            await updateEstadoTrabajo(trabajo.id, { estado: 'Cotización Enviada' });
+            await updateTrabajo(trabajo.id, {
+                estado: 'Cotización Enviada',
+                cotizacion: montoNum
+            });
+            setTrabajo(prev => prev ? { ...prev, estado: 'Cotización Enviada', cotizacion: montoNum } : prev);
+
+            // Notificar al Administrador
+            try {
+                await createNotificacionByRole({
+                    role: 'admin',
+                    titulo: '🚨 Propuesta de Cotización SOS Recibida',
+                    mensaje: `El técnico ha propuesto $${montoNum.toLocaleString('es-MX')} para atender la emergencia en "${trabajo.sucursal || 'la sucursal'}".`,
+                    enlace: `/autonomo/trabajo-detalle/${trabajo.id}?tab=cotizacion`
+                });
+            } catch (e) {}
+
+            if (trabajo.admin_autonomo_id) {
+                try {
+                    await createNotificacionEcosistema({
+                        admin_autonomo_id: trabajo.admin_autonomo_id,
+                        titulo: '🚨 Propuesta de Cotización SOS Recibida',
+                        mensaje: `El técnico ha propuesto $${montoNum.toLocaleString('es-MX')} para atender la emergencia en "${trabajo.sucursal || 'la sucursal'}".`,
+                        tipo: 'Alerta'
+                    });
+                } catch(e) {}
+            }
+
+            setSosQuoteMonto('');
+            setSosQuoteConcepto('');
+            setSosQuoteNotas('');
+            setShowAddQuoteForm(false);
+            showAlert('Cotización Enviada', 'Propuesta de emergencia SOS enviada con éxito al administrador para su revisión.', 'success');
+        } catch (error: any) {
+            console.error('[handleEnviarCotizacionSOSDirecta] error:', error);
+            showAlert('Error', error.response?.data?.message || error.message || 'No se pudo enviar la cotización.', 'error');
+        } finally {
+            setIsSubmittingSosQuote(false);
+        }
+    };
+
+    // Administrador acepta la cotización SOS y pasa directamente a Ejecución
+    const handleAdminAceptarCotizacionSOS = async (cotizId: number) => {
+        if (!trabajo) return;
+        try {
+            await updateCotizacionStatus(cotizId, 'Aprobada');
+            setCotizaciones(prev => prev.map(c => c.id === cotizId ? { ...c, estado: 'Aprobada' } : c));
+
+            // En emergencia SOS, pasa directamente a "En Ejecución"
+            await updateEstadoTrabajo(trabajo.id, { estado: 'En Ejecución' });
+            await updateTrabajo(trabajo.id, {
+                estado: 'En Ejecución'
+            });
+            setTrabajo(prev => prev ? { ...prev, estado: 'En Ejecución' } : prev);
+
+            // Notificar al Técnico que ya puede ejecutar el trabajo y hacer su reporte
+            try {
+                let targetUserId = trabajo.tecnicoUserId || trabajo.trabajador?.user_id;
+
+                // Si no tenemos el user_id directamente, buscarlo a través de getTrabajadores
+                if (!targetUserId && (trabajo.trabajador_id || trabajo.tecnico || trabajo.admin_autonomo_id)) {
+                    const allTrabs = await getTrabajadores();
+                    const found = allTrabs.find((t: any) => 
+                        (trabajo.trabajador_id && t.id === trabajo.trabajador_id) ||
+                        (trabajo.tecnico && t.nombre?.toLowerCase().trim() === trabajo.tecnico.toLowerCase().trim()) ||
+                        (trabajo.admin_autonomo_id && t.admin_autonomo_id === trabajo.admin_autonomo_id)
+                    );
+                    if (found) {
+                        targetUserId = found.user_id;
+                        if (!trabajo.trabajador_id) {
+                            await assignTrabajador(trabajo.id, found.id);
+                            await updateTrabajo(trabajo.id, { trabajador_id: found.id, tecnico: found.nombre });
+                            setTrabajo(prev => prev ? { ...prev, trabajador_id: found.id, tecnico: found.nombre, tecnicoUserId: found.user_id } : prev);
+                        }
+                    }
+                }
+
+                if (targetUserId) {
+                    const techUrl = trabajo.admin_autonomo_id 
+                        ? `/tecnico-autonomo/trabajo-detalle/${trabajo.id}?tab=trabajo`
+                        : `/tecnico/trabajo-detalle/${trabajo.id}?tab=trabajo`;
+                    await createNotificacion({
+                        user_id: targetUserId,
+                        titulo: '⚡ Emergencia SOS Aprobada — En Ejecución',
+                        mensaje: `El administrador ha aprobado la cotización de emergencia para "${trabajo.sucursal || 'la sucursal'}". Procede con la reparación y llena el reporte final en la pestaña Trabajo.`,
+                        enlace: techUrl
+                    });
+                }
+            } catch (e) {
+                console.error("Error enviando notificación al técnico en SOS:", e);
+            }
+
+            showAlert('Cotización Aprobada', 'La cotización de emergencia fue aprobada. El trabajo ha pasado a fase de ejecución.', 'success');
+        } catch (error: any) {
+            showAlert('Error', error.response?.data?.message || error.message || 'No se pudo autorizar la cotización.', 'error');
+        }
+    };
+
     const handleEditarCotizacion = (cotiz: Cotizacion) => {
         setEditingCotizacion(cotiz);
         setEditCosto(String(cotiz.monto));
@@ -2830,26 +3097,54 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
 
         try {
             if (rejectionMode === "solicitud") {
+                await updateTrabajo(trabajo.id, {
+                    trabajador_id: null,
+                    tecnico: 'Sin asignar',
+                    estado: 'Reasignación Solicitada',
+                    motivo_reasignacion: rejectionReason
+                });
+
                 await updateEstadoTrabajo(trabajo.id, { 
-                    estado: "Rechazada", 
+                    estado: "Reasignación Solicitada", 
                     motivo_rechazo: rejectionReason,
                     rechazado_por_nombre: user?.name || "Técnico Autónomo"
                 });
+
+                localStorage.setItem(`reassign_reason_${trabajo.id}`, rejectionReason);
                 
-                await createNotificacionByRole({
-                    role: 'admin',
-                    titulo: '🚫 Asignación Rechazada',
-                    mensaje: `El técnico ha rechazado el trabajo en "${trabajo.sucursal || 'Servicio'}". Motivo: ${rejectionReason}`,
-                    enlace: `/menu/trabajo-detalle/${trabajo.id}`
-                });
+                try {
+                    await createNotificacionByRole({
+                        role: 'admin',
+                        titulo: isSOS ? '🚨 Emergencia SOS: Técnico Rechazó Asignación' : '🚫 Asignación Rechazada',
+                        mensaje: `El técnico ${user?.name || 'asignado'} ha rechazado el trabajo en "${trabajo.sucursal || 'Servicio'}". Motivo: ${rejectionReason}`,
+                        enlace: `/autonomo/trabajo-detalle/${trabajo.id}`
+                    });
+                } catch(e) {}
+
+                if (trabajo.negocio_id) {
+                    try {
+                        const negocioRes = await getNegocio(trabajo.negocio_id);
+                        const negocioData = negocioRes?.data || negocioRes;
+                        if (negocioData?.admin_autonomo_id) {
+                            await createNotificacionEcosistema({
+                                admin_autonomo_id: negocioData.admin_autonomo_id,
+                                titulo: isSOS ? '🚨 Emergencia SOS: Técnico Rechazó Asignación' : '🚨 Técnico Rechazó Asignación',
+                                mensaje: `El técnico ${user?.name || ''} rechazó el trabajo en ${negocioData.nombre || 'sucursal'}. Motivo: ${rejectionReason}`,
+                                tipo: 'Alerta'
+                            });
+                        }
+                    } catch(e) {}
+                }
 
                 if ((trabajo as any).clienteUserId) {
-                    await createNotificacion({
-                        user_id: (trabajo as any).clienteUserId,
-                        titulo: '🚫 Técnico no disponible',
-                        mensaje: `El técnico asignado no podrá atender la solicitud por el momento. Se asignará uno nuevo pronto.`,
-                        enlace: `/encargado/trabajo-detalle/${trabajo.id}`
-                    });
+                    try {
+                        await createNotificacion({
+                            user_id: (trabajo as any).clienteUserId,
+                            titulo: '🚫 Técnico no disponible',
+                            mensaje: `El técnico asignado no podrá atender la solicitud por el momento. Se asignará uno nuevo pronto.`,
+                            enlace: `/encargado/trabajo-detalle/${trabajo.id}`
+                        });
+                    } catch(e) {}
                 }
 
                 // Enviar al chat
@@ -2866,10 +3161,22 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                     });
                 } catch (e) { console.error(e); }
 
-                setTrabajo((prev: any) => prev ? { ...prev, estado: "Rechazada", tecnico: "Sin asignar" } : prev);
+                setTrabajo((prev: any) => prev ? {
+                    ...prev,
+                    estado: "Reasignación Solicitada",
+                    tecnico: "Sin asignar",
+                    trabajador_id: null,
+                    motivo_reasignacion: rejectionReason
+                } : prev);
                 setShowRejectionModal(false);
                 setShowZoomModal(false); // Cierra también el de zoom si estaba abierto
-                showAlert("Trabajo Rechazado", "Has rechazado el trabajo y se ha notificado al administrador.", "info");
+                showAlert("Asignación Rechazada", "Has rechazado el trabajo y se ha notificado al administrador para reasignarlo.", "info");
+
+                if (location.pathname.startsWith('/tecnico-autonomo') || isTechRole) {
+                    setTimeout(() => {
+                        navigate('/tecnico-autonomo');
+                    }, 1200);
+                }
                 return;
             }
 
@@ -4394,8 +4701,20 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                     }
                                     return tabName === 'Datos' || tabName === 'Historial' || tabName === 'Trabajo';
                                 }
-                                // Técnico normal NUNCA ve la tab de Cotización (eso es responsabilidad del Admin)
-                                if (tabName === 'Cotización' && (user?.role === 'tecnico' || user?.role === 'tecnico-normal')) return false;
+                                // Técnico normal NUNCA ve la tab de Cotización (eso es responsabilidad del Admin), a menos que sea SOS
+                                if (tabName === 'Cotización' && !isSOS && (user?.role === 'tecnico' || user?.role === 'tecnico-normal')) return false;
+
+                                // EN SOS:
+                                // El Administrador NO elabora cotizaciones de emergencia (las elabora el técnico asignado).
+                                // Por lo tanto, el admin SOLO ve la pestaña cuando el técnico ya envió una propuesta para revisar/autorizar.
+                                if (tabName === 'Cotización' && isSOS) {
+                                    if (user?.role === 'admin' || isAutonomoAdminUser) {
+                                        return cotizaciones.length > 0 || ['Cotización Enviada', 'Cotización Aceptada', 'Cotización Aprobada', 'Cotización Rechazada', 'En Ejecución', 'Finalizado'].includes(trabajo.estado);
+                                    }
+                                    if (isTechRole) {
+                                        return ['Asignado', 'En Espera', 'Cotización Enviada', 'Cotización Rechazada', 'Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución', 'Finalizado'].includes(trabajo.estado);
+                                    }
+                                }
 
                                 if (tabName === 'Cotización') {
                                     return true;
@@ -4405,8 +4724,9 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                     if (trabajo.estado === 'Rechazada') return false;
                                     
                                     // Tab Registro solo aparece en tipo Visita y mientras el técnico NO haya enviado al admin (visitado: false)
+                                    // En emergencias SOS no hay visita
                                     if (trabajo?.visitado) return false;
-                                    return trabajo.tipo === 'Visita';
+                                    return trabajo.tipo === 'Visita' && !isSOS;
                                 }
                                 if (tabName === 'Trabajo') {
                                     // El Administrador General nunca ve la pestaña de Trabajo (él no hace el trabajo, sino los técnicos autónomos)
@@ -4414,11 +4734,14 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                         return false;
                                     }
                                     if (trabajo.estado === 'Rechazada') return false;
+                                    if (isSOS) {
+                                        return ['Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución', 'En Proceso', 'Finalizado'].includes(trabajo.estado);
+                                    }
                                     if (['Cotización Aceptada', 'Cotización Aprobada', 'Aceptada', 'En Ejecución'].includes(trabajo.estado)) return true;
                                     const quoteStates = ['Cotización Enviada', 'En Espera', 'Sugerencia de Técnico', 'Cotización Rechazada', 'Cotización Reactivada', 'Pendiente de Cotización', 'Reasignación Solicitada'];
                                     if (quoteStates.includes(trabajo.estado)) return false;
                                     if (trabajo.tipo === 'Visita' && !['Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución'].includes(trabajo.estado)) return false;
-                                    return trabajo.tipo === 'Trabajo' || trabajo.tipo === 'SOS';
+                                    return trabajo.tipo === 'Trabajo';
                                 }
                                 return true;
                             })
@@ -4722,6 +5045,70 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                 </div>
                             )}
 
+                            {/* BANNER SOS: ASIGNACIÓN DE TÉCNICO URGENTE */}
+                            {isSOS && isAdminUser && (trabajo.estado === 'Solicitud' || trabajo.estado === 'Pendiente' || !trabajo.trabajador_id) && (
+                                <div style={{
+                                    gridColumn: 'span 12',
+                                    background: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)',
+                                    border: '2px solid #ef4444',
+                                    borderRadius: '20px',
+                                    padding: '18px 24px',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    flexWrap: 'wrap',
+                                    gap: '16px',
+                                    boxShadow: '0 4px 20px rgba(239, 68, 68, 0.15)'
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                                        <div style={{
+                                            background: '#ef4444',
+                                            color: 'white',
+                                            borderRadius: '14px',
+                                            width: '46px',
+                                            height: '46px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            fontSize: '24px',
+                                            flexShrink: 0
+                                        }}>
+                                            🚨
+                                        </div>
+                                        <div>
+                                            <h4 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#991b1b' }}>
+                                                Emergencia SOS — Requiere Asignación de Técnico
+                                            </h4>
+                                            <p style={{ margin: '3px 0 0', fontSize: '13px', color: '#b91c1c' }}>
+                                                El administrador no elabora cotizaciones de emergencia. Asigna directamente a un técnico para que acuda a la sucursal y elabore la propuesta de cotización.
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={handleOpenAssignModal}
+                                        style={{
+                                            padding: '12px 24px',
+                                            background: 'linear-gradient(135deg, #dc2626 0%, #ef4444 100%)',
+                                            color: 'white',
+                                            border: 'none',
+                                            borderRadius: '14px',
+                                            fontSize: '14px',
+                                            fontWeight: '800',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                            boxShadow: '0 4px 14px rgba(220, 38, 38, 0.35)',
+                                            whiteSpace: 'nowrap'
+                                        }}
+                                        onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-1px)')}
+                                        onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}
+                                    >
+                                        🚨 Asignar Técnico Ahora
+                                    </button>
+                                </div>
+                            )}
+
                             {/* BANNER 2: REASIGNACIÓN DE TÉCNICO SOLICITADA */}
                             {(trabajo.estado === 'Reasignación Solicitada' || trabajo.motivo_reasignacion || localStorage.getItem(`reassign_reason_${trabajo.id}`)) && (
                                 <div style={{
@@ -4749,7 +5136,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                 </p>
                                             </div>
                                         </div>
-                                        {(user?.role === 'encargado' || user?.role === 'admin' || user?.role === 'autonomo' || user?.role === 'cliente') && (
+                                        {(isAdminUser || user?.role === 'encargado' || user?.role === 'cliente') && (
                                             <button
                                                 onClick={handleOpenAssignModal}
                                                 style={{
@@ -4989,12 +5376,82 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                     )}
 
                                     {/* BOTÓN ACCIÓN — lógica diferente para SOS vs Normal */}
-                                    {(user?.role === 'admin' || user?.role === 'autonomo') && trabajo.estado !== 'Finalizado' && (
+                                    {isAdminUser && trabajo.estado !== 'Finalizado' && (
                                         isSOS ? (
                                             // FLUJO SOS:
-                                            // - Si está en Solicitud: primero debe crear cotización
-                                            // - Si cotización fue aceptada: asignar técnico directo a Trabajo
-                                            trabajo.estado === 'Solicitud' || trabajo.estado === 'Cotización Enviada' ? (
+                                            // 1. Solicitud / Pendiente / Sin técnico -> Admin manda a técnico directo para cotizar
+                                            // 2. Asignado / En Espera -> Técnico asignado, en espera de su cotización
+                                            // 3. Cotización Enviada -> Admin revisa para aceptar o mandar a recotizar
+                                            // 4. En Ejecución -> Ver ejecución del trabajo
+                                            (trabajo.estado === 'Solicitud' || trabajo.estado === 'Pendiente' || !trabajo.trabajador_id) ? null :
+                                            (trabajo.estado === 'Reasignación Solicitada') ? (
+                                                <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
+                                                    <div style={{ background: '#fff1f2', border: '1.5px solid #fecdd3', borderRadius: '10px', padding: '10px 12px', textAlign: 'center' }}>
+                                                        <p style={{ margin: 0, fontSize: '12px', fontWeight: '800', color: '#e11d48' }}>
+                                                            🚨 Reasignación Solicitada
+                                                        </p>
+                                                        <p style={{ margin: '3px 0 0', fontSize: '10px', color: '#9f1239' }}>
+                                                            {trabajo.motivo_reasignacion ? `Motivo: ${trabajo.motivo_reasignacion}` : 'El técnico anterior rechazó la asignación'}
+                                                        </p>
+                                                    </div>
+                                                    <button
+                                                        onClick={handleOpenAssignModal}
+                                                        style={{
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center',
+                                                            gap: '8px',
+                                                            background: 'linear-gradient(135deg, #e11d48 0%, #be123c 100%)',
+                                                            color: 'white',
+                                                            border: 'none',
+                                                            padding: '10px 16px',
+                                                            borderRadius: '20px',
+                                                            fontSize: '12px',
+                                                            fontWeight: '700',
+                                                            cursor: 'pointer',
+                                                            transition: 'all 0.2s ease',
+                                                            width: '100%',
+                                                            justifyContent: 'center',
+                                                            boxShadow: '0 3px 10px rgba(225, 29, 72, 0.25)'
+                                                        }}
+                                                    >
+                                                        🔁 Reasignar Técnico Ahora
+                                                    </button>
+                                                </div>
+                                            ) : (trabajo.estado === 'Asignado' || trabajo.estado === 'En Espera') ? (
+                                                <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
+                                                    <div style={{ background: '#fef2f2', border: '1.5px solid #fecaca', borderRadius: '10px', padding: '10px 12px', textAlign: 'center' }}>
+                                                        <p style={{ margin: 0, fontSize: '12px', fontWeight: '800', color: '#dc2626' }}>
+                                                            🚨 Técnico: {trabajo.tecnico}
+                                                        </p>
+                                                        <p style={{ margin: '3px 0 0', fontSize: '10px', color: '#991b1b' }}>
+                                                            Esperando propuesta de cotización del técnico
+                                                        </p>
+                                                    </div>
+                                                    <button
+                                                        onClick={handleOpenAssignModal}
+                                                        style={{
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center',
+                                                            gap: '8px',
+                                                            background: '#fff',
+                                                            color: '#dc2626',
+                                                            border: '1.5px solid #dc2626',
+                                                            padding: '8px 16px',
+                                                            borderRadius: '20px',
+                                                            fontSize: '12px',
+                                                            fontWeight: '700',
+                                                            cursor: 'pointer',
+                                                            transition: 'all 0.2s ease',
+                                                            width: '100%',
+                                                            justifyContent: 'center'
+                                                        }}
+                                                        onMouseEnter={e => (e.currentTarget.style.background = '#fef2f2')}
+                                                        onMouseLeave={e => (e.currentTarget.style.background = '#fff')}
+                                                    >
+                                                        🔁 Reasignar Técnico
+                                                    </button>
+                                                </div>
+                                            ) : trabajo.estado === 'Cotización Enviada' ? (
                                                 <button
                                                     onClick={() => setActiveTab('Cotización')}
                                                     style={{
@@ -5005,10 +5462,10 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                         background: 'linear-gradient(135deg, #d14d13 0%, #f26522 100%)',
                                                         color: 'white',
                                                         border: 'none',
-                                                        padding: '10px 20px',
+                                                        padding: '12px 20px',
                                                         borderRadius: '25px',
                                                         fontSize: '13px',
-                                                        fontWeight: '700',
+                                                        fontWeight: '800',
                                                         cursor: 'pointer',
                                                         transition: 'all 0.2s ease',
                                                         boxShadow: '0 4px 12px rgba(217, 119, 6, 0.35)',
@@ -5019,35 +5476,30 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                     onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-1px)')}
                                                     onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}
                                                 >
-                                                    {trabajo.estado === 'Cotización Enviada' ? '📄 Ver Cotización' : '💰 Crear Cotización (SOS)'}
+                                                    📄 Revisar Cotización (SOS)
                                                 </button>
-                                            ) : (trabajo.estado === 'Cotización Aceptada' || trabajo.estado === 'Cotización Aprobada' || trabajo.estado === 'Asignado' || trabajo.estado === 'En Proceso') ? (
-                                                <button
-                                                    onClick={handleOpenAssignModal}
+                                            ) : (['Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución', 'En Proceso'].includes(trabajo.estado)) ? (
+                                                <div
                                                     style={{
                                                         marginTop: '8px',
                                                         display: 'inline-flex',
                                                         alignItems: 'center',
                                                         gap: '8px',
-                                                        background: 'linear-gradient(135deg, #dc2626 0%, #ef4444 100%)',
-                                                        color: 'white',
-                                                        border: 'none',
+                                                        background: 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)',
+                                                        color: '#065f46',
+                                                        border: '1.5px solid #a7f3d0',
                                                         padding: '10px 20px',
                                                         borderRadius: '25px',
                                                         fontSize: '13px',
-                                                        fontWeight: '700',
-                                                        cursor: 'pointer',
-                                                        transition: 'all 0.2s ease',
-                                                        boxShadow: '0 4px 12px rgba(220, 38, 38, 0.35)',
+                                                        fontWeight: '800',
+                                                        boxShadow: '0 4px 12px rgba(16, 185, 129, 0.15)',
                                                         whiteSpace: 'nowrap',
                                                         width: '100%',
                                                         justifyContent: 'center'
                                                     }}
-                                                    onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-1px)')}
-                                                    onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}
                                                 >
-                                                    {trabajo.tecnico && trabajo.tecnico !== 'Sin asignar' && trabajo.tecnico !== 'Sin Asignar' ? `🚨 Técnico: ${trabajo.tecnico}` : '🚨 Asignar Técnico (Emergencia)'}
-                                                </button>
+                                                    ⚡ Emergencia SOS en Ejecución por: {trabajo.tecnico || 'Técnico'}
+                                                </div>
                                             ) : null
                                         ) : (
                                             // FLUJO NORMAL: botón asignar siempre visible
@@ -5081,10 +5533,126 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                     )}
 
                                     {/* BOTONES PARA TÉCNICO: Aceptar, Rechazar, Empezar */}
-                                    {(user?.role === 'tecnico' || user?.role === 'tecnico-normal' || user?.role === 'tecnico-autonomo') && (
+                                    {(isTechRole || user?.role === 'tecnico' || user?.role === 'tecnico-normal' || user?.role === 'tecnico-autonomo' || location.pathname.startsWith('/tecnico-autonomo')) && (
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%', marginTop: '12px' }}>
-                                            {/* Una vez en espera (aceptado), puede iniciar Visita o Trabajo según el tipo */}
-                                            {trabajo.estado === 'En Espera' && (
+                                            {/* SOS: Estado Asignado -> Debe aceptar o rechazar */}
+                                            {isSOS && trabajo.estado === 'Asignado' && (
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
+                                                    <button
+                                                        onClick={handleAceptarAsignacion}
+                                                        style={{
+                                                            padding: '12px 14px',
+                                                            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                                            color: '#fff',
+                                                            border: 'none',
+                                                            borderRadius: '12px',
+                                                            fontSize: '13px',
+                                                            fontWeight: '800',
+                                                            cursor: 'pointer',
+                                                            boxShadow: '0 4px 12px rgba(16,185,129,0.3)',
+                                                            transition: 'all 0.2s ease',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            gap: '8px'
+                                                        }}
+                                                        onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')}
+                                                        onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}
+                                                    >
+                                                        ✅ Aceptar Emergencia y Cotizar
+                                                    </button>
+                                                    <button
+                                                        onClick={handleTecnicoRechazarAsignacion}
+                                                        style={{
+                                                            padding: '10px 14px',
+                                                            background: '#fff1f2',
+                                                            color: '#e11d48',
+                                                            border: '1.5px solid #fecdd3',
+                                                            borderRadius: '12px',
+                                                            fontSize: '13px',
+                                                            fontWeight: '800',
+                                                            cursor: 'pointer',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            gap: '8px',
+                                                            transition: 'all 0.2s ease'
+                                                        }}
+                                                        onMouseEnter={e => (e.currentTarget.style.background = '#ffe4e6')}
+                                                        onMouseLeave={e => (e.currentTarget.style.background = '#fff1f2')}
+                                                    >
+                                                        ❌ Rechazar Asignación
+                                                    </button>
+                                                </div>
+                                            )}
+
+                                            {/* Normal: Estado Asignado -> Debe aceptar o rechazar */}
+                                            {!isSOS && trabajo.estado === 'Asignado' && (
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
+                                                    <button
+                                                        onClick={handleAceptarAsignacion}
+                                                        style={{
+                                                            padding: '12px 14px',
+                                                            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                                            color: '#fff',
+                                                            border: 'none',
+                                                            borderRadius: '12px',
+                                                            fontSize: '13px',
+                                                            fontWeight: '800',
+                                                            cursor: 'pointer',
+                                                            boxShadow: '0 4px 12px rgba(16,185,129,0.3)',
+                                                            transition: 'all 0.2s ease',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            gap: '8px'
+                                                        }}
+                                                        onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')}
+                                                        onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}
+                                                    >
+                                                        ✅ Aceptar Asignación
+                                                    </button>
+                                                    <button
+                                                        onClick={handleTecnicoRechazarAsignacion}
+                                                        style={{
+                                                            padding: '10px 14px',
+                                                            background: '#fff1f2',
+                                                            color: '#e11d48',
+                                                            border: '1.5px solid #fecdd3',
+                                                            borderRadius: '12px',
+                                                            fontSize: '13px',
+                                                            fontWeight: '800',
+                                                            cursor: 'pointer',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            gap: '8px',
+                                                            transition: 'all 0.2s ease'
+                                                        }}
+                                                        onMouseEnter={e => (e.currentTarget.style.background = '#ffe4e6')}
+                                                        onMouseLeave={e => (e.currentTarget.style.background = '#fff1f2')}
+                                                    >
+                                                        ❌ Rechazar Asignación
+                                                    </button>
+                                                </div>
+                                            )}
+
+                                            {/* SOS: Estado En Espera -> Elaborar cotización */}
+                                            {isSOS && trabajo.estado === 'En Espera' && (
+                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '10px' }}>
+                                                    <button
+                                                        onClick={() => setActiveTab('Cotización')}
+                                                        style={{ padding: '12px 10px', background: 'linear-gradient(135deg, #f26522 0%, #d14d13 100%)', color: '#fff', border: 'none', borderRadius: '12px', fontSize: '13px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 4px 12px rgba(242,101,34,0.25)', transition: 'all 0.2s ease' }}
+                                                        onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')}
+                                                        onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}
+                                                    >
+                                                        💰 Elaborar Propuesta de Cotización (SOS)
+                                                    </button>
+                                                </div>
+                                            )}
+
+                                            {/* Una vez en espera (flujo normal), puede iniciar Visita o Trabajo según el tipo */}
+                                            {!isSOS && trabajo.estado === 'En Espera' && (
                                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '10px' }}>
                                                     {trabajo.tipo === 'Visita' && !trabajo.visitado ? (
                                                         <button onClick={() => handleEmpezarTrabajoTipo('Visita')} style={{ padding: '12px 10px', background: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)', color: '#fff', border: 'none', borderRadius: '12px', fontSize: '13px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 4px 12px rgba(30,41,59,0.2)', transition: 'all 0.2s ease' }} onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')} onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}>📍 Iniciar Visita</button>
@@ -5098,8 +5666,8 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                 </div>
                                             )}
 
-                                            {/* Si la cotización fue aceptada, ahora debe iniciar el trabajo */}
-                                            {(trabajo.estado === 'Cotización Aceptada' || trabajo.estado === 'Cotización Aprobada') && (
+                                            {/* Si la cotización fue aceptada / en ejecución, ahora debe iniciar el trabajo */}
+                                            {(trabajo.estado === 'Cotización Aceptada' || trabajo.estado === 'Cotización Aprobada' || trabajo.estado === 'En Ejecución') && (
                                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '10px' }}>
                                                     <button onClick={() => handleEmpezarTrabajoTipo('Trabajo')} style={{ padding: '12px 10px', background: 'linear-gradient(135deg, #f26522 0%, #d14d13 100%)', color: '#fff', border: 'none', borderRadius: '12px', fontSize: '13px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 4px 12px rgba(242,101,34,0.25)', transition: 'all 0.2s ease' }} onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')} onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}>🛠️ Iniciar Trabajo</button>
                                                 </div>
@@ -5367,8 +5935,8 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                         }
                                     })();
 
-                                    const canEditCotizacion = user?.role === 'admin';
-                                    const showLeftColumn = cotizaciones.length > 0 || canEditCotizacion;
+                                    const canEditCotizacion = isSOS ? false : isAdminUser;
+                                    const showLeftColumn = cotizaciones.length > 0 || canEditCotizacion || (isSOS && isTechRole);
 
                                     return (
                                         <div style={{ display: 'grid', gridTemplateColumns: showLeftColumn ? '1.1fr 0.9fr' : '1fr', gap: '30px', alignItems: 'start' }}>
@@ -5406,54 +5974,187 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                         </div>
                                                     )}
 
-                                                    {cotizaciones.length === 0 && !canEditCotizacion && (
-                                                    <>
-                                                        {(user?.role === 'tecnico' || user?.role === 'tecnico-normal') && latestChatQuote && trabajo?.estado !== 'Trabajo' && trabajo?.estado !== 'Finalizado' ? (
-                                                            <div style={{ background: '#fff', borderRadius: '24px', padding: '30px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)', border: '2px solid #fde68a' }}>
-                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
-                                                                    <div style={{ width: '50px', height: '50px', borderRadius: '14px', background: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                                        <span style={{ fontSize: '24px' }}>💸</span>
-                                                                    </div>
-                                                                    <div>
-                                                                        <h3 style={{ margin: 0, fontSize: '20px', fontWeight: '800', color: '#92400e' }}>Propuesta de Monto Recibida</h3>
-                                                                        <p style={{ margin: 0, color: '#b45309', fontSize: '13px', fontWeight: '600' }}>El administrador ha enviado una propuesta de pago para este trabajo.</p>
+                                                    {/* SOS: FORMULARIO DE COTIZACIÓN RÁPIDA PARA EL TÉCNICO AUTÓNOMO */}
+                                                    {isSOS && isTechRole && (cotizaciones.length === 0 || trabajo?.estado === 'Cotización Rechazada' || cotizaciones.some(c => c.estado === 'Rechazada')) ? (
+                                                        <div style={{
+                                                            background: '#fff',
+                                                            borderRadius: '24px',
+                                                            padding: '28px',
+                                                            boxShadow: '0 4px 24px rgba(0,0,0,0.06)',
+                                                            border: '2px solid #fed7aa'
+                                                        }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px', paddingBottom: '14px', borderBottom: '2px solid #fff7ed' }}>
+                                                                <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: 'linear-gradient(135deg, #ea580c, #c2410c)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '20px' }}>
+                                                                    🚨
+                                                                </div>
+                                                                <div>
+                                                                    <h3 style={{ margin: 0, fontSize: '17px', fontWeight: '800', color: '#9a3412' }}>
+                                                                        Propuesta de Cotización SOS (Emergencia)
+                                                                    </h3>
+                                                                    <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#c2410c' }}>
+                                                                        Al ser una emergencia, define directamente el monto total estimado para la aprobación del administrador.
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                                                <div>
+                                                                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '800', color: '#1e293b', marginBottom: '6px' }}>
+                                                                        Monto Total Estimado ($ MXN) *
+                                                                    </label>
+                                                                    <div style={{ position: 'relative' }}>
+                                                                        <span style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', fontWeight: '900', color: '#ea580c', fontSize: '18px' }}>$</span>
+                                                                        <input
+                                                                            type="number"
+                                                                            value={sosQuoteMonto}
+                                                                            onChange={e => setSosQuoteMonto(e.target.value)}
+                                                                            placeholder="Ej. 1800"
+                                                                            style={{
+                                                                                width: '100%',
+                                                                                padding: '14px 16px 14px 34px',
+                                                                                borderRadius: '12px',
+                                                                                border: '2px solid #fed7aa',
+                                                                                fontSize: '18px',
+                                                                                fontWeight: '800',
+                                                                                color: '#1e293b',
+                                                                                boxSizing: 'border-box'
+                                                                            }}
+                                                                        />
                                                                     </div>
                                                                 </div>
 
-                                                                <div style={{ background: '#fafafa', padding: '20px', borderRadius: '16px', border: '1px solid #e2e8f0', marginBottom: '25px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                                    <span style={{ fontSize: '16px', fontWeight: '700', color: '#475569' }}>Monto Ofrecido:</span>
-                                                                    <span style={{ fontSize: '28px', fontWeight: '900', color: '#10b981' }}>${latestChatQuote.quote_amount}</span>
-                                                                </div>
-
-                                                                <div style={{ display: 'flex', gap: '15px' }}>
-                                                                    <button
-                                                                        onClick={() => {
-                                                                            setRejectionMode("cotizacion");
-                                                                            setShowRejectionModal(true);
+                                                                <div>
+                                                                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '800', color: '#1e293b', marginBottom: '6px' }}>
+                                                                        Concepto / Diagnóstico Rápido
+                                                                    </label>
+                                                                    <input
+                                                                        type="text"
+                                                                        value={sosQuoteConcepto}
+                                                                        onChange={e => setSosQuoteConcepto(e.target.value)}
+                                                                        placeholder="Ej. Reparación y sustitución de componente eléctrico dañado"
+                                                                        style={{
+                                                                            width: '100%',
+                                                                            padding: '12px 14px',
+                                                                            borderRadius: '12px',
+                                                                            border: '1.5px solid #cbd5e1',
+                                                                            fontSize: '14px',
+                                                                            boxSizing: 'border-box'
                                                                         }}
-                                                                        style={{ flex: 1, padding: '14px', background: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca', borderRadius: '14px', fontSize: '15px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-                                                                    >
-                                                                        <HiOutlineXCircle size={20} /> Rechazar
-                                                                    </button>
-                                                                    <button
-                                                                        onClick={() => handleQuoteAction('accept')}
-                                                                        style={{ flex: 1.5, padding: '14px', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', borderRadius: '14px', fontSize: '15px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)' }}
-                                                                    >
-                                                                        <HiOutlineCheckCircle size={20} /> Aceptar y Comenzar Trabajo
-                                                                    </button>
+                                                                    />
                                                                 </div>
-                                                            </div>
-                                                        ) : (
-                                                            <div style={{ background: '#fff', borderRadius: '24px', padding: '40px', textAlign: 'center', boxShadow: '0 4px 24px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '300px' }}>
-                                                                <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px' }}>
-                                                                    <HiOutlineDocumentText size={30} color="#94a3b8" />
+
+                                                                <div>
+                                                                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '800', color: '#1e293b', marginBottom: '6px' }}>
+                                                                        Notas Adicionales (Opcional)
+                                                                    </label>
+                                                                    <textarea
+                                                                        value={sosQuoteNotas}
+                                                                        onChange={e => setSosQuoteNotas(e.target.value)}
+                                                                        placeholder="Detalles sobre materiales requeridos, tiempo de atención, etc."
+                                                                        rows={3}
+                                                                        style={{
+                                                                            width: '100%',
+                                                                            padding: '12px 14px',
+                                                                            borderRadius: '12px',
+                                                                            border: '1.5px solid #cbd5e1',
+                                                                            fontSize: '13px',
+                                                                            fontFamily: 'inherit',
+                                                                            resize: 'vertical',
+                                                                            boxSizing: 'border-box'
+                                                                        }}
+                                                                    />
                                                                 </div>
-                                                                <h3 style={{ margin: '0 0 8px 0', fontSize: '18px', fontWeight: '800', color: '#1e293b' }}>Aún no hay propuestas oficiales</h3>
-                                                                <p style={{ margin: 0, color: '#64748b', fontSize: '14px', maxWidth: '80%' }}>El Administrador o Técnico aún no han generado una cotización oficial para este trabajo. Puedes utilizar el chat flotante para comenzar a negociar los precios.</p>
+
+                                                                <button
+                                                                    onClick={handleEnviarCotizacionSOSDirecta}
+                                                                    disabled={isSubmittingSosQuote}
+                                                                    style={{
+                                                                        marginTop: '6px',
+                                                                        padding: '16px',
+                                                                        background: isSubmittingSosQuote ? '#94a3b8' : 'linear-gradient(135deg, #ea580c 0%, #c2410c 100%)',
+                                                                        color: 'white',
+                                                                        border: 'none',
+                                                                        borderRadius: '14px',
+                                                                        fontSize: '15px',
+                                                                        fontWeight: '800',
+                                                                        cursor: isSubmittingSosQuote ? 'not-allowed' : 'pointer',
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        justifyContent: 'center',
+                                                                        gap: '10px',
+                                                                        boxShadow: '0 4px 16px rgba(234, 88, 12, 0.35)'
+                                                                    }}
+                                                                >
+                                                                    {isSubmittingSosQuote ? 'Enviando propuesta...' : '🚀 Enviar Cotización de Emergencia'}
+                                                                </button>
                                                             </div>
-                                                        )}
-                                                    </>
-                                                )}
+                                                        </div>
+                                                    ) : isSOS && isAdminUser && cotizaciones.length === 0 ? (
+                                                        <div style={{ background: '#fff', borderRadius: '24px', padding: '40px', textAlign: 'center', boxShadow: '0 4px 24px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '300px' }}>
+                                                            <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: '#fef2f2', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px' }}>
+                                                                <span style={{ fontSize: '28px' }}>🚨</span>
+                                                            </div>
+                                                            <h3 style={{ margin: '0 0 8px 0', fontSize: '18px', fontWeight: '800', color: '#991b1b' }}>Emergencia SOS — Esperando Cotización del Técnico</h3>
+                                                            <p style={{ margin: '0 0 20px 0', color: '#64748b', fontSize: '14px', maxWidth: '80%' }}>
+                                                                El administrador no elabora cotizaciones de emergencia. El técnico asignado {trabajo?.tecnico ? `(${trabajo.tecnico})` : ''} debe acudir a la sucursal y formular la propuesta de cotización directamente.
+                                                            </p>
+                                                            <button
+                                                                onClick={() => setActiveTab('Datos')}
+                                                                style={{ padding: '10px 20px', background: '#dc2626', color: 'white', border: 'none', borderRadius: '12px', fontSize: '13px', fontWeight: '800', cursor: 'pointer' }}
+                                                            >
+                                                                ← Volver a Datos
+                                                            </button>
+                                                        </div>
+                                                    ) : (
+                                                        cotizaciones.length === 0 && !canEditCotizacion && (
+                                                            <>
+                                                                {(user?.role === 'tecnico' || user?.role === 'tecnico-normal') && latestChatQuote && trabajo?.estado !== 'Trabajo' && trabajo?.estado !== 'Finalizado' ? (
+                                                                    <div style={{ background: '#fff', borderRadius: '24px', padding: '30px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)', border: '2px solid #fde68a' }}>
+                                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+                                                                            <div style={{ width: '50px', height: '50px', borderRadius: '14px', background: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                                <span style={{ fontSize: '24px' }}>💸</span>
+                                                                            </div>
+                                                                            <div>
+                                                                                <h3 style={{ margin: 0, fontSize: '20px', fontWeight: '800', color: '#92400e' }}>Propuesta de Monto Recibida</h3>
+                                                                                <p style={{ margin: 0, color: '#b45309', fontSize: '13px', fontWeight: '600' }}>El administrador ha enviado una propuesta de pago para este trabajo.</p>
+                                                                            </div>
+                                                                        </div>
+
+                                                                        <div style={{ background: '#fafafa', padding: '20px', borderRadius: '16px', border: '1px solid #e2e8f0', marginBottom: '25px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                                            <span style={{ fontSize: '16px', fontWeight: '700', color: '#475569' }}>Monto Ofrecido:</span>
+                                                                            <span style={{ fontSize: '28px', fontWeight: '900', color: '#10b981' }}>${latestChatQuote.quote_amount}</span>
+                                                                        </div>
+
+                                                                        <div style={{ display: 'flex', gap: '15px' }}>
+                                                                            <button
+                                                                                onClick={() => {
+                                                                                    setRejectionMode("cotizacion");
+                                                                                    setShowRejectionModal(true);
+                                                                                }}
+                                                                                style={{ flex: 1, padding: '14px', background: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca', borderRadius: '14px', fontSize: '15px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                                                                            >
+                                                                                <HiOutlineXCircle size={20} /> Rechazar
+                                                                            </button>
+                                                                            <button
+                                                                                onClick={() => handleQuoteAction('accept')}
+                                                                                style={{ flex: 1.5, padding: '14px', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', borderRadius: '14px', fontSize: '15px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)' }}
+                                                                            >
+                                                                                <HiOutlineCheckCircle size={20} /> Aceptar y Comenzar Trabajo
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
+                                                                ) : (
+                                                                    <div style={{ background: '#fff', borderRadius: '24px', padding: '40px', textAlign: 'center', boxShadow: '0 4px 24px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '300px' }}>
+                                                                        <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px' }}>
+                                                                            <HiOutlineDocumentText size={30} color="#94a3b8" />
+                                                                        </div>
+                                                                        <h3 style={{ margin: '0 0 8px 0', fontSize: '18px', fontWeight: '800', color: '#1e293b' }}>Aún no hay propuestas oficiales</h3>
+                                                                        <p style={{ margin: 0, color: '#64748b', fontSize: '14px', maxWidth: '80%' }}>El Administrador o Técnico aún no han generado una cotización oficial para este trabajo. Puedes utilizar el chat flotante para comenzar a negociar los precios.</p>
+                                                                    </div>
+                                                                )}
+                                                            </>
+                                                        )
+                                                    )}
 
                                                 {cotizaciones.length > 0 && (
                                                     <div style={{ background: '#fff', borderRadius: '24px', padding: '28px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}>
@@ -5526,6 +6227,57 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                                                         )}
                                                                                     </div>
                                                                                 </div>
+                                                                            </div>
+                                                                        )}
+
+                                                                        {/* ACCIONES DE ADMIN EN SOS PARA APROBAR O RECOTIZAR LA PROPUESTA DEL TÉCNICO */}
+                                                                        {isSOS && isAdminUser && cotiz.estado === 'Pendiente' && (
+                                                                            <div style={{ marginTop: '14px', paddingTop: '12px', borderTop: '1.5px dashed #fed7aa', display: 'flex', gap: '10px' }}>
+                                                                                <button
+                                                                                    onClick={() => handleAdminAceptarCotizacionSOS(cotiz.id!)}
+                                                                                    style={{
+                                                                                        flex: 1.5,
+                                                                                        padding: '12px 18px',
+                                                                                        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                                                                        color: 'white',
+                                                                                        border: 'none',
+                                                                                        borderRadius: '12px',
+                                                                                        fontSize: '13px',
+                                                                                        fontWeight: '800',
+                                                                                        cursor: 'pointer',
+                                                                                        display: 'inline-flex',
+                                                                                        alignItems: 'center',
+                                                                                        justifyContent: 'center',
+                                                                                        gap: '8px',
+                                                                                        boxShadow: '0 4px 12px rgba(16, 185, 129, 0.25)'
+                                                                                    }}
+                                                                                >
+                                                                                    <HiOutlineCheckCircle size={18} />
+                                                                                    Aceptar Cotización y Comenzar Ejecución
+                                                                                </button>
+                                                                                <button
+                                                                                    onClick={() => {
+                                                                                        setCotizParaRecotizar(cotiz.id!);
+                                                                                        setShowRecotizModal(true);
+                                                                                    }}
+                                                                                    style={{
+                                                                                        flex: 1,
+                                                                                        padding: '12px 18px',
+                                                                                        background: '#fff',
+                                                                                        color: '#d97706',
+                                                                                        border: '1.5px solid #d97706',
+                                                                                        borderRadius: '12px',
+                                                                                        fontSize: '13px',
+                                                                                        fontWeight: '800',
+                                                                                        cursor: 'pointer',
+                                                                                        display: 'inline-flex',
+                                                                                        alignItems: 'center',
+                                                                                        justifyContent: 'center',
+                                                                                        gap: '8px'
+                                                                                    }}
+                                                                                >
+                                                                                    🔁 Solicitar Re-Cotización
+                                                                                </button>
                                                                             </div>
                                                                         )}
                                                                     </div>
@@ -7038,32 +7790,52 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                         activeTab === 'Registro' && (
                             <div style={{ padding: '24px', background: '#f8fafc', borderRadius: '24px', border: '1px solid #cbd5e1', minHeight: '300px' }}>
                                 {/* CASO 1: TRABAJO EN ESTADO "ASIGNADO" (Debe aceptar asignación) */}
-                                {(user?.role === 'tecnico' || user?.role === 'tecnico-normal') && trabajo.estado === 'Asignado' && (
+                                {(isTechRole || user?.role === 'tecnico' || user?.role === 'tecnico-normal' || user?.role === 'tecnico-autonomo') && trabajo.estado === 'Asignado' && (
                                     <div style={{ textAlign: 'center', padding: '40px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
                                         <div style={{ fontSize: '48px' }}>👷</div>
                                         <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#1e293b', margin: 0 }}>Tienes esta visita asignada</h3>
                                         <p style={{ fontSize: '14px', color: '#64748b', maxWidth: '380px', margin: 0, lineHeight: '1.5' }}>
                                             Para comenzar con el registro de problemas y actividades en esta sucursal, primero debes aceptar la asignación de este trabajo.
                                         </p>
-                                        <button
-                                            onClick={handleAceptarAsignacion}
-                                            style={{
-                                                padding: '14px 28px',
-                                                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                                                color: '#ffffff',
-                                                border: 'none',
-                                                borderRadius: '16px',
-                                                fontSize: '15px',
-                                                fontWeight: '800',
-                                                cursor: 'pointer',
-                                                boxShadow: '0 8px 24px rgba(16, 185, 129, 0.3)',
-                                                transition: 'all 0.2s'
-                                            }}
-                                            onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
-                                            onMouseLeave={e => e.currentTarget.style.transform = 'none'}
-                                        >
-                                            ✅ Aceptar Asignación
-                                        </button>
+                                        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                                            <button
+                                                onClick={handleAceptarAsignacion}
+                                                style={{
+                                                    padding: '14px 28px',
+                                                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                                    color: '#ffffff',
+                                                    border: 'none',
+                                                    borderRadius: '16px',
+                                                    fontSize: '15px',
+                                                    fontWeight: '800',
+                                                    cursor: 'pointer',
+                                                    boxShadow: '0 8px 24px rgba(16, 185, 129, 0.3)',
+                                                    transition: 'all 0.2s'
+                                                }}
+                                                onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+                                                onMouseLeave={e => e.currentTarget.style.transform = 'none'}
+                                            >
+                                                ✅ Aceptar Asignación
+                                            </button>
+                                            <button
+                                                onClick={handleTecnicoRechazarAsignacion}
+                                                style={{
+                                                    padding: '14px 28px',
+                                                    background: '#fff1f2',
+                                                    color: '#e11d48',
+                                                    border: '1.5px solid #fecdd3',
+                                                    borderRadius: '16px',
+                                                    fontSize: '15px',
+                                                    fontWeight: '800',
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.2s'
+                                                }}
+                                                onMouseEnter={e => e.currentTarget.style.background = '#ffe4e6'}
+                                                onMouseLeave={e => e.currentTarget.style.background = '#fff1f2'}
+                                            >
+                                                ❌ Rechazar Asignación
+                                            </button>
+                                        </div>
                                     </div>
                                 )}
 

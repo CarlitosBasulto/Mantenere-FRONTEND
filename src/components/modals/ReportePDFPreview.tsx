@@ -98,7 +98,7 @@ export default function ReportePDFPreview({ trabajo, reporteData, subTareas, isV
             const pageElements = document.querySelectorAll('#print-reporte-pdf .pdf-page');
             if (!pageElements || pageElements.length === 0) return;
 
-            const pdf = new jsPDF('p', 'mm', 'a4');
+            const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4', compress: true });
             const pdfWidth = pdf.internal.pageSize.getWidth();
 
             for (let i = 0; i < pageElements.length; i++) {
@@ -111,14 +111,14 @@ export default function ReportePDFPreview({ trabajo, reporteData, subTareas, isV
                     backgroundColor: '#ffffff'
                 });
 
-                const imgData = canvas.toDataURL('image/png');
+                const imgData = canvas.toDataURL('image/jpeg', 0.85);
                 const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
                 if (i > 0) {
                     pdf.addPage();
                 }
 
-                pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+                pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
             }
 
             const dynamicFolio = `TRB-${(trabajo?.id || '').toString().padStart(5, '0')}`;
