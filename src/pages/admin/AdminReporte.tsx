@@ -14,6 +14,7 @@ import {
     HiOutlinePlus
 } from 'react-icons/hi2';
 import ReportePDFPreview from '../../components/modals/ReportePDFPreview';
+import { findMatchingSubReport } from '../../utils/reportUtils';
 
 const safeLocalStorageSet = (key: string, value: string) => {
     try {
@@ -330,9 +331,24 @@ const AdminReporte: React.FC = () => {
                     acts.some((a: any) => a.tipo === 'Mantenimiento' || a.tipo === 'Instalacion' || a.tipo === 'Instalación');
                 setShowEquiposSection(isEquipoTask);
 
-                // 2. Cargar únicamente el borrador / reporte guardado de ESTA tarea específica (activeKey)
-                const temporalData = localStorage.getItem(`report_data_${activeKey}`) || localStorage.getItem(`report_data_temporal_${activeKey}`);
+                // 2. Cargar el borrador / reporte guardado de ESTA tarea específica (activeKey)
+                let temporalData = localStorage.getItem(`report_data_${activeKey}`) || 
+                                   localStorage.getItem(`report_data_temporal_${activeKey}`) ||
+                                   (pointIndex !== undefined ? (localStorage.getItem(`report_data_${safeId}_${pointIndex + 1}`) || localStorage.getItem(`report_data_${pointIndex + 1}`)) : null);
                 
+                if (!temporalData) {
+                    try {
+                        const existingDb = await getReporteByTrabajoId(Number(safeId));
+                        if (existingDb && existingDb.solucion) {
+                            const parsedDb = typeof existingDb.solucion === 'string' ? JSON.parse(existingDb.solucion) : existingDb.solucion;
+                            const matched = findMatchingSubReport(parsedDb, { id: activeKey, pointIndex: isNaN(pointIndex) ? undefined : pointIndex + 1, titulo: taskTitle });
+                            if (matched && (matched.imagenes || matched.descripcion || matched.reporteTienda)) {
+                                temporalData = JSON.stringify(matched);
+                            }
+                        }
+                    } catch (_) {}
+                }
+
                 if (temporalData) {
                     try {
                         const parsed = JSON.parse(temporalData);
@@ -581,10 +597,50 @@ const AdminReporte: React.FC = () => {
         }
 
         try {
+            // Recopilar reportes existentes para no sobreescribir los otros puntos de la actividad/trabajo
+            let existingSubReports: Record<string, any> = {};
+            try {
+                const existingDbReport = await getReporteByTrabajoId(Number(safeId));
+                if (existingDbReport && existingDbReport.solucion) {
+                    const parsedExisting = typeof existingDbReport.solucion === 'string' ? JSON.parse(existingDbReport.solucion) : existingDbReport.solucion;
+                    if (parsedExisting?.subReports && typeof parsedExisting.subReports === 'object') {
+                        existingSubReports = { ...parsedExisting.subReports };
+                    }
+                    if (parsedExisting?.subtareaId) {
+                        existingSubReports[String(parsedExisting.subtareaId)] = parsedExisting;
+                    }
+                }
+            } catch (_) {}
+
+            // También recopilar desde localStorage de este dispositivo los otros puntos
+            for (let p = 1; p <= 10; p++) {
+                const pKeys = [`report_data_${safeId}_${p}`, `report_data_${activeKey.split('_')[0]}_${p}`];
+                pKeys.forEach(k => {
+                    const raw = localStorage.getItem(k);
+                    if (raw) {
+                        try {
+                            const pObj = JSON.parse(raw);
+                            existingSubReports[`${safeId}_${p}`] = pObj;
+                            existingSubReports[`${activeKey.split('_')[0]}_${p}`] = pObj;
+                        } catch (_) {}
+                    }
+                });
+            }
+
+            existingSubReports[activeKey] = reportData;
+            if (activeKey.includes('_')) {
+                const ptNum = activeKey.split('_')[1];
+                existingSubReports[`${safeId}_${ptNum}`] = reportData;
+                existingSubReports[String(ptNum)] = reportData;
+            }
+
             const dataToSave = {
                 trabajo_id: Number(safeId),
                 descripcion: descripcion || "Reporte generado",
-                solucion: JSON.stringify(reportData) 
+                solucion: JSON.stringify({
+                    ...reportData,
+                    subReports: existingSubReports
+                }) 
             };
             await createReporte(dataToSave);
             if (showSuccessAlert) {
@@ -654,18 +710,63 @@ const AdminReporte: React.FC = () => {
         setIsSavingReport(true);
         // Guardar reporte individual en localStorage para la tarea específica
         safeLocalStorageSet(`report_data_${activeKey}`, JSON.stringify(reportData));
+        if (activeKey.includes('_')) {
+            const ptNum = activeKey.split('_')[1];
+            safeLocalStorageSet(`report_data_${safeTrabajoId}_${ptNum}`, JSON.stringify(reportData));
+        }
         try {
             localStorage.removeItem(`report_data_temporal_${activeKey}`);
         } catch (e) {}
 
-        // Guardar registro del reporte en la BD (asociado a este trabajo)
+        // Guardar registro del reporte en la BD (acumulando todos los sub-puntos)
         try {
             const parsedActId = subtareaIdParam ? (String(subtareaIdParam).includes('_') ? parseInt(String(subtareaIdParam).split('_')[0], 10) : parseInt(String(subtareaIdParam), 10)) : undefined;
+            
+            // Recopilar reportes existentes para no sobreescribir los otros puntos de la actividad/trabajo
+            let existingSubReports: Record<string, any> = {};
+            try {
+                const existingDbReport = await getReporteByTrabajoId(Number(safeTrabajoId));
+                if (existingDbReport && existingDbReport.solucion) {
+                    const parsedExisting = typeof existingDbReport.solucion === 'string' ? JSON.parse(existingDbReport.solucion) : existingDbReport.solucion;
+                    if (parsedExisting?.subReports && typeof parsedExisting.subReports === 'object') {
+                        existingSubReports = { ...parsedExisting.subReports };
+                    }
+                    if (parsedExisting?.subtareaId) {
+                        existingSubReports[String(parsedExisting.subtareaId)] = parsedExisting;
+                    }
+                }
+            } catch (_) {}
+
+            // También recopilar desde localStorage de este dispositivo los otros puntos
+            for (let p = 1; p <= 10; p++) {
+                const pKeys = [`report_data_${safeTrabajoId}_${p}`, `report_data_${activeKey.split('_')[0]}_${p}`];
+                pKeys.forEach(k => {
+                    const raw = localStorage.getItem(k);
+                    if (raw) {
+                        try {
+                            const pObj = JSON.parse(raw);
+                            existingSubReports[`${safeTrabajoId}_${p}`] = pObj;
+                            existingSubReports[`${activeKey.split('_')[0]}_${p}`] = pObj;
+                        } catch (_) {}
+                    }
+                });
+            }
+
+            existingSubReports[activeKey] = reportData;
+            if (activeKey.includes('_')) {
+                const ptNum = activeKey.split('_')[1];
+                existingSubReports[`${safeTrabajoId}_${ptNum}`] = reportData;
+                existingSubReports[String(ptNum)] = reportData;
+            }
+
             const dataToSave = {
                 trabajo_id: Number(safeTrabajoId),
                 actividad_id: isNaN(parsedActId as any) ? undefined : parsedActId,
                 descripcion: `Reporte de Tarea: ${trabajoBase?.titulo || 'Servicio'}`,
-                solucion: JSON.stringify(reportData) 
+                solucion: JSON.stringify({
+                    ...reportData,
+                    subReports: existingSubReports
+                }) 
             };
             await createReporte(dataToSave);
         } catch (error) {

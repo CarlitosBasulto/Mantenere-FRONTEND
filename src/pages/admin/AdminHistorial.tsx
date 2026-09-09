@@ -4,7 +4,9 @@ import menuStyles from "../../components/Menu.module.css";
 import { useAuth } from "../../context/AuthContext";
 import { getTrabajos } from "../../services/trabajosService";
 import { getReporteByTrabajoId } from "../../services/reportesService";
+import { getActividadesByTrabajo } from "../../services/actividadesService";
 import ReporteDetailModal from "../../components/modals/ReporteDetailModal";
+import { findMatchingSubReport } from "../../utils/reportUtils";
 import {
     HiOutlineCheckBadge,
     HiOutlineCheckCircle
@@ -362,7 +364,7 @@ const AdminHistorial: React.FC = () => {
                 const allTasks: TareaHistorial[] = [];
 
                 // 1. Procesar grupos [Grupo: REQ-xxxx]
-                Object.entries(groupedByReq).forEach(([grpId, jobsInGroup]) => {
+                for (const [grpId, jobsInGroup] of Object.entries(groupedByReq)) {
                     jobsInGroup.sort((a, b) => Number(a.id) - Number(b.id));
                     const baseJob = jobsInGroup[0];
                     const finalDate = parseJobDate(baseJob.fecha_programada, baseJob.created_at);
@@ -371,35 +373,104 @@ const AdminHistorial: React.FC = () => {
                     const ubicacion = baseJob.negocio?.ubicacion || baseJob.negocio?.nombre || "Sucursal";
                     const tecnico = baseJob.trabajador?.nombre || baseJob.tecnico || "Sin Asignar";
 
-                    jobsInGroup.forEach((gJob, idx) => {
-                        const pIdx = idx + 1;
-                        // Extraer tipo de servicio preciso (revisando si el trabajo individual o el reporte del punto tiene el tipo elegido en visita)
-                        let serviceType = extractServiceType(gJob, pIdx, gJob.id);
-                        if (serviceType === 'Servicio' || serviceType === 'Mantenimiento') {
-                            const fromBase = extractServiceType(baseJob, pIdx, `${baseJob.id}_${pIdx}`);
-                            if (fromBase && fromBase !== 'Servicio') {
-                                serviceType = fromBase;
+                    // Consultar si existen actividades de la visita técnica asociadas a este trabajo base o hermanos
+                    let acts: any[] = [];
+                    try {
+                        acts = await getActividadesByTrabajo(baseJob.id);
+                        if ((!acts || acts.length === 0) && jobsInGroup.length > 1) {
+                            for (const otherJob of jobsInGroup.slice(1)) {
+                                const otherActs = await getActividadesByTrabajo(otherJob.id);
+                                if (otherActs && otherActs.length > 0) {
+                                    acts = otherActs;
+                                    break;
+                                }
                             }
                         }
+                    } catch (_) {}
 
-                        const cleanDesc = cleanDescriptionText(gJob.descripcion);
+                    let decomposedFromActs: TareaHistorial[] = [];
+                    if (acts && acts.length > 0) {
+                        acts.forEach((act: any) => {
+                            const rawActDesc = act.descripcion || '';
+                            const cleanRaw = cleanDescriptionText(rawActDesc);
+                            const regexPoint = /(?:^|\n+)(\d+)\.\s*(?:\[([^\]]+)\]\s*)?([\s\S]*?)(?=(?:\n+\d+\.\s*)|$)/g;
+                            const matches = Array.from(cleanRaw.matchAll(regexPoint));
 
-                        allTasks.push({
-                            id: gJob.id,
-                            baseId: baseJob.id,
-                            pointIndex: pIdx,
-                            titulo: `${serviceType} (Punto ${pIdx})`,
-                            descripcion: cleanDesc,
-                            estado: 'Completado',
-                            ubicacion,
-                            fecha: dateFormatted,
-                            monthYear,
-                            tecnico: gJob.trabajador?.nombre || tecnico,
-                            trabajoId: gJob.id,
-                            rawJob: gJob
+                            if (matches && matches.length > 1) {
+                                matches.forEach((m, idx) => {
+                                    const pIdx = idx + 1;
+                                    const subId = `${act.id}_${pIdx}`;
+                                    const subTipo = m[2] ? m[2].trim() : (act.tipo || extractServiceType(baseJob, pIdx, subId));
+                                    const subDesc = m[3] ? m[3].trim() : '';
+                                    decomposedFromActs.push({
+                                        id: subId,
+                                        baseId: baseJob.id,
+                                        pointIndex: pIdx,
+                                        titulo: subTipo.includes('(Punto') ? subTipo : `${subTipo} (Punto ${pIdx})`,
+                                        descripcion: subDesc || 'Trabajo completado exitosamente.',
+                                        estado: 'Completado',
+                                        ubicacion,
+                                        fecha: dateFormatted,
+                                        monthYear,
+                                        tecnico: baseJob.trabajador?.nombre || tecnico,
+                                        trabajoId: baseJob.id,
+                                        rawJob: baseJob
+                                    });
+                                });
+                            } else {
+                                const subId = String(act.id);
+                                const subTipo = act.tipo || act.titulo || extractServiceType(baseJob, undefined, subId);
+                                decomposedFromActs.push({
+                                    id: subId,
+                                    baseId: baseJob.id,
+                                    pointIndex: decomposedFromActs.length + 1,
+                                    titulo: subTipo.includes('(Punto') ? subTipo : `${subTipo} (Punto ${decomposedFromActs.length + 1})`,
+                                    descripcion: cleanDescriptionText(act.descripcion || baseJob.descripcion),
+                                    estado: 'Completado',
+                                    ubicacion,
+                                    fecha: dateFormatted,
+                                    monthYear,
+                                    tecnico: baseJob.trabajador?.nombre || tecnico,
+                                    trabajoId: baseJob.id,
+                                    rawJob: baseJob
+                                });
+                            }
                         });
-                    });
-                });
+                    }
+
+                    if (decomposedFromActs.length > 0) {
+                        allTasks.push(...decomposedFromActs);
+                    } else {
+                        // Fallback: procesar trabajos individuales del grupo
+                        jobsInGroup.forEach((gJob, idx) => {
+                            const pIdx = idx + 1;
+                            let serviceType = extractServiceType(gJob, pIdx, gJob.id);
+                            if (serviceType === 'Servicio' || serviceType === 'Mantenimiento') {
+                                const fromBase = extractServiceType(baseJob, pIdx, `${baseJob.id}_${pIdx}`);
+                                if (fromBase && fromBase !== 'Servicio') {
+                                    serviceType = fromBase;
+                                }
+                            }
+
+                            const cleanDesc = cleanDescriptionText(gJob.descripcion);
+
+                            allTasks.push({
+                                id: gJob.id,
+                                baseId: baseJob.id,
+                                pointIndex: pIdx,
+                                titulo: `${serviceType} (Punto ${pIdx})`,
+                                descripcion: cleanDesc,
+                                estado: 'Completado',
+                                ubicacion,
+                                fecha: dateFormatted,
+                                monthYear,
+                                tecnico: gJob.trabajador?.nombre || tecnico,
+                                trabajoId: gJob.id,
+                                rawJob: gJob
+                            });
+                        });
+                    }
+                }
 
                 // 2. Procesar trabajos individuales
                 nonGroupedJobs.forEach((job: any) => {
@@ -438,75 +509,124 @@ const AdminHistorial: React.FC = () => {
         setReportData(null);
 
         try {
-            // 1. Verificar si existe reporte específico de este sub-punto en localStorage
-            const localData = localStorage.getItem(`report_data_${tarea.id}`) ||
-                              localStorage.getItem(`report_data_temporal_${tarea.id}`) ||
-                              (tarea.baseId && tarea.pointIndex ? (localStorage.getItem(`report_data_${tarea.baseId}_${tarea.pointIndex}`) || localStorage.getItem(`report_data_temporal_${tarea.baseId}_${tarea.pointIndex}`)) : null);
+            const subId = String(tarea.id);
+            const baseId = tarea.baseId;
+            const pIdx = tarea.pointIndex;
 
-            if (localData) {
-                try {
-                    const parsed = JSON.parse(localData);
-                    setReportData(parsed);
-                    return;
-                } catch (e) {
-                    console.error("Error al parsear reporte local:", e);
+            // 1. Verificar si existe reporte específico de este sub-punto en localStorage
+            const candidateKeys = [
+                `report_data_${subId}`,
+                `report_data_temporal_${subId}`,
+                baseId && pIdx ? `report_data_${baseId}_${pIdx}` : '',
+                tarea.trabajoId && pIdx ? `report_data_${tarea.trabajoId}_${pIdx}` : '',
+                pIdx ? `report_data_${pIdx}` : ''
+            ].filter(Boolean);
+
+            for (const k of candidateKeys) {
+                const localData = localStorage.getItem(k);
+                if (localData) {
+                    try {
+                        const parsed = JSON.parse(localData);
+                        if (parsed && (parsed.imagenes || parsed.descripcion || parsed.reporteTienda)) {
+                            setReportData(parsed);
+                            return;
+                        }
+                    } catch (e) {
+                        console.error("Error al parsear reporte local:", e);
+                    }
                 }
             }
+
+            let matchedReport: any = null;
 
             // 2. Intentar cargar desde API con el trabajoId
-            let apiReport = await getReporteByTrabajoId(tarea.trabajoId);
+            try {
+                const apiReport = await getReporteByTrabajoId(tarea.trabajoId);
+                if (apiReport && apiReport.solucion) {
+                    const parsed = typeof apiReport.solucion === 'string' ? JSON.parse(apiReport.solucion) : apiReport.solucion;
+                    matchedReport = findMatchingSubReport(parsed, tarea);
+                }
+            } catch (_) {}
 
-            // Si no tiene reporte propio, intentar con baseId si es un grupo
-            if ((!apiReport || !apiReport.solucion) && tarea.baseId && tarea.baseId !== tarea.trabajoId) {
-                try {
-                    apiReport = await getReporteByTrabajoId(tarea.baseId);
-                } catch(e) {}
-            }
-
-            if (apiReport && apiReport.solucion) {
-                try {
-                    const parsed = JSON.parse(apiReport.solucion);
-                    setReportData(parsed);
-                    return;
-                } catch (e) {
-                    console.error("Error parseando solución del reporte:", e);
-                    setReportData({
-                        descripcion: apiReport.descripcion || tarea.descripcion,
-                        fecha: apiReport.fecha || tarea.fecha,
-                        id: apiReport.id || tarea.id,
-                        reporteTienda: apiReport.descripcion || tarea.descripcion
+            // 3. Si no se encontró y pertenece a un grupo REQ o baseId, buscar en los otros trabajos del grupo
+            if (!matchedReport && (tarea.baseId || tarea.rawJob?.descripcion)) {
+                const grpId = tarea.rawJob ? getGroupId(tarea.rawJob.descripcion) : null;
+                const searchJobIds = new Set<number>();
+                if (tarea.baseId && tarea.baseId !== tarea.trabajoId) searchJobIds.add(Number(tarea.baseId));
+                if (grpId) {
+                    rawTareas.forEach(t => {
+                        if (t.trabajoId && t.trabajoId !== tarea.trabajoId && t.rawJob?.descripcion?.includes(`[Grupo: ${grpId}]`)) {
+                            searchJobIds.add(Number(t.trabajoId));
+                        }
                     });
-                    return;
+                }
+
+                for (const jId of searchJobIds) {
+                    try {
+                        const gReport = await getReporteByTrabajoId(jId);
+                        if (gReport && gReport.solucion) {
+                            const parsedG = typeof gReport.solucion === 'string' ? JSON.parse(gReport.solucion) : gReport.solucion;
+                            const m = findMatchingSubReport(parsedG, tarea);
+                            if (m) {
+                                matchedReport = m;
+                                break;
+                            }
+                        }
+                    } catch (_) {}
                 }
             }
 
-            // 3. Fallback a reporte general del baseId o trabajoId en LocalStorage
-            const baseLocal = (tarea.baseId ? (localStorage.getItem(`report_data_${tarea.baseId}`) || localStorage.getItem(`report_data_temporal_${tarea.baseId}`)) : null) ||
-                              localStorage.getItem(`report_data_${tarea.trabajoId}`) || 
-                              localStorage.getItem(`report_data_temporal_${tarea.trabajoId}`);
-            if (baseLocal) {
-                try {
-                    setReportData(JSON.parse(baseLocal));
-                    return;
-                } catch (e) {}
+            if (matchedReport) {
+                const finalReport = {
+                    ...matchedReport,
+                    id: matchedReport.id || tarea.id,
+                    fecha: matchedReport.fecha || tarea.fecha,
+                    tecnicoNombre: matchedReport.tecnicoNombre || tarea.tecnico,
+                    descripcion: matchedReport.descripcion || tarea.descripcion,
+                    reporteTienda: matchedReport.reporteTienda || matchedReport.descripcion || tarea.titulo,
+                    imagenes: {
+                        antes: matchedReport.imagenes?.antes || null,
+                        durante: matchedReport.imagenes?.durante || null,
+                        despues: matchedReport.imagenes?.despues || null
+                    },
+                    firmaEmpresa: matchedReport.firmaEmpresa || null
+                };
+                setReportData(finalReport);
+                return;
             }
 
-            // 4. Fallback final: usar la descripción del trabajo/tarea
+            // 4. Fallback: construir reporte limpio con las fotos y datos del sub-punto correspondiente
+            const rawJobPhotos = (tarea.rawJob?.foto_url ? (typeof tarea.rawJob.foto_url === 'string' && tarea.rawJob.foto_url.startsWith('[') ? JSON.parse(tarea.rawJob.foto_url) : [tarea.rawJob.foto_url]) : []) as string[];
+            const taskPhotos = (tarea.photos && tarea.photos.length > 0) ? tarea.photos : (pIdx && rawJobPhotos[pIdx - 1] ? [rawJobPhotos[pIdx - 1]] : []);
+
             setReportData({
                 descripcion: tarea.descripcion || "Trabajo completado exitosamente.",
-                reporteTienda: tarea.descripcion || "Trabajo completado exitosamente.",
+                reporteTienda: tarea.titulo || tarea.descripcion || "Trabajo completado exitosamente.",
                 fecha: tarea.fecha,
                 id: tarea.id,
-                tecnicoNombre: tarea.tecnico || "Técnico"
+                tecnicoNombre: tarea.tecnico || "Técnico",
+                imagenes: {
+                    antes: taskPhotos[0] || null,
+                    durante: taskPhotos[1] || null,
+                    despues: taskPhotos[2] || null
+                },
+                imagenesObservacion: taskPhotos.length > 3 ? taskPhotos.slice(3) : []
             });
         } catch (error) {
             console.error("Error al obtener reporte:", error);
+            const taskPhotos = tarea.photos || [];
             setReportData({
                 descripcion: tarea.descripcion || "Trabajo completado exitosamente.",
-                reporteTienda: tarea.descripcion || "Trabajo completado exitosamente.",
+                reporteTienda: tarea.titulo || tarea.descripcion || "Trabajo completado exitosamente.",
                 fecha: tarea.fecha,
                 id: tarea.id,
-                tecnicoNombre: tarea.tecnico || "Técnico"
+                tecnicoNombre: tarea.tecnico || "Técnico",
+                imagenes: {
+                    antes: taskPhotos[0] || null,
+                    durante: taskPhotos[1] || null,
+                    despues: taskPhotos[2] || null
+                },
+                imagenesObservacion: taskPhotos.length > 3 ? taskPhotos.slice(3) : []
             });
         }
     };

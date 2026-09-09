@@ -42,8 +42,8 @@ import CotizacionPDFPreview from "../../components/modals/CotizacionPDFPreview";
 import ReportePDFPreview from "../../components/modals/ReportePDFPreview";
 import ChatTrabajo from "../../components/ChatTrabajo";
 import NegotiationChatWidget from "../../components/chat/NegotiationChatWidget";
-import { generateMaintenanceReportPDF } from "../../utils/pdfGenerator";
 import UbicacionMapaModal from "../../components/modals/UbicacionMapaModal";
+import { findMatchingSubReport } from "../../utils/reportUtils";
 export interface CotizacionData {
     id?: number;
     costo: string;
@@ -696,7 +696,19 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                 setReporteFinal({ ...parsed, dbId: dbReport.id });
                                 localStorage.setItem(`report_data_${id}`, dbReport.solucion);
                                 if (parsed.subtareaId) {
-                                    localStorage.setItem(`report_data_${parsed.subtareaId}`, dbReport.solucion);
+                                    localStorage.setItem(`report_data_${parsed.subtareaId}`, JSON.stringify(parsed));
+                                }
+                                if (parsed.subReports && typeof parsed.subReports === 'object') {
+                                    Object.entries(parsed.subReports).forEach(([subKey, subData]) => {
+                                        try {
+                                            localStorage.setItem(`report_data_${subKey}`, JSON.stringify(subData));
+                                            if (subKey.includes('_')) {
+                                                const ptNum = subKey.split('_')[1];
+                                                localStorage.setItem(`report_data_${id}_${ptNum}`, JSON.stringify(subData));
+                                                localStorage.setItem(`report_data_${ptNum}`, JSON.stringify(subData));
+                                            }
+                                        } catch (_) {}
+                                    });
                                 }
                             } catch (e) {
                                 console.error("Error parsing report JSON:", e);
@@ -3411,8 +3423,28 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
     };
 
     const renderTaskCard = (tarea: SubTarea, isInteractive: boolean = true) => {
-        const taskReportRaw = localStorage.getItem(`report_data_${tarea.id}`) || localStorage.getItem(`report_data_temporal_${tarea.id}`);
-        const taskReport = taskReportRaw ? JSON.parse(taskReportRaw) : null;
+        let taskReport: any = null;
+        const candidateKeys = [
+            `report_data_${tarea.id}`,
+            `report_data_temporal_${tarea.id}`,
+            tarea.baseId && tarea.pointIndex ? `report_data_${tarea.baseId}_${tarea.pointIndex}` : '',
+            trabajo?.id && tarea.pointIndex ? `report_data_${trabajo.id}_${tarea.pointIndex}` : '',
+            tarea.pointIndex ? `report_data_${tarea.pointIndex}` : ''
+        ].filter(Boolean);
+
+        for (const k of candidateKeys) {
+            const raw = localStorage.getItem(k);
+            if (raw) {
+                try {
+                    taskReport = JSON.parse(raw);
+                    if (taskReport && (taskReport.imagenes || taskReport.descripcion || taskReport.reporteTienda)) break;
+                } catch (_) {}
+            }
+        }
+
+        if (!taskReport && reporteFinal) {
+            taskReport = findMatchingSubReport(reporteFinal, tarea);
+        }
 
         const getCategoryIcon = (titulo: string) => {
             const t = titulo?.toLowerCase() || '';
@@ -3481,30 +3513,42 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
             // Comments/additional notes
             const combinedMateriales = tarea.quoteData?.comentarios || tarea.quoteData?.detalles || '';
 
+            const reportToUse = taskReport || findMatchingSubReport(reporteFinal, tarea);
+            const reportPhotos = reportToUse ? [
+                reportToUse.imagenes?.antes,
+                reportToUse.imagenes?.durante,
+                reportToUse.imagenes?.despues,
+                ...(reportToUse.imagenesObservacion || (reportToUse.imagenObservacion ? [reportToUse.imagenObservacion] : []))
+            ].filter(Boolean) : (tarea.photos || []);
+
             const preparedData = {
                 id: tarea.id || 'SD',
-                reporteTienda: tarea.titulo,
-                descripcion: tarea.cleanDescripcion || tarea.descripcion,
-                materiales: combinedMateriales,
-                refaccionesList: refaccionesList,
-                observaciones: '',
+                reporteTienda: reportToUse?.reporteTienda || tarea.titulo,
+                descripcion: reportToUse?.descripcion || tarea.cleanDescripcion || tarea.descripcion,
+                materiales: reportToUse?.materiales || combinedMateriales,
+                refaccionesList: (reportToUse?.refaccionesList && reportToUse.refaccionesList.length > 0) ? reportToUse.refaccionesList : refaccionesList,
+                observaciones: reportToUse?.observaciones || '',
+                observacionesList: reportToUse?.observacionesList || [],
                 imagenes: {
-                    antes: tarea.photos?.[0] || null,
-                    durante: tarea.photos?.[1] || null,
-                    despues: tarea.photos?.[2] || null
+                    antes: reportPhotos[0] || null,
+                    durante: reportPhotos[1] || null,
+                    despues: reportPhotos[2] || null
                 },
-                imagenObservacion: tarea.photos?.[3] || null,
-                imagenesObservacion: tarea.photos && tarea.photos.length > 3 ? tarea.photos.slice(3) : [],
-                firmaEmpresa: null,
-                involucraEquipo: !!tarea.serviceData?.marca || !!tarea.serviceData?.modelo,
-                equipoInfo: (tarea.serviceData?.marca || tarea.serviceData?.modelo) ? {
+                imagenObservacion: reportPhotos[3] || null,
+                imagenesObservacion: reportPhotos.length > 3 ? reportPhotos.slice(3) : [],
+                firmaEmpresa: reportToUse?.firmaEmpresa || null,
+                involucraEquipo: reportToUse?.involucraEquipo !== undefined ? reportToUse.involucraEquipo : (!!tarea.serviceData?.marca || !!tarea.serviceData?.modelo),
+                equipoInfo: reportToUse?.equipoInfo || ((tarea.serviceData?.marca || tarea.serviceData?.modelo) ? {
                     tipo: tarea.serviceData.tipoServicio || tarea.titulo,
                     marca: tarea.serviceData.marca || 'N/A',
                     modelo: tarea.serviceData.modelo || 'N/A',
                     piezas: tarea.serviceData.pieza || 'N/A',
                     garantia: tarea.serviceData.garantia || 'N/A'
-                } : null,
-                fecha: new Date().toLocaleDateString('es-MX'),
+                } : null),
+                fecha: reportToUse?.fecha || new Date().toLocaleDateString('es-MX'),
+                tecnicoNombre: reportToUse?.tecnicoNombre || tarea.tecnicoNombre || trabajo?.tecnico || "Técnico",
+                tecnicoAvatar: reportToUse?.tecnicoAvatar || null,
+                fechaInicio: reportToUse?.fechaInicio || null,
                 isVisita: trabajo?.tipo === 'Visita' || trabajo?.originalTipo === 'Visita' || !!tarea.hasQuote || (trabajo?.estado !== 'Finalizado' && trabajo?.estado !== 'En Proceso'),
                 isActivityReport: true
             };
@@ -3513,13 +3557,26 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
             setShowActivityPDFPreview(true);
         };
 
-        // Combine photos from taskReport (localStorage cache) and subTarea (db synced)
+        // Combine photos from taskReport (localStorage cache / DB subReport) and subTarea (db synced)
         const photosListToRender: { label: string; url: string }[] = [];
         const rawUrls: string[] = [];
 
         if (taskReport?.imagenes?.antes) rawUrls.push(taskReport.imagenes.antes);
         if (taskReport?.imagenes?.durante) rawUrls.push(taskReport.imagenes.durante);
         if (taskReport?.imagenes?.despues) rawUrls.push(taskReport.imagenes.despues);
+
+        if (Array.isArray(taskReport?.imagenes)) {
+            taskReport.imagenes.forEach((img: any) => {
+                const u = typeof img === 'string' ? img : (img?.ruta || img?.url);
+                if (u) rawUrls.push(u);
+            });
+        }
+        if (Array.isArray(taskReport?.photos)) {
+            taskReport.photos.forEach((img: any) => {
+                const u = typeof img === 'string' ? img : (img?.ruta || img?.url);
+                if (u) rawUrls.push(u);
+            });
+        }
 
         if (taskReport?.imagenesObservacion && taskReport.imagenesObservacion.length > 0) {
             taskReport.imagenesObservacion.forEach((img: string) => {
@@ -4072,6 +4129,15 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
 
                         {/* BOTÓN REALIZAR REPORTE / TRABAJO PARA TÉCNICO */}
                         {(() => {
+                            // En la pestaña de 'Registro' (Visita inicial/levantamiento de problemas), nunca se muestra el botón de empezar trabajo
+                            if (activeTab === 'Registro') return null;
+
+                            // Si el servicio es de tipo Visita y todavía no está en fase de ejecución (cotización aprobada y en ejecución), no mostrar
+                            const isExecutionPhase = ['Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución', 'Finalizado', 'Completado', 'Aceptada'].includes(trabajo?.estado || '');
+                            if (trabajo?.tipo === 'Visita' && !isExecutionPhase) {
+                                return null;
+                            }
+
                             const isTaskReportDone = (
                                 tarea.estado === 'Completa' || 
                                 tarea.estado === 'Finalizado' || 
@@ -4084,7 +4150,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                 (trabajo?.id ? (!!localStorage.getItem(`report_data_${trabajo.id}`) || !!localStorage.getItem(`report_data_temporal_${trabajo.id}`)) : false)
                             );
                             const isTechOrAdmin = (user?.role === 'tecnico' || user?.role === 'tecnico-normal' || user?.role === 'tecnico-autonomo') || user?.role === 'admin' || user?.role === 'autonomo';
-                            const isJobQuoteApproved = ['Cotización Aceptada', 'Cotización Aprobada', 'En Proceso', 'En Ejecución', 'Finalizado', 'Completado', 'Aceptada'].includes(trabajo?.estado || '') || tarea.cotizacionEstado === 'Aprobada' || (cotizaciones && cotizaciones.some(c => c.estado === 'Aprobada'));
+                            const isJobQuoteApproved = isExecutionPhase || tarea.cotizacionEstado === 'Aprobada' || (cotizaciones && cotizaciones.some(c => c.estado === 'Aprobada' || c.estado === 'Aceptada'));
                             const isQuotePending = tarea.quoteData && !isJobQuoteApproved;
                             const canDoReport = isTechOrAdmin && !isQuotePending;
                             if (!canDoReport) return null;
@@ -8321,26 +8387,52 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                     trabajo={trabajo as any}
                     task={selectedHistoryTask}
                     reporte={(() => {
-                        const taskReportRaw = localStorage.getItem(`report_data_${(selectedHistoryTask as any).id}`) || 
-                                              localStorage.getItem(`report_data_temporal_${(selectedHistoryTask as any).id}`);
-                        if (taskReportRaw) {
-                            try { return JSON.parse(taskReportRaw); } catch(e) {}
+                        const selTask = selectedHistoryTask as any;
+                        const subId = String(selTask?.id || '');
+                        const baseId = selTask?.baseId;
+                        const pIdx = selTask?.pointIndex;
+
+                        // 1. Clave directa del sub-punto en localStorage
+                        const candidateKeys = [
+                            `report_data_${subId}`,
+                            `report_data_temporal_${subId}`,
+                            baseId && pIdx ? `report_data_${baseId}_${pIdx}` : '',
+                            trabajo?.id && pIdx ? `report_data_${trabajo.id}_${pIdx}` : '',
+                            pIdx ? `report_data_${pIdx}` : ''
+                        ].filter(Boolean);
+
+                        for (const k of candidateKeys) {
+                            const raw = localStorage.getItem(k);
+                            if (raw) {
+                                try {
+                                    const parsed = JSON.parse(raw);
+                                    if (parsed && (parsed.imagenes || parsed.descripcion || parsed.reporteTienda)) {
+                                        return parsed;
+                                    }
+                                } catch (_) {}
+                            }
                         }
-                        if (reporteFinal) return reporteFinal;
-                        const fallbackReportDataRaw = localStorage.getItem(`report_data_${trabajo?.id}`);
-                        const temporalReportDataRaw = localStorage.getItem(`report_data_temporal_${trabajo?.id}`);
-                        if (fallbackReportDataRaw) {
-                            try { return JSON.parse(fallbackReportDataRaw); } catch(e) {}
+
+                        // 2. Buscar en subReports dentro de reporteFinal
+                        if (reporteFinal) {
+                            const matched = findMatchingSubReport(reporteFinal, selTask);
+                            if (matched) return matched;
                         }
-                        if (temporalReportDataRaw) {
-                            try { return JSON.parse(temporalReportDataRaw); } catch(e) {}
-                        }
+
+                        // 3. Fallback limpio: construir reporte con las fotos y datos del sub-punto correspondiente
+                        const taskPhotos = (selTask?.photos && Array.isArray(selTask.photos)) ? selTask.photos : [];
                         return {
-                            descripcion: (selectedHistoryTask as any)?.descripcion || trabajo?.descripcion || "Trabajo completado exitosamente.",
-                            reporteTienda: (selectedHistoryTask as any)?.descripcion || trabajo?.descripcion || "Trabajo completado exitosamente.",
-                            fecha: (selectedHistoryTask as any)?.fecha || trabajo?.fecha,
-                            id: (selectedHistoryTask as any)?.id || trabajo?.id,
-                            tecnicoNombre: trabajo?.tecnico || "Técnico"
+                            descripcion: selTask?.cleanDescripcion || selTask?.descripcion || trabajo?.descripcion || "Trabajo completado exitosamente.",
+                            reporteTienda: selTask?.titulo || selTask?.descripcion || trabajo?.descripcion || "Trabajo completado exitosamente.",
+                            fecha: selTask?.fecha || trabajo?.fecha,
+                            id: selTask?.id || trabajo?.id,
+                            tecnicoNombre: selTask?.tecnicoNombre || trabajo?.tecnico || "Técnico",
+                            imagenes: {
+                                antes: taskPhotos[0] || null,
+                                durante: taskPhotos[1] || null,
+                                despues: taskPhotos[2] || null
+                            },
+                            imagenesObservacion: taskPhotos.length > 3 ? taskPhotos.slice(3) : []
                         };
                     })()}
                     userRole={user?.role ?? undefined}

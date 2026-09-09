@@ -264,74 +264,58 @@ const ReporteDetailModal: React.FC<ReporteDetailModalProps> = ({
                         </div>
                     </div>
 
-                    {(reporte?.imagenes?.antes || reporte?.imagenes?.durante || reporte?.imagenes?.despues || reporte?.imagenObservacion) && (
-                        <div className={styles.reportDetailCard}>
-                            <div className={styles.detailSectionTitle}>
-                                <HiOutlineWrench size={18} />
-                                Evidencia Fotográfica
-                            </div>
-                            <div className={styles.evidenceGrid}>
-                                {reporte.imagenes.antes && (
-                                    <div className={styles.evidenceItem}>
-                                        <img
-                                            src={reporte.imagenes.antes}
-                                            alt="Antes"
-                                            className={styles.evidenceThumb}
-                                            onClick={() => setSelectedZoomImage(reporte.imagenes.antes)}
-                                        />
-                                        <span className={styles.evidenceLabel}>Antes</span>
-                                    </div>
-                                )}
-                                {reporte.imagenes.durante && (
-                                    <div className={styles.evidenceItem}>
-                                        <img
-                                            src={reporte.imagenes.durante}
-                                            alt="Durante"
-                                            className={styles.evidenceThumb}
-                                            onClick={() => setSelectedZoomImage(reporte.imagenes.durante)}
-                                        />
-                                        <span className={styles.evidenceLabel}>Durante</span>
-                                    </div>
-                                )}
-                                {reporte.imagenes.despues && (
-                                    <div className={styles.evidenceItem}>
-                                        <img
-                                            src={reporte.imagenes.despues}
-                                            alt="Después"
-                                            className={styles.evidenceThumb}
-                                            onClick={() => setSelectedZoomImage(reporte.imagenes.despues)}
-                                        />
-                                        <span className={styles.evidenceLabel}>Después</span>
-                                    </div>
-                                )}
-                                {reporte.imagenesObservacion && reporte.imagenesObservacion.length > 0 ? (
-                                    reporte.imagenesObservacion.map((img: string, idx: number) => (
+                    {(() => {
+                        const allPhotos: { label: string; url: string }[] = [];
+                        if (reporte?.imagenes?.antes) allPhotos.push({ label: 'Antes', url: reporte.imagenes.antes });
+                        if (reporte?.imagenes?.durante) allPhotos.push({ label: 'Durante', url: reporte.imagenes.durante });
+                        if (reporte?.imagenes?.despues) allPhotos.push({ label: 'Después', url: reporte.imagenes.despues });
+
+                        if (Array.isArray(reporte?.imagenes)) {
+                            reporte.imagenes.forEach((img: any, i: number) => {
+                                const url = typeof img === 'string' ? img : (img?.ruta || img?.url);
+                                if (url && !allPhotos.some(p => p.url === url)) allPhotos.push({ label: `Evidencia ${i + 1}`, url });
+                            });
+                        }
+                        if (Array.isArray(reporte?.photos)) {
+                            reporte.photos.forEach((img: any, i: number) => {
+                                const url = typeof img === 'string' ? img : (img?.ruta || img?.url);
+                                if (url && !allPhotos.some(p => p.url === url)) allPhotos.push({ label: `Evidencia ${i + 1}`, url });
+                            });
+                        }
+                        if (reporte?.imagenesObservacion && Array.isArray(reporte.imagenesObservacion)) {
+                            reporte.imagenesObservacion.forEach((img: string, idx: number) => {
+                                if (img && !allPhotos.some(p => p.url === img)) allPhotos.push({ label: `Extra ${idx + 1}`, url: img });
+                            });
+                        } else if (reporte?.imagenObservacion) {
+                            if (!allPhotos.some(p => p.url === reporte.imagenObservacion)) {
+                                allPhotos.push({ label: 'Extra', url: reporte.imagenObservacion });
+                            }
+                        }
+
+                        if (allPhotos.length === 0) return null;
+
+                        return (
+                            <div className={styles.reportDetailCard}>
+                                <div className={styles.detailSectionTitle}>
+                                    <HiOutlineWrench size={18} />
+                                    Evidencia Fotográfica ({allPhotos.length})
+                                </div>
+                                <div className={styles.evidenceGrid}>
+                                    {allPhotos.map((photo, idx) => (
                                         <div key={idx} className={styles.evidenceItem}>
                                             <img
-                                                src={img}
-                                                alt={`Obs ${idx + 1}`}
+                                                src={photo.url}
+                                                alt={photo.label}
                                                 className={styles.evidenceThumb}
-                                                onClick={() => setSelectedZoomImage(img)}
+                                                onClick={() => setSelectedZoomImage(photo.url)}
                                             />
-                                            <span className={styles.evidenceLabel}>Extra {idx + 1}</span>
+                                            <span className={styles.evidenceLabel}>{photo.label}</span>
                                         </div>
-                                    ))
-                                ) : (
-                                    reporte.imagenObservacion && (
-                                        <div className={styles.evidenceItem}>
-                                            <img
-                                                src={reporte.imagenObservacion}
-                                                alt="Obs"
-                                                className={styles.evidenceThumb}
-                                                onClick={() => setSelectedZoomImage(reporte.imagenObservacion)}
-                                            />
-                                            <span className={styles.evidenceLabel}>Extra</span>
-                                        </div>
-                                    )
-                                )}
+                                    ))}
+                                </div>
                             </div>
-                        </div>
-                    )}
+                        );
+                    })()}
 
                     {trabajo?.cotizacion && (
                         <div className={styles.approvedQuoteBox} style={{ cursor: 'pointer' }} onClick={() => setShowCotizacionDetail(!showCotizacionDetail)}>
