@@ -22,7 +22,6 @@ import TrabajoDetalle from "./pages/Trabajos detalles/Trabajodetalles";
 import AdminDetalleTrabajo from "./pages/admin/AdminDetalleTrabajo";
 import GerenteSucursalDetalleTrabajo from "./pages/ecosistema_autonomo/gerente_sucursal/GerenteSucursalDetalleTrabajo";
 import AutonomoDetalleTrabajo from "./pages/ecosistema_autonomo/admin_autonomo/AutonomoDetalleTrabajo";
-import AutonomoListaNegocios from "./pages/ecosistema_autonomo/admin_autonomo/AutonomoListaNegocios";
 import AdminGeneralMisSucursales from "./pages/ecosistema_autonomo/admin_autonomo/AdminGeneralMisSucursales";
 import AutonomoListaTrabajadores from "./pages/ecosistema_autonomo/admin_autonomo/AutonomoListaTrabajadores";
 import AutonomoPerfilEmpresa from "./pages/ecosistema_autonomo/admin_autonomo/AutonomoPerfilEmpresa";
@@ -30,7 +29,8 @@ import AdminVerificacionEquipo from "./pages/admin/AdminVerificacionEquipo";
 import AdminReporte from "./pages/admin/AdminReporte";
 import AdminCotizacion from "./pages/admin/AdminCotizacion";
 import AdminPerfilTrabajador from "./pages/admin/AdminPerfilTrabajador";
-import AdminSolicitudesProveedores from "./pages/admin/AdminSolicitudesProveedores";
+import AdminPagosProveedores from "./pages/admin/AdminPagosProveedores";
+import DashboardTecnicoProveedor from "./pages/ecosistema_autonomo/tecnico_proveedor/DashboardTecnicoProveedor";
 import PerfilEmpresa from "./pages/cliente/PerfilEmpresa";
 import MiPerfil from "./pages/cliente/MiPerfil";
 import AutonomoMiPerfil from "./pages/ecosistema_autonomo/admin_autonomo/AutonomoMiPerfil";
@@ -89,7 +89,8 @@ function App() {
                             <Route path="verificacion-tarea/:id" element={<AdminVerificacionEquipo />} />
                             <Route path="reporte-tarea/:id" element={<AdminReporte />} />
                             <Route path="mi-perfil" element={<MiPerfil />} />
-                            <Route path="solicitudes-proveedores" element={<AdminSolicitudesProveedores />} />
+                            <Route path="solicitudes-proveedores" element={<AdminPagosProveedores />} />
+                            <Route path="pagos-proveedores" element={<AdminPagosProveedores />} />
                             <Route path="perfil-empresa" element={<PerfilEmpresa />} />
                             <Route path="admin-autonomo/:id" element={<DetalleAdminAutonomo />} />
                         </Route>
@@ -113,7 +114,7 @@ function App() {
 
                         {/* TECNICO ROUTES */}
                         <Route path="/tecnico" element={
-                            <ProtectedRoute allowedRoles={['tecnico-normal', 'tecnico']}>
+                            <ProtectedRoute allowedRoles={['tecnico-normal', 'tecnico', 'tecnico-cuadrilla']}>
                                 <TecnicoLayout />
                             </ProtectedRoute>
                         }>
@@ -141,6 +142,22 @@ function App() {
                             <Route path="reporte-tarea/:id" element={<AdminReporte />} />
                         </Route>
 
+                        {/* TECNICO PRO-VEEDOR ROUTES */}
+                        <Route path="/tecnico-proveedor" element={
+                            <ProtectedRoute allowedRoles={['tecnico-proveedor', 'tecnico-normal', 'tecnico', 'tecnico-autonomo', 'admin', 'root']}>
+                                <TecnicoLayout />
+                            </ProtectedRoute>
+                        }>
+                            <Route index element={<DashboardTecnicoProveedor />} />
+                            <Route path="dashboard" element={<DashboardTecnicoProveedor />} />
+                            <Route path="solicitudes" element={<DashboardTecnicoProveedor />} />
+                            <Route path="mi-perfil" element={<MiPerfil />} />
+                            <Route path="historial" element={<AdminHistorial />} />
+                            <Route path="trabajo/:id" element={<TrabajoDetalle />} />
+                            <Route path="trabajo-detalle/:id" element={<AdminDetalleTrabajo />} />
+                            <Route path="reporte-tarea/:id" element={<AdminReporte />} />
+                        </Route>
+
                         {/* ENCARGADO ROUTES */}
                         <Route path="/gerente-sucursal" element={
                             <ProtectedRoute allowedRoles={['gerente-sucursal', 'encargado']}>
@@ -150,6 +167,7 @@ function App() {
                             <Route index element={<Navigate to="/gerente-sucursal/negocios" replace />} />
                             <Route path="negocios" element={<GerenteSucursalMiSucursal />} />
                             <Route path="sucursal" element={<AutonomoPerfilEmpresa />} />
+                            <Route path="solicitudes" element={<ListaSolicitudes />} />
                             <Route path="mi-perfil" element={<MiPerfil />} />
                             <Route path="cotizaciones" element={<Cotizaciones />} />
                             <Route path="historial" element={<Historial />} />

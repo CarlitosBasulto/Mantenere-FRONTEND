@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import type { AsignacionTecnico, Tecnico, Trabajo } from '../../../types/trabajo.types';
 import menuStyles from '../../../components/Menu.module.css';
 import styles from '../Trabajodetalles.module.css';
+import { getProveedoresRed, type ProveedorRed } from '../../../services/pagoProveedorService';
+import { HiOutlineSparkles, HiOutlineUserGroup } from 'react-icons/hi2';
 
 interface AssignTechnicianModalProps {
     isOpen: boolean;
@@ -38,7 +40,7 @@ const HOUR_SLOTS = [
 
 /**
  * Modal de asignación de técnico. Permite seleccionar el tipo de trabajo
- * (Visita/Trabajo), el técnico, y la fecha/hora de asignación.
+ * (Visita/Trabajo), el técnico (Interno o de la RED), y la fecha/hora de asignación.
  */
 const AssignTechnicianModal: React.FC<AssignTechnicianModalProps> = ({
     isOpen,
@@ -55,26 +57,42 @@ const AssignTechnicianModal: React.FC<AssignTechnicianModalProps> = ({
     onConfirm,
     onClose,
 }) => {
+    const [assignmentTab, setAssignmentTab] = useState<'internos' | 'red'>('internos');
+    const [proveedoresRed, setProveedoresRed] = useState<ProveedorRed[]>([]);
+
+    useEffect(() => {
+        if (isOpen) {
+            getProveedoresRed()
+                .then(data => setProveedoresRed(data || []))
+                .catch(() => setProveedoresRed([]));
+        }
+    }, [isOpen]);
+
     if (!isOpen) return null;
 
     const jobFechaSolicitud = selectedJobId
         ? trabajosData.find(j => j.id === selectedJobId)?.fechaSolicitud
         : null;
 
+    const filteredProveedores = proveedoresRed.filter(p =>
+        p.nombre.toLowerCase().includes(technicianSearch.toLowerCase()) ||
+        (p.puesto && p.puesto.toLowerCase().includes(technicianSearch.toLowerCase()))
+    );
+
     return (
         <div className={styles.modalOverlay}>
             <div className={`${styles.modalContent} ${styles.modalContentWide}`} style={{ maxHeight: '90vh', overflowY: 'auto' }}>
                 <h2 style={{ textAlign: 'center', marginBottom: '5px', fontSize: '28px', fontWeight: '800' }}>
-                    Asignar Tecnico
+                    Asignar Técnico
                 </h2>
                 {jobFechaSolicitud && (
-                    <p style={{ textAlign: 'center', color: '#64748b', fontSize: '13px', fontWeight: 'bold', marginBottom: '25px', marginTop: 0 }}>
+                    <p style={{ textAlign: 'center', color: '#64748b', fontSize: '13px', fontWeight: 'bold', marginBottom: '20px', marginTop: 0 }}>
                         📅 Solicitado el: {jobFechaSolicitud}
                     </p>
                 )}
 
                 {/* Selector tipo Visita / Trabajo */}
-                <div style={{ marginBottom: '20px', display: 'flex', gap: '20px', justifyContent: 'center' }}>
+                <div style={{ marginBottom: '18px', display: 'flex', gap: '20px', justifyContent: 'center' }}>
                     {(['Visita', 'Trabajo'] as const).map(t => (
                         <label key={t} className={`${styles.radioLabel} ${styles.radioLabelLarge}`}>
                             <input
@@ -88,33 +106,130 @@ const AssignTechnicianModal: React.FC<AssignTechnicianModalProps> = ({
                     ))}
                 </div>
 
+                {/* PESTAÑAS: TÉCNICOS INTERNOS VS OPCIÓN RED */}
+                <div style={{ display: 'flex', gap: '10px', marginBottom: '16px' }}>
+                    <button
+                        type="button"
+                        onClick={() => setAssignmentTab('internos')}
+                        style={{
+                            flex: 1,
+                            padding: '10px 14px',
+                            borderRadius: '12px',
+                            border: assignmentTab === 'internos' ? '2px solid #2563eb' : '1px solid #cbd5e1',
+                            background: assignmentTab === 'internos' ? '#eff6ff' : '#ffffff',
+                            color: assignmentTab === 'internos' ? '#1d4ed8' : '#64748b',
+                            fontWeight: '800',
+                            fontSize: '13px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px',
+                            transition: 'all 0.2s'
+                        }}
+                    >
+                        👥 Técnicos Internos ({filteredTechnicians.length})
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => setAssignmentTab('red')}
+                        style={{
+                            flex: 1,
+                            padding: '10px 14px',
+                            borderRadius: '12px',
+                            border: assignmentTab === 'red' ? '2px solid #f59e0b' : '1px solid #cbd5e1',
+                            background: assignmentTab === 'red' ? '#fffbeb' : '#ffffff',
+                            color: assignmentTab === 'red' ? '#b45309' : '#64748b',
+                            fontWeight: '800',
+                            fontSize: '13px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px',
+                            transition: 'all 0.2s'
+                        }}
+                    >
+                        <HiOutlineSparkles size={16} color={assignmentTab === 'red' ? '#f59e0b' : '#64748b'} />
+                        🌐 RED (Técnicos Pro-Veedores) ({proveedoresRed.length})
+                    </button>
+                </div>
+
                 {/* Buscador de técnicos */}
-                <div className={`${menuStyles.searchCard} ${styles.techSearchWrapper}`}>
+                <div className={`${menuStyles.searchCard} ${styles.techSearchWrapper}`} style={{ marginBottom: '14px' }}>
                     <input
                         type="text"
-                        placeholder="Buscar técnico..."
+                        placeholder={assignmentTab === 'internos' ? "Buscar técnico interno..." : "Buscar en la RED de Técnicos Pro-Veedores..."}
                         className={`${menuStyles.searchInput} ${styles.techSearchInput}`}
                         value={technicianSearch}
                         onChange={(e) => onTechSearch(e.target.value)}
                     />
                 </div>
 
-                {/* Lista de técnicos */}
+                {/* Lista de técnicos según la pestaña seleccionada */}
                 <div className={styles.techList}>
-                    {filteredTechnicians.map(tech => (
-                        <div key={tech.id} className={styles.techItem}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <div className={styles.techAvatar}>👤</div>
-                                <span style={{ fontWeight: 'bold' }}>{tech.nombre}</span>
+                    {assignmentTab === 'internos' ? (
+                        filteredTechnicians.length === 0 ? (
+                            <div style={{ textAlign: 'center', padding: '20px', color: '#94a3b8', fontSize: '13px' }}>
+                                No se encontraron técnicos internos.
                             </div>
-                            <input
-                                type="checkbox"
-                                checked={selectedAssignments.some(a => a.tecnicoId === tech.id)}
-                                onChange={() => onTechToggle(tech)}
-                                style={{ width: '20px', height: '20px', accentColor: '#333', cursor: 'pointer' }}
-                            />
-                        </div>
-                    ))}
+                        ) : (
+                            filteredTechnicians.map(tech => (
+                                <div key={tech.id} className={styles.techItem}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <div className={styles.techAvatar}>👤</div>
+                                        <div>
+                                            <span style={{ fontWeight: 'bold', display: 'block' }}>{tech.nombre}</span>
+                                            <span style={{ fontSize: '11px', color: '#64748b' }}>Técnico Interno</span>
+                                        </div>
+                                    </div>
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedAssignments.some(a => a.tecnicoId === tech.id)}
+                                        onChange={() => onTechToggle(tech)}
+                                        style={{ width: '20px', height: '20px', accentColor: '#333', cursor: 'pointer' }}
+                                    />
+                                </div>
+                            ))
+                        )
+                    ) : (
+                        /* OPCIÓN RED */
+                        filteredProveedores.length === 0 ? (
+                            <div style={{ textAlign: 'center', padding: '24px', color: '#94a3b8', fontSize: '13px', background: '#fffbeb', borderRadius: '12px' }}>
+                                <HiOutlineSparkles size={28} color="#f59e0b" style={{ margin: '0 auto 6px auto', display: 'block' }} />
+                                <strong>No hay Técnicos Pro-Veedores activos en la RED</strong>
+                                <p style={{ margin: '4px 0 0 0', fontSize: '12px' }}>Los técnicos aprobados mediante transferencia manual aparecerán aquí.</p>
+                            </div>
+                        ) : (
+                            filteredProveedores.map(prov => (
+                                <div key={prov.id} className={styles.techItem} style={{ borderLeft: '4px solid #f59e0b' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <div style={{ width: '38px', height: '38px', borderRadius: '50%', background: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px' }}>
+                                            {prov.avatar ? <img src={prov.avatar} alt={prov.nombre} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} /> : '🌟'}
+                                        </div>
+                                        <div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                <span style={{ fontWeight: 'bold' }}>{prov.nombre}</span>
+                                                <span style={{ background: '#fef3c7', color: '#b45309', fontSize: '10px', fontWeight: '800', padding: '2px 6px', borderRadius: '6px' }}>
+                                                    🌐 Pro-Veedor
+                                                </span>
+                                            </div>
+                                            <span style={{ fontSize: '11px', color: '#64748b', display: 'block' }}>
+                                                {prov.puesto || 'Empresa / Especialista'} • Cuadrilla: {prov.cuadrilla_total} técnicos
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedAssignments.some(a => a.tecnicoId === prov.id)}
+                                        onChange={() => onTechToggle({ id: prov.id, nombre: prov.nombre, userId: prov.user_id })}
+                                        style={{ width: '20px', height: '20px', accentColor: '#f59e0b', cursor: 'pointer' }}
+                                    />
+                                </div>
+                            ))
+                        )
+                    )}
                 </div>
 
                 {/* Fechas/horas por técnico */}

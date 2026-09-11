@@ -25,7 +25,7 @@ import echo from "../services/echo";
 const MenuLayout: React.FC = () => {
     const location = useLocation();
     const navigate = useNavigate();
-    const { user, loading, logout } = useAuth(); // Usamos el contexto
+    const { user, loading, logout, login } = useAuth(); // Usamos el contexto
     const [sidebarOptions, setSidebarOptions] = useState<string[]>([]);
     const [activeOption, setActiveOption] = useState("");
     const [notificaciones, setNotificaciones] = useState<any[]>([]);
@@ -54,6 +54,21 @@ const MenuLayout: React.FC = () => {
             });
         }
     }, [user]);
+
+    // Sincronizar automáticamente si un técnico fue aprobado como Pro-Veedor
+    useEffect(() => {
+        if (!user) return;
+        const role = normalizeRole(user.role);
+        if (role === 'tecnico-autonomo' || role === 'tecnico-normal' || user.role === 'tecnico-autonomo') {
+            import("../services/pagoProveedorService").then(({ getMiEstadoPago }) => {
+                getMiEstadoPago().then(res => {
+                    if (res && res.es_proveedor && user.role !== 'tecnico-proveedor') {
+                        login({ ...user, role: 'tecnico-proveedor' });
+                    }
+                }).catch(() => {});
+            });
+        }
+    }, [user?.id]);
 
     // Efecto para el carrusel
     useEffect(() => {
@@ -84,6 +99,7 @@ const MenuLayout: React.FC = () => {
         const role = normalizeRole(user.role);
         if (role === 'admin') return "/menu";
         if (role === 'cliente') return "/cliente";
+        if (role === 'tecnico-proveedor' || user.role === 'tecnico-proveedor') return "/tecnico-proveedor/dashboard";
         if (role === 'tecnico-normal') return "/tecnico";
         if (user.role === 'tecnico-autonomo') return "/tecnico-autonomo";
         if (role === 'gerente-sucursal') return "/gerente-sucursal";
@@ -99,6 +115,9 @@ const MenuLayout: React.FC = () => {
         }
         if (normalizeRole(user?.role) === 'cliente') {
             return path !== "/cliente" && path !== "/cliente/negocios";
+        }
+        if (normalizeRole(user?.role) === 'tecnico-proveedor' || user?.role === 'tecnico-proveedor') {
+            return path !== "/tecnico-proveedor" && path !== "/tecnico-proveedor/dashboard";
         }
         if (normalizeRole(user?.role) === 'tecnico-normal') {
             return path !== "/tecnico";
@@ -122,8 +141,7 @@ const MenuLayout: React.FC = () => {
             const data = await getNotificaciones(user.id);
             setNotificaciones(data);
         } catch (error) {
-            console.error("Error cargando notificaciones de la BD:", error);
-            // Fallback silencioso
+            console.error("Error al cargar notificaciones:", error);
         }
     };
 
@@ -195,12 +213,14 @@ const MenuLayout: React.FC = () => {
             baseOptions = ["Mis Sucursales", "Mis Técnicos", "Usuarios", "Solicitudes", "Historial"];
         } else if (normalizeRole(user.role) === 'cliente') {
             baseOptions = ["Mis Negocios", "Cotizaciones", "Historial"];
+        } else if (normalizeRole(user.role) === 'tecnico-proveedor' || user.role === 'tecnico-proveedor') {
+            baseOptions = ["Mis Trabajos", "Historial de Trabajo"];
         } else if (normalizeRole(user.role) === 'tecnico-normal') {
             baseOptions = ["Mis Trabajos", "Nueva Solicitud", "Historial de Trabajo"];
         } else if (user.role === 'tecnico-autonomo') {
             baseOptions = ["Mis Trabajos", "Historial de Trabajo"];
         } else if (normalizeRole(user.role) === 'gerente-sucursal') {
-            baseOptions = ["Mi Sucursal", "Cotizaciones", "Historial"];
+            baseOptions = ["Mi Sucursal", "Solicitudes", "Cotizaciones", "Historial"];
         }
 
         if (normalizeRole(user.role) === 'admin' && location.pathname.includes("/menu/trabajo/")) {
@@ -236,6 +256,9 @@ const MenuLayout: React.FC = () => {
                 else if (path.includes("negocios") || path.includes("perfil-empresa")) setActiveOption("Mis Negocios");
                 else if (path.includes("cotizaciones")) setActiveOption("Cotizaciones");
                 else if (path.includes("historial")) setActiveOption("Historial");
+            } else if (path.startsWith("/tecnico-proveedor")) {
+                if (path.includes("historial")) setActiveOption("Historial de Trabajo");
+                else setActiveOption("Mis Trabajos");
             } else if (path.startsWith("/tecnico-autonomo")) {
                 if (path === "/tecnico-autonomo" || path === "/tecnico-autonomo/") setActiveOption("Mis Trabajos");
                 else if (path.includes("mi-perfil")) setActiveOption("Mi Perfil");
@@ -246,6 +269,7 @@ const MenuLayout: React.FC = () => {
                 else if (path.includes("historial")) setActiveOption("Historial de Trabajo");
             } else if (path.startsWith("/gerente-sucursal")) {
                 if (path === "/gerente-sucursal" || path === "/gerente-sucursal/") setActiveOption("Mi Sucursal");
+                else if (path.includes("solicitudes")) setActiveOption("Solicitudes");
                 else if (path.includes("negocios") || path.includes("sucursal")) setActiveOption("Mi Sucursal");
                 else if (path.includes("cotizaciones")) setActiveOption("Cotizaciones");
                 else if (path.includes("historial")) setActiveOption("Historial");
@@ -267,6 +291,7 @@ const MenuLayout: React.FC = () => {
         }
         if (option === "Solicitudes") {
             if (normalizeRole(user?.role) === 'autonomo' || normalizeRole(user?.role) === 'propietario-autonomo' || normalizeRole(user?.role) === 'administrador-general') navigate("/autonomo/solicitudes");
+            else if (normalizeRole(user?.role) === 'gerente-sucursal') navigate("/gerente-sucursal/solicitudes");
             else navigate("/menu/solicitudes");
         }
         if (option === "Solicitudes Proveedores") navigate("/menu/solicitudes-proveedores");
@@ -300,14 +325,18 @@ const MenuLayout: React.FC = () => {
             else navigate("/cliente/historial");
         }
 
+        if (option === "Mini Tablero") navigate("/tecnico-proveedor/dashboard");
+
         if (option === "Mis Trabajos") {
-            if (user?.role === 'tecnico-autonomo') navigate("/tecnico-autonomo");
+            if (normalizeRole(user?.role) === 'tecnico-proveedor' || user?.role === 'tecnico-proveedor') navigate("/tecnico-proveedor/dashboard");
+            else if (user?.role === 'tecnico-autonomo') navigate("/tecnico-autonomo");
             else navigate("/tecnico");
         }
         if (option === "Nueva Solicitud") navigate("/tecnico/solicitudes");
         if (option === "Mi Perfil") navigate("/tecnico-autonomo/mi-perfil");
         if (option === "Historial de Trabajo") {
-            if (user?.role === 'tecnico-autonomo') navigate("/tecnico-autonomo/historial");
+            if (normalizeRole(user?.role) === 'tecnico-proveedor' || user?.role === 'tecnico-proveedor') navigate("/tecnico-proveedor/historial");
+            else if (user?.role === 'tecnico-autonomo') navigate("/tecnico-autonomo/historial");
             else navigate("/tecnico/historial");
         }
 
@@ -333,6 +362,7 @@ const MenuLayout: React.FC = () => {
                 else if (normalizeRole(user?.role) === 'autonomo' || normalizeRole(user?.role) === 'propietario-autonomo' || normalizeRole(user?.role) === 'administrador-general') navigate("/autonomo/negocios");
                 else if (normalizeRole(user?.role) === 'cliente') navigate("/cliente/negocios");
                 else if (normalizeRole(user?.role) === 'gerente-sucursal') navigate("/gerente-sucursal/negocios");
+                else if (normalizeRole(user?.role) === 'tecnico-proveedor' || user?.role === 'tecnico-proveedor') navigate("/tecnico-proveedor");
                 else if (normalizeRole(user?.role) === 'tecnico-normal') navigate("/tecnico");
                 else if (user?.role === 'tecnico-autonomo') navigate("/tecnico-autonomo");
                 else navigate(-1);
@@ -347,6 +377,7 @@ const MenuLayout: React.FC = () => {
 
     const getIconForOption = (option: string) => {
         switch (option) {
+            case "Mini Tablero":
             case "Dashboard":
             case "Mi Dashboard":
                 return <HiOutlineSquares2X2 size={22} />;
@@ -522,6 +553,7 @@ const MenuLayout: React.FC = () => {
                                                         if (targetUrl) {
                                                             const rolePrefix = normalizeRole(user?.role) === 'tecnico-normal' ? '/tecnico/' :
                                                                                normalizeRole(user?.role) === 'tecnico-autonomo' ? '/tecnico-autonomo/' :
+                                                                               normalizeRole(user?.role) === 'tecnico-proveedor' ? '/tecnico-proveedor/' :
                                                                                normalizeRole(user?.role) === 'gerente-sucursal' ? '/gerente-sucursal/' :
                                                                                normalizeRole(user?.role) === 'cliente' ? '/cliente/' :
                                                                                (normalizeRole(user?.role) === 'autonomo' || normalizeRole(user?.role) === 'propietario-autonomo' || normalizeRole(user?.role) === 'administrador-general') ? '/autonomo/' : '/menu/';
@@ -529,6 +561,7 @@ const MenuLayout: React.FC = () => {
                                                             if (targetUrl.startsWith('/menu/')) targetUrl = targetUrl.replace('/menu/', rolePrefix);
                                                             else if (targetUrl.startsWith('/tecnico/')) targetUrl = targetUrl.replace('/tecnico/', rolePrefix);
                                                             else if (targetUrl.startsWith('/tecnico-autonomo/')) targetUrl = targetUrl.replace('/tecnico-autonomo/', rolePrefix);
+                                                            else if (targetUrl.startsWith('/tecnico-proveedor/')) targetUrl = targetUrl.replace('/tecnico-proveedor/', rolePrefix);
                                                             else if (targetUrl.startsWith('/gerente-sucursal/')) targetUrl = targetUrl.replace('/gerente-sucursal/', rolePrefix);
                                                             else if (targetUrl.startsWith('/cliente/')) targetUrl = targetUrl.replace('/cliente/', rolePrefix);
                                                             else if (targetUrl.startsWith('/autonomo/')) targetUrl = targetUrl.replace('/autonomo/', rolePrefix);

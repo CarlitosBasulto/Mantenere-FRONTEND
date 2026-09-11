@@ -825,7 +825,8 @@ const AdminReporte: React.FC = () => {
         }
 
         const getBasePath = () => {
-            if (user?.role === 'tecnico' || user?.role === 'tecnico-normal') return '/tecnico';
+            if (user?.role === 'tecnico-proveedor') return '/tecnico-proveedor';
+            if (user?.role === 'tecnico' || user?.role === 'tecnico-normal' || user?.role === 'tecnico-cuadrilla') return '/tecnico';
             if (user?.role === 'tecnico-autonomo') return '/tecnico-autonomo';
             if (isAutonomoAdmin(user?.role) || user?.role === 'autonomo') return '/autonomo';
             return '/menu';
@@ -861,7 +862,7 @@ const AdminReporte: React.FC = () => {
                             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                                 <button
                                     onClick={() => {
-                                        const basePath = (user?.role === 'tecnico' || user?.role === 'tecnico-normal') ? '/tecnico' : (user?.role === 'tecnico-autonomo' ? '/tecnico-autonomo' : ((isAutonomoAdmin(user?.role) || user?.role === 'autonomo') ? '/autonomo' : '/menu'));
+                                        const basePath = user?.role === 'tecnico-proveedor' ? '/tecnico-proveedor' : ((user?.role === 'tecnico' || user?.role === 'tecnico-normal' || user?.role === 'tecnico-cuadrilla') ? '/tecnico' : (user?.role === 'tecnico-autonomo' ? '/tecnico-autonomo' : ((isAutonomoAdmin(user?.role) || user?.role === 'autonomo') ? '/autonomo' : '/menu')));
                                         const targetPath = `${basePath}/trabajo-detalle/${trabajoId || id}?tab=trabajo`;
                                         navigate(targetPath);
                                     }}

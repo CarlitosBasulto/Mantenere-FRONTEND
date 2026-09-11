@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { getTrabajos } from "../../services/base/trabajosService";
+import { getTrabajos as getTrabajosBase, deleteTrabajo as deleteTrabajoBase } from "../../services/base/trabajosService";
+import { getTrabajos as getTrabajosAutonomo, deleteTrabajo as deleteTrabajoAutonomo } from "../../services/autonomo/trabajosService";
 import styles from "./ListaSolicitudes.module.css";
 import menuStyles from "../../components/Menu.module.css";
 import { useAuth } from "../../context/AuthContext";
-import { normalizeRole } from "../../utils/roles";
+import { normalizeRole, isAutonomoRole, type AnyRole } from "../../utils/roles";
 import { useModal } from "../../context/ModalContext";
-import { deleteTrabajo } from "../../services/base/trabajosService";
 import { HiOutlineTrash, HiOutlineUserPlus } from "react-icons/hi2";
 
 interface Trabajo {
@@ -27,6 +27,16 @@ interface Trabajo {
     imagenPortada?: string | null;
 }
 
+const getDetailBasePath = (role?: AnyRole) => {
+    const r = normalizeRole(role);
+    if (r === 'tecnico-normal') return '/tecnico';
+    if (r === 'tecnico-autonomo') return '/tecnico-autonomo';
+    if (r === 'tecnico-proveedor') return '/tecnico-proveedor';
+    if (r === 'gerente-sucursal') return '/gerente-sucursal';
+    if (isAutonomoRole(role)) return '/autonomo';
+    return '/menu';
+};
+
 const ListaSolicitudes: React.FC = () => {
     const [searchText, setSearchText] = useState("");
     const [filterStatus, setFilterStatus] = useState<string>("Todos");
@@ -44,12 +54,14 @@ const ListaSolicitudes: React.FC = () => {
     useEffect(() => {
         const fetchSolicitudes = async () => {
             try {
-                const apiJobs = await getTrabajos();
+                const isAutonomo = isAutonomoRole(user?.role);
+                const apiJobs = isAutonomo ? await getTrabajosAutonomo() : await getTrabajosBase();
                 
                 // Filtramos por estados relevantes para la bandeja de "Nuevas Solicitudes"
                 // Si es técnico, queremos ver TODO lo que tiene asignado y no esté finalizado
-                const activeJobs = apiJobs.filter((j: any) => {
-                    const isTecnico = normalizeRole(user?.role) === 'tecnico-normal' || user?.role === 'tecnico_externo';
+                const activeJobs = (apiJobs || []).filter((j: any) => {
+                    const normRole = normalizeRole(user?.role);
+                    const isTecnico = normRole === 'tecnico-normal' || normRole === 'tecnico-autonomo' || (user?.role as string) === 'tecnico_externo';
                     const assignedToMe = j.trabajador?.user_id === user?.id || j.trabajador_id === user?.id;
 
                     if (isTecnico) {
@@ -126,8 +138,9 @@ const ListaSolicitudes: React.FC = () => {
             (req.sucursal || "").toLowerCase().includes(searchTextLower) ||
             req.tecnico.toLowerCase().includes(searchTextLower);
 
-        if (normalizeRole(user?.role) === 'tecnico-normal') {
-            return matchesText && req.tecnicoUserId === user.id;
+        const normRole = normalizeRole(user?.role);
+        if (normRole === 'tecnico-normal' || normRole === 'tecnico-autonomo') {
+            return matchesText && req.tecnicoUserId === user?.id;
         }
 
         let matchesStatus = true;
@@ -152,7 +165,12 @@ const ListaSolicitudes: React.FC = () => {
             "¿Estás seguro de que deseas eliminar esta solicitud? Esta acción no se puede deshacer.",
             async () => {
                 try {
-                    await deleteTrabajo(id);
+                    const isAutonomo = isAutonomoRole(user?.role);
+                    if (isAutonomo) {
+                        await deleteTrabajoAutonomo(id);
+                    } else {
+                        await deleteTrabajoBase(id);
+                    }
                     setSolicitudes(prev => prev.filter(s => s.id !== id));
                     showAlert("Éxito", "Solicitud eliminada correctamente", "success");
                 } catch (error) {
@@ -275,8 +293,7 @@ const ListaSolicitudes: React.FC = () => {
                                 <div
                                     className={styles.jobCard}
                                     onClick={() => {
-                                        const r = normalizeRole(user?.role);
-                                        const basePath = r === 'tecnico-normal' ? '/tecnico' : '/menu';
+                                        const basePath = getDetailBasePath(user?.role);
                                         navigate(`${basePath}/trabajo-detalle/${req.id}`);
                                     }}
                                 >
@@ -358,14 +375,13 @@ const ListaSolicitudes: React.FC = () => {
                                                  {req.estado === 'Finalizado' && req.tipo === 'SOS' ? 'Finalizado' : req.tipo}
                                              </span>
                                          )}
-                                         {normalizeRole(user?.role) === 'admin' && (
+                                         {(normalizeRole(user?.role) === 'admin' || isAutonomoRole(user?.role)) && (
                                              <div className={styles.actionBtns} onClick={(e) => e.stopPropagation()}>
                                                  <button
                                                      className={styles.assignBtn}
                                                      onClick={(e) => { 
                                                          e.stopPropagation(); 
-                                                         const r = normalizeRole(user?.role);
-                                                         const basePath = r === 'tecnico-normal' ? '/tecnico' : '/menu';
+                                                         const basePath = getDetailBasePath(user?.role);
                                                          navigate(`${basePath}/trabajo-detalle/${req.id}`); 
                                                      }}
                                                      title="Asignar Técnico"

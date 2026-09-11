@@ -9,7 +9,8 @@ import {
     HiOutlineEye,
     HiOutlineSparkles,
     HiOutlineShieldCheck,
-    HiOutlineDocumentMagnifyingGlass
+    HiOutlineDocumentMagnifyingGlass,
+    HiOutlineXMark
 } from 'react-icons/hi2';
 import { getSolicitudesProveedor, aprobarSolicitudProveedor, rechazarSolicitudProveedor } from '../../services/proveedorService';
 import { useModal } from '../../context/ModalContext';
@@ -221,8 +222,7 @@ const AdminSolicitudesProveedores: React.FC = () => {
                 <div style={{
                     position: 'fixed',
                     top: 0, left: 0, right: 0, bottom: 0,
-                    background: 'rgba(15, 23, 42, 0.75)',
-                    backdropFilter: 'blur(8px)',
+                    background: 'rgba(15, 23, 42, 0.82)',
                     zIndex: 9999,
                     display: 'flex',
                     alignItems: 'center',
@@ -261,9 +261,20 @@ const AdminSolicitudesProveedores: React.FC = () => {
 
                             <button 
                                 onClick={() => setIsDetailModalOpen(false)}
-                                style={{ background: '#ef4444', border: 'none', color: '#fff', width: '32px', height: '32px', borderRadius: '50%', cursor: 'pointer', fontWeight: '900' }}
+                                style={{
+                                    background: '#ef4444',
+                                    border: 'none',
+                                    color: '#fff',
+                                    width: '32px',
+                                    height: '32px',
+                                    borderRadius: '50%',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}
                             >
-                                ✕
+                                <HiOutlineXMark size={18} />
                             </button>
                         </div>
 

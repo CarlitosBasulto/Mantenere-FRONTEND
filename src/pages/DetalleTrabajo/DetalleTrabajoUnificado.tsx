@@ -31,17 +31,19 @@ import {
     HiOutlineChevronUp,
     HiOutlineChevronLeft,
     HiOutlineChevronRight,
-    HiOutlinePaperAirplane
+    HiOutlinePaperAirplane,
+    HiOutlineSparkles
 } from "react-icons/hi2";
 import ReporteDetailModal from "../../components/modals/ReporteDetailModal";
 import { getTrabajo, updateEstadoTrabajo, assignTrabajador, updateTrabajo, getTrabajos } from "../../services/trabajosService";
 import { createActividad, getActividadesByTrabajo, deleteActividad, updateActividad } from "../../services/actividadesService";
-import { getTrabajadores } from "../../services/trabajadoresService";
+import { getTrabajadores, getTrabajador } from "../../services/trabajadoresService";
 import { saveCotizacion, updateCotizacion, deleteCotizacion, updateCotizacionStatus, getCotizacionesByTrabajoId, type Cotizacion } from "../../services/cotizacionesService";
 import { createNotificacionByRole, createNotificacion, createNotificacionNegocio, createNotificacionEcosistema } from "../../services/notificacionesService";
 import { getReporteByTrabajoId } from "../../services/reportesService";
 import { useModal } from "../../context/ModalContext";
 import { getNegocio } from "../../services/negociosService";
+import { getProveedoresRed, type ProveedorRed } from "../../services/pagoProveedorService";
 import LevantamientoModal from "../../components/LevantamientoModal";
 import CotizacionPDFPreview from "../../components/modals/CotizacionPDFPreview";
 import ReportePDFPreview from "../../components/modals/ReportePDFPreview";
@@ -411,7 +413,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
     // Permitir abrir la pestaña de cotización directamente vía URL
     const searchParams = new URLSearchParams(location.search);
     const rawTabParam = (searchParams.get('tab') || '').toLowerCase();
-    const isTechRole = user?.role === 'tecnico' || user?.role === 'tecnico-normal' || user?.role === 'tecnico-autonomo';
+    const isTechRole = user?.role === 'tecnico' || user?.role === 'tecnico-normal' || user?.role === 'tecnico-autonomo' || user?.role === 'tecnico-proveedor' || user?.role === 'tecnico-cuadrilla';
     const isAutonomoAdminUser = Boolean(
         isAutonomoAdmin(user?.role) || 
         user?.role === 'autonomo' || 
@@ -493,7 +495,29 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
     useEffect(() => {
         const tabParam = (new URLSearchParams(location.search).get('tab') || '').toLowerCase();
         if (tabParam === 'cotizacion' || tabParam === 'cotización') {
-            setActiveTab('Cotización');
+            if (trabajo) {
+                const hasQuotes = cotizaciones.length > 0 || ((trabajo as any)?.cotizaciones?.length > 0) || Boolean((trabajo as any)?.cotizacion);
+                const isQuoteMoment = Boolean(trabajo.visitado) || [
+                    'Pendiente de Cotizar',
+                    'Pendiente de Cotización',
+                    'Cotización Enviada',
+                    'Cotización Aceptada',
+                    'Cotización Aprobada',
+                    'Cotización Rechazada',
+                    'Cotización Reactivada',
+                    'En Proceso',
+                    'En Ejecución',
+                    'Finalizado'
+                ].includes(trabajo.estado);
+
+                if (isSOS || hasQuotes || isQuoteMoment) {
+                    setActiveTab('Cotización');
+                } else {
+                    setActiveTab('Datos');
+                }
+            } else {
+                setActiveTab('Cotización');
+            }
         } else if (tabParam === 'historial') {
             setActiveTab('Historial');
         } else if (tabParam === 'registro') {
@@ -507,7 +531,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
         } else if (tabParam === 'datos') {
             setActiveTab('Datos');
         }
-    }, [location.search, isAutonomoAdminUser]);
+    }, [location.search, isAutonomoAdminUser, isTechRole, isSOS, trabajo, cotizaciones]);
 
     // Modal Imagen Full-Screen
     const [selectedZoomImage, setSelectedZoomImage] = useState<string | null>(null);
@@ -695,8 +719,13 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
         const fetchTecnicos = async () => {
             try {
                 const data = await getTrabajadores();
-                // Filtramos activos si es que hay un campo estado activo (opcional) o tomamos todos
-                const techList = data.filter((t: any) => t.estado?.toLowerCase() === 'activo' || t.estado === 'Activo');
+                // Filtramos activos internos (excluyendo los que ya son Técnicos Pro-Veedores de la RED)
+                const techList = data.filter((t: any) => 
+                    (t.estado?.toLowerCase() === 'activo' || t.estado === 'Activo') &&
+                    !t.es_proveedor &&
+                    !t.puesto?.toLowerCase().includes('pro-veedor') &&
+                    !t.puesto?.toLowerCase().includes('proveedor')
+                );
                 setTecnicosData(techList.map((t: any) => ({
                     id: t.id,
                     nombre: t.nombre,
@@ -878,7 +907,25 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                     if (mappedJob.estado === 'Rechazada') {
                         setActiveTab('Datos');
                     } else if (isAutonomoAdminUser) {
-                        setActiveTab(prev => prev === 'Trabajo' ? 'Datos' : prev);
+                        const hasQuotes = (mappedJob.cotizaciones && mappedJob.cotizaciones.length > 0) || Boolean(mappedJob.cotizacion);
+                        const isQuoteMoment = Boolean(mappedJob.visitado) || [
+                            'Pendiente de Cotizar',
+                            'Pendiente de Cotización',
+                            'Cotización Enviada',
+                            'Cotización Aceptada',
+                            'Cotización Aprobada',
+                            'Cotización Rechazada',
+                            'Cotización Reactivada',
+                            'En Proceso',
+                            'En Ejecución',
+                            'Finalizado'
+                        ].includes(mappedJob.estado);
+
+                        if (!hasQuotes && !isQuoteMoment) {
+                            setActiveTab('Datos');
+                        } else {
+                            setActiveTab(prev => prev === 'Trabajo' ? 'Datos' : prev);
+                        }
                     } else if (isJobSOS) {
                         // En emergencias SOS:
                         if (['Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución', 'En Proceso', 'Finalizado'].includes(mappedJob.estado) && isTechRole) {
@@ -948,11 +995,30 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
             setActiveTab(trabajo.estado === 'En Espera' && isTechRole ? 'Cotización' : 'Datos');
         }
 
+        const hasQuotes = cotizaciones.length > 0 || ((trabajo as any)?.cotizaciones?.length > 0) || Boolean((trabajo as any)?.cotizacion);
+        const isQuoteMoment = Boolean(trabajo.visitado) || [
+            'Pendiente de Cotizar',
+            'Pendiente de Cotización',
+            'Cotización Enviada',
+            'Cotización Aceptada',
+            'Cotización Aprobada',
+            'Cotización Rechazada',
+            'Cotización Reactivada',
+            'En Proceso',
+            'En Ejecución',
+            'Finalizado'
+        ].includes(trabajo.estado);
+
+        // Si estamos en la pestaña 'Cotización' pero aún no es el momento de cotizar (para admin o técnicos)
+        if (!isSOS && activeTab === 'Cotización' && !hasQuotes && !isQuoteMoment) {
+            setActiveTab('Datos');
+        }
+
         // Si el admin autónomo tiene 'Trabajo' activo
         if (isAutonomoAdminUser && activeTab === 'Trabajo') {
             setActiveTab('Datos');
         }
-    }, [trabajo?.estado, isSOS, activeTab, isTechRole, isAutonomoAdminUser]);
+    }, [trabajo?.estado, trabajo?.visitado, isSOS, activeTab, isTechRole, isAutonomoAdminUser, cotizaciones.length]);
 
     const handleQuoteAction = async (action: 'accept' | 'reject', reason?: string) => {
         try {
@@ -1188,9 +1254,12 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
     const [isTechRequestModalOpen, setIsTechRequestModalOpen] = useState(false);
     const [requestRole, setRequestRole] = useState("");
     const [selectedType, setSelectedType] = useState<"Visita" | "Trabajo">("Visita");
+    const [assignmentTab, setAssignmentTab] = useState<'internos' | 'red'>('internos');
+    const [proveedoresRed, setProveedoresRed] = useState<ProveedorRed[]>([]);
 
     // Auto-seleccionar "Trabajo" si es SOS al abrir el modal
     const handleOpenAssignModal = () => {
+        getProveedoresRed().then(data => setProveedoresRed(data || [])).catch(() => {});
         if (isSOS) {
             setSelectedType("Trabajo");
         } else {
@@ -1574,10 +1643,20 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
         t.nombre.toLowerCase().includes(technicianSearch.toLowerCase())
     );
 
+    const filteredProveedoresRed = proveedoresRed.filter(p =>
+        p.nombre.toLowerCase().includes(technicianSearch.toLowerCase()) ||
+        (p.puesto && p.puesto.toLowerCase().includes(technicianSearch.toLowerCase()))
+    );
+
     const handleConfirmAssignment = async () => {
         if (trabajo && selectedTechnicians.length > 0) {
             const assignedNames = selectedTechnicians
-                .map(id => tecnicosData.find(t => t.id === id)?.nombre)
+                .map(id => {
+                    const tech = tecnicosData.find(t => t.id === id);
+                    if (tech) return tech.nombre;
+                    const prov = proveedoresRed.find(p => p.id === id);
+                    return prov ? `${prov.nombre} (RED)` : '';
+                })
                 .filter(Boolean)
                 .join(", ");
 
@@ -1701,16 +1780,36 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
 
                     for (const id of selectedTechnicians) {
                         const tech = tecnicosData.find(t => t.id === id);
-                        if (!tech) continue;
+                        const prov = proveedoresRed.find(p => p.id === id);
+                        const target = tech || prov;
+                        if (!target) continue;
 
-                        // 1. Notificación backend (la que aparece en el panel del técnico)
-                        if (tech.user_id) {
+                        const isProveedor = Boolean(prov || (target as any).es_proveedor);
+                        let targetUserId = target.user_id;
+                        if (!targetUserId) {
+                            try {
+                                const trabInfo = await getTrabajador(id);
+                                targetUserId = trabInfo?.user_id;
+                            } catch (_) {}
+                        }
+
+                        const targetNombre = target.nombre;
+                        const targetEnlace = isProveedor
+                            ? `/tecnico-proveedor/dashboard`
+                            : `/tecnico/trabajo-detalle/${trabajo.id}`;
+
+                        const customNotifTitulo = isProveedor
+                            ? (esSOS ? '🚨 Trabajo de Emergencia SOS (RED)' : (isVisita ? '📋 Nueva Visita Asignada (RED)' : '🛠️ Nuevo Trabajo Asignado (RED)'))
+                            : notifTitulo;
+
+                        // 1. Notificación backend (la que aparece en el panel del técnico / reverb)
+                        if (targetUserId) {
                             try {
                                 await createNotificacion({
-                                    user_id: tech.user_id,
-                                    titulo: notifTitulo,
+                                    user_id: targetUserId,
+                                    titulo: customNotifTitulo,
                                     mensaje: notifMensaje,
-                                    enlace: `/tecnico/trabajo-detalle/${trabajo.id}`
+                                    enlace: targetEnlace
                                 });
                             } catch (notiErr) {
                                 console.error("Error enviando notificación al técnico:", notiErr);
@@ -1718,11 +1817,11 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                         }
 
                         // 2. localStorage como fallback visual inmediato
-                        const techKey = `tecnico_notifications_${tech.nombre}`;
+                        const techKey = `tecnico_notifications_${targetNombre}`;
                         const techNotifs = JSON.parse(localStorage.getItem(techKey) || '[]');
                         techNotifs.unshift({
                             id: Date.now() + Math.random(),
-                            titulo: notifTitulo,
+                            titulo: customNotifTitulo,
                             mensaje: notifMensaje,
                             fecha: new Date().toLocaleDateString('es-MX', { hour: '2-digit', minute: '2-digit' }),
                             leida: false,
@@ -2905,12 +3004,34 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                 }
             }
 
+            if (isTechRole) {
+                try {
+                    await createNotificacionByRole({
+                        role: 'admin',
+                        titulo: '💼 Cotización Recibida de Técnico',
+                        mensaje: `El técnico ${user?.name || ''} ha enviado una cotización para "${trabajo.sucursal || 'la sucursal'}".`,
+                        enlace: `/menu/trabajo-detalle/${trabajo.id}?tab=cotizacion`
+                    });
+
+                    if (trabajo.admin_autonomo_id) {
+                        await createNotificacion({
+                            user_id: trabajo.admin_autonomo_id,
+                            titulo: '💼 Cotización Recibida de Técnico',
+                            mensaje: `El técnico ${user?.name || ''} ha enviado una cotización para "${trabajo.sucursal || 'la sucursal'}".`,
+                            enlace: `/autonomo/trabajo-detalle/${trabajo.id}?tab=cotizacion`
+                        });
+                    }
+                } catch (notiErr) {
+                    console.error("Error enviando notificación a administradores:", notiErr);
+                }
+            }
+
             setCotizacionesFormItems([
                 { id: 'item_1', manoObra: '0', materials: [{ material: '', piezas: '', precio: '' }], notas: '', minimized: false }
             ]);
             setShowAddQuoteForm(false);
 
-            showAlert('Cotizaciones Enviadas', `Se han enviado ${validItems.length} propuesta(s) de cotización al cliente.`, 'success');
+            showAlert('Cotizaciones Enviadas', isTechRole ? 'Se han enviado las propuestas de cotización al Administrador General y Autónomo para su revisión y aprobación.' : `Se han enviado ${validItems.length} propuesta(s) de cotización al cliente.`, 'success');
         } catch (error) {
             showAlert('Error', error.response?.data?.message || error.message, 'error');
         }
@@ -3069,13 +3190,18 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                 }
 
                 if (targetUserId) {
-                    const techUrl = trabajo.admin_autonomo_id 
-                        ? `/tecnico-autonomo/trabajo-detalle/${trabajo.id}?tab=trabajo`
-                        : `/tecnico/trabajo-detalle/${trabajo.id}?tab=trabajo`;
+                    let techUrl = `/tecnico/trabajo-detalle/${trabajo.id}?tab=trabajo`;
+                    if (user?.role === 'tecnico-proveedor' || (trabajo as any).tecnico_es_proveedor) {
+                        techUrl = `/tecnico-proveedor/trabajo-detalle/${trabajo.id}?tab=trabajo`;
+                    } else if (trabajo.admin_autonomo_id) {
+                        techUrl = `/tecnico-autonomo/trabajo-detalle/${trabajo.id}?tab=trabajo`;
+                    }
                     await createNotificacion({
                         user_id: targetUserId,
-                        titulo: '⚡ Emergencia SOS Aprobada — En Ejecución',
-                        mensaje: `El administrador ha aprobado la cotización de emergencia para "${trabajo.sucursal || 'la sucursal'}". Procede con la reparación y llena el reporte final en la pestaña Trabajo.`,
+                        titulo: isSOS ? '⚡ Emergencia SOS Aprobada — En Ejecución' : '🎉 Cotización Aprobada — En Ejecución',
+                        mensaje: isSOS
+                            ? `El administrador ha aprobado la cotización de emergencia para "${trabajo.sucursal || 'la sucursal'}". Procede con la reparación y llena el reporte final en la pestaña Trabajo.`
+                            : `El administrador ha aprobado tu cotización para "${trabajo.sucursal || 'la sucursal'}". El trabajo te ha sido asignado para ejecución. Procede con el servicio y llena el reporte en la pestaña Trabajo.`,
                         enlace: techUrl
                     });
                 }
@@ -3083,7 +3209,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                 console.error("Error enviando notificación al técnico en SOS:", e);
             }
 
-            showAlert('Cotización Aprobada', 'La cotización de emergencia fue aprobada. El trabajo ha pasado a fase de ejecución.', 'success');
+            showAlert('Cotización Aprobada', 'La cotización fue aprobada con éxito. El trabajo ha pasado a fase de ejecución y reporte.', 'success');
         } catch (error: any) {
             showAlert('Error', error.response?.data?.message || error.message || 'No se pudo autorizar la cotización.', 'error');
         }
@@ -4805,10 +4931,12 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                 if (user?.role === 'encargado' && tabName === 'Registro') return false;
 
                                 if (user?.role === 'cliente') {
-                                    if (tabName === 'Cotización' && trabajo.estado === 'Cotización Enviada' && trabajo.cotizacion) {
-                                        return true;
+                                    if (tabName === 'Cotización') {
+                                        return (trabajo.estado === 'Cotización Enviada' && Boolean(trabajo.cotizacion)) ||
+                                            ['Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución', 'Finalizado'].includes(trabajo.estado) ||
+                                            cotizaciones.length > 0;
                                     }
-                                    return tabName === 'Datos' || tabName === 'Historial' || tabName === 'Cotización';
+                                    return tabName === 'Datos' || tabName === 'Historial';
                                 }
                                 if (trabajo.estado === "Finalizado") {
                                     if (isAutonomoAdminUser) {
@@ -4816,8 +4944,6 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                     }
                                     return tabName === 'Datos' || tabName === 'Historial' || tabName === 'Trabajo';
                                 }
-                                // Técnico normal NUNCA ve la tab de Cotización (eso es responsabilidad del Admin), a menos que sea SOS
-                                if (tabName === 'Cotización' && !isSOS && (user?.role === 'tecnico' || user?.role === 'tecnico-normal')) return false;
 
                                 // EN SOS:
                                 // El Administrador NO elabora cotizaciones de emergencia (las elabora el técnico asignado).
@@ -4829,10 +4955,28 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                     if (isTechRole) {
                                         return ['Asignado', 'En Espera', 'Cotización Enviada', 'Cotización Rechazada', 'Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución', 'Finalizado'].includes(trabajo.estado);
                                     }
+                                    return false;
                                 }
 
+                                // Para Administrador General, Técnico Proveedor y Técnicos en general:
+                                // No mostrar la pestaña de Cotización hasta que sea el momento de cotizar
+                                // (después de visita o si ya hay cotización activa)
                                 if (tabName === 'Cotización') {
-                                    return true;
+                                    const hasQuotes = cotizaciones.length > 0 || ((trabajo as any)?.cotizaciones?.length > 0) || Boolean((trabajo as any)?.cotizacion);
+                                    const isQuoteMoment = Boolean(trabajo.visitado) || [
+                                        'Pendiente de Cotizar',
+                                        'Pendiente de Cotización',
+                                        'Cotización Enviada',
+                                        'Cotización Aceptada',
+                                        'Cotización Aprobada',
+                                        'Cotización Rechazada',
+                                        'Cotización Reactivada',
+                                        'En Proceso',
+                                        'En Ejecución',
+                                        'Finalizado'
+                                    ].includes(trabajo.estado);
+
+                                    return hasQuotes || isQuoteMoment;
                                 }
                                 if (tabName === 'Registro') {
                                     // NO MOSTRAR SI RECHAZADA
@@ -6023,7 +6167,16 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                         }
                                     })();
 
-                                    const canEditCotizacion = isSOS ? false : isAdminUser;
+                                    const isTechQuoting = isTechRole && (
+                                        trabajo?.tipo === 'Visita' || 
+                                        trabajo?.estado === 'En Espera' || 
+                                        trabajo?.estado === 'Pendiente de Cotizar' || 
+                                        trabajo?.estado === 'Cotización Rechazada' || 
+                                        trabajo?.estado === 'Cotización Reactivada' || 
+                                        user?.role === 'tecnico-proveedor' ||
+                                        user?.role === 'tecnico-cuadrilla'
+                                    );
+                                    const canEditCotizacion = isSOS ? false : (isAdminUser || isTechQuoting);
                                     const showLeftColumn = cotizaciones.length > 0 || canEditCotizacion || (isSOS && isTechRole);
                                     const hasTechData = Boolean(subTareas.some(t => t.esCotizacion) || actualReporte || (quoteHistory && quoteHistory.length > 0));
 
@@ -6357,8 +6510,8 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                                             </div>
                                                                         )}
 
-                                                                        {/* ACCIONES DE ADMIN EN SOS PARA APROBAR O RECOTIZAR LA PROPUESTA DEL TÉCNICO */}
-                                                                        {isSOS && isAdminUser && cotiz.estado === 'Pendiente' && (
+                                                                        {/* ACCIONES DE ADMIN PARA APROBAR, RECOTIZAR O REACTIVAR PROPUESTAS */}
+                                                                        {isAdminUser && cotiz.estado === 'Pendiente' && (
                                                                             <div style={{ marginTop: '14px', paddingTop: '12px', borderTop: '1.5px dashed #fed7aa', display: 'flex', gap: '10px' }}>
                                                                                 <button
                                                                                     onClick={() => handleAdminAceptarCotizacionSOS(cotiz.id!)}
@@ -6380,7 +6533,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                                                     }}
                                                                                 >
                                                                                     <HiOutlineCheckCircle size={18} />
-                                                                                    Aceptar Cotización y Comenzar Ejecución
+                                                                                    Aceptar Cotización y Asignar Trabajo
                                                                                 </button>
                                                                                 <button
                                                                                     onClick={() => {
@@ -6404,6 +6557,31 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                                                     }}
                                                                                 >
                                                                                     🔁 Solicitar Re-Cotización
+                                                                                </button>
+                                                                            </div>
+                                                                        )}
+
+                                                                        {isAdminUser && cotiz.estado === 'Rechazada' && (
+                                                                            <div style={{ marginTop: '14px', paddingTop: '12px', borderTop: '1.5px dashed #fed7aa', display: 'flex', gap: '10px' }}>
+                                                                                <button
+                                                                                    onClick={() => handleAdminReactivarCotizacion(cotiz.id!)}
+                                                                                    style={{
+                                                                                        flex: 1,
+                                                                                        padding: '10px 16px',
+                                                                                        background: '#fff',
+                                                                                        color: '#059669',
+                                                                                        border: '1.5px solid #059669',
+                                                                                        borderRadius: '12px',
+                                                                                        fontSize: '13px',
+                                                                                        fontWeight: '800',
+                                                                                        cursor: 'pointer',
+                                                                                        display: 'inline-flex',
+                                                                                        alignItems: 'center',
+                                                                                        justifyContent: 'center',
+                                                                                        gap: '8px'
+                                                                                    }}
+                                                                                >
+                                                                                    🔄 Reactivar Cotización
                                                                                 </button>
                                                                             </div>
                                                                         )}
@@ -8303,19 +8481,72 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                 </div>
                             )}
 
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-                                <span style={{ fontWeight: 'bold', color: '#1e293b', fontSize: '14px' }}>Técnicos Disponibles</span>
-                                <span 
-                                    style={{ color: '#f26522', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold' }}
-                                    onClick={() => setIsTechRequestModalOpen(true)}
+                            {/* Selector de pestañas: Técnicos Internos vs RED Pro-Veedores */}
+                            <div style={{ display: 'flex', gap: '8px', marginBottom: '14px' }}>
+                                <button
+                                    type="button"
+                                    onClick={() => setAssignmentTab('internos')}
+                                    style={{
+                                        flex: 1,
+                                        padding: '10px 12px',
+                                        borderRadius: '10px',
+                                        border: assignmentTab === 'internos' ? '2px solid #2563eb' : '1px solid #cbd5e1',
+                                        background: assignmentTab === 'internos' ? '#eff6ff' : '#ffffff',
+                                        color: assignmentTab === 'internos' ? '#1d4ed8' : '#64748b',
+                                        fontWeight: '700',
+                                        fontSize: '13px',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: '6px',
+                                        transition: 'all 0.2s'
+                                    }}
                                 >
-                                    ¿Necesitas técnicos?
-                                </span>
+                                    👥 Técnicos Internos ({filteredTechnicians.length})
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setAssignmentTab('red')}
+                                    style={{
+                                        flex: 1,
+                                        padding: '10px 12px',
+                                        borderRadius: '10px',
+                                        border: assignmentTab === 'red' ? '2px solid #f59e0b' : '1px solid #cbd5e1',
+                                        background: assignmentTab === 'red' ? '#fffbeb' : '#ffffff',
+                                        color: assignmentTab === 'red' ? '#b45309' : '#64748b',
+                                        fontWeight: '700',
+                                        fontSize: '13px',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: '6px',
+                                        transition: 'all 0.2s'
+                                    }}
+                                >
+                                    <HiOutlineSparkles size={16} color={assignmentTab === 'red' ? '#f59e0b' : '#64748b'} />
+                                    🌐 RED (Pro-Veedores) ({proveedoresRed.length})
+                                </button>
                             </div>
-                            <div className={styles.searchCard} style={{ marginTop: '0', marginBottom: '20px', padding: '0' }}>
+
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                                <span style={{ fontWeight: 'bold', color: '#1e293b', fontSize: '14px' }}>
+                                    {assignmentTab === 'internos' ? 'Técnicos Internos Disponibles' : 'Técnicos Pro-Veedores en la RED'}
+                                </span>
+                                {assignmentTab === 'internos' && (
+                                    <span 
+                                        style={{ color: '#f26522', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold' }}
+                                        onClick={() => setIsTechRequestModalOpen(true)}
+                                    >
+                                        ¿Necesitas técnicos?
+                                    </span>
+                                )}
+                            </div>
+                            <div className={styles.searchCard} style={{ marginTop: '0', marginBottom: '16px', padding: '0' }}>
                                 <input
                                     type="text"
-                                    placeholder="Buscar técnico..."
+                                    placeholder={assignmentTab === 'internos' ? "Buscar técnico interno..." : "Buscar en la RED de Técnicos Pro-Veedores..."}
                                     className={styles.searchInput}
                                     value={technicianSearch}
                                     onChange={(e) => setTechnicianSearch(e.target.value)}
@@ -8323,20 +8554,66 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                             </div>
 
                             <div className={styles.techList}>
-                                {filteredTechnicians.map(tech => (
-                                    <div key={tech.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px', borderBottom: '1px solid #eee' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                            <div style={{ width: '40px', height: '40px', background: '#eee', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>👥</div>
-                                            <span style={{ fontWeight: 'bold' }}>{tech.nombre}</span>
+                                {assignmentTab === 'internos' ? (
+                                    filteredTechnicians.length === 0 ? (
+                                        <div style={{ textAlign: 'center', padding: '20px', color: '#94a3b8', fontSize: '13px' }}>
+                                            No se encontraron técnicos internos.
                                         </div>
-                                        <input
-                                            type="checkbox"
-                                            checked={selectedTechnicians.includes(tech.id)}
-                                            onChange={() => handleTechToggle(tech.id)}
-                                            style={{ width: '20px', height: '20px', accentColor: '#333', cursor: 'pointer' }}
-                                        />
-                                    </div>
-                                ))}
+                                    ) : (
+                                        filteredTechnicians.map(tech => (
+                                            <div key={tech.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px', borderBottom: '1px solid #eee' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                    <div style={{ width: '40px', height: '40px', background: '#eee', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>👥</div>
+                                                    <div>
+                                                        <span style={{ fontWeight: 'bold', display: 'block' }}>{tech.nombre}</span>
+                                                        <span style={{ fontSize: '11px', color: '#64748b' }}>Técnico Interno</span>
+                                                    </div>
+                                                </div>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedTechnicians.includes(tech.id)}
+                                                    onChange={() => handleTechToggle(tech.id)}
+                                                    style={{ width: '20px', height: '20px', accentColor: '#333', cursor: 'pointer' }}
+                                                />
+                                            </div>
+                                        ))
+                                    )
+                                ) : (
+                                    filteredProveedoresRed.length === 0 ? (
+                                        <div style={{ textAlign: 'center', padding: '24px', color: '#94a3b8', fontSize: '13px', background: '#fffbeb', borderRadius: '12px' }}>
+                                            <span style={{ fontSize: '28px', display: 'block', marginBottom: '6px' }}>🌐</span>
+                                            <strong>No hay Técnicos Pro-Veedores activos en la RED</strong>
+                                            <p style={{ margin: '4px 0 0 0', fontSize: '12px' }}>Los técnicos aprobados mediante transferencia manual aparecerán aquí.</p>
+                                        </div>
+                                    ) : (
+                                        filteredProveedoresRed.map(prov => (
+                                            <div key={prov.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px', borderBottom: '1px solid #fed7aa', background: selectedTechnicians.includes(prov.id) ? '#fffbeb' : 'transparent', borderRadius: '8px' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                    <div style={{ width: '40px', height: '40px', background: '#fef3c7', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>
+                                                        {prov.avatar ? <img src={prov.avatar} alt={prov.nombre} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} /> : '🌟'}
+                                                    </div>
+                                                    <div>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                            <span style={{ fontWeight: 'bold' }}>{prov.nombre}</span>
+                                                            <span style={{ background: '#fef3c7', color: '#b45309', fontSize: '10px', fontWeight: '800', padding: '2px 6px', borderRadius: '6px' }}>
+                                                                🌐 Pro-Veedor
+                                                            </span>
+                                                        </div>
+                                                        <span style={{ fontSize: '11px', color: '#64748b', display: 'block' }}>
+                                                            {prov.puesto || 'Empresa / Especialista'} • Cuadrilla: {prov.cuadrilla_total} técnicos
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedTechnicians.includes(prov.id)}
+                                                    onChange={() => handleTechToggle(prov.id)}
+                                                    style={{ width: '20px', height: '20px', accentColor: '#f59e0b', cursor: 'pointer' }}
+                                                />
+                                            </div>
+                                        ))
+                                    )
+                                )}
                             </div>
 
                             <div style={{ marginTop: '20px', background: '#f8fafc', padding: '16px', borderRadius: '14px', border: '1px solid #e2e8f0' }}>

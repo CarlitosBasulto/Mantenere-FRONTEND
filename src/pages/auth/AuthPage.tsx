@@ -62,7 +62,8 @@ const AuthPage: React.FC = () => {
                 const norm = normalizeRole(userObj.role);
                 let targetPath = '/cliente';
                 if (norm === 'admin' || userObj.role === 'root') targetPath = '/menu';
-                else if (norm === 'tecnico-normal' || userObj.role === 'tecnico') targetPath = '/tecnico';
+                else if (userObj.role === 'tecnico-proveedor') targetPath = '/tecnico-proveedor';
+                else if (norm === 'tecnico-normal' || userObj.role === 'tecnico' || userObj.role === 'tecnico-cuadrilla') targetPath = '/tecnico';
                 else if (userObj.role === 'tecnico-autonomo') targetPath = '/tecnico-autonomo';
                 else if (norm === 'gerente-sucursal' || userObj.role === 'encargado') targetPath = '/gerente-sucursal';
                 else if (isAutonomoAdmin(norm) || isAutonomoAdmin(userObj.role)) targetPath = '/autonomo';
@@ -114,7 +115,8 @@ const AuthPage: React.FC = () => {
             const norm = normalizeRole(user.role);
             let targetPath = '/cliente';
             if (norm === 'admin' || user.role === 'root') targetPath = '/menu';
-            else if (norm === 'tecnico-normal' || user.role === 'tecnico') targetPath = '/tecnico';
+            else if (user.role === 'tecnico-proveedor') targetPath = '/tecnico-proveedor';
+            else if (norm === 'tecnico-normal' || user.role === 'tecnico' || user.role === 'tecnico-cuadrilla') targetPath = '/tecnico';
             else if (user.role === 'tecnico-autonomo') targetPath = '/tecnico-autonomo';
             else if (norm === 'gerente-sucursal' || user.role === 'encargado') targetPath = '/gerente-sucursal';
             else if (isAutonomoAdmin(norm) || isAutonomoAdmin(user.role)) targetPath = '/autonomo';
@@ -177,7 +179,8 @@ const AuthPage: React.FC = () => {
             const norm = normalizeRole(user.role);
             let targetPath = '/cliente';
             if (norm === 'admin' || user.role === 'root') targetPath = '/menu';
-            else if (norm === 'tecnico-normal' || user.role === 'tecnico') targetPath = '/tecnico';
+            else if (user.role === 'tecnico-proveedor') targetPath = '/tecnico-proveedor';
+            else if (norm === 'tecnico-normal' || user.role === 'tecnico' || user.role === 'tecnico-cuadrilla') targetPath = '/tecnico';
             else if (user.role === 'tecnico-autonomo') targetPath = '/tecnico-autonomo';
             else if (norm === 'gerente-sucursal' || user.role === 'encargado') targetPath = '/gerente-sucursal';
             else if (isAutonomoAdmin(norm) || isAutonomoAdmin(user.role)) targetPath = '/autonomo';

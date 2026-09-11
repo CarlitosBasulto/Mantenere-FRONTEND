@@ -55,7 +55,12 @@ const ListaTrabajadoresUnificado: React.FC<{ config: ListaTrabajadoresConfig }> 
     
     const fetchTrabajadores = async () => {
         try {
-            const data = await config.trabajadoresService.getTrabajadores();
+            const rawData = await config.trabajadoresService.getTrabajadores();
+            const data = (rawData || []).filter((t: any) => 
+                !t.es_proveedor && 
+                !t.puesto?.toLowerCase().includes('pro-veedor') &&
+                !t.puesto?.toLowerCase().includes('proveedor')
+            );
             
             const stored = localStorage.getItem('trabajadores_list');
             const localList = stored ? JSON.parse(stored) : [];

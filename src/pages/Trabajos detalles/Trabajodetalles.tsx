@@ -97,7 +97,12 @@ const TrabajoDetalle: React.FC = () => {
         const fetchTecnicos = async () => {
             try {
                 const data = await getTrabajadores();
-                const techList = data.filter((t: any) => t.estado?.toLowerCase() === "activo" || t.estado === "Activo");
+                const techList = data.filter((t: any) => 
+                    (t.estado?.toLowerCase() === "activo" || t.estado === "Activo") &&
+                    !t.es_proveedor &&
+                    !t.puesto?.toLowerCase().includes('pro-veedor') &&
+                    !t.puesto?.toLowerCase().includes('proveedor')
+                );
                 setTecnicosData(techList.map((t: any) => ({
                     id: t.id,
                     userId: t.user_id || null,

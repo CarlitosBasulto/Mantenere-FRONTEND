@@ -6,10 +6,13 @@ import { isAutonomoAdmin } from "../../utils/roles";
 import { getTrabajadores, updateTrabajador } from "../../services/trabajadoresService";
 import { getUserById, updateUser } from "../../services/usersService";
 import { getNegocios } from "../../services/negociosService";
-import { HiOutlineCamera, HiOutlineUser, HiOutlineEye, HiOutlineEyeSlash, HiOutlinePhoto, HiXMark, HiOutlineBuildingOffice2, HiOutlineSparkles } from "react-icons/hi2";
+import { HiOutlineCamera, HiOutlineUser, HiOutlineEye, HiOutlineEyeSlash, HiOutlinePhoto, HiXMark, HiOutlineBuildingOffice2, HiOutlineSparkles, HiOutlineGift, HiOutlineClock, HiOutlineExclamationTriangle } from "react-icons/hi2";
 import api from "../../services/api";
 import SolicitudProveedorModal from "../../components/modals/SolicitudProveedorModal";
+import PagoTransferenciaModal from "../../components/modals/PagoTransferenciaModal";
+import SolicitudPruebaGratisModal from "../../components/modals/SolicitudPruebaGratisModal";
 import { getMiSolicitudProveedor } from "../../services/proveedorService";
+import { getMiEstadoPago, type PruebaGratisInfo } from "../../services/pagoProveedorService";
 
 interface UserProfile {
     nombre: string;
@@ -47,16 +50,30 @@ const MiPerfil: React.FC = () => {
 
     const [isProveedorModalOpen, setIsProveedorModalOpen] = useState(false);
     const [solicitudProveedor, setSolicitudProveedor] = useState<any>(null);
+    const [isPagoModalOpen, setIsPagoModalOpen] = useState(false);
+    const [isPruebaModalOpen, setIsPruebaModalOpen] = useState(false);
+    const [pagoActual, setPagoActual] = useState<any>(null);
+    const [esProveedorActivo, setEsProveedorActivo] = useState(false);
+    const [pruebaInfo, setPruebaInfo] = useState<PruebaGratisInfo | null>(null);
 
     const cameraInputRef = useRef<HTMLInputElement>(null);
     const galleryInputRef = useRef<HTMLInputElement>(null);
     const profileKey = `profile_${user?.name?.replace(/\s+/g, '') || 'default'}`;
 
+    const cargarEstadoPago = async () => {
+        try {
+            const data = await getMiEstadoPago();
+            setPagoActual(data.ultimo_pago || data.pago);
+            setEsProveedorActivo(data.es_proveedor);
+            setPruebaInfo(data.prueba_info);
+        } catch (e) {}
+    };
+
     useEffect(() => {
         const fetchInitialData = async () => {
             let adminData: Partial<UserProfile> = {};
 
-            if (user?.role === 'tecnico') {
+            if (user?.role === 'tecnico' || user?.role === 'tecnico-autonomo' || user?.role === 'tecnico-proveedor' || user?.role === 'tecnico-cuadrilla') {
                 try {
                     const data = await getTrabajadores();
                     const worker = data.find((w: any) =>
@@ -74,6 +91,7 @@ const MiPerfil: React.FC = () => {
                 } catch (err) {
                     console.error("Error fetching worker data:", err);
                 }
+                cargarEstadoPago();
             } else if (user?.id) {
                 try {
                     const userData = await getUserById(user.id);
@@ -206,7 +224,7 @@ const MiPerfil: React.FC = () => {
         }
 
         try {
-            if (user?.role === 'tecnico' && workerId) {
+            if ((user?.role === 'tecnico' || user?.role === 'tecnico-autonomo' || user?.role === 'tecnico-proveedor' || user?.role === 'tecnico-cuadrilla') && workerId) {
                 const updateData: any = {
                     nombre: formData.nombre,
                     correo: formData.email,
@@ -243,8 +261,38 @@ const MiPerfil: React.FC = () => {
         }
     };
 
+    const isTechRole = user?.role === 'tecnico' || user?.role === 'tecnico-normal' || user?.role === 'tecnico-autonomo' || user?.role === 'tecnico-proveedor' || user?.role === 'tecnico-cuadrilla';
+    const handleSubmit = handleSave;
+
+    const getRoleLabel = (role?: string) => {
+        switch(role) {
+            case 'admin':
+            case 'administrador-general':
+                return 'Administrador';
+            case 'autonomo':
+            case 'admin-autonomo':
+                return 'Admin Autónomo';
+            case 'tecnico':
+            case 'tecnico-normal':
+                return 'Técnico';
+            case 'tecnico-autonomo':
+                return 'Técnico Autónomo';
+            case 'tecnico-proveedor':
+                return 'Técnico Pro-Veedor';
+            case 'tecnico-cuadrilla':
+                return 'Técnico Cuadrilla';
+            case 'encargado':
+            case 'gerente-sucursal':
+                return 'Sub gerente';
+            case 'cliente':
+                return 'Cliente';
+            default:
+                return role || 'Usuario';
+        }
+    };
+
     const handleSucursalClick = (id: number) => {
-        const basePath = user?.role === 'cliente' ? '/cliente' : (user?.role === 'tecnico' ? '/tecnico' : (user?.role === 'encargado' ? '/encargado' : (isAutonomoAdmin(user?.role) ? '/autonomo' : '/menu')));
+        const basePath = user?.role === 'cliente' ? '/cliente' : (isTechRole ? '/tecnico' : (user?.role === 'encargado' ? '/encargado' : (isAutonomoAdmin(user?.role) ? '/autonomo' : '/menu')));
         navigate(`${basePath}/trabajo/${id}`);
     };
 
@@ -314,7 +362,7 @@ const MiPerfil: React.FC = () => {
                                 {formData.nombre || 'Mi Perfil'}
                             </h1>
                             <p style={{ margin: '0 0 4px', fontSize: '11px', color: '#f26522', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                                {user?.role === 'admin' ? 'Administrador' : user?.role === 'tecnico' ? 'Técnico' : user?.role === 'encargado' ? 'Sub gerente' : 'Cliente'}
+                                {getRoleLabel(user?.role)}
                             </p>
                             <p style={{ margin: 0, fontSize: '11px', color: '#94a3b8' }}>
                                 Toca la foto para editarla
@@ -324,11 +372,20 @@ const MiPerfil: React.FC = () => {
 
                     {/* BOTÓN GUARDAR */}
                     <button
+                        type="button"
                         onClick={handleSave}
                         style={{
-                            width: '100%', padding: '14px', background: 'linear-gradient(135deg, #f26522, #ff8c42)',
-                            color: 'white', border: 'none', borderRadius: '12px', fontSize: '14px',
-                            fontWeight: '800', cursor: 'pointer', boxShadow: '0 8px 18px rgba(242,101,34,0.3)',
+                            marginTop: '20px',
+                            width: '100%',
+                            padding: '12px',
+                            background: 'linear-gradient(135deg, #f26522 0%, #ea580c 100%)',
+                            color: '#ffffff',
+                            border: 'none',
+                            borderRadius: '12px',
+                            fontSize: '13px',
+                            fontWeight: '800',
+                            cursor: 'pointer',
+                            boxShadow: '0 8px 18px rgba(242,101,34,0.3)',
                             transition: 'all 0.3s ease'
                         }}
                         onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 12px 24px rgba(242,101,34,0.4)'; }}
@@ -337,48 +394,93 @@ const MiPerfil: React.FC = () => {
                         Guardar Cambios
                     </button>
 
-                    {/* TARJETA / BANNER DE TÉCNICO PROVEEDOR */}
-                    {(user?.role === 'tecnico' || user?.role === 'tecnico-proveedor') && (
+                    {/* TARJETA / BANNER: ¿QUIERES SER TÉCNICO PRO-VEEDOR? */}
+                    {isTechRole && (
                         <div style={{
                             marginTop: '20px',
                             background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
-                            borderRadius: '16px',
-                            padding: '18px',
+                            borderRadius: '20px',
+                            padding: '20px',
                             color: '#ffffff',
-                            boxShadow: '0 8px 20px rgba(15, 23, 42, 0.25)',
+                            boxShadow: '0 10px 25px -5px rgba(15, 23, 42, 0.3)',
                             border: '1px solid #334155'
                         }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-                                <HiOutlineBuildingOffice2 size={22} color="#38bdf8" />
-                                <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: '#ffffff' }}>
-                                    Técnico Proveedor
-                                </h4>
+                                <div style={{ background: '#f59e0b', padding: '6px', borderRadius: '10px', display: 'flex' }}>
+                                    <HiOutlineSparkles size={18} color="#ffffff" />
+                                </div>
+                                <div>
+                                    <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '900', color: '#ffffff' }}>
+                                        ¿Quieres ser Técnico Pro-Veedor?
+                                    </h4>
+                                    <span style={{ fontSize: '10px', color: '#f59e0b', fontWeight: '800', textTransform: 'uppercase' }}>
+                                        Membresía Premium • Red
+                                    </span>
+                                </div>
                             </div>
 
-                            {user?.role === 'tecnico-proveedor' ? (
-                                <div style={{ background: '#064e3b', color: '#6ee7b7', padding: '8px 12px', borderRadius: '10px', fontSize: '12px', fontWeight: '800', border: '1px solid #047857' }}>
-                                    🎉 ¡Eres Técnico Proveedor! Tienes escuadrón a tu cargo.
-                                </div>
-                            ) : solicitudProveedor?.estado === 'Pendiente' ? (
-                                <div style={{ background: '#78350f', color: '#fde68a', padding: '8px 12px', borderRadius: '10px', fontSize: '12px', fontWeight: '800', border: '1px solid #b45309' }}>
-                                    ⏳ Tu solicitud está en revisión por el Administrador.
-                                </div>
-                            ) : (
-                                <>
-                                    <p style={{ margin: '0 0 12px 0', fontSize: '11px', color: '#94a3b8', lineHeight: '1.4' }}>
-                                        ¿Tienes tu propio equipo de técnicos? Solicita convertirte en Técnico Proveedor para despachar visitas a tu escuadrón.
+                            {esProveedorActivo || user?.role === 'tecnico-proveedor' ? (
+                                <div style={{ marginTop: '10px' }}>
+                                    {pruebaInfo?.es_prueba_gratis ? (
+                                        <div style={{ background: 'linear-gradient(135deg, #064e3b 0%, #065f46 100%)', color: '#6ee7b7', padding: '12px 14px', borderRadius: '14px', border: '1px solid #047857', marginBottom: '12px', boxShadow: '0 4px 12px rgba(6, 78, 59, 0.3)' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '900', fontSize: '13px', color: '#a7f3d0' }}>
+                                                <HiOutlineGift size={18} color="#34d399" />
+                                                <span>¡Prueba Gratuita de 6 Meses Activa!</span>
+                                            </div>
+                                            <div style={{ marginTop: '6px', fontSize: '11px', color: '#e2e8f0', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                <HiOutlineClock size={15} color="#fbbf24" />
+                                                <span>Te quedan: <strong style={{ color: '#fef08a' }}>{pruebaInfo.tiempo_restante_texto || `${pruebaInfo.dias_restantes} días`}</strong></span>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div style={{ background: '#064e3b', color: '#6ee7b7', padding: '10px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: '800', border: '1px solid #047857', marginBottom: '10px' }}>
+                                            🌟 ¡Eres Técnico Pro-Veedor Activo!
+                                        </div>
+                                    )}
+                                    <p style={{ margin: '0 0 12px 0', fontSize: '11px', color: '#94a3b8' }}>
+                                        Tienes acceso a tu Dashboard Pro-Veedor, puedes crear tu cuadrilla de técnicos y recibir asignaciones de la RED.
                                     </p>
-
                                     <button
                                         type="button"
-                                        onClick={() => setIsProveedorModalOpen(true)}
+                                        onClick={() => navigate('/tecnico-proveedor/dashboard')}
                                         style={{
                                             width: '100%',
                                             padding: '10px',
-                                            background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                                            background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
                                             color: '#ffffff',
                                             border: 'none',
                                             borderRadius: '10px',
+                                            fontSize: '12px',
+                                            fontWeight: '800',
+                                            cursor: 'pointer',
+                                            boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)'
+                                        }}
+                                    >
+                                        Ir a mi Dashboard Pro-Veedor
+                                    </button>
+                                </div>
+                            ) : pruebaInfo?.ha_expirado ? (
+                                /* PRUEBA DE 6 MESES EXPIRADA -> MOSTRAR DATOS BANCARIOS ORIGINALES */
+                                <div style={{ marginTop: '10px' }}>
+                                    <div style={{ background: '#451a03', color: '#fdba74', padding: '12px', borderRadius: '12px', fontSize: '12px', fontWeight: '800', border: '1px solid #9a3412', marginBottom: '10px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                                            <HiOutlineExclamationTriangle size={18} color="#f97316" />
+                                            <span>Tu periodo de prueba de 6 meses ha finalizado</span>
+                                        </div>
+                                        <p style={{ margin: 0, fontSize: '11px', color: '#fed7aa', fontWeight: '500' }}>
+                                            Para reactivar tu rango de Técnico Pro-Veedor y conservar tu cuadrilla, realiza tu pago por transferencia bancaria.
+                                        </p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsPagoModalOpen(true)}
+                                        style={{
+                                            width: '100%',
+                                            padding: '11px',
+                                            background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                                            color: '#ffffff',
+                                            border: 'none',
+                                            borderRadius: '12px',
                                             fontSize: '12px',
                                             fontWeight: '800',
                                             cursor: 'pointer',
@@ -386,12 +488,108 @@ const MiPerfil: React.FC = () => {
                                             alignItems: 'center',
                                             justifyContent: 'center',
                                             gap: '6px',
-                                            boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)'
+                                            boxShadow: '0 4px 14px rgba(37, 99, 235, 0.35)'
                                         }}
                                     >
-                                        <HiOutlineSparkles size={16} /> Convertirme en Técnico Proveedor
+                                        <HiOutlineSparkles size={16} /> Ver Datos Bancarios y Subir Comprobante ($1,499 MXN)
                                     </button>
-                                </>
+                                </div>
+                            ) : pagoActual?.estado === 'Pendiente' ? (
+                                <div style={{ marginTop: '10px' }}>
+                                    <div style={{ background: '#78350f', color: '#fde68a', padding: '12px', borderRadius: '12px', fontSize: '12px', fontWeight: '800', border: '1px solid #b45309', marginBottom: '10px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                                            <HiOutlineClock size={16} color="#fbbf24" />
+                                            <span>
+                                                {pagoActual?.es_prueba_gratis
+                                                    ? 'Solicitud de Prueba Gratis (6 Meses) en revisión'
+                                                    : 'Comprobante de transferencia en revisión'}
+                                            </span>
+                                        </div>
+                                        <p style={{ margin: 0, fontSize: '11px', color: '#fef08a', fontWeight: '500' }}>
+                                            El Administrador General validará tu solicitud para dar su visto bueno y activar tu acceso.
+                                        </p>
+                                    </div>
+                                    {!pagoActual?.es_prueba_gratis && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsPagoModalOpen(true)}
+                                            style={{
+                                                width: '100%',
+                                                padding: '8px',
+                                                background: '#334155',
+                                                color: '#ffffff',
+                                                border: 'none',
+                                                borderRadius: '8px',
+                                                fontSize: '11px',
+                                                fontWeight: '700',
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            Ver estado del comprobante
+                                        </button>
+                                    )}
+                                </div>
+                            ) : (
+                                <div style={{ marginTop: '10px' }}>
+                                    {pagoActual?.estado === 'Rechazado' && (
+                                        <div style={{ background: '#7f1d1d', color: '#fecaca', padding: '8px 10px', borderRadius: '8px', fontSize: '11px', marginBottom: '10px' }}>
+                                            ⚠️ Solicitud previa rechazada. Motivo: {pagoActual.motivo_rechazo || 'Verifica tus datos.'}
+                                        </div>
+                                    )}
+
+                                    <div style={{ background: 'rgba(16, 185, 129, 0.1)', border: '1px dashed #059669', borderRadius: '10px', padding: '8px 10px', marginBottom: '12px' }}>
+                                        <span style={{ fontSize: '11px', color: '#34d399', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                            <HiOutlineGift size={15} /> ¡Cortesía: 6 Meses Gratis para ti!
+                                        </span>
+                                        <p style={{ margin: '4px 0 0 0', fontSize: '10.5px', color: '#94a3b8', lineHeight: '1.3' }}>
+                                            Sin costo alguno. Administra tu propia cuadrilla a cargo, usa tu Dashboard Pro-Veedor y cotiza directamente a los administradores.
+                                        </p>
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsPruebaModalOpen(true)}
+                                        style={{
+                                            width: '100%',
+                                            padding: '12px',
+                                            background: 'linear-gradient(135deg, #059669 0%, #0d9488 100%)',
+                                            color: '#ffffff',
+                                            border: 'none',
+                                            borderRadius: '12px',
+                                            fontSize: '13px',
+                                            fontWeight: '800',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            gap: '8px',
+                                            boxShadow: '0 4px 16px rgba(16, 185, 129, 0.4)',
+                                            transition: 'transform 0.2s ease'
+                                        }}
+                                        onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
+                                        onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
+                                    >
+                                        <HiOutlineGift size={18} /> Iniciar Prueba Gratis (6 Meses)
+                                    </button>
+
+                                    <div style={{ marginTop: '10px', textAlign: 'center' }}>
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsPagoModalOpen(true)}
+                                            style={{
+                                                background: 'none',
+                                                border: 'none',
+                                                color: '#64748b',
+                                                fontSize: '10.5px',
+                                                cursor: 'pointer',
+                                                textDecoration: 'underline',
+                                                padding: '4px'
+                                            }}
+                                        >
+                                            ¿Prefieres pago directo por transferencia? Ver datos bancarios
+                                        </button>
+                                    </div>
+                                </div>
                             )}
                         </div>
                     )}
@@ -782,6 +980,26 @@ const MiPerfil: React.FC = () => {
                     if (user?.role === 'tecnico') {
                         getMiSolicitudProveedor().then(data => setSolicitudProveedor(data)).catch(() => {});
                     }
+                }}
+            />
+
+            <PagoTransferenciaModal
+                isOpen={isPagoModalOpen}
+                onClose={() => setIsPagoModalOpen(false)}
+                initialPago={pagoActual}
+                initialEsProveedor={esProveedorActivo}
+                onSuccess={() => {
+                    cargarEstadoPago();
+                }}
+            />
+
+            <SolicitudPruebaGratisModal
+                isOpen={isPruebaModalOpen}
+                onClose={() => setIsPruebaModalOpen(false)}
+                initialNombre={user?.name || ''}
+                initialTelefono={formData.telefono || ''}
+                onSuccess={() => {
+                    cargarEstadoPago();
                 }}
             />
         </div>

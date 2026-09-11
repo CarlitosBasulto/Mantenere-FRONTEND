@@ -17,12 +17,26 @@ import {
 
 const DashboardTecnicoAutonomo: React.FC = () => {
     const navigate = useNavigate();
-    const { user } = useAuth();
+    const { user, login } = useAuth();
     const isSOSJob = (t: any) => t.tipo === 'SOS' || t.prioridad === 'Emergencia' || (t.titulo || '').includes('SOS') || t.isEmergency;
     const [trabajos, setTrabajos] = useState<any[]>([]);
     const [negocios, setNegocios] = useState<any[]>([]);
     const [expanded, setExpanded] = useState<Record<number, boolean>>({});
     const [loading, setLoading] = useState(true);
+
+    // Si fue aprobado como Técnico Pro-Veedor, redirigir automáticamente a su nuevo tablero evolucionado
+    useEffect(() => {
+        import('../../../services/pagoProveedorService').then(({ getMiEstadoPago }) => {
+            getMiEstadoPago().then(res => {
+                if (res && res.es_proveedor) {
+                    if (user && user.role !== 'tecnico-proveedor') {
+                        login({ ...user, role: 'tecnico-proveedor' });
+                    }
+                    navigate('/tecnico-proveedor/dashboard', { replace: true });
+                }
+            }).catch(() => {});
+        });
+    }, [user]);
 
     useEffect(() => {
         const load = async () => {
@@ -83,6 +97,7 @@ const DashboardTecnicoAutonomo: React.FC = () => {
                 {negocios.map(negocio => {
                     const isOpen = expanded[negocio.id];
                     const jobs = trabajos.filter(t => t.negocio_id === negocio.id);
+                    const activeJobs = jobs.filter(t => !['Finalizado', 'Completado', 'Rechazada', 'Cotización Rechazada', 'Cancelado'].includes(t.estado));
                     
                     return (
                         <div key={negocio.id} style={{ background: '#fff', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
@@ -150,11 +165,11 @@ const DashboardTecnicoAutonomo: React.FC = () => {
                                             </div>
                                         </div>
                                     </div>
-                                    {jobs.length === 0 ? (
-                                        <div style={{ textAlign: 'center', color: '#94a3b8', padding: '20px' }}>No hay trabajos en esta sucursal.</div>
+                                    {activeJobs.length === 0 ? (
+                                        <div style={{ textAlign: 'center', color: '#94a3b8', padding: '20px' }}>No hay trabajos activos pendientes en esta sucursal.</div>
                                     ) : (
                                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
-                                            {jobs.filter(t => t.estado !== 'Rechazada').map(t => (
+                                            {activeJobs.map(t => (
                                                 <div key={t.id} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
                                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                                                         <span style={{ fontSize: '12px', fontWeight: 'bold', color: isSOSJob(t) ? '#ef4444' : '#3b82f6', background: isSOSJob(t) ? '#fef2f2' : '#eff6ff', padding: '4px 8px', borderRadius: '4px' }}>
