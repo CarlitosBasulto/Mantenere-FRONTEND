@@ -512,16 +512,15 @@
 }
 
 .captchaContainer {
-    margin-top: 10px;
-    transform: scale(0.85);
-    transform-origin: center;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 12px;
+    margin-bottom: 4px;
+    /* Sin transform ni scale: el reCAPTCHA usa size="compact" en mobile via JS */
 }
 
-@media (max-width: 480px) {
-    .captchaContainer {
-        transform: scale(0.7);
-    }
-}
 
 /* Legal Modal Specifics */
 .legalModalContent {

@@ -365,16 +365,48 @@ const ReporteDetailModal: React.FC<ReporteDetailModalProps> = ({
                         </div>
                     )}
 
-                    {reporte?.firmaEmpresa && (
+                    {reporte?.firmaEmpresa && reporte.firmaEmpresa !== '__PDF_LOADED_IN_STATE__' && (
                         <div className={styles.reportDetailCard} style={{ marginTop: '20px', textAlign: 'center' }}>
-                            <span className={styles.dataLabel}>Firma de Validación (Cliente)</span>
-                            <div style={{ background: '#f8fafc', padding: '15px', borderRadius: '15px', display: 'inline-block', marginTop: '10px', border: '1px solid #f1f5f9' }}>
-                                <img
-                                    src={reporte.firmaEmpresa}
-                                    alt="Firma"
-                                    style={{ height: '70px', objectFit: 'contain', cursor: 'zoom-in' }}
-                                    onClick={() => setSelectedZoomImage(reporte.firmaEmpresa)}
-                                />
+                            <span className={styles.dataLabel}>📄 Reporte Firmado y Sellado (Empresa)</span>
+                            <div style={{ background: '#f8fafc', padding: '15px', borderRadius: '15px', marginTop: '10px', border: '1px solid #f1f5f9' }}>
+                                {(reporte.firmaEmpresa.startsWith('data:application/pdf') || (reporte.firmaEmpresa.startsWith('http') && reporte.firmaEmpresa.toLowerCase().includes('.pdf'))) ? (
+                                    /* PDF: mostrar ícono + botón de descarga/visualización */
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+                                        <div style={{ width: '64px', height: '64px', background: '#fee2e2', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px' }}>
+                                            📋
+                                        </div>
+                                        <span style={{ fontSize: '13px', color: '#374151', fontWeight: '600' }}>Reporte PDF con firma y sello</span>
+                                        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                                            <a
+                                                href={reporte.firmaEmpresa}
+                                                download={`Reporte_Firmado_${reporte?.id || ''}.pdf`}
+                                                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#f26522', color: '#fff', padding: '8px 18px', borderRadius: '20px', fontSize: '13px', fontWeight: '700', textDecoration: 'none', cursor: 'pointer' }}
+                                            >
+                                                ⬇️ Descargar PDF
+                                            </a>
+                                            <button
+                                                onClick={() => {
+                                                    const win = window.open('', '_blank');
+                                                    if (win) {
+                                                        win.document.write(`<iframe src="${reporte.firmaEmpresa}" style="width:100%;height:100vh;border:none;"></iframe>`);
+                                                        win.document.close();
+                                                    }
+                                                }}
+                                                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#3b82f6', color: '#fff', padding: '8px 18px', borderRadius: '20px', fontSize: '13px', fontWeight: '700', border: 'none', cursor: 'pointer' }}
+                                            >
+                                                👁️ Ver PDF
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    /* Imagen: mantener el visor con zoom */
+                                    <img
+                                        src={reporte.firmaEmpresa}
+                                        alt="Reporte Firmado"
+                                        style={{ maxWidth: '100%', maxHeight: '200px', objectFit: 'contain', cursor: 'zoom-in', borderRadius: '8px' }}
+                                        onClick={() => setSelectedZoomImage(reporte.firmaEmpresa)}
+                                    />
+                                )}
                             </div>
                         </div>
                     )}

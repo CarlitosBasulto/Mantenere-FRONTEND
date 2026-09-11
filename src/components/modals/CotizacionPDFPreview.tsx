@@ -18,8 +18,23 @@ export default function CotizacionPDFPreview({ trabajo, subTareas, costo, notas,
         if (!pdfRef.current) return;
         setIsGenerating(true);
         try {
-            const canvas = await html2canvas(pdfRef.current, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
-            const imgData = canvas.toDataURL('image/jpeg', 0.85);
+            const canvas = await html2canvas(pdfRef.current, { 
+                scale: 2, 
+                useCORS: true, 
+                backgroundColor: '#ffffff',
+                scrollX: 0,
+                scrollY: 0,
+                windowWidth: 1200,
+                onclone: (clonedDoc) => {
+                    const el = clonedDoc.querySelector('[style*="transform"]') as HTMLElement;
+                    if (el) {
+                        el.style.transform = 'none';
+                        el.style.position = 'static';
+                        el.style.margin = '0';
+                    }
+                }
+            });
+            const imgData = canvas.toDataURL('image/jpeg', 0.92);
             
             const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4', compress: true });
             const pdfWidth = pdf.internal.pageSize.getWidth();

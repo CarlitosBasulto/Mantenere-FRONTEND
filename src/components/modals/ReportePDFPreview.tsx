@@ -108,10 +108,28 @@ export default function ReportePDFPreview({ trabajo, reporteData, subTareas, isV
                     useCORS: true,
                     allowTaint: true,
                     logging: false,
-                    backgroundColor: '#ffffff'
+                    backgroundColor: '#ffffff',
+                    scrollX: 0,
+                    scrollY: 0,
+                    windowWidth: 1200,
+                    onclone: (clonedDoc) => {
+                        const printContainer = clonedDoc.getElementById('print-reporte-pdf');
+                        if (printContainer) {
+                            printContainer.style.transform = 'none';
+                            printContainer.style.position = 'static';
+                            printContainer.style.margin = '0';
+                            printContainer.style.padding = '0';
+                        }
+                        const clonedPages = clonedDoc.querySelectorAll('.pdf-page');
+                        clonedPages.forEach((p) => {
+                            (p as HTMLElement).style.boxShadow = 'none';
+                            (p as HTMLElement).style.margin = '0';
+                            (p as HTMLElement).style.transform = 'none';
+                        });
+                    }
                 });
 
-                const imgData = canvas.toDataURL('image/jpeg', 0.85);
+                const imgData = canvas.toDataURL('image/jpeg', 0.92);
                 const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
                 if (i > 0) {

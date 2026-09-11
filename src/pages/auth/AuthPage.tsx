@@ -277,6 +277,7 @@ const AuthPage: React.FC = () => {
                             <ReCAPTCHA
                                 sitekey="6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI"
                                 onChange={(token) => setCaptchaToken(token)}
+                                onExpired={() => setCaptchaToken(null)}
                                 size="normal"
                             />
                         </div>

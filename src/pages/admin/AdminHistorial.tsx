@@ -528,6 +528,21 @@ const AdminHistorial: React.FC = () => {
                     try {
                         const parsed = JSON.parse(localData);
                         if (parsed && (parsed.imagenes || parsed.descripcion || parsed.reporteTienda)) {
+                            // Si firmaEmpresa está truncada o ausente, intentar obtenerla de la BD
+                            if (!parsed.firmaEmpresa || parsed.firmaEmpresa === '__PDF_LOADED_IN_STATE__') {
+                                try {
+                                    const apiReport = await getReporteByTrabajoId(tarea.trabajoId);
+                                    if (apiReport && apiReport.solucion) {
+                                        const apiParsed = typeof apiReport.solucion === 'string' ? JSON.parse(apiReport.solucion) : apiReport.solucion;
+                                        // Buscar firmaEmpresa en el sub-reporte o en la raíz
+                                        const apiMatched = findMatchingSubReport(apiParsed, { ...tarea, trabajoId: wId });
+                                        const firmaFromApi = apiMatched?.firmaEmpresa || apiParsed?.firmaEmpresa || null;
+                                        if (firmaFromApi && firmaFromApi !== '__PDF_LOADED_IN_STATE__') {
+                                            parsed.firmaEmpresa = firmaFromApi;
+                                        }
+                                    }
+                                } catch (_) {}
+                            }
                             setReportData(parsed);
                             return;
                         }
