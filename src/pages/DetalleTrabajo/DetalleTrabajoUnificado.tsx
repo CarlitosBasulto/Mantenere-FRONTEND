@@ -4614,6 +4614,9 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                 ...collectedObsPhotos
             ].filter(Boolean) : (tarea.photos || []);
 
+            const isVisitaReport = isVisita || trabajo?.tipo === 'Visita' || trabajo?.originalTipo === 'Visita' || !reportToUse?.imagenes?.despues;
+            const isExecutedReport = !isVisitaReport && !!(reportToUse?.imagenes?.antes || reportToUse?.imagenes?.durante || reportToUse?.imagenes?.despues);
+
             const preparedData = {
                 id: tarea.id || 'SD',
                 reporteTienda: reportToUse?.reporteTienda || tarea.titulo,
@@ -4621,14 +4624,25 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                 materiales: reportToUse?.materiales || combinedMateriales,
                 refaccionesList: (reportToUse?.refaccionesList && reportToUse.refaccionesList.length > 0) ? reportToUse.refaccionesList : refaccionesList,
                 observaciones: reportToUse?.observaciones || '',
-                observacionesList: reportToUse?.observacionesList || [],
+                observacionesList: reportToUse?.observacionesList || (isVisitaReport && reportPhotos.length > 0 ? [{
+                    id: 'obs-visita',
+                    texto: reportToUse?.observaciones || tarea.cleanDescripcion || tarea.descripcion || '',
+                    imagenes: reportPhotos
+                }] : []),
                 imagenes: {
-                    antes: reportPhotos[0] || null,
-                    durante: reportPhotos[1] || null,
-                    despues: reportPhotos[2] || null
+                    antes: isExecutedReport ? (reportToUse?.imagenes?.antes || null) : null,
+                    durante: isExecutedReport ? (reportToUse?.imagenes?.durante || null) : null,
+                    despues: isExecutedReport ? (reportToUse?.imagenes?.despues || null) : null
                 },
-                imagenObservacion: reportPhotos[3] || null,
-                imagenesObservacion: reportPhotos.length > 3 ? reportPhotos.slice(3) : [],
+                imagenObservacion: !isExecutedReport ? (reportPhotos[0] || null) : (reportPhotos[3] || null),
+                imagenesObservacion: !isExecutedReport ? reportPhotos : (reportPhotos.length > 3 ? reportPhotos.slice(3) : []),
+                puntosEvidencia: isVisitaReport && reportPhotos.length > 0 ? reportPhotos.map((url, idx) => ({
+                    id: `punto-${idx + 1}`,
+                    punto: idx + 1,
+                    tipo: tarea.titulo || 'Observación',
+                    descripcion: reportToUse?.observaciones || tarea.cleanDescripcion || tarea.descripcion || `Evidencia fotográfica ${idx + 1}`,
+                    foto: url
+                })) : undefined,
                 firmaEmpresa: reportToUse?.firmaEmpresa || null,
                 involucraEquipo: reportToUse?.involucraEquipo !== undefined ? reportToUse.involucraEquipo : (!!tarea.serviceData?.marca || !!tarea.serviceData?.modelo),
                 equipoInfo: reportToUse?.equipoInfo || ((tarea.serviceData?.marca || tarea.serviceData?.modelo) ? {
@@ -4642,7 +4656,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                 tecnicoNombre: reportToUse?.tecnicoNombre || tarea.tecnicoNombre || trabajo?.tecnico || "Técnico",
                 tecnicoAvatar: reportToUse?.tecnicoAvatar || null,
                 fechaInicio: reportToUse?.fechaInicio || null,
-                isVisita: trabajo?.tipo === 'Visita' || trabajo?.originalTipo === 'Visita' || !!tarea.hasQuote || (trabajo?.estado !== 'Finalizado' && trabajo?.estado !== 'En Proceso'),
+                isVisita: isVisitaReport,
                 isActivityReport: true
             };
 
@@ -10865,6 +10879,9 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                 try {
                                     const parsed = JSON.parse(raw);
                                     if (parsed && (parsed.imagenes || parsed.descripcion || parsed.reporteTienda)) {
+                                        if ((!parsed.firmaEmpresa || parsed.firmaEmpresa === '__PDF_LOADED_IN_STATE__') && reporteFinal?.firmaEmpresa && reporteFinal.firmaEmpresa !== '__PDF_LOADED_IN_STATE__') {
+                                            parsed.firmaEmpresa = reporteFinal.firmaEmpresa;
+                                        }
                                         return parsed;
                                     }
                                 } catch (_) {}
@@ -10874,7 +10891,12 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                         // 2. Buscar en subReports dentro de reporteFinal
                         if (reporteFinal) {
                             const matched = findMatchingSubReport(reporteFinal, { ...selTask, trabajoId: wId });
-                            if (matched) return matched;
+                            if (matched) {
+                                if ((!matched.firmaEmpresa || matched.firmaEmpresa === '__PDF_LOADED_IN_STATE__') && reporteFinal?.firmaEmpresa && reporteFinal.firmaEmpresa !== '__PDF_LOADED_IN_STATE__') {
+                                    matched.firmaEmpresa = reporteFinal.firmaEmpresa;
+                                }
+                                return matched;
+                            }
                         }
 
                         // 3. Fallback limpio: construir reporte con las fotos y datos del sub-punto correspondiente
@@ -10890,7 +10912,8 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                 durante: taskPhotos[1] || null,
                                 despues: taskPhotos[2] || null
                             },
-                            imagenesObservacion: taskPhotos.length > 3 ? taskPhotos.slice(3) : []
+                            imagenesObservacion: taskPhotos.length > 3 ? taskPhotos.slice(3) : [],
+                            firmaEmpresa: reporteFinal?.firmaEmpresa || null
                         };
                     })()}
                     userRole={user?.role ?? undefined}

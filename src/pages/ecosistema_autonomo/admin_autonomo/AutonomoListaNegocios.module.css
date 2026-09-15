@@ -105,7 +105,11 @@
     align-items: center;
     gap: 25px;
     width: 100%;
-    padding-right: 20px;
+    padding-right: 30px;
+    position: relative;
+    z-index: 2;
+    min-width: 0;
+    box-sizing: border-box;
 }
 
 .cardIcon {
@@ -130,8 +134,10 @@
 
 .cardInfo {
     flex: 1;
+    min-width: 0;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
 }
 
 .cardDate {
@@ -147,12 +153,20 @@
     font-size: 19px;
     color: #111;
     font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
 }
 
 .cardInfo p {
     margin: 0;
     font-size: 14px;
     color: #555;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
 }
 
 .estadoFinalizado {
@@ -183,6 +197,7 @@
     height: 100%;
     object-fit: cover;
     object-position: center right;
+    opacity: 0.28;
 }
 
 .cardRightImageOverlay {
@@ -191,7 +206,7 @@
     left: 0;
     width: 100%;
     height: 100%;
-    background: linear-gradient(to right, var(--card-bg, #ffffff) 0%, transparent 100%);
+    background: linear-gradient(to right, var(--card-bg, #ffffff) 15%, rgba(255, 255, 255, 0.4) 65%, transparent 100%);
     pointer-events: none;
 }
 
@@ -259,7 +274,6 @@
     position: absolute;
     top: 15px;
     right: 50px;
-    /* Al lado del indicador lateral */
     cursor: pointer;
     padding: 8px;
     border-radius: 50%;
@@ -290,6 +304,12 @@
         gap: 0;
     }
 
+    .leftColumn {
+        padding: 0 12px;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
     .rightColumn {
         display: none;
     }
@@ -297,7 +317,7 @@
     .searchSection {
         flex-direction: column;
         align-items: stretch;
-        margin: 10px 15px;
+        margin: 15px 0 20px 0;
     }
 
     .searchSection>div:first-child {
@@ -317,39 +337,49 @@
 
     .registrarBtn {
         flex: 1;
-        padding: 10px;
-        border-radius: 20px;
+        padding: 12px;
+        border-radius: 14px;
         font-size: 14px;
+        box-shadow: none;
+        background: linear-gradient(135deg, #f26522, #ff8c42);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
     }
 
     .jobsSection {
         padding: 0 0 100px 0;
-        gap: 0;
+        gap: 12px;
     }
 
     /* Modern Card Style */
     .jobCard {
-        padding: 15px;
-        border-radius: 16px;
-        border: 1.5px solid #070621;
+        padding: 14px 16px;
+        border-radius: 20px;
+        border: 1.5px solid #cbd5e1;
         background: white;
-        margin: 10px 15px;
-        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
-        width: auto !important;
-        /* Allow margins to work without overflow */
+        margin: 0;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+        width: 100% !important;
+        box-sizing: border-box;
     }
 
     .cardContent {
         flex-direction: row;
         align-items: center;
-        gap: 15px;
+        gap: 14px;
         padding: 0;
-        word-break: break-word;
+        padding-right: 28px;
+        min-width: 0;
+        width: 100%;
+        box-sizing: border-box;
+        word-break: normal;
     }
 
     .cardIcon {
-        width: 50px;
-        height: 50px;
+        width: 52px;
+        height: 52px;
         border-radius: 50%;
         background: #e0e0e0;
         flex-shrink: 0;
@@ -357,16 +387,18 @@
 
     .cardInfo {
         flex: 1;
+        min-width: 0;
         position: relative;
+        overflow: hidden;
     }
 
     .cardInfo h3 {
         font-size: 16px;
-        font-weight: 600;
+        font-weight: 700;
         color: #111;
         margin-bottom: 2px;
-        display: inline-block;
-        max-width: 75%;
+        display: block;
+        max-width: 100%;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -378,16 +410,17 @@
         right: 0;
         font-size: 11px;
         color: #00a884;
-        /* WhatsApp green for dates/time or gray #888 */
     }
 
     .cardInfo p {
-        font-size: 13px;
-        color: #666;
-        margin: 0;
+        font-size: 12.5px;
+        color: #555;
+        margin: 1.5px 0;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+        max-width: 100%;
+        line-height: 1.35;
     }
 
     .editBtn {
@@ -411,7 +444,12 @@
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
 
+    .cardRightImageWrapper {
+        border-radius: 0 20px 20px 0;
+        width: 45%;
+    }
+
     .cardRightImage {
-        opacity: 0.65 !important; /* Slightly more opacity on mobile for visibility */
+        opacity: 0.22 !important;
     }
 }

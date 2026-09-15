@@ -611,6 +611,7 @@ const AdminHistorial: React.FC = () => {
             }
 
             let matchedReport: any = null;
+            let groupFirmaEmpresa: string | null = null;
 
             // 2. Intentar cargar desde API con el trabajoId
             try {
@@ -618,11 +619,14 @@ const AdminHistorial: React.FC = () => {
                 if (apiReport && apiReport.solucion) {
                     const parsed = typeof apiReport.solucion === 'string' ? JSON.parse(apiReport.solucion) : apiReport.solucion;
                     matchedReport = findMatchingSubReport(parsed, { ...tarea, trabajoId: wId });
+                    if (parsed.firmaEmpresa && parsed.firmaEmpresa !== '__PDF_LOADED_IN_STATE__') {
+                        groupFirmaEmpresa = parsed.firmaEmpresa;
+                    }
                 }
             } catch (_) {}
 
             // 3. Si no se encontró y pertenece a un grupo REQ o baseId, buscar en los otros trabajos del grupo
-            if (!matchedReport && (tarea.baseId || tarea.rawJob?.descripcion)) {
+            if ((!matchedReport || !matchedReport.firmaEmpresa) && (tarea.baseId || tarea.rawJob?.descripcion)) {
                 const grpId = tarea.rawJob ? getGroupId(tarea.rawJob.descripcion) : null;
                 const searchJobIds = new Set<number>();
                 if (tarea.baseId && tarea.baseId !== tarea.trabajoId) searchJobIds.add(Number(tarea.baseId));
@@ -639,10 +643,14 @@ const AdminHistorial: React.FC = () => {
                         const gReport = await getReporteByTrabajoId(jId);
                         if (gReport && gReport.solucion) {
                             const parsedG = typeof gReport.solucion === 'string' ? JSON.parse(gReport.solucion) : gReport.solucion;
-                            const m = findMatchingSubReport(parsedG, tarea);
-                            if (m) {
-                                matchedReport = m;
-                                break;
+                            if (parsedG.firmaEmpresa && parsedG.firmaEmpresa !== '__PDF_LOADED_IN_STATE__' && !groupFirmaEmpresa) {
+                                groupFirmaEmpresa = parsedG.firmaEmpresa;
+                            }
+                            if (!matchedReport) {
+                                const m = findMatchingSubReport(parsedG, tarea);
+                                if (m) {
+                                    matchedReport = m;
+                                }
                             }
                         }
                     } catch (_) {}
@@ -662,7 +670,7 @@ const AdminHistorial: React.FC = () => {
                         durante: matchedReport.imagenes?.durante || null,
                         despues: matchedReport.imagenes?.despues || null
                     },
-                    firmaEmpresa: matchedReport.firmaEmpresa || null
+                    firmaEmpresa: matchedReport.firmaEmpresa || groupFirmaEmpresa || null
                 };
                 setReportData(finalReport);
                 return;
@@ -683,7 +691,8 @@ const AdminHistorial: React.FC = () => {
                     durante: taskPhotos[1] || null,
                     despues: taskPhotos[2] || null
                 },
-                imagenesObservacion: taskPhotos.length > 3 ? taskPhotos.slice(3) : []
+                imagenesObservacion: taskPhotos.length > 3 ? taskPhotos.slice(3) : [],
+                firmaEmpresa: groupFirmaEmpresa || null
             });
         } catch (error) {
             console.error("Error al obtener reporte:", error);

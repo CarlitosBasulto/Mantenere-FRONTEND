@@ -486,12 +486,20 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 12px 20px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.fullWidthField {
+    grid-column: 1 / -1;
 }
 
 .formField {
     display: flex;
     flex-direction: column;
     gap: 5px;
+    min-width: 0;
+    box-sizing: border-box;
 }
 
 .formField label {
@@ -501,6 +509,9 @@
 }
 
 .premiumInput {
+    width: 100%;
+    box-sizing: border-box;
+    min-width: 0;
     padding: 10px 14px;
     border: 1.5px solid #eee;
     border-radius: 12px;
@@ -961,25 +972,39 @@
     box-shadow: 0 6px 12px rgba(14, 165, 233, 0.4);
 }
     
+@media (max-width: 768px) {
     .cardInfo h3 {
         font-size: 14px;
     }
 
     .cardIndicator { display: block; }
-    
+
+    .modalOverlay {
+        padding: 12px;
+        box-sizing: border-box;
+    }
+
     .modalContent {
-        width: 92%;
-        padding: 20px;
+        width: 100% !important;
+        max-width: 100% !important;
+        padding: 20px 16px !important;
         max-height: 90vh;
         overflow-y: auto;
+        box-sizing: border-box !important;
     }
 
     .modalWide {
-        width: 92%;
-        padding: 20px;
+        width: 100% !important;
+        max-width: 100% !important;
+        padding: 20px 16px !important;
+        box-sizing: border-box !important;
     }
 
-    .formGrid { grid-template-columns: 1fr; }
+    .formGrid { 
+        grid-template-columns: 1fr !important; 
+        gap: 12px !important;
+    }
+    
     .radioGrid { grid-template-columns: 1fr; }
 
     .addCategoryWrapper {
@@ -1003,6 +1028,7 @@
     .rolesGrid {
         grid-template-columns: 1fr 1fr;
     }
+}
 
 @media (max-width: 480px) {
     .jobsSection {

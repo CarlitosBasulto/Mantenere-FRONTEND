@@ -229,9 +229,9 @@
     gap: 12px;
     flex: 1;
     min-height: 0;
-    max-height: 380px;
+    max-height: 420px;
     overflow-y: auto;
-    margin-bottom: 20px;
+    margin-bottom: 0;
     padding-right: 6px;
 }
 

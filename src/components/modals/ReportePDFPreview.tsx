@@ -361,7 +361,7 @@ export default function ReportePDFPreview({ trabajo, reporteData, subTareas, isV
     }, []);
 
     const allVisitEvidences = getAllVisitEvidences(reporteData, trabajo);
-    const mainImgsExist = reporteData.imagenes.antes || reporteData.imagenes.durante || reporteData.imagenes.despues;
+    const mainImgsExist = !isVisita && !!(reporteData.imagenes?.antes || reporteData.imagenes?.durante || reporteData.imagenes?.despues);
     const hasObs = (reporteData.observacionesList && reporteData.observacionesList.length > 0) || reporteData.observaciones?.trim() || reporteData.imagenesObservacion?.length || reporteData.imagenObservacion;
     const hasEvidences = allVisitEvidences.length > 0;
     const totalPages = (mainImgsExist || hasObs || hasEvidences) ? 2 : 1;

@@ -22,6 +22,7 @@ const safeLocalStorageSet = (key: string, value: string) => {
     } catch (e: any) {
         if (e.name === 'QuotaExceededError' || e.code === 22 || e.code === 1014) {
             try {
+                // 1. Limpiar todos los borradores temporales viejos
                 for (let i = localStorage.length - 1; i >= 0; i--) {
                     const k = localStorage.key(i);
                     if (k && k.startsWith('report_data_temporal_') && k !== key) {
@@ -29,15 +30,31 @@ const safeLocalStorageSet = (key: string, value: string) => {
                     }
                 }
                 localStorage.setItem(key, value);
-            } catch (inner) {
+            } catch (_) {
                 try {
+                    // 2. Si aún excede, limpiar firmas pesadas en base64 de la caché local (ya que se guardan en la BD)
                     const parsed = JSON.parse(value);
-                    if (parsed.firmaEmpresa && parsed.firmaEmpresa.length > 200000) {
+                    if (parsed.firmaEmpresa && parsed.firmaEmpresa.length > 50000) {
                         parsed.firmaEmpresa = '__PDF_LOADED_IN_STATE__';
-                        localStorage.setItem(key, JSON.stringify(parsed));
                     }
-                } catch (_) {
-                    console.warn("Espacio insuficiente en localStorage:", inner);
+                    localStorage.setItem(key, JSON.stringify(parsed));
+                } catch (inner) {
+                    try {
+                        // 3. Fallback: remover claves viejas de reportes terminados para liberar espacio
+                        for (let i = localStorage.length - 1; i >= 0; i--) {
+                            const k = localStorage.key(i);
+                            if (k && (k.startsWith('report_data_') || k.startsWith('report_data_temporal_')) && k !== key) {
+                                localStorage.removeItem(k);
+                            }
+                        }
+                        const parsed = JSON.parse(value);
+                        if (parsed.firmaEmpresa && parsed.firmaEmpresa.length > 20000) {
+                            parsed.firmaEmpresa = '__PDF_LOADED_IN_STATE__';
+                        }
+                        localStorage.setItem(key, JSON.stringify(parsed));
+                    } catch (finalErr) {
+                        console.warn("Aviso: Cuota de localStorage alcanzada, los datos se conservan en la BD.");
+                    }
                 }
             }
         }
@@ -368,18 +385,24 @@ const AdminReporte: React.FC = () => {
                 if (!temporalData) {
                     try {
                         const existingDb = await getReporteByTrabajoId(Number(safeId));
-                        if (existingDb && existingDb.solucion) {
-                            const parsedDb = typeof existingDb.solucion === 'string' ? JSON.parse(existingDb.solucion) : existingDb.solucion;
+                        if (existingDb && (existingDb.solucion || existingDb.descripcion)) {
+                            let parsedDb = null;
+                            if (existingDb.solucion) {
+                                parsedDb = typeof existingDb.solucion === 'string' ? JSON.parse(existingDb.solucion) : existingDb.solucion;
+                            }
                             const matched = findMatchingSubReport(parsedDb, { 
                                 id: subParam || safeId, 
                                 pointIndex: pIdx, 
                                 trabajoId: safeId,
                                 baseId: targetAct?.id,
                                 titulo: taskTitle 
-                            });
-                            if (matched && !matched.isVisita && (matched.isExecutionReport || matched.isReportFinalizado || jobData.estado === 'Finalizado')) {
+                            }) || parsedDb;
+
+                            if (matched && !matched.isVisita) {
                                 temporalData = JSON.stringify(matched);
                                 isExplicitTaskDraft = true;
+                            } else if (existingDb.descripcion && !existingDb.descripcion.startsWith('Reporte de Tarea:') && existingDb.descripcion !== 'Reporte generado') {
+                                setDescripcion(existingDb.descripcion);
                             }
                         }
                     } catch (_) {}
@@ -618,6 +641,7 @@ const AdminReporte: React.FC = () => {
         const subtareaIdParam = queryParams.get('subtareaId') || location.state?.subtareaId || location.state?.actividadId;
         const subParam = subtareaIdParam ? String(subtareaIdParam) : null;
         const pIdx = subParam && subParam.includes('_') ? parseInt(subParam.split('_')[1], 10) : undefined;
+        const activeStorageKey = subParam ? String(subParam) : String(safeId);
 
         const filteredObsList = observacionesList.filter(o => o.texto.trim() || o.imagenes.length > 0);
         const compiledObservaciones = filteredObsList.map(o => o.texto).filter(Boolean).join('\n\n');
@@ -667,22 +691,27 @@ const AdminReporte: React.FC = () => {
                     const parsedExisting = typeof existingDbReport.solucion === 'string' ? JSON.parse(existingDbReport.solucion) : existingDbReport.solucion;
                     if (parsedExisting?.subReports && typeof parsedExisting.subReports === 'object') {
                         Object.entries(parsedExisting.subReports).forEach(([k, v]) => {
-                            cleanSubReports[k] = v;
+                            if (k !== 'undefined' && k !== 'null') {
+                                cleanSubReports[k] = v;
+                            }
                         });
                     }
                 }
             } catch (_) {}
 
+            // Sub-reporte limpio sin duplicar firma pesada innecesariamente
+            const subReportEntry = {
+                ...reportData,
+                firmaEmpresa: undefined
+            };
+
             if (subParam) {
-                cleanSubReports[subParam] = reportData;
-                cleanSubReports[`${safeId}_${subParam}`] = reportData;
+                cleanSubReports[subParam] = subReportEntry;
             }
             if (safeId && pIdx !== undefined) {
-                cleanSubReports[`${safeId}_${pIdx}`] = reportData;
+                cleanSubReports[`${safeId}_${pIdx}`] = subReportEntry;
             }
-            if (!subParam && safeId) {
-                cleanSubReports[String(safeId)] = reportData;
-            }
+            cleanSubReports[activeStorageKey] = subReportEntry;
 
             const dataToSave = {
                 trabajo_id: Number(safeId),
@@ -731,6 +760,8 @@ const AdminReporte: React.FC = () => {
         const subtareaIdParam = queryParams.get('subtareaId') || location.state?.subtareaId || location.state?.actividadId;
         const subParam = subtareaIdParam ? String(subtareaIdParam) : null;
         const pIdx = subParam && subParam.includes('_') ? parseInt(subParam.split('_')[1], 10) : undefined;
+        const activeStorageKey = subParam ? String(subParam) : String(safeTrabajoId);
+        const parsedActId = subParam ? parseInt(subParam.split('_')[0], 10) : undefined;
 
         const filteredObsList = observacionesList.filter(o => o.texto.trim() || o.imagenes.length > 0);
         const compiledObservaciones = filteredObsList.map(o => o.texto).filter(Boolean).join('\n\n');
@@ -781,7 +812,7 @@ const AdminReporte: React.FC = () => {
             localStorage.removeItem(`report_data_temporal_${safeTrabajoId}`);
         }
 
-        // Guardar registro del reporte en la BD (acumulando todos los sub-puntos)
+        // Guardar registro del reporte en la BD (acumulando todos los sub-puntos sin duplicados masivos)
         try {
             let cleanSubReports: Record<string, any> = {};
             try {
@@ -790,38 +821,30 @@ const AdminReporte: React.FC = () => {
                     const parsedExisting = typeof existingDbReport.solucion === 'string' ? JSON.parse(existingDbReport.solucion) : existingDbReport.solucion;
                     if (parsedExisting?.subReports && typeof parsedExisting.subReports === 'object') {
                         Object.entries(parsedExisting.subReports).forEach(([k, v]) => {
-                            cleanSubReports[k] = v;
+                            if (k !== 'undefined' && k !== 'null') {
+                                cleanSubReports[k] = v;
+                            }
                         });
                     }
                 }
             } catch (_) {}
 
+            const subReportEntry = {
+                ...reportData,
+                firmaEmpresa: undefined
+            };
+
             if (subParam) {
-                cleanSubReports[subParam] = reportData;
-                cleanSubReports[`${safeTrabajoId}_${subParam}`] = reportData;
+                cleanSubReports[subParam] = subReportEntry;
             }
             if (safeTrabajoId && pIdx !== undefined) {
-                cleanSubReports[`${safeTrabajoId}_${pIdx}`] = reportData;
+                cleanSubReports[`${safeTrabajoId}_${pIdx}`] = subReportEntry;
             }
-            if (!subParam && safeTrabajoId) {
-                cleanSubReports[String(safeTrabajoId)] = reportData;
-            }
-
-            // Cargar desde localStorage los otros puntos de este trabajo
-            for (let p = 1; p <= 10; p++) {
-                const raw = localStorage.getItem(`report_data_${safeTrabajoId}_${p}`);
-                if (raw) {
-                    try {
-                        cleanSubReports[`${safeTrabajoId}_${p}`] = JSON.parse(raw);
-                    } catch (_) {}
-                }
-            }
-
-            cleanSubReports[activeStorageKey] = reportData;
+            cleanSubReports[activeStorageKey] = subReportEntry;
 
             const dataToSave = {
                 trabajo_id: Number(safeTrabajoId),
-                actividad_id: isNaN(parsedActId as any) ? undefined : parsedActId,
+                actividad_id: (parsedActId && !isNaN(parsedActId)) ? parsedActId : undefined,
                 descripcion: `Reporte de Tarea: ${trabajoBase?.titulo || 'Servicio'}`,
                 solucion: JSON.stringify({
                     ...reportData,

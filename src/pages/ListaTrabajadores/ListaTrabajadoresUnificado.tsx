@@ -195,7 +195,7 @@ const ModalNuevoTrabajador: React.FC<ModalNuevoTrabajadorProps> = ({ isOpen, onC
                             />
                         </div>
 
-                        <div className={styles.formField} style={{ gridColumn: 'span 2' }}>
+                        <div className={`${styles.formField} ${styles.fullWidthField}`}>
                             <label>Contraseña</label>
                             <input
                                 type="text"
@@ -205,32 +205,6 @@ const ModalNuevoTrabajador: React.FC<ModalNuevoTrabajadorProps> = ({ isOpen, onC
                                 placeholder="Mínimo 6 caracteres"
                                 required
                             />
-                        </div>
-                    </div>
-
-                    <div className={styles.typeSection} style={{ marginBottom: '20px', marginTop: '10px' }}>
-                        <label className={styles.sectionLabel} style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: '#334155', fontWeight: '600' }}>Tipo de Técnico</label>
-                        <div style={{ display: 'flex', gap: '20px' }}>
-                            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', cursor: 'pointer' }}>
-                                <input 
-                                    type="radio" 
-                                    name="workerType" 
-                                    value="Interno" 
-                                    checked={type === "Interno"} 
-                                    onChange={(e) => setType(e.target.value as "Interno" | "Externo")}
-                                />
-                                Técnico Interno
-                            </label>
-                            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', cursor: 'pointer' }}>
-                                <input 
-                                    type="radio" 
-                                    name="workerType" 
-                                    value="Externo" 
-                                    checked={type === "Externo"} 
-                                    onChange={(e) => setType(e.target.value as "Interno" | "Externo")}
-                                />
-                                Técnico Externo
-                            </label>
                         </div>
                     </div>
 

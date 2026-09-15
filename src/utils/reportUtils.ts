@@ -21,32 +21,45 @@ export const findMatchingSubReport = (parsed: any, target: SubReportTarget): any
         ? Number(target.pointIndex)
         : (subId.includes('_') ? Number(subId.split('_')[1]) : null);
 
+    let match: any = null;
+
     // 1. Si existe diccionario subReports acumulado
     if (parsed.subReports && typeof parsed.subReports === 'object') {
         const sr = parsed.subReports;
 
         // Búsqueda por clave exacta con trabajoId
-        if (trabajoId && pIdx && sr[`${trabajoId}_${pIdx}`]) return sr[`${trabajoId}_${pIdx}`];
-        if (trabajoId && subId && sr[`${trabajoId}_${subId}`]) return sr[`${trabajoId}_${subId}`];
-
+        if (trabajoId && pIdx && sr[`${trabajoId}_${pIdx}`]) match = sr[`${trabajoId}_${pIdx}`];
+        else if (trabajoId && subId && sr[`${trabajoId}_${subId}`]) match = sr[`${trabajoId}_${subId}`];
         // Búsqueda por clave exacta con baseId
-        if (baseId && pIdx && sr[`${baseId}_${pIdx}`]) return sr[`${baseId}_${pIdx}`];
-
+        else if (baseId && pIdx && sr[`${baseId}_${pIdx}`]) match = sr[`${baseId}_${pIdx}`];
         // Búsqueda por subId exacto
-        if (subId && sr[subId]) return sr[subId];
-
+        else if (subId && sr[subId]) match = sr[subId];
+        // Búsqueda por trabajoId simple
+        else if (trabajoId && sr[trabajoId]) match = sr[trabajoId];
         // Búsqueda por clave de índice simple
-        if (pIdx && sr[String(pIdx)]) return sr[String(pIdx)];
+        else if (pIdx && sr[String(pIdx)]) match = sr[String(pIdx)];
     }
 
     // 2. Coincidencia directa de subtareaId
-    if (parsed.subtareaId && (parsed.subtareaId === subId || (trabajoId && parsed.subtareaId === `${trabajoId}_${pIdx}`))) {
-        return parsed;
+    if (!match && parsed.subtareaId && (parsed.subtareaId === subId || parsed.subtareaId === trabajoId || (trabajoId && parsed.subtareaId === `${trabajoId}_${pIdx}`))) {
+        match = parsed;
     }
 
-    // 3. Fallback solo si es un trabajo simple de 1 solo punto (no sub-puntos)
-    if (!pIdx && !subId.includes('_') && (!parsed.subReports || Object.keys(parsed.subReports).length === 0)) {
-        return parsed;
+    // 3. Si no hubo coincidencia en subReports, usar parsed como fallback si tiene información relevante
+    if (!match) {
+        if (!pIdx && !subId.includes('_')) {
+            match = parsed;
+        } else if (parsed.descripcion || parsed.reporteTienda || parsed.imagenes || parsed.firmaEmpresa) {
+            match = parsed;
+        }
+    }
+
+    if (match) {
+        // Heredar firmaEmpresa del objeto raíz si el sub-reporte no tiene una propia
+        if ((!match.firmaEmpresa || match.firmaEmpresa === '__PDF_LOADED_IN_STATE__') && parsed.firmaEmpresa && parsed.firmaEmpresa !== '__PDF_LOADED_IN_STATE__') {
+            match = { ...match, firmaEmpresa: parsed.firmaEmpresa };
+        }
+        return match;
     }
 
     return null;

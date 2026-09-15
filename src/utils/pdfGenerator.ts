@@ -413,20 +413,41 @@ export const generateMaintenanceReportPDF = async (data: PDFReportData, returnBl
 
         // --- 7. PÁGINA 2: EVIDENCIA Y OBSERVACIONES ---
         // Build the lists of main images and observation images to determine if page 2 is needed
+        const isVisitaMode = !!data.isVisita;
         const mainImages: { src: string; label: string }[] = [];
-        if (data.imagenes.antes) mainImages.push({ src: data.imagenes.antes, label: '1. ANTES (ESTADO INICIAL)' });
-        if (data.imagenes.durante) mainImages.push({ src: data.imagenes.durante, label: '2. DURANTE (PROCESO)' });
-        if (data.imagenes.despues) mainImages.push({ src: data.imagenes.despues, label: '3. DESPUÉS (FINALIZADO)' });
+        if (!isVisitaMode) {
+            if (data.imagenes?.antes) mainImages.push({ src: data.imagenes.antes, label: '1. ANTES (ESTADO INICIAL)' });
+            if (data.imagenes?.durante) mainImages.push({ src: data.imagenes.durante, label: '2. DURANTE (PROCESO)' });
+            if (data.imagenes?.despues) mainImages.push({ src: data.imagenes.despues, label: '3. DESPUÉS (FINALIZADO)' });
+        }
 
         let obsListToRender = data.observacionesList;
         if (!obsListToRender || obsListToRender.length === 0) {
-            const extraImgs = Array.isArray(data.imagenes.extra)
+            const extraImgs: string[] = [];
+            if (isVisitaMode) {
+                if (data.imagenes?.antes) extraImgs.push(data.imagenes.antes);
+                if (data.imagenes?.durante) extraImgs.push(data.imagenes.durante);
+                if (data.imagenes?.despues) extraImgs.push(data.imagenes.despues);
+            }
+            if (data.imagenObservacion && !extraImgs.includes(data.imagenObservacion)) {
+                extraImgs.push(data.imagenObservacion);
+            }
+            if (Array.isArray(data.imagenesObservacion)) {
+                data.imagenesObservacion.forEach((img: string) => {
+                    if (img && !extraImgs.includes(img)) extraImgs.push(img);
+                });
+            }
+            const extraArray = Array.isArray(data.imagenes?.extra)
                 ? data.imagenes.extra
-                : (data.imagenes.extra ? [data.imagenes.extra] : []);
+                : (data.imagenes?.extra ? [data.imagenes.extra] : []);
+            extraArray.forEach((img: string) => {
+                if (img && !extraImgs.includes(img)) extraImgs.push(img);
+            });
+
             if ((data.observaciones && data.observaciones.trim()) || extraImgs.length > 0) {
                 obsListToRender = [{
                     id: 'fallback-obs',
-                    texto: data.observaciones || '',
+                    texto: data.observaciones || (isVisitaMode ? (data.descripcion || 'Evidencias registradas durante la visita.') : ''),
                     imagenes: extraImgs.filter(Boolean) as string[]
                 }];
             } else {

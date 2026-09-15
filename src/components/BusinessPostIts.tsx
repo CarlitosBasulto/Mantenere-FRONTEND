@@ -319,20 +319,6 @@ const BusinessPostIts: React.FC<BusinessPostItsProps> = ({ jobs, negocioId, nego
                                 );
                             })}
                         </div>
-
-                        <button 
-                            className={styles.actionButton}
-                            onClick={() => {
-                                if (activeModalCategory.id === 'cotizacion') {
-                                    handleGoToDetails('cotizaciones');
-                                } else {
-                                    handleGoToDetails();
-                                }
-                            }}
-                        >
-                            <span>Ir a los detalles de la sucursal</span>
-                            <span>→</span>
-                        </button>
                     </div>
                 </div>,
                 document.body
