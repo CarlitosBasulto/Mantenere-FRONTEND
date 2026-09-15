@@ -163,50 +163,7 @@ export const generateMaintenanceReportPDF = async (data: PDFReportData, returnBl
             }
         }
 
-        // --- 3. REFACCIONES Y MATERIALES ---
-        leftY = drawSectionTitleHalf(data.isVisita ? "Materiales y Refacciones Cotizados" : "Refacciones y Materiales", leftX, leftY, colWidthHalf);
-        doc.setFont("helvetica", "normal");
-        
-        let totalAmount = 0;
-        if (data.isVisita && data.refaccionesList && data.refaccionesList.length > 0) {
-            doc.setFontSize(8);
-            data.refaccionesList.forEach((ref) => {
-                const qty = Number((ref as any).amount || ref.cantidad || 1);
-                const unitPrice = parseFloat(ref.costo_estimado) || 0;
-                const lineTotal = qty * unitPrice;
-                totalAmount += lineTotal;
-                
-                const lineText = `- ${qty}x ${ref.pieza.toUpperCase()}: $${lineTotal.toFixed(2)}`;
-                const splitLine = doc.splitTextToSize(lineText, colWidthHalf - 4);
-                doc.text(splitLine, leftX + 2, leftY + 3);
-                leftY += (splitLine.length * 3.5) + 1;
-            });
-            
-            if (totalAmount > 0) {
-                const subtotal = totalAmount / 1.16;
-                const iva = totalAmount - subtotal;
-                
-                leftY += 2;
-                doc.setFont("helvetica", "bold");
-                doc.text(`Subtotal: $${subtotal.toFixed(2)}`, leftX + 2, leftY);
-                leftY += 4;
-                doc.text(`IVA (16%): $${iva.toFixed(2)}`, leftX + 2, leftY);
-                leftY += 4;
-                doc.text(`Total: $${totalAmount.toFixed(2)}`, leftX + 2, leftY);
-                leftY += 6;
-            }
-        } else {
-            if (!data.materiales) {
-                doc.text("No se utilizaron refacciones.", leftX + 2, leftY + 3);
-                leftY += 8;
-            } else {
-                const matLines = doc.splitTextToSize(data.materiales, colWidthHalf - 4);
-                doc.text(matLines, leftX + 2, leftY + 3);
-                leftY += (matLines.length * 3.5) + 5;
-            }
-        }
-
-        // --- 4. DETALLES DEL TRABAJO ---
+        // --- 3. DETALLES DEL SERVICIO (Right half top) ---
         rightY = drawSectionTitleHalf("Detalles del Servicio", rightX, rightY, 90);
         const drawTextAreaHalf = (label: string, text: string, x: number, y: number, width: number) => {
             doc.setFont("helvetica", "bold");
@@ -219,9 +176,77 @@ export const generateMaintenanceReportPDF = async (data: PDFReportData, returnBl
         };
 
         rightY = drawTextAreaHalf(data.isVisita ? "Diagnóstico / Visita:" : "Diagnóstico / Reporte:", data.diagnostico, rightX, rightY, 90);
-        rightY = drawTextAreaHalf(data.isVisita ? "Trabajo a Realizar:" : "Trabajo Realizado:", data.descripcion, rightX, rightY, 90);
 
         nextY = Math.max(leftY, rightY) + 5;
+
+        // --- 4. TRABAJO A REALIZAR / REALIZADO (Full width above materials) ---
+        if (data.descripcion) {
+            nextY = drawSectionTitle(data.isVisita ? "Trabajo a Realizar" : "Trabajo Realizado", nextY);
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(8);
+            doc.setTextColor(60, 60, 60);
+
+            const descClean = data.descripcion.split('|||SERVICE_DATA|||')[0].trim();
+            const numberedMatches = descClean.split(/(?=(?:^|\s+)\d+\.\s+)/g).map(s => s.trim()).filter(Boolean);
+            
+            if (numberedMatches.length > 1 || (numberedMatches.length === 1 && /^\d+\.\s+/.test(numberedMatches[0]))) {
+                numberedMatches.forEach((itemStr, idx) => {
+                    const cleanItem = itemStr.replace(/^\d+\.\s*/, '').trim();
+                    const lineText = `${idx + 1}. ${cleanItem}`;
+                    const splitLines = doc.splitTextToSize(lineText, 176);
+                    doc.text(splitLines, 17, nextY + 1);
+                    nextY += (splitLines.length * 4) + 1.5;
+                });
+                nextY += 3;
+            } else {
+                const descLines = doc.splitTextToSize(descClean || 'Sin descripción registrada.', 176);
+                doc.text(descLines, 17, nextY + 1);
+                nextY += (descLines.length * 4) + 4;
+            }
+        }
+
+        // --- 5. MATERIALES Y REFACCIONES COTIZADOS (Full width or table) ---
+        nextY = drawSectionTitle(data.isVisita ? "Materiales y Refacciones Cotizados" : "Refacciones y Materiales", nextY);
+        doc.setFont("helvetica", "normal");
+        
+        let totalAmount = 0;
+        if (data.isVisita && data.refaccionesList && data.refaccionesList.length > 0) {
+            doc.setFontSize(8);
+            data.refaccionesList.forEach((ref, idx) => {
+                const qty = Number((ref as any).amount || ref.cantidad || 1);
+                const unitPrice = parseFloat(ref.costo_estimado) || 0;
+                const lineTotal = qty * unitPrice;
+                totalAmount += lineTotal;
+                
+                const lineText = `${idx + 1}. ${ref.pieza.toUpperCase()}  |  Cant: ${qty}  |  Precio/U: $${unitPrice.toFixed(2)}  |  Total: $${lineTotal.toFixed(2)}`;
+                const splitLine = doc.splitTextToSize(lineText, 176);
+                doc.text(splitLine, 17, nextY + 1);
+                nextY += (splitLine.length * 3.8) + 1;
+            });
+            
+            if (totalAmount > 0) {
+                const subtotal = totalAmount / 1.16;
+                const iva = totalAmount - subtotal;
+                
+                nextY += 2;
+                doc.setFont("helvetica", "bold");
+                doc.text(`Subtotal: $${subtotal.toFixed(2)}`, 140, nextY);
+                nextY += 4;
+                doc.text(`IVA (16%): $${iva.toFixed(2)}`, 140, nextY);
+                nextY += 4;
+                doc.text(`Total: $${totalAmount.toFixed(2)}`, 140, nextY);
+                nextY += 6;
+            }
+        } else {
+            if (!data.materiales) {
+                doc.text("No se utilizaron refacciones.", 17, nextY + 1);
+                nextY += 7;
+            } else {
+                const matLines = doc.splitTextToSize(data.materiales, 176);
+                doc.text(matLines, 17, nextY + 1);
+                nextY += (matLines.length * 3.8) + 4;
+            }
+        }
 
         // --- 4. EQUIPO ---
         if (data.equipo) {
@@ -415,10 +440,10 @@ export const generateMaintenanceReportPDF = async (data: PDFReportData, returnBl
 
         if (hasPhotoPageContent) {
             doc.addPage();
-            drawHeader("TESTIGOS FOTOGRÁFICOS");
+            drawHeader(data.isVisita ? "REGISTRO DE VISITA" : "TESTIGOS FOTOGRÁFICOS");
             nextY = 35;
 
-            nextY = drawSectionTitle("Testigos Fotográficos", nextY);
+            nextY = drawSectionTitle(data.isVisita ? "Registro Fotográfico de la Visita" : "Testigos Fotográficos", nextY);
 
             const imgSize = 55;
             const gap = 8;

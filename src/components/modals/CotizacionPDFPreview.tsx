@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { HiOutlineXMark, HiOutlinePrinter, HiOutlineArrowDownTray } from 'react-icons/hi2';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import { getDiagnosticCategories, parseWorkItems } from './ReportePDFPreview';
 
 export default function CotizacionPDFPreview({ trabajo, subTareas, costo, notas, materials = [], manoObra = 0, onClose }: any) {
     const pdfRef = useRef<HTMLDivElement>(null);
@@ -57,6 +58,9 @@ export default function CotizacionPDFPreview({ trabajo, subTareas, costo, notas,
     const isMobile = screenWidth < 768;
     const availableWidth = isMobile ? screenWidth - 30 : 800;
     const scale = availableWidth < 800 ? availableWidth / 800 : 1;
+
+    const diagnosticText = getDiagnosticCategories(trabajo, { reporteTienda: trabajo?.titulo, descripcion: trabajo?.descripcion }, subTareas);
+    const workItems = parseWorkItems(trabajo?.descripcion || '');
 
     return (
         <div style={{
@@ -143,7 +147,7 @@ export default function CotizacionPDFPreview({ trabajo, subTareas, costo, notas,
                         <div style={{ background: '#f8fafc', padding: '15px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
                             <h4 style={{ margin: '0 0 10px 0', fontSize: '12px', fontWeight: '800', color: '#1e293b', textTransform: 'uppercase', borderBottom: '1px solid #cbd5e1', paddingBottom: '4px' }}>Detalles del Servicio</h4>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '12px', color: '#475569' }}>
-                                <div><strong>Diagnóstico / Visita:</strong> {trabajo?.titulo || 'Servicio de Mantenimiento'}</div>
+                                <div><strong>Diagnóstico / Visita:</strong> {diagnosticText}</div>
                                 {(() => {
                                     const llegadaTask = subTareas?.find((t: any) => t.serviceData?.horaLlegada);
                                     if (llegadaTask) {
@@ -151,8 +155,62 @@ export default function CotizacionPDFPreview({ trabajo, subTareas, costo, notas,
                                     }
                                     return null;
                                 })()}
-                                <div><strong>Trabajo a Realizar:</strong> {trabajo?.descripcion || 'Sin descripción registrada.'}</div>
                             </div>
+                        </div>
+                    </div>
+
+                    {/* Trabajo a Realizar */}
+                    <div style={{ marginBottom: '22px' }}>
+                        <h4 style={{ margin: '0 0 10px 0', fontSize: '12px', fontWeight: '800', color: '#1e293b', textTransform: 'uppercase' }}>
+                            Trabajo a Realizar
+                        </h4>
+                        <div style={{ background: '#f8fafc', padding: '14px 16px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                            {workItems.length > 0 ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                    {workItems.map((item, idx) => (
+                                        <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', fontSize: '12px', color: '#334155', lineHeight: '1.4' }}>
+                                            <span style={{
+                                                background: '#1e293b',
+                                                color: '#ffffff',
+                                                minWidth: '20px',
+                                                height: '20px',
+                                                borderRadius: '50%',
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                fontSize: '11px',
+                                                fontWeight: '800',
+                                                flexShrink: 0,
+                                                marginTop: '1px'
+                                            }}>
+                                                {idx + 1}
+                                            </span>
+                                            <div style={{ flex: 1 }}>
+                                                {item.categoria && (
+                                                    <span style={{
+                                                        background: '#e0f2fe',
+                                                        color: '#0369a1',
+                                                        border: '1px solid #bae6fd',
+                                                        padding: '1px 7px',
+                                                        borderRadius: '4px',
+                                                        fontSize: '11px',
+                                                        fontWeight: '700',
+                                                        marginRight: '6px',
+                                                        display: 'inline-block'
+                                                    }}>
+                                                        {item.categoria}
+                                                    </span>
+                                                )}
+                                                <span style={{ whiteSpace: 'pre-wrap' }}>{item.texto || item.categoria}</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>
+                                    Sin descripción de trabajo a realizar.
+                                </p>
+                            )}
                         </div>
                     </div>
 

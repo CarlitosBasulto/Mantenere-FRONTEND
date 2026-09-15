@@ -18,6 +18,8 @@ interface TareaHistorial {
     id: number | string;
     baseId: number;
     pointIndex?: number;
+    totalPoints?: number;
+    isSOS?: boolean;
     titulo: string;
     descripcion: string;
     estado: string;
@@ -32,6 +34,25 @@ interface TareaHistorial {
 interface HistorialProps {
     businessId?: number;
 }
+
+const isJobSOS = (job: any): boolean => {
+    return job?.prioridad === 'Alta' || job?.titulo?.includes('SOS') || job?.descripcion?.includes('SOS') || job?.tipo === 'SOS';
+};
+
+const formatHistoryTaskTitle = (tipo: string, pointIdx?: number, isSOS?: boolean): string => {
+    const cleanTipo = (tipo || 'Servicio')
+        .replace(/^🚨\s*SOS:\s*/i, '')
+        .replace(/^SOS:\s*/i, '')
+        .replace(/\s*\(Punto\s*\d+\)/i, '')
+        .replace(/\s*\(Trabajo\s*\d+\)/i, '')
+        .trim() || 'Servicio';
+    
+    const taskSuffix = pointIdx ? `(Trabajo ${pointIdx})` : '';
+    if (isSOS) {
+        return `🚨 SOS: ${cleanTipo} ${taskSuffix}`.trim();
+    }
+    return `${cleanTipo} ${taskSuffix}`.trim();
+};
 
 const parseJobDate = (fechaStr?: string, createdAt?: string): Date => {
     if (fechaStr) {
@@ -71,10 +92,20 @@ const getMonthYearString = (date: Date): string => {
     return `${months[date.getMonth()]} de ${date.getFullYear()}`;
 };
 
-const getGroupId = (descripcion?: string): string | null => {
-    if (!descripcion) return null;
-    const match = descripcion.match(/\[Grupo:\s*(REQ-\d+)\]/i);
-    return match ? match[1] : null;
+const getGroupId = (descripcion?: string, titulo?: string, createdAt?: string, negocioId?: number): string | null => {
+    if (descripcion) {
+        const match = descripcion.match(/\[Grupo:\s*([^\]]+)\]/i);
+        if (match) return match[1];
+    }
+    if (titulo) {
+        const pointMatch = titulo.match(/^(.*?)\s*\((?:Punto|Trabajo)\s*(\d+)\)/i);
+        if (pointMatch) {
+            const cleanTitle = pointMatch[1].trim();
+            const dateKey = createdAt ? createdAt.substring(0, 10) : 'nodate';
+            return `TITLE_${negocioId || 0}_${dateKey}_${cleanTitle}`;
+        }
+    }
+    return null;
 };
 
 const cleanDescriptionText = (desc?: string): string => {
@@ -83,7 +114,7 @@ const cleanDescriptionText = (desc?: string): string => {
     if (cleaned.includes('|||')) {
         cleaned = cleaned.split('|||')[0].trim();
     }
-    cleaned = cleaned.replace(/\[Grupo:\s*REQ-\d+\]\s*/gi, '').trim();
+    cleaned = cleaned.replace(/\[Grupo:\s*[^\]]+\]\s*/gi, '').trim();
     return cleaned || "Trabajo completado exitosamente.";
 };
 
@@ -168,6 +199,7 @@ const decomposeJobToHistoryTasks = (job: any): TareaHistorial[] => {
     const monthYear = getMonthYearString(finalDate);
     const ubicacion = job.negocio?.ubicacion || job.negocio?.nombre || "Sucursal";
     const tecnico = job.trabajador?.nombre || job.tecnico || "Sin Asignar";
+    const isSOS = isJobSOS(job);
 
     // 1. Caso: múltiples ítems estructurados en serviceData.items o dentro de |||SERVICE_DATA|||
     let itemsFromDesc: any[] | null = null;
@@ -188,6 +220,7 @@ const decomposeJobToHistoryTasks = (job: any): TareaHistorial[] => {
         : itemsFromDesc;
 
     if (itemsToProcess && itemsToProcess.length > 1) {
+        const total = itemsToProcess.length;
         return itemsToProcess.map((item: any, idx: number) => {
             const pIdx = idx + 1;
             const subId = `${job.id}_${pIdx}`;
@@ -197,7 +230,9 @@ const decomposeJobToHistoryTasks = (job: any): TareaHistorial[] => {
                 id: subId,
                 baseId: job.id,
                 pointIndex: pIdx,
-                titulo: `${subTipo} (Punto ${pIdx})`,
+                totalPoints: total,
+                isSOS,
+                titulo: formatHistoryTaskTitle(subTipo, pIdx, isSOS),
                 descripcion: subDesc,
                 estado: job.estado || 'Completado',
                 ubicacion,
@@ -212,6 +247,7 @@ const decomposeJobToHistoryTasks = (job: any): TareaHistorial[] => {
 
     // 2. Caso: actividades registradas
     if (job.actividades && Array.isArray(job.actividades) && job.actividades.length > 1) {
+        const total = job.actividades.length;
         return job.actividades.map((act: any, idx: number) => {
             const pIdx = idx + 1;
             const subId = act.id ? String(act.id) : `${job.id}_${pIdx}`;
@@ -221,7 +257,9 @@ const decomposeJobToHistoryTasks = (job: any): TareaHistorial[] => {
                 id: subId,
                 baseId: job.id,
                 pointIndex: pIdx,
-                titulo: `${subTipo} (Punto ${pIdx})`,
+                totalPoints: total,
+                isSOS,
+                titulo: formatHistoryTaskTitle(subTipo, pIdx, isSOS),
                 descripcion: subDesc,
                 estado: act.estado || job.estado || 'Completado',
                 ubicacion,
@@ -240,6 +278,7 @@ const decomposeJobToHistoryTasks = (job: any): TareaHistorial[] => {
     const matches = Array.from(cleanRaw.matchAll(regexPoint));
 
     if (matches && matches.length > 1) {
+        const total = matches.length;
         return matches.map((m, idx) => {
             const pIdx = idx + 1;
             const subId = `${job.id}_${pIdx}`;
@@ -249,7 +288,9 @@ const decomposeJobToHistoryTasks = (job: any): TareaHistorial[] => {
                 id: subId,
                 baseId: job.id,
                 pointIndex: pIdx,
-                titulo: subTipo.includes('(Punto') ? subTipo : `${subTipo} (Punto ${pIdx})`,
+                totalPoints: total,
+                isSOS,
+                titulo: formatHistoryTaskTitle(subTipo, pIdx, isSOS),
                 descripcion: subDesc || 'Trabajo completado exitosamente.',
                 estado: job.estado || 'Completado',
                 ubicacion,
@@ -270,6 +311,7 @@ const decomposeJobToHistoryTasks = (job: any): TareaHistorial[] => {
         }
     }
     if (pointsFound.length > 1) {
+        const total = pointsFound.length;
         return pointsFound.map((pIdx) => {
             const subId = `${job.id}_${pIdx}`;
             const subTipo = extractServiceType(job, pIdx, subId);
@@ -285,7 +327,9 @@ const decomposeJobToHistoryTasks = (job: any): TareaHistorial[] => {
                 id: subId,
                 baseId: job.id,
                 pointIndex: pIdx,
-                titulo: `${subTipo} (Punto ${pIdx})`,
+                totalPoints: total,
+                isSOS,
+                titulo: formatHistoryTaskTitle(subTipo, pIdx, isSOS),
                 descripcion: subDesc,
                 estado: job.estado || 'Completado',
                 ubicacion,
@@ -303,7 +347,10 @@ const decomposeJobToHistoryTasks = (job: any): TareaHistorial[] => {
     return [{
         id: job.id,
         baseId: job.id,
-        titulo: singleTipo && !job.titulo.startsWith(singleTipo) ? `${singleTipo} - ${job.titulo}` : job.titulo,
+        pointIndex: 1,
+        totalPoints: 1,
+        isSOS,
+        titulo: formatHistoryTaskTitle(singleTipo || job.titulo, undefined, isSOS),
         descripcion: cleanDescriptionText(job.descripcion),
         estado: job.estado || 'Completado',
         ubicacion,
@@ -412,6 +459,8 @@ const Historial: React.FC<HistorialProps> = ({ businessId }) => {
                     } catch (_) {}
 
                     let decomposedFromActs: TareaHistorial[] = [];
+                    const isGroupSOS = isJobSOS(baseJob) || jobsInGroup.some(isJobSOS);
+
                     if (acts && acts.length > 0) {
                         acts.forEach((act: any) => {
                             const rawActDesc = act.descripcion || '';
@@ -420,6 +469,7 @@ const Historial: React.FC<HistorialProps> = ({ businessId }) => {
                             const matches = Array.from(cleanRaw.matchAll(regexPoint));
 
                             if (matches && matches.length > 1) {
+                                const total = matches.length;
                                 matches.forEach((m, idx) => {
                                     const pIdx = idx + 1;
                                     const subId = `${act.id}_${pIdx}`;
@@ -429,7 +479,9 @@ const Historial: React.FC<HistorialProps> = ({ businessId }) => {
                                         id: subId,
                                         baseId: baseJob.id,
                                         pointIndex: pIdx,
-                                        titulo: subTipo.includes('(Punto') ? subTipo : `${subTipo} (Punto ${pIdx})`,
+                                        totalPoints: total,
+                                        isSOS: isGroupSOS,
+                                        titulo: formatHistoryTaskTitle(subTipo, pIdx, isGroupSOS),
                                         descripcion: subDesc || 'Trabajo completado exitosamente.',
                                         estado: 'Completado',
                                         ubicacion,
@@ -447,7 +499,9 @@ const Historial: React.FC<HistorialProps> = ({ businessId }) => {
                                     id: subId,
                                     baseId: baseJob.id,
                                     pointIndex: decomposedFromActs.length + 1,
-                                    titulo: subTipo.includes('(Punto') ? subTipo : `${subTipo} (Punto ${decomposedFromActs.length + 1})`,
+                                    totalPoints: acts.length,
+                                    isSOS: isGroupSOS,
+                                    titulo: formatHistoryTaskTitle(subTipo, decomposedFromActs.length + 1, isGroupSOS),
                                     descripcion: cleanDescriptionText(act.descripcion || baseJob.descripcion),
                                     estado: 'Completado',
                                     ubicacion,
@@ -465,8 +519,10 @@ const Historial: React.FC<HistorialProps> = ({ businessId }) => {
                         allTasks.push(...decomposedFromActs);
                     } else {
                         // Fallback: procesar trabajos individuales del grupo
+                        const total = jobsInGroup.length;
                         jobsInGroup.forEach((gJob, idx) => {
                             const pIdx = idx + 1;
+                            const isSingleSOS = isGroupSOS || isJobSOS(gJob);
                             let serviceType = extractServiceType(gJob, pIdx, gJob.id);
                             if (serviceType === 'Servicio' || serviceType === 'Mantenimiento') {
                                 const fromBase = extractServiceType(baseJob, pIdx, `${baseJob.id}_${pIdx}`);
@@ -481,7 +537,9 @@ const Historial: React.FC<HistorialProps> = ({ businessId }) => {
                                 id: gJob.id,
                                 baseId: baseJob.id,
                                 pointIndex: pIdx,
-                                titulo: `${serviceType} (Punto ${pIdx})`,
+                                totalPoints: total,
+                                isSOS: isSingleSOS,
+                                titulo: formatHistoryTaskTitle(serviceType, pIdx, isSingleSOS),
                                 descripcion: cleanDesc,
                                 estado: 'Completado',
                                 ubicacion,
@@ -751,7 +809,44 @@ const Historial: React.FC<HistorialProps> = ({ businessId }) => {
                                                                         <div className={styles.cardInfo}>
                                                                             <div className={styles.cardHeader}>
                                                                                 <div>
-                                                                                    <h3 className={styles.concepto} style={{ marginTop: '0' }}>{tarea.titulo}</h3>
+                                                                                    <h3 className={styles.concepto} style={{ marginTop: '0', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                                                                        <span>{tarea.titulo}</span>
+                                                                                    </h3>
+                                                                                    {((tarea.totalPoints && tarea.totalPoints > 1) || tarea.isSOS) && (
+                                                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', flexWrap: 'wrap' }}>
+                                                                                            {tarea.isSOS ? (
+                                                                                                <span style={{
+                                                                                                    fontSize: '11px',
+                                                                                                    background: '#fff1f2',
+                                                                                                    color: '#e11d48',
+                                                                                                    border: '1px solid #fecdd3',
+                                                                                                    padding: '2px 8px',
+                                                                                                    borderRadius: '12px',
+                                                                                                    fontWeight: '700',
+                                                                                                    display: 'inline-flex',
+                                                                                                    alignItems: 'center',
+                                                                                                    gap: '4px'
+                                                                                                }}>
+                                                                                                    🚨 Solicitud SOS {tarea.totalPoints && tarea.totalPoints > 1 ? `• Trabajo ${tarea.pointIndex || 1} de ${tarea.totalPoints}` : ''}
+                                                                                                </span>
+                                                                                            ) : (tarea.totalPoints && tarea.totalPoints > 1 ? (
+                                                                                                <span style={{
+                                                                                                    fontSize: '11px',
+                                                                                                    background: '#eff6ff',
+                                                                                                    color: '#1d4ed8',
+                                                                                                    border: '1px solid #bfdbfe',
+                                                                                                    padding: '2px 8px',
+                                                                                                    borderRadius: '12px',
+                                                                                                    fontWeight: '700',
+                                                                                                    display: 'inline-flex',
+                                                                                                    alignItems: 'center',
+                                                                                                    gap: '4px'
+                                                                                                }}>
+                                                                                                    🔗 Solicitud Conjunta • Trabajo {tarea.pointIndex || 1} de {tarea.totalPoints}
+                                                                                                </span>
+                                                                                            ) : null)}
+                                                                                        </div>
+                                                                                    )}
                                                                                 </div>
                                                                                 <div className={`${styles.statusBadge} ${styles.badgeSuccess}`} style={{ background: isPreReport ? '#fff3e0' : (!hasTaskReport ? '#f1f5f9' : undefined), color: isPreReport ? '#e65100' : (!hasTaskReport ? '#64748b' : undefined) }}>
                                                                                     <span className={styles.statusIcon}>{hasTaskReport ? '✓' : (isPreReport ? '⚠️' : '⏳')}</span> {hasTaskReport ? 'Completado' : (isPreReport ? 'Pre-Reporte' : 'Pendiente')}
@@ -760,9 +855,9 @@ const Historial: React.FC<HistorialProps> = ({ businessId }) => {
                                                                             
                                                                             {(() => {
                                                                                 let descText = tarea.descripcion || '';
-                                                                                if (reportData && reportData.descripcion && reportData.descripcion.trim() !== "") {
+                                                                                if (selectedHistoryTask?.id === tarea.id && reportData && reportData.descripcion && reportData.descripcion.trim() !== "") {
                                                                                     descText = reportData.descripcion;
-                                                                                } else if (reportData && reportData.reporteTienda && reportData.reporteTienda.trim() !== "") {
+                                                                                } else if (selectedHistoryTask?.id === tarea.id && reportData && reportData.reporteTienda && reportData.reporteTienda.trim() !== "") {
                                                                                     descText = reportData.reporteTienda;
                                                                                 }
 
@@ -774,12 +869,12 @@ const Historial: React.FC<HistorialProps> = ({ businessId }) => {
                                                                                 }
                                                                                 
                                                                                 return (
-                                                                                    <div style={{ padding: '0 15px 15px' }}>
-                                                                                        {descText && <p className={styles.descripcion} style={{ margin: 0, color: '#475569' }}>{descText}</p>}
+                                                                                    <div style={{ marginTop: '4px' }}>
+                                                                                        {descText && <p className={styles.descripcion} style={{ margin: 0, color: '#64748b' }}>{descText}</p>}
                                                                                         {notasText && (
-                                                                                            <div style={{ marginTop: '12px', padding: '12px', background: '#f8fafc', borderRadius: '10px', fontSize: '13px', color: '#475569', border: '1px solid #e2e8f0' }}>
-                                                                                                <strong style={{ display: 'block', marginBottom: '8px', color: '#1e293b', fontSize: '12px', textTransform: 'uppercase' }}>📝 Notas de cotización</strong>
-                                                                                                <ul style={{ margin: '0', paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                                                            <div style={{ marginTop: '8px', padding: '8px 12px', background: '#f8fafc', borderRadius: '10px', fontSize: '12px', color: '#475569', border: '1px solid #e2e8f0' }}>
+                                                                                                <strong style={{ display: 'block', marginBottom: '4px', color: '#1e293b', fontSize: '11px', textTransform: 'uppercase' }}>📝 Notas de cotización</strong>
+                                                                                                <ul style={{ margin: '0', paddingLeft: '18px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
                                                                                                     {notasText.split(/(?=\s-\s)|(?=^-)/).map(s => s.replace(/^-/, '').trim()).filter(s => s.length > 0).map((nota, i) => (
                                                                                                         <li key={i}>{nota}</li>
                                                                                                     ))}

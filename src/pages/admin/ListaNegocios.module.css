@@ -105,7 +105,7 @@
     flex-direction: column;
     justify-content: center;
     position: relative;
-    overflow: hidden;
+    overflow: visible;
     cursor: pointer;
     transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
 }
@@ -193,6 +193,7 @@
     pointer-events: none;
     z-index: 1;
     overflow: hidden;
+    border-radius: 0 28px 28px 0;
 }
 
 .cardRightImage {

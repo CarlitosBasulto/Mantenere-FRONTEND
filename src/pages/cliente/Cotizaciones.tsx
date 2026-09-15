@@ -11,6 +11,10 @@ import { getNegocios } from "../../services/negociosService";
 // Interfaz para el Trabajo con Cotización
 interface TrabajoCotizado {
     id: number | string;
+    baseId?: number;
+    pointIndex?: number;
+    totalPoints?: number;
+    isSOS?: boolean;
     titulo: string;
     ubicacion: string;
     fecha: string;
@@ -23,16 +27,46 @@ interface TrabajoCotizado {
         archivo: string;
         fecha: string;
     };
+    rawJob?: any;
 }
 
 interface CotizacionesProps {
     businessId?: number;
 }
 
-const getGroupId = (descripcion?: string): string | null => {
-    if (!descripcion) return null;
-    const match = descripcion.match(/\[Grupo:\s*(REQ-\d+)\]/i);
-    return match ? match[1] : null;
+const isJobSOS = (job: any): boolean => {
+    return job?.prioridad === 'Alta' || job?.titulo?.includes('SOS') || job?.descripcion?.includes('SOS') || job?.tipo === 'SOS';
+};
+
+const formatCotizacionTitle = (tipo: string, pointIdx?: number, isSOS?: boolean): string => {
+    const cleanTipo = (tipo || 'Servicio')
+        .replace(/^🚨\s*SOS:\s*/i, '')
+        .replace(/^SOS:\s*/i, '')
+        .replace(/\s*\(Punto\s*\d+\)/i, '')
+        .replace(/\s*\(Trabajo\s*\d+\)/i, '')
+        .trim() || 'Servicio';
+    
+    const taskSuffix = pointIdx ? `(Trabajo ${pointIdx})` : '';
+    if (isSOS) {
+        return `🚨 SOS: ${cleanTipo} ${taskSuffix}`.trim();
+    }
+    return `${cleanTipo} ${taskSuffix}`.trim();
+};
+
+const getGroupId = (descripcion?: string, titulo?: string, createdAt?: string, negocioId?: number): string | null => {
+    if (descripcion) {
+        const match = descripcion.match(/\[Grupo:\s*([^\]]+)\]/i);
+        if (match) return match[1];
+    }
+    if (titulo) {
+        const pointMatch = titulo.match(/^(.*?)\s*\(Punto\s*(\d+)\)/i);
+        if (pointMatch) {
+            const cleanTitle = pointMatch[1].trim();
+            const dateKey = createdAt ? createdAt.substring(0, 10) : 'nodate';
+            return `TITLE_${negocioId || 0}_${dateKey}_${cleanTitle}`;
+        }
+    }
+    return null;
 };
 
 const cleanDescriptionText = (desc?: string): string => {
@@ -41,8 +75,18 @@ const cleanDescriptionText = (desc?: string): string => {
     if (cleaned.includes('|||')) {
         cleaned = cleaned.split('|||')[0].trim();
     }
-    cleaned = cleaned.replace(/\[Grupo:\s*REQ-\d+\]\s*/gi, '').trim();
+    cleaned = cleaned.replace(/\[Grupo:\s*[^\]]+\]\s*/gi, '').trim();
     return cleaned || "Sin descripción.";
+};
+
+const getBusinessFullName = (negocio?: any): string => {
+    if (!negocio) return '';
+    const name = negocio.nombre || '';
+    const plaza = negocio.nombrePlaza || negocio.nombre_plaza || '';
+    if (name && plaza) return `${name} - ${plaza}`;
+    if (name) return name;
+    if (plaza) return plaza;
+    return '';
 };
 
 const extractServiceType = (job: any, pointIdx?: number, subId?: string | number): string => {
@@ -76,7 +120,7 @@ const extractServiceType = (job: any, pointIdx?: number, subId?: string | number
             const serviceData = JSON.parse(dataStr);
             if (pointIdx !== undefined && serviceData.items && Array.isArray(serviceData.items) && serviceData.items[pointIdx - 1]) {
                 const it = serviceData.items[pointIdx - 1];
-                const itemTipo = (it.tipo === 'Otro' ? it.customTipo : it.tipo) || it.tipoActividad;
+                const itemTipo = (it.tipo === 'Otro' ? itemTipoCustom(it) : it.tipo) || it.tipoActividad;
                 if (itemTipo) return itemTipo;
             }
             if (serviceData.tipoServicio) return serviceData.tipoServicio;
@@ -90,6 +134,8 @@ const extractServiceType = (job: any, pointIdx?: number, subId?: string | number
     }
     return job?.tipo || 'Servicio';
 };
+
+const itemTipoCustom = (it: any) => it.customTipo || it.tipo;
 
 const parseJobDate = (fechaStr?: string, createdAt?: string): string => {
     if (fechaStr) {
@@ -114,6 +160,100 @@ const parseJobDate = (fechaStr?: string, createdAt?: string): string => {
         if (!isNaN(dateObj.getTime())) return dateObj.toLocaleDateString('es-MX');
     }
     return new Date().toLocaleDateString('es-MX');
+};
+
+const decomposeJobToCotizaciones = (job: any, baseQuoteData?: any): TrabajoCotizado[] => {
+    const dateFormatted = parseJobDate(job.fecha_programada, job.created_at);
+    const ubicacion = getBusinessFullName(job.negocio) || job.negocio?.ubicacion || job.negocio?.nombre || "Sucursal";
+    const isSOS = isJobSOS(job);
+    const rawDesc = job.descripcion || '';
+
+    // 1. Caso: múltiples ítems estructurados en serviceData.items o dentro de |||SERVICE_DATA|||
+    let itemsFromDesc: any[] | null = null;
+    if (rawDesc.includes('|||SERVICE_DATA|||')) {
+        try {
+            const parts = rawDesc.split('|||SERVICE_DATA|||');
+            const dataStr = parts[1].split('|||')[0].trim();
+            const serviceData = JSON.parse(dataStr);
+            if (serviceData.items && Array.isArray(serviceData.items) && serviceData.items.length > 1) {
+                itemsFromDesc = serviceData.items;
+            }
+        } catch(e) {}
+    }
+
+    const itemsToProcess = (job.serviceData?.items && Array.isArray(job.serviceData.items) && job.serviceData.items.length > 1)
+        ? job.serviceData.items
+        : itemsFromDesc;
+
+    if (itemsToProcess && itemsToProcess.length > 1) {
+        const total = itemsToProcess.length;
+        return itemsToProcess.map((item: any, idx: number) => {
+            const pIdx = idx + 1;
+            const subId = `${job.id}_${pIdx}`;
+            const subTipo = (item.tipo === 'Otro' ? item.customTipo : item.tipo) || extractServiceType(job, pIdx, subId);
+            const subDesc = cleanDescriptionText(item.descripcion || job.descripcion);
+            return {
+                id: subId,
+                baseId: job.id,
+                pointIndex: pIdx,
+                totalPoints: total,
+                isSOS,
+                titulo: formatCotizacionTitle(subTipo, pIdx, isSOS),
+                descripcion: subDesc,
+                estado: job.estado || "Cotización Enviada",
+                ubicacion,
+                fecha: dateFormatted,
+                cotizacion: baseQuoteData || job.cotizacion,
+                rawJob: job
+            };
+        });
+    }
+
+    // 2. Caso: Puntos numerados en la descripción (ej. "1. [Electricidad] ... \n\n 2. [Plomería] ...")
+    const cleanRaw = cleanDescriptionText(rawDesc);
+    const regexPoint = /(?:^|\n+)(\d+)\.\s*(?:\[([^\]]+)\]\s*)?([\s\S]*?)(?=(?:\n+\d+\.\s*)|$)/g;
+    const matches = Array.from(cleanRaw.matchAll(regexPoint));
+
+    if (matches && matches.length > 1) {
+        const total = matches.length;
+        return matches.map((m, idx) => {
+            const pIdx = idx + 1;
+            const subId = `${job.id}_${pIdx}`;
+            const subTipo = m[2] ? m[2].trim() : extractServiceType(job, pIdx, subId);
+            const subDesc = m[3] ? m[3].trim() : '';
+            return {
+                id: subId,
+                baseId: job.id,
+                pointIndex: pIdx,
+                totalPoints: total,
+                isSOS,
+                titulo: formatCotizacionTitle(subTipo, pIdx, isSOS),
+                descripcion: subDesc || 'Sin descripción.',
+                estado: job.estado || "Cotización Enviada",
+                ubicacion,
+                fecha: dateFormatted,
+                cotizacion: baseQuoteData || job.cotizacion,
+                rawJob: job
+            };
+        });
+    }
+
+    // Por defecto: 1 solo trabajo
+    const singleTipo = extractServiceType(job);
+    return [{
+        id: job.id,
+        baseId: job.id,
+        pointIndex: 1,
+        totalPoints: 1,
+        isSOS,
+        titulo: formatCotizacionTitle(singleTipo || job.titulo, undefined, isSOS),
+        descripcion: cleanDescriptionText(job.descripcion),
+        estado: job.estado || "Cotización Enviada",
+        ubicacion,
+        fecha: dateFormatted,
+        cotizacion: baseQuoteData || job.cotizacion,
+        rawJob: job
+    }];
 };
 
 const Cotizaciones: React.FC<CotizacionesProps> = ({ businessId }) => {
@@ -175,7 +315,7 @@ const Cotizaciones: React.FC<CotizacionesProps> = ({ businessId }) => {
                 const nonGroupedJobs: any[] = [];
 
                 userFilteredJobs.forEach((job: any) => {
-                    const grpId = getGroupId(job.descripcion);
+                    const grpId = getGroupId(job.descripcion, job.titulo, job.created_at, job.negocio_id);
                     if (grpId) {
                         if (!groupedByReq[grpId]) groupedByReq[grpId] = [];
                         groupedByReq[grpId].push(job);
@@ -186,7 +326,7 @@ const Cotizaciones: React.FC<CotizacionesProps> = ({ businessId }) => {
 
                 const allCotizados: TrabajoCotizado[] = [];
 
-                // 1. Procesar grupos [Grupo: REQ-xxxx]
+                // 1. Procesar grupos [Grupo: REQ-xxxx] o Puntos agrupados
                 for (const [, jobsInGroup] of Object.entries(groupedByReq)) {
                     if (!jobsInGroup || jobsInGroup.length === 0) continue;
                     jobsInGroup.sort((a, b) => Number(a.id) - Number(b.id));
@@ -201,24 +341,27 @@ const Cotizaciones: React.FC<CotizacionesProps> = ({ businessId }) => {
                     );
 
                     if (groupHasQuote) {
-                        // Buscar datos de cotización base
+                        // Buscar datos de cotización base (revisando baseJob o cualquiera en el grupo)
                         let baseQuoteData = baseJob.cotizacion;
                         if (!baseQuoteData) {
-                            const savedHistory = localStorage.getItem(`quote_history_${baseJob.id}`);
-                            if (savedHistory) {
-                                try {
-                                    const historyArr = JSON.parse(savedHistory);
-                                    if (historyArr && historyArr.length > 0) {
-                                        const lastH = historyArr[historyArr.length - 1];
-                                        baseQuoteData = {
-                                            id: lastH.id || baseJob.id,
-                                            costo: lastH.costo || lastH.monto || "0",
-                                            notas: lastH.notas || lastH.descripcion || "",
-                                            archivo: lastH.archivo || "",
-                                            fecha: lastH.fecha || parseJobDate(baseJob.fecha_programada, baseJob.created_at)
-                                        };
-                                    }
-                                } catch(e) {}
+                            for (const gJob of jobsInGroup) {
+                                const savedHistory = localStorage.getItem(`quote_history_${gJob.id}`);
+                                if (savedHistory) {
+                                    try {
+                                        const historyArr = JSON.parse(savedHistory);
+                                        if (historyArr && historyArr.length > 0) {
+                                            const lastH = historyArr[historyArr.length - 1];
+                                            baseQuoteData = {
+                                                id: lastH.id || gJob.id,
+                                                costo: lastH.costo || lastH.monto || "0",
+                                                notas: lastH.notas || lastH.descripcion || "",
+                                                archivo: lastH.archivo || "",
+                                                fecha: lastH.fecha || parseJobDate(gJob.fecha_programada, gJob.created_at)
+                                            };
+                                            break;
+                                        }
+                                    } catch(e) {}
+                                }
                             }
                         }
 
@@ -257,19 +400,36 @@ const Cotizaciones: React.FC<CotizacionesProps> = ({ businessId }) => {
                         const isFinalizedOrAccepted = jobsInGroup.some(j => ["Finalizado", "Completado", "Cotización Aceptada", "Cotización Aprobada"].includes(j.estado));
                         const groupEstado = isFinalizedOrAccepted ? "Finalizado" : baseJob.estado;
 
+                        const isSOSGroup = jobsInGroup.some(isJobSOS);
+                        const businessFull = getBusinessFullName(baseJob.negocio);
+                        const total = jobsInGroup.length;
+
                         jobsInGroup.forEach((gJob, idx) => {
                             const pIdx = idx + 1;
-                            const serviceType = extractServiceType(gJob, pIdx, gJob.id);
+                            const isSingleSOS = isSOSGroup || isJobSOS(gJob);
+                            let serviceType = extractServiceType(gJob, pIdx, gJob.id);
+                            if (serviceType === 'Servicio' || serviceType === 'Mantenimiento') {
+                                const fromBase = extractServiceType(baseJob, pIdx, `${baseJob.id}_${pIdx}`);
+                                if (fromBase && fromBase !== 'Servicio') {
+                                    serviceType = fromBase;
+                                }
+                            }
+
                             const cleanDesc = cleanDescriptionText(gJob.descripcion);
 
                             allCotizados.push({
                                 id: gJob.id,
-                                titulo: `${serviceType} (Punto ${pIdx})`,
-                                ubicacion: gJob.negocio?.ubicacion || gJob.negocio?.nombre || "Sucursal",
+                                baseId: baseJob.id,
+                                pointIndex: pIdx,
+                                totalPoints: total,
+                                isSOS: isSingleSOS,
+                                titulo: formatCotizacionTitle(serviceType, pIdx, isSingleSOS),
+                                ubicacion: businessFull || gJob.negocio?.ubicacion || gJob.negocio?.nombre || "Sucursal",
                                 fecha: parseJobDate(gJob.fecha_programada, gJob.created_at),
-                                estado: groupEstado || "Cotización Enviada",
+                                estado: gJob.estado || groupEstado || "Cotización Enviada",
                                 descripcion: cleanDesc,
-                                cotizacion: baseQuoteData || gJob.cotizacion
+                                cotizacion: baseQuoteData || gJob.cotizacion,
+                                rawJob: gJob
                             });
                         });
                     }
@@ -334,18 +494,8 @@ const Cotizaciones: React.FC<CotizacionesProps> = ({ businessId }) => {
                             } catch(e) {}
                         }
 
-                        const singleTipo = extractServiceType(job);
-                        const displayTitle = singleTipo && !job.titulo?.startsWith(singleTipo) ? `${singleTipo} - ${job.titulo || 'Servicio'}` : (job.titulo || 'Servicio');
-
-                        allCotizados.push({
-                            id: job.id,
-                            titulo: displayTitle,
-                            ubicacion: job.negocio?.ubicacion || job.negocio?.nombre || "Sucursal",
-                            fecha: parseJobDate(job.fecha_programada, job.created_at),
-                            estado: job.estado || "Cotización Enviada",
-                            descripcion: cleanDescriptionText(job.descripcion),
-                            cotizacion: cotizacionData
-                        });
+                        const decomposed = decomposeJobToCotizaciones(job, cotizacionData);
+                        allCotizados.push(...decomposed);
                     }
                 }
 
@@ -442,45 +592,82 @@ const Cotizaciones: React.FC<CotizacionesProps> = ({ businessId }) => {
                                 {cotizacionesAgrupadas[empresa].map((cotizacion) => {
                                     const estatusInfo = getEstatusInfo(cotizacion.estado);
                                     const basePath = getBasePath();
+                                    const isAccepted = estatusInfo.text === "Aceptada" || estatusInfo.text === "Finalizada";
 
                                     return (
-                                        <div key={cotizacion.id} className={styles.card}
-                                            onClick={() => navigate(`${basePath}/trabajo-detalle/${cotizacion.id}?tab=cotizacion`)}
-                                            style={{ cursor: 'pointer' }}>
+                                        <div 
+                                            key={cotizacion.id} 
+                                            className={styles.card}
+                                            onClick={() => navigate(`${basePath}/trabajo-detalle/${cotizacion.baseId || cotizacion.id}?tab=cotizacion`)}
+                                            style={{ cursor: 'pointer', marginBottom: '0', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}
+                                        >
+                                            <div className={`${styles.cardIndicator} ${estatusInfo.borderClass}`}></div>
                                             <div className={styles.cardContent}>
-                                                <div className={styles.cardIcon}>
-                                                    <HiOutlineDocumentText className={styles.iconDoc} />
+                                                <div className={styles.cardIcon} style={{ background: isAccepted ? '#e8f5e9' : (estatusInfo.text === 'Rechazada' ? '#fee2e2' : '#fef3c7') }}>
+                                                    <span className={styles.iconDoc} style={{ color: isAccepted ? '#2e7d32' : (estatusInfo.text === 'Rechazada' ? '#c62828' : '#b45309') }}>
+                                                        📋
+                                                    </span>
                                                 </div>
 
                                                 <div className={styles.cardInfo}>
                                                     <div className={styles.cardHeader}>
                                                         <div>
-                                                            <h3 className={styles.concepto}>{cotizacion.titulo}</h3>
-                                                            <span className={styles.negocio}>{cotizacion.ubicacion}</span>
+                                                            <h3 className={styles.concepto} style={{ marginTop: '0', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                                                <span>{cotizacion.titulo}</span>
+                                                            </h3>
+                                                            {((cotizacion.totalPoints && cotizacion.totalPoints > 1) || cotizacion.isSOS) && (
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', flexWrap: 'wrap' }}>
+                                                                    {cotizacion.isSOS ? (
+                                                                        <span style={{
+                                                                            fontSize: '11px',
+                                                                            background: '#fff1f2',
+                                                                            color: '#e11d48',
+                                                                            border: '1px solid #fecdd3',
+                                                                            padding: '2px 8px',
+                                                                            borderRadius: '12px',
+                                                                            fontWeight: '700',
+                                                                            display: 'inline-flex',
+                                                                            alignItems: 'center',
+                                                                            gap: '4px'
+                                                                        }}>
+                                                                            🚨 Solicitud SOS {cotizacion.totalPoints && cotizacion.totalPoints > 1 ? `• Trabajo ${cotizacion.pointIndex || 1} de ${cotizacion.totalPoints}` : ''}
+                                                                        </span>
+                                                                    ) : (cotizacion.totalPoints && cotizacion.totalPoints > 1 ? (
+                                                                        <span style={{
+                                                                            fontSize: '11px',
+                                                                            background: '#eff6ff',
+                                                                            color: '#1d4ed8',
+                                                                            border: '1px solid #bfdbfe',
+                                                                            padding: '2px 8px',
+                                                                            borderRadius: '12px',
+                                                                            fontWeight: '700',
+                                                                            display: 'inline-flex',
+                                                                            alignItems: 'center',
+                                                                            gap: '4px'
+                                                                        }}>
+                                                                            🔗 Solicitud Conjunta • Trabajo {cotizacion.pointIndex || 1} de {cotizacion.totalPoints}
+                                                                        </span>
+                                                                    ) : null)}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <div className={`${styles.statusBadge} ${estatusInfo.cssClass}`}>
+                                                            <span className={styles.statusIcon}>
+                                                                {isAccepted ? '✓' : (estatusInfo.text === "Rechazada" ? '✗' : '⏳')}
+                                                            </span>
+                                                            {estatusInfo.text}
                                                         </div>
                                                     </div>
 
-                                                    <div className={styles.cardFooter}>
-                                                        <span className={styles.fecha}>Actualizada: {cotizacion.cotizacion?.fecha || cotizacion.fecha}</span>
-
-                                                        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                                                            <div className={`${styles.statusBadge} ${estatusInfo.cssClass}`}>
-                                                                {estatusInfo.text === "Aceptada" || estatusInfo.text === "Finalizada" ? (
-                                                                    <HiOutlineCheckCircle className={styles.statusIcon} />
-                                                                ) : estatusInfo.text === "Rechazada" ? (
-                                                                    <HiOutlineXCircle className={styles.statusIcon} />
-                                                                ) : (
-                                                                    <HiOutlineDocumentText className={styles.statusIcon} />
-                                                                )}
-                                                                {estatusInfo.text}
-                                                            </div>
-                                                        </div>
+                                                    <div style={{ marginTop: '4px' }}>
+                                                        {cotizacion.descripcion && (
+                                                            <p className={styles.descripcion} style={{ margin: 0, color: '#64748b' }}>
+                                                                {cotizacion.descripcion}
+                                                            </p>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </div>
-
-                                            {/* Indicador inferior simulando el border-bottom estético */}
-                                            <div className={`${styles.cardIndicator} ${estatusInfo.borderClass}`}></div>
                                         </div>
                                     );
                                 })}

@@ -6,6 +6,7 @@ import { useAuth } from "../../../context/AuthContext";
 import { normalizeRole, isAutonomoAdmin } from "../../../utils/roles";
 import { getNegocios } from "../../../services/autonomo/negociosService";
 import { getTrabajos } from "../../../services/autonomo/trabajosService";
+import BusinessPostIts from "../../../components/BusinessPostIts";
 
 
 interface Negocio {
@@ -66,9 +67,11 @@ const AutonomoListaNegocios: React.FC = () => {
                 });
                 setNegocios(mapped);
                 
-                if (user && normalizeRole(user?.role) === 'tecnico-normal') {
-                    const jobsApi = await getTrabajos();
-                    setGlobalJobs(jobsApi);
+                if (user) {
+                    try {
+                        const jobsApi = await getTrabajos();
+                        setGlobalJobs(jobsApi);
+                    } catch (ign) {}
                 }
             } catch (error) {
                 console.error("Error al cargar negocios o trabajos:", error);
@@ -175,6 +178,8 @@ const AutonomoListaNegocios: React.FC = () => {
                         const matchPos = coverUrl.match(/[?&]posy=(\d+)/);
                         const posY = matchPos ? `${matchPos[1]}%` : 'center';
 
+                        const negocioJobs = globalJobs.filter((j: any) => Number(j.negocio_id) === Number(negocio.id));
+
                         return (
                             <div style={{ position: 'sticky', top: `calc(10px + ${index * 14}px)`, zIndex: index, paddingBottom: '10px' }} key={negocio.id}>
                                 <div
@@ -185,6 +190,13 @@ const AutonomoListaNegocios: React.FC = () => {
                                         ['--card-bg' as any]: cardBg
                                     }}
                                 >
+                                    {/* Post-it Notes interactivos con código de color en la esquina superior derecha */}
+                                    <BusinessPostIts 
+                                        jobs={negocioJobs} 
+                                        negocioId={negocio.id} 
+                                        negocioNombre={negocio.nombre} 
+                                    />
+
                                     {hasValidCover && (
                                         <div className={styles.cardRightImageWrapper}>
                                             <img

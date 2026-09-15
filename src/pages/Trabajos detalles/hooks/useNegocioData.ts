@@ -51,6 +51,47 @@ export const useNegocioData = (
         }
     }, [businessImage]);
 
+const formatAreasFromBackend = (areas: any[]) => {
+    if (!Array.isArray(areas)) return [];
+    return areas.map((serverArea: any) => {
+        const subAreasMap = new Map<string, any>();
+
+        if (serverArea.sub_areas_json && Array.isArray(serverArea.sub_areas_json)) {
+            serverArea.sub_areas_json.forEach((sub: any) => {
+                subAreasMap.set(sub.id, { ...sub, equipos: [] });
+            });
+        }
+
+        if (serverArea.subAreas && Array.isArray(serverArea.subAreas)) {
+            serverArea.subAreas.forEach((sub: any) => {
+                if (!subAreasMap.has(sub.id)) {
+                    subAreasMap.set(sub.id, { ...sub, equipos: [] });
+                }
+            });
+        }
+
+        (serverArea.equipos || []).forEach((eq: any) => {
+            const subId = eq.subAreaId || `sub_gen_${serverArea.id}`;
+            const subName = eq.nombreSubArea || 'GENERAL';
+            if (!subAreasMap.has(subId)) {
+                subAreasMap.set(subId, { id: subId, nombreSubArea: subName, equipos: [] });
+            }
+            subAreasMap.get(subId)!.equipos.push(eq);
+        });
+
+        let finalSubAreas = Array.from(subAreasMap.values());
+        if (finalSubAreas.length === 0) {
+            finalSubAreas = [{ id: `sub_gen_${serverArea.id}`, nombreSubArea: 'GENERAL', equipos: serverArea.equipos || [] }];
+        }
+
+        return {
+            ...serverArea,
+            equipos: serverArea.equipos || [],
+            subAreas: finalSubAreas
+        };
+    });
+};
+
     // Cargar datos del negocio
     useEffect(() => {
         const fetchBusiness = async () => {
@@ -59,8 +100,9 @@ export const useNegocioData = (
                 const current = all.find((n: any) => n.id === Number(id));
                 const individual = await getNegocio(Number(id));
 
-                if (individual?.areas) {
-                    setBusinessAreas(individual.areas);
+                const rawAreas = (individual?.areas && individual.areas.length > 0) ? individual.areas : (current?.areas || []);
+                if (rawAreas && rawAreas.length > 0) {
+                    setBusinessAreas(formatAreasFromBackend(rawAreas));
                 }
 
                 if (individual || current) {

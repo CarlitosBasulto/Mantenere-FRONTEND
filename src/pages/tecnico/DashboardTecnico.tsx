@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import styles from './DashboardTecnico.module.css';
 import { getTrabajos } from '../../services/trabajosService';
 import { getUsers } from '../../services/usersService';
+import { getTrabajadores } from '../../services/trabajadoresService';
 import { isAutonomoAdmin } from '../../utils/roles';
 import { HiOutlineUser, HiOutlineClock, HiArrowPath, HiOutlineBuildingOffice } from 'react-icons/hi2';
 import { useAuth } from '../../context/AuthContext';
@@ -67,29 +68,38 @@ const DashboardTecnico: React.FC = () => {
         else setRefreshing(true);
 
         try {
-            // 1. Fetch trabajos and users
-            const [trabajosData, usersData] = await Promise.all([
-                getTrabajos(),
-                getUsers()
+            // 1. Fetch trabajos, users and trabajadores
+            const [trabajosData, usersData, trabajadoresData] = await Promise.all([
+                getTrabajos().catch(() => []),
+                getUsers().catch(() => []),
+                getTrabajadores().catch(() => [])
             ]);
+
+            // Identificar el ID del trabajador para el usuario autenticado
+            const currentTrabajador = (Array.isArray(trabajadoresData) ? trabajadoresData : []).find((w: any) => 
+                (user?.id && (w.user_id === user.id || w.userId === user.id)) || 
+                (user?.email && w.correo && w.correo.toLowerCase() === user.email.toLowerCase()) ||
+                (user?.name && w.nombre && w.nombre.toLowerCase().trim() === user.name.toLowerCase().trim())
+            );
+            const currentTechId = currentTrabajador?.id || (user as any)?.trabajador?.id || null;
 
             // 2. Map subgerentes / encargados
             const subgerentesMap = new Map<number, string>();
-            usersData.forEach((u: any) => {
+            (Array.isArray(usersData) ? usersData : []).forEach((u: any) => {
                 if (isAutonomoAdmin(u.role?.name) || u.role?.name === 'encargado' || u.role?.name === 'subgerente') {
                     subgerentesMap.set(u.id, u.name);
                 }
             });
 
             // 3. Process and filter jobs for this technician
-            let processedJobs: Trabajo[] = trabajosData
+            const rawJobs = Array.isArray(trabajosData) ? trabajosData : [];
+            let processedJobs: Trabajo[] = rawJobs
                 .filter((t: any) => {
                     const isUserMatch = 
-                        t.trabajador?.user_id === user?.id || 
-                        t.trabajador_id === user?.id ||
-                        t.trabajador_id === (user as any)?.trabajador?.id ||
-                        t.trabajador?.id === (user as any)?.trabajador?.id ||
-                        (t.tecnico && user?.name && t.tecnico.toLowerCase() === user.name.toLowerCase());
+                        (currentTechId && (t.trabajador_id === currentTechId || t.trabajador?.id === currentTechId)) ||
+                        (user?.id && (t.trabajador?.user_id === user.id || t.trabajador_id === user.id)) ||
+                        (user?.name && t.tecnico && t.tecnico.toLowerCase().trim().includes(user.name.toLowerCase().trim())) ||
+                        (user?.name && t.trabajador?.nombre && t.trabajador.nombre.toLowerCase().trim().includes(user.name.toLowerCase().trim()));
                     return isUserMatch;
                 })
                 .map((t: any) => {
@@ -174,16 +184,16 @@ const DashboardTecnico: React.FC = () => {
     
     // 2. Asignaciones de visitas (Visitas pendientes de evaluación del técnico en campo, antes de enviar al admin)
     const colVisita = trabajos.filter(t => 
-        ['En Proceso', 'Asignado', 'Aceptada'].includes(t.estado) && 
+        ['En Proceso', 'Asignado', 'Aceptada', 'En Espera'].includes(t.estado) && 
         t.tipo === 'Visita' && 
         !t.visitado &&
-        !['Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución', 'En Espera', 'Cotización Enviada', 'Cotización Rechazada'].includes(t.estado)
+        !['Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución', 'Cotización Enviada', 'Cotización Rechazada'].includes(t.estado)
     );
     
-    // 3. Asignaciones de trabajo (Cotización Aceptada por cliente, En Ejecución, Trabajos directos asignados)
+    // 3. Asignaciones de trabajo (Cotización Aceptada por cliente, En Ejecución, Trabajos directos asignados y SOS)
     const colProceso = trabajos.filter(t => 
         ['Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución'].includes(t.estado) ||
-        (t.tipo !== 'Visita' && ['En Proceso', 'Asignado', 'Aceptada'].includes(t.estado) && !['En Espera', 'Cotización Enviada', 'Cotización Rechazada'].includes(t.estado))
+        (t.tipo !== 'Visita' && ['En Proceso', 'Asignado', 'Aceptada', 'En Espera', 'Cotización Enviada', 'Cotización Rechazada'].includes(t.estado))
     );
     
     // 4. Trabajos finalizados
@@ -277,12 +287,27 @@ const DashboardTecnico: React.FC = () => {
                         marginBottom: '8px',
                         fontSize: '12px',
                         color: '#713f12',
-                        boxShadow: '0 2px 5px rgba(234, 179, 8, 0.15)'
+                        boxShadow: '0 2px 5px rgba(234, 179, 8, 0.15)',
+                        maxWidth: '100%',
+                        boxSizing: 'border-box',
+                        overflow: 'hidden',
+                        wordBreak: 'break-all',
+                        overflowWrap: 'anywhere'
                     }}>
-                        <span style={{ fontWeight: '900', color: '#d97706', display: 'block', marginBottom: '4px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+                        <span style={{ fontWeight: '900', color: '#d97706', display: 'block', marginBottom: '4px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.4px', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                             {isGroup ? '📝 Problemas en esta Solicitud:' : '📝 Problema Especificado por Encargado:'}
                         </span>
-                        <span style={{ fontWeight: '600', color: '#1e293b', fontSize: '13px', lineHeight: '1.4', display: 'block', whiteSpace: isGroup ? 'pre-line' : 'normal' }}>
+                        <span style={{ 
+                            fontWeight: '600', 
+                            color: '#1e293b', 
+                            fontSize: '13px', 
+                            lineHeight: '1.4', 
+                            display: 'block', 
+                            whiteSpace: isGroup ? 'pre-line' : 'normal',
+                            wordBreak: 'break-all',
+                            overflowWrap: 'anywhere',
+                            maxWidth: '100%'
+                        }}>
                             {isGroup ? problemaReportado : `"${problemaReportado}"`}
                         </span>
                     </div>

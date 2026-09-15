@@ -74,9 +74,10 @@ export const useLevantamiento = (
             if (existing.imagen_portada) apiPayload.imagen_portada = existing.imagen_portada;
 
             const updateRes = await updateNegocio(Number(id), apiPayload);
+            const serverAreasList = updateRes?.data?.areas || updateRes?.areas;
 
-            if (updateRes?.data?.areas) {
-                const mergedAreas = updateRes.data.areas.map((serverArea: any) => {
+            if (serverAreasList && Array.isArray(serverAreasList)) {
+                const mergedAreas = serverAreasList.map((serverArea: any) => {
                     const localArea = newLevantamientoData.find(
                         a => String(a.id) === String(serverArea.id) || a.nombreArea === serverArea.nombreArea
                     );

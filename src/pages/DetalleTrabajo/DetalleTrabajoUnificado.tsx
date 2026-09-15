@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import styles from "./DetalleTrabajoUnificado.module.css";
 import historialStyles from "../cliente/Historial.module.css";
@@ -44,7 +44,7 @@ import { useModal } from "../../context/ModalContext";
 import { getNegocio } from "../../services/negociosService";
 import LevantamientoModal from "../../components/LevantamientoModal";
 import CotizacionPDFPreview from "../../components/modals/CotizacionPDFPreview";
-import ReportePDFPreview from "../../components/modals/ReportePDFPreview";
+import ReportePDFPreview, { parseWorkItems } from "../../components/modals/ReportePDFPreview";
 import ChatTrabajo from "../../components/ChatTrabajo";
 import NegotiationChatWidget from "../../components/chat/NegotiationChatWidget";
 import UbicacionMapaModal from "../../components/modals/UbicacionMapaModal";
@@ -232,6 +232,236 @@ const cleanQuoteDescription = (desc: string) => {
     return desc;
 };
 
+export interface SosPointItem {
+    id: string;
+    subTareaId: number;
+    pointNumber: number;
+    titulo: string;
+    descripcion: string;
+    photos: string[];
+    conceptos: { descripcion: string; cantidad: string | number; precio: string | number }[];
+    materiales: { nombre: string; cantidad: string | number; precio: string | number }[];
+    subtotal: number;
+}
+
+export const getFlattenedSosPoints = (subTareasList: any[]): SosPointItem[] => {
+    if (!subTareasList || !Array.isArray(subTareasList)) return [];
+    try {
+        const flattened: SosPointItem[] = [];
+        let globalCounter = 1;
+
+        subTareasList.forEach((st) => {
+            if (!st) return;
+
+            // 1. Structured serviceData.items (> 1)
+            const sItems = (st.serviceData?.items && Array.isArray(st.serviceData.items) && st.serviceData.items.length > 1)
+                ? st.serviceData.items
+                : null;
+
+            if (sItems && sItems.length > 1) {
+                sItems.forEach((item: any, idx: number) => {
+                    const pNum = idx + 1;
+                    const pointId = `${st.id}_pt_${pNum}`;
+                    const tipo = (item.tipo === 'Otro' ? item.customTipo : item.tipo) || item.tipoActividad || `Punto #${globalCounter}`;
+                    const desc = item.descripcion || '';
+                    const photos = (st.photos && Array.isArray(st.photos) && st.photos[idx]) ? [st.photos[idx]] : [];
+
+                    let ptConceptos: any[] = [];
+                    if (item.quoteConceptos && Array.isArray(item.quoteConceptos) && item.quoteConceptos.length > 0) {
+                        ptConceptos = item.quoteConceptos.filter((c: any) => (c.descripcion && c.descripcion.trim()) || c.precio);
+                    } else if (st.quoteData?.conceptos && Array.isArray(st.quoteData.conceptos)) {
+                        ptConceptos = st.quoteData.conceptos.filter((c: any) => {
+                            if (c.puntoIndex !== undefined) return Number(c.puntoIndex) === pNum;
+                            return (c.descripcion || '').includes(`[Punto ${pNum}]`);
+                        });
+                    }
+
+                    let ptMateriales: any[] = [];
+                    if (item.quoteMateriales && Array.isArray(item.quoteMateriales) && item.quoteMateriales.length > 0) {
+                        ptMateriales = item.quoteMateriales.filter((m: any) => (m.nombre && m.nombre.trim()) || m.precio);
+                    } else if (st.quoteData?.materiales && Array.isArray(st.quoteData.materiales)) {
+                        ptMateriales = st.quoteData.materiales.filter((m: any) => {
+                            if (m.puntoIndex !== undefined) return Number(m.puntoIndex) === pNum;
+                            return (m.nombre || '').includes(`[Punto ${pNum}]`);
+                        });
+                    }
+
+                    const cleanConceptos = ptConceptos.map((c: any) => ({
+                        ...c,
+                        descripcion: (c.descripcion || '').replace(/^\[Punto\s*\d+\]\s*/i, '')
+                    }));
+                    const cleanMateriales = ptMateriales.map((m: any) => ({
+                        ...m,
+                        nombre: (m.nombre || '').replace(/^\[Punto\s*\d+\]\s*/i, '')
+                    }));
+
+                    let subtotal = 0;
+                    cleanConceptos.forEach((c: any) => {
+                        subtotal += (Number(c.cantidad) || 1) * (Number(c.precio) || 0);
+                    });
+                    cleanMateriales.forEach((m: any) => {
+                        subtotal += (Number(m.cantidad) || 1) * (Number(m.precio) || 0);
+                    });
+
+                    flattened.push({
+                        id: pointId,
+                        subTareaId: st.id,
+                        pointNumber: globalCounter++,
+                        titulo: tipo,
+                        descripcion: desc,
+                        photos,
+                        conceptos: cleanConceptos,
+                        materiales: cleanMateriales,
+                        subtotal
+                    });
+                });
+                return;
+            }
+
+            // 2. Structured itemsQuote in quoteData (> 1)
+            if (st.quoteData?.itemsQuote && Array.isArray(st.quoteData.itemsQuote) && st.quoteData.itemsQuote.length > 1) {
+                st.quoteData.itemsQuote.forEach((item: any, idx: number) => {
+                    const pNum = idx + 1;
+                    const pointId = `${st.id}_pt_${pNum}`;
+                    const desc = item.descripcion || '';
+                    const photos = (st.photos && Array.isArray(st.photos) && st.photos[idx]) ? [st.photos[idx]] : [];
+                    const ptConceptos = (item.conceptos || []).map((c: any) => ({
+                        ...c,
+                        descripcion: (c.descripcion || '').replace(/^\[Punto\s*\d+\]\s*/i, '')
+                    }));
+                    const ptMateriales = (item.materiales || []).map((m: any) => ({
+                        ...m,
+                        nombre: (m.nombre || '').replace(/^\[Punto\s*\d+\]\s*/i, '')
+                    }));
+
+                    let subtotal = 0;
+                    ptConceptos.forEach((c: any) => {
+                        subtotal += (Number(c.cantidad) || 1) * (Number(c.precio) || 0);
+                    });
+                    ptMateriales.forEach((m: any) => {
+                        subtotal += (Number(m.cantidad) || 1) * (Number(m.precio) || 0);
+                    });
+                    if (subtotal === 0 && item.subtotal) subtotal = Number(item.subtotal) || 0;
+
+                    flattened.push({
+                        id: pointId,
+                        subTareaId: st.id,
+                        pointNumber: globalCounter++,
+                        titulo: st.titulo || `Punto #${globalCounter}`,
+                        descripcion: desc,
+                        photos,
+                        conceptos: ptConceptos,
+                        materiales: ptMateriales,
+                        subtotal
+                    });
+                });
+                return;
+            }
+
+            // 3. Check if multiple [Punto X] tags exist in quoteData conceptos / materiales
+            const allConceptos = Array.isArray(st.quoteData?.conceptos) ? st.quoteData.conceptos : [];
+            const allMateriales = Array.isArray(st.quoteData?.materiales) ? st.quoteData.materiales : [];
+            const taggedPuntos = new Set<number>();
+
+            allConceptos.forEach((c: any) => {
+                if (c.puntoIndex) taggedPuntos.add(Number(c.puntoIndex));
+                const m = (c.descripcion || '').match(/\[Punto\s*(\d+)\]/i);
+                if (m && m[1]) taggedPuntos.add(Number(m[1]));
+            });
+            allMateriales.forEach((m: any) => {
+                if (m.puntoIndex) taggedPuntos.add(Number(m.puntoIndex));
+                const match = (m.nombre || '').match(/\[Punto\s*(\d+)\]/i);
+                if (match && match[1]) taggedPuntos.add(Number(match[1]));
+            });
+
+            if (taggedPuntos.size > 1) {
+                const sortedPuntos = Array.from(taggedPuntos).sort((a, b) => a - b);
+                sortedPuntos.forEach((pNum) => {
+                    const pointId = `${st.id}_pt_${pNum}`;
+                    const ptConceptos = allConceptos
+                        .filter((c: any) => Number(c.puntoIndex) === pNum || (c.descripcion || '').includes(`[Punto ${pNum}]`))
+                        .map((c: any) => ({
+                            ...c,
+                            descripcion: (c.descripcion || '').replace(/^\[Punto\s*\d+\]\s*/i, '')
+                        }));
+                    const ptMateriales = allMateriales
+                        .filter((m: any) => Number(m.puntoIndex) === pNum || (m.nombre || '').includes(`[Punto ${pNum}]`))
+                        .map((m: any) => ({
+                            ...m,
+                            nombre: (m.nombre || '').replace(/^\[Punto\s*\d+\]\s*/i, '')
+                        }));
+
+                    let subtotal = 0;
+                    ptConceptos.forEach((c: any) => {
+                        subtotal += (Number(c.cantidad) || 1) * (Number(c.precio) || 0);
+                    });
+                    ptMateriales.forEach((m: any) => {
+                        subtotal += (Number(m.cantidad) || 1) * (Number(m.precio) || 0);
+                    });
+
+                    const photos = (st.photos && Array.isArray(st.photos) && st.photos[pNum - 1]) ? [st.photos[pNum - 1]] : [];
+
+                    flattened.push({
+                        id: pointId,
+                        subTareaId: st.id,
+                        pointNumber: globalCounter++,
+                        titulo: st.titulo || `Punto #${globalCounter}`,
+                        descripcion: '',
+                        photos,
+                        conceptos: ptConceptos,
+                        materiales: ptMateriales,
+                        subtotal
+                    });
+                });
+                return;
+            }
+
+            // 4. Single item default
+            const pointId = String(st.id);
+            const ptConceptos = allConceptos.map((c: any) => ({
+                ...c,
+                descripcion: (c.descripcion || '').replace(/^\[Punto\s*\d+\]\s*/i, '')
+            }));
+            const ptMateriales = allMateriales.map((m: any) => ({
+                ...m,
+                nombre: (m.nombre || '').replace(/^\[Punto\s*\d+\]\s*/i, '')
+            }));
+
+            let subtotal = 0;
+            ptConceptos.forEach((c: any) => {
+                subtotal += (Number(c.cantidad) || 1) * (Number(c.precio) || 0);
+            });
+            ptMateriales.forEach((m: any) => {
+                subtotal += (Number(m.cantidad) || 1) * (Number(m.precio) || 0);
+            });
+            if (subtotal === 0) {
+                if (st.quoteData?.monto) {
+                    subtotal = parseFloat(String(st.quoteData.monto).replace(/[^0-9.]/g, '')) || 0;
+                } else if (st.cotizacionMonto && !isNaN(Number(String(st.cotizacionMonto).replace(/[^0-9.]/g, '')))) {
+                    subtotal = parseFloat(String(st.cotizacionMonto).replace(/[^0-9.]/g, '')) || 0;
+                }
+            }
+
+            flattened.push({
+                id: pointId,
+                subTareaId: st.id,
+                pointNumber: globalCounter++,
+                titulo: st.titulo || 'Punto de Revisión',
+                descripcion: st.cleanDescripcion || st.descripcion || '',
+                photos: (st.photos && Array.isArray(st.photos)) ? st.photos : [],
+                conceptos: ptConceptos,
+                materiales: ptMateriales,
+                subtotal
+            });
+        });
+
+        return flattened;
+    } catch (err) {
+        console.error("Error in getFlattenedSosPoints:", err);
+        return [];
+    }
+};
+
 export const getExecutableTasks = (tasks: SubTarea[], reporteFinal?: any, trabajoId?: any): SubTarea[] => {
     if (!tasks || !Array.isArray(tasks)) return [];
     const result: SubTarea[] = [];
@@ -239,6 +469,7 @@ export const getExecutableTasks = (tasks: SubTarea[], reporteFinal?: any, trabaj
     tasks.forEach(t => {
         // Case 1: Multiple items stored in serviceData.items
         if (t.serviceData?.items && Array.isArray(t.serviceData.items) && t.serviceData.items.length > 1) {
+            const total = t.serviceData.items.length;
             t.serviceData.items.forEach((item: any, idx: number) => {
                 const pIdx = idx + 1;
                 const subId = `${t.id}_${pIdx}`;
@@ -252,7 +483,8 @@ export const getExecutableTasks = (tasks: SubTarea[], reporteFinal?: any, trabaj
                     id: subId as any,
                     baseId: Number(t.id),
                     pointIndex: pIdx,
-                    titulo: `${subTipo} (Punto ${pIdx})`,
+                    totalPoints: total,
+                    titulo: `${subTipo} (Trabajo ${pIdx})`,
                     descripcion: subDesc,
                     cleanDescripcion: subDesc,
                     photos: subPhoto,
@@ -276,6 +508,7 @@ export const getExecutableTasks = (tasks: SubTarea[], reporteFinal?: any, trabaj
         const matches = Array.from(rawDesc.matchAll(regexPoint));
 
         if (matches && matches.length > 1) {
+            const total = matches.length;
             matches.forEach((m, idx) => {
                 const pIdx = idx + 1;
                 const subId = `${t.id}_${pIdx}`;
@@ -289,7 +522,8 @@ export const getExecutableTasks = (tasks: SubTarea[], reporteFinal?: any, trabaj
                     id: subId as any,
                     baseId: Number(t.id),
                     pointIndex: pIdx,
-                    titulo: `${subTipo} (Punto ${pIdx})`,
+                    totalPoints: total,
+                    titulo: `${subTipo} (Trabajo ${pIdx})`,
                     descripcion: subDesc,
                     cleanDescripcion: subDesc,
                     photos: subPhoto,
@@ -314,6 +548,7 @@ export const getExecutableTasks = (tasks: SubTarea[], reporteFinal?: any, trabaj
                 return numA - numB;
             });
 
+            const total = subReportsEntries.length;
             subReportsEntries.forEach(([subKey, subData]: [string, any], idx: number) => {
                 const pIdx = parseInt(subKey.split('_')[1] || String(idx + 1), 10);
                 const subTipo = subData.equipoInfo?.tipo || subData.tipoServicio || (subData.reporteTienda ? subData.reporteTienda.split('(')[0].trim() : '') || t.titulo || 'Servicio';
@@ -325,7 +560,8 @@ export const getExecutableTasks = (tasks: SubTarea[], reporteFinal?: any, trabaj
                     id: subKey as any,
                     baseId: Number(t.id),
                     pointIndex: pIdx,
-                    titulo: `${subTipo} (Punto ${pIdx})`,
+                    totalPoints: total,
+                    titulo: `${subTipo} (Trabajo ${pIdx})`,
                     descripcion: subDesc,
                     cleanDescripcion: subDesc,
                     photos: subPhotos,
@@ -360,6 +596,7 @@ export const getExecutableTasks = (tasks: SubTarea[], reporteFinal?: any, trabaj
         }
 
         if (localPoints.length > 1) {
+            const total = localPoints.length;
             localPoints.forEach(({ pIdx, key, data }) => {
                 const subTipo = data.equipoInfo?.tipo || data.tipoServicio || (data.reporteTienda ? data.reporteTienda.split('(')[0].trim() : '') || t.titulo || 'Servicio';
                 const subDesc = data.descripcion || data.reporteTienda || '';
@@ -370,7 +607,8 @@ export const getExecutableTasks = (tasks: SubTarea[], reporteFinal?: any, trabaj
                     id: key as any,
                     baseId: Number(t.id),
                     pointIndex: pIdx,
-                    titulo: `${subTipo} (Punto ${pIdx})`,
+                    totalPoints: total,
+                    titulo: `${subTipo} (Trabajo ${pIdx})`,
                     descripcion: subDesc,
                     cleanDescripcion: subDesc,
                     photos: subPhotos,
@@ -462,7 +700,150 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
         }));
     };
 
-    // Estado específico para Cotización de Emergencia SOS (Simple: casi mandar un número)
+    // Estado específico para Cotización de Emergencia SOS (Selección de puntos y cotización interactiva)
+    const [selectedSosPoints, setSelectedSosPoints] = useState<Record<string, boolean>>({});
+
+    const flattenedSosPoints = useMemo(() => {
+        return getFlattenedSosPoints(subTareas);
+    }, [subTareas]);
+
+    const toggleSosPoint = (pointId: string | number) => {
+        const key = String(pointId);
+        setSelectedSosPoints(prev => ({
+            ...prev,
+            [key]: prev[key] === false ? true : false
+        }));
+    };
+
+    const getPointSubtotal = (st: any) => {
+        let total = 0;
+        if (st.quoteData) {
+            if (st.quoteData.conceptos && Array.isArray(st.quoteData.conceptos)) {
+                for (const c of st.quoteData.conceptos) {
+                    total += (Number(c.cantidad) || 1) * (Number(c.precio) || 0);
+                }
+            }
+            if (st.quoteData.materiales && Array.isArray(st.quoteData.materiales)) {
+                for (const m of st.quoteData.materiales) {
+                    total += (Number(m.cantidad) || 1) * (Number(m.precio) || 0);
+                }
+            }
+            if (total === 0 && st.quoteData.monto) {
+                total = parseFloat(String(st.quoteData.monto).replace(/[^0-9.]/g, '')) || 0;
+            }
+        } else if (st.cotizacionMonto && !isNaN(Number(String(st.cotizacionMonto).replace(/[^0-9.]/g, '')))) {
+            total = parseFloat(String(st.cotizacionMonto).replace(/[^0-9.]/g, '')) || 0;
+        }
+        return total;
+    };
+
+    const selectedSosTotal = flattenedSosPoints.reduce((sum, point) => {
+        if (selectedSosPoints[point.id] !== false) {
+            return sum + point.subtotal;
+        }
+        return sum;
+    }, 0);
+
+    const handleClientAceptarCotizacionSOS = async () => {
+        if (!trabajo) return;
+        try {
+            const approvedPoints = flattenedSosPoints.filter(p => selectedSosPoints[p.id] !== false);
+            const total = approvedPoints.reduce((sum, p) => sum + p.subtotal, 0);
+
+            if (approvedPoints.length === 0) {
+                showAlert('Atención', 'Debes seleccionar al menos un punto de revisión para autorizar.', 'warning');
+                return;
+            }
+
+            // 1. Guardar/Actualizar la cotización en backend
+            const quoteDescriptions = approvedPoints.map((p) => {
+                return `${p.titulo || `Punto #${p.pointNumber}`}: $${p.subtotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+            });
+
+            try {
+                const formData = new FormData();
+                formData.append('trabajo_id', String(trabajo.id));
+                formData.append('monto', String(total));
+                formData.append('total', String(total));
+                const desc = `Cotización SOS Autorizada - ${trabajo.titulo || 'Servicio'}\n` + quoteDescriptions.join('\n');
+                formData.append('descripcion', desc);
+                formData.append('dias_estimados', '1');
+                formData.append('estado', 'Aprobada');
+                const savedCotiz = await saveCotizacion(formData as any);
+                setCotizaciones([savedCotiz]);
+            } catch (cErr) {
+                console.error("Error guardando cotización SOS:", cErr);
+            }
+
+            // 2. Actualizar estado a 'En Ejecución'
+            await updateEstadoTrabajo(trabajo.id, { estado: 'En Ejecución' });
+            await updateTrabajo(trabajo.id, { estado: 'En Ejecución', cotizacion: total });
+
+            if (groupedJobs && groupedJobs.length > 0) {
+                for (const gJob of groupedJobs) {
+                    if (gJob.id !== trabajo.id) {
+                        try {
+                            await updateEstadoTrabajo(gJob.id, { estado: 'En Ejecución' });
+                            await updateTrabajo(gJob.id, { estado: 'En Ejecución', cotizacion: total });
+                        } catch (e) {}
+                    }
+                }
+            }
+
+            setTrabajo(prev => prev ? { ...prev, estado: 'En Ejecución', cotizacion: total } : prev);
+
+            const sucursalName = trabajo.sucursal || trabajo.negocio?.nombre || 'la sucursal';
+
+            // 3. Notificar al Técnico
+            try {
+                let targetUserId = (trabajo as any).tecnicoUserId || (trabajo as any).trabajador?.user_id;
+                if (!targetUserId && (trabajo.trabajador_id || trabajo.tecnico)) {
+                    const allTrabs = await getTrabajadores();
+                    const found = allTrabs.find((t: any) => 
+                        (trabajo.trabajador_id && t.id === trabajo.trabajador_id) ||
+                        (trabajo.tecnico && t.nombre?.toLowerCase().trim() === trabajo.tecnico.toLowerCase().trim())
+                    );
+                    if (found) {
+                        targetUserId = found.user_id;
+                    }
+                }
+
+                if (targetUserId) {
+                    const techUrl = `/tecnico/trabajo-detalle/${trabajo.id}?tab=trabajo`;
+                    await createNotificacion({
+                        user_id: targetUserId,
+                        titulo: '⚡ Emergencia SOS Aprobada — En Ejecución',
+                        mensaje: `El cliente ha autorizado ${approvedPoints.length} de ${flattenedSosPoints.length} puntos por un total de $${total.toLocaleString('es-MX', { minimumFractionDigits: 2 })} en "${sucursalName}". Procede con la reparación en la pestaña Trabajo.`,
+                        enlace: techUrl
+                    });
+                } else {
+                    await createNotificacionByRole({
+                        role: 'tecnico',
+                        titulo: '⚡ Emergencia SOS Aprobada — En Ejecución',
+                        mensaje: `El cliente ha autorizado ${approvedPoints.length} de ${flattenedSosPoints.length} puntos por un total de $${total.toLocaleString('es-MX', { minimumFractionDigits: 2 })} en "${sucursalName}". Procede con la reparación en la pestaña Trabajo.`,
+                        enlace: `/tecnico/trabajo-detalle/${trabajo.id}?tab=trabajo`
+                    });
+                }
+            } catch (e) {
+                console.error("Error notificando al técnico:", e);
+            }
+
+            // 4. Notificar al Admin
+            try {
+                await createNotificacionByRole({
+                    role: 'admin',
+                    titulo: '⚡ Emergencia SOS Aprobada por Cliente',
+                    mensaje: `El cliente autorizó ${approvedPoints.length} de ${flattenedSosPoints.length} puntos por $${total.toLocaleString('es-MX', { minimumFractionDigits: 2 })} para "${sucursalName}". El técnico ya se encuentra en fase de ejecución.`,
+                    enlace: `/menu/trabajo-detalle/${trabajo.id}?tab=trabajo`
+                });
+            } catch (e) {}
+
+            showAlert('Cotización Aprobada', `Has aprobado ${approvedPoints.length} puntos de revisión por un total de $${total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}. El trabajo ha comenzado para el técnico.`, 'success');
+        } catch (error: any) {
+            showAlert('Error', error.response?.data?.message || error.message || 'No se pudo autorizar la cotización.', 'error');
+        }
+    };
+
     const [sosQuoteMonto, setSosQuoteMonto] = useState<string>('');
     const [sosQuoteConcepto, setSosQuoteConcepto] = useState<string>('');
     const [sosQuoteNotas, setSosQuoteNotas] = useState<string>('');
@@ -874,6 +1255,12 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                 // Ajuste inteligente de pestaña según el estado del trabajo y rol
                 const isJobSOS = Boolean(mappedJob.tipo === "SOS" || mappedJob.prioridad === "Emergencia" || (mappedJob.titulo || '').includes("SOS") || (mappedJob as any)?.isEmergency);
 
+                // Auto-healing para SOS si el técnico ya visitó/envió pero quedó en 'En Espera'
+                if (isJobSOS && mappedJob.visitado && mappedJob.estado === 'En Espera') {
+                    mappedJob.estado = 'Cotización Enviada';
+                    updateEstadoTrabajo(mappedJob.id, { estado: 'Cotización Enviada' }).catch(() => {});
+                }
+
                 if (!rawTabParam) {
                     if (mappedJob.estado === 'Rechazada') {
                         setActiveTab('Datos');
@@ -881,12 +1268,14 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                         setActiveTab(prev => prev === 'Trabajo' ? 'Datos' : prev);
                     } else if (isJobSOS) {
                         // En emergencias SOS:
-                        if (['Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución', 'En Proceso', 'Finalizado'].includes(mappedJob.estado) && isTechRole) {
+                        if (['Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución', 'Finalizado'].includes(mappedJob.estado) && isTechRole) {
                             setActiveTab('Trabajo');
-                        } else if (mappedJob.estado === 'En Espera' && isTechRole) {
+                        } else if (mappedJob.estado === 'Cotización Enviada' || (mappedJob.visitado && !['Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución', 'Finalizado'].includes(mappedJob.estado))) {
                             setActiveTab('Cotización');
+                        } else if (['Asignado', 'En Espera', 'En Proceso'].includes(mappedJob.estado) && isTechRole && !mappedJob.visitado) {
+                            setActiveTab('Registro');
                         } else {
-                            // Si está en Solicitud, Pendiente o Asignado, ver 'Datos' para revisar y Aceptar/Rechazar
+                            // Si está en Solicitud o Pendiente, ver 'Datos' para revisar
                             setActiveTab('Datos');
                         }
                     } else if (mappedJob.tipo === 'Visita') {
@@ -944,8 +1333,8 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
         if (!trabajo) return;
         
         // En SOS: si la cotización aún NO ha sido aceptada/aprobada, 'Trabajo' NO debe estar activa bajo ninguna circunstancia
-        if (isSOS && activeTab === 'Trabajo' && !['Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución', 'En Proceso', 'Finalizado'].includes(trabajo.estado)) {
-            setActiveTab(trabajo.estado === 'En Espera' && isTechRole ? 'Cotización' : 'Datos');
+        if (isSOS && activeTab === 'Trabajo' && !['Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución', 'Finalizado'].includes(trabajo.estado)) {
+            setActiveTab(!trabajo.visitado && isTechRole ? 'Registro' : (trabajo.estado === 'Cotización Enviada' && isTechRole ? 'Cotización' : 'Datos'));
         }
 
         // Si el admin autónomo tiene 'Trabajo' activo
@@ -1134,7 +1523,57 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
 
                 // Cargar cotizaciones reales (array)
                 try {
-                    const cotizs = await getCotizacionesByTrabajoId(Number(id));
+                    let cotizs = await getCotizacionesByTrabajoId(Number(id));
+
+                    // Auto-heal / Auto-creación de cotización en backend para SOS si el técnico ya registró subTareas con cotización
+                    const isSOSJob = Boolean(trabajo?.tipo === "SOS" || trabajo?.prioridad === "Emergencia" || (trabajo?.titulo || '').includes("SOS") || (trabajo as any)?.isEmergency);
+                    if (cotizs.length === 0 && isSOSJob && mappedSubTareas.some((st: any) => st.hasQuote || st.quoteData || (st.cotizacionMonto && st.cotizacionMonto !== 'Por Evaluar'))) {
+                        let totalCalculado = 0;
+                        const quoteDescriptions: string[] = [];
+
+                        mappedSubTareas.forEach((st: any, idx: number) => {
+                            let stTotal = 0;
+                            if (st.quoteData) {
+                                if (st.quoteData.conceptos && Array.isArray(st.quoteData.conceptos)) {
+                                    for (const c of st.quoteData.conceptos) {
+                                        stTotal += (Number(c.cantidad) || 1) * (Number(c.precio) || 0);
+                                    }
+                                }
+                                if (st.quoteData.materiales && Array.isArray(st.quoteData.materiales)) {
+                                    for (const m of st.quoteData.materiales) {
+                                        stTotal += (Number(m.cantidad) || 1) * (Number(m.precio) || 0);
+                                    }
+                                }
+                                if (stTotal === 0 && st.quoteData.monto) {
+                                    stTotal = parseFloat(String(st.quoteData.monto).replace(/[^0-9.]/g, '')) || 0;
+                                }
+                            } else if (st.cotizacionMonto && !isNaN(Number(String(st.cotizacionMonto).replace(/[^0-9.]/g, '')))) {
+                                stTotal = parseFloat(String(st.cotizacionMonto).replace(/[^0-9.]/g, '')) || 0;
+                            }
+                            totalCalculado += stTotal;
+                            const pointName = st.titulo || `Punto #${idx + 1}`;
+                            quoteDescriptions.push(`${pointName}: $${stTotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`);
+                        });
+
+                        if (totalCalculado > 0) {
+                            try {
+                                const formData = new FormData();
+                                formData.append('trabajo_id', String(id));
+                                formData.append('monto', String(totalCalculado));
+                                formData.append('total', String(totalCalculado));
+                                const desc = `Cotización de Emergencia SOS - ${trabajo?.titulo || 'Servicio'}\n` + quoteDescriptions.join('\n');
+                                formData.append('descripcion', desc);
+                                formData.append('dias_estimados', '1');
+                                formData.append('estado', 'Pendiente');
+
+                                const savedCotiz = await saveCotizacion(formData as any);
+                                cotizs = [savedCotiz];
+                            } catch (autoCotErr) {
+                                console.warn("Auto-creación de cotización SOS:", autoCotErr);
+                            }
+                        }
+                    }
+
                     setCotizaciones(cotizs);
                     // Compat: si hay cotizaciones, ponemos la primera en trabajo.cotizacion para compatible con otros usos
                     if (cotizs.length > 0) {
@@ -1280,8 +1719,12 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
         modelo?: string;
         pieza?: string;
         garantia?: string;
-    }[]>([
-        { id: '1', descripcion: '', foto: '', tipoActividad: 'Mantenimiento', customTipoActividad: '', marca: '', modelo: '', pieza: '', garantia: '' }
+        isQuoteIncluded?: boolean;
+        quoteConceptos?: { descripcion: string; cantidad: string; precio: string }[];
+        quoteMateriales?: { nombre: string; cantidad: string; precio: string }[];
+        quoteComentarios?: string;
+    }>([
+        { id: '1', descripcion: '', foto: '', tipoActividad: 'Mantenimiento', customTipoActividad: '', marca: '', modelo: '', pieza: '', garantia: '', isQuoteIncluded: false, quoteConceptos: [], quoteMateriales: [], quoteComentarios: '' }
     ]);
 
     // SERVICE TYPE FIELDS (NEW)
@@ -1319,7 +1762,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
         setActivityPhotos([]);
         setNewQuoteFileName("");
         setTaskItems([
-            { id: '1', descripcion: '', foto: '', tipoActividad: 'Mantenimiento', customTipoActividad: '', marca: '', modelo: '', pieza: '', garantia: '' }
+            { id: '1', descripcion: '', foto: '', tipoActividad: 'Mantenimiento', customTipoActividad: '', marca: '', modelo: '', pieza: '', garantia: '', isQuoteIncluded: isSOS, quoteConceptos: isSOS ? [{ descripcion: '', cantidad: '1', precio: '' }] : [], quoteMateriales: [], quoteComentarios: '' }
         ]);
         setIsAddModalOpen(true);
     };
@@ -1780,8 +2223,8 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
             }
 
             if (isSOS) {
-                setActiveTab('Cotización');
-                showAlert("Emergencia Aceptada", "Has aceptado la asignación de emergencia. Procede a elaborar la propuesta de cotización.", "success");
+                setActiveTab('Registro');
+                showAlert("Emergencia Aceptada", "Has aceptado la asignación de emergencia. Procede al registro de los puntos y sus cotizaciones.", "success");
             } else {
                 showAlert("Trabajo Aceptado", "Has aceptado la asignación. Ahora puedes iniciar el trabajo o visita cuando llegues.", "success");
             }
@@ -1861,21 +2304,60 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
     const handleGeneratePreview = () => {
         const activeItems = taskItems.filter(t => t.descripcion.trim() || t.foto);
         const combinedDescText = activeItems.length > 0
-            ? activeItems.map((item, idx) => activeItems.length > 1 ? `${idx + 1}. ${item.descripcion.trim()}` : item.descripcion.trim()).filter(Boolean).join('\n\n')
+            ? activeItems.map((item, idx) => {
+                const tipoLabel = item.tipoActividad === 'Otro' ? (item.customTipoActividad || 'Otro') : (item.tipoActividad || 'Mantenimiento');
+                const text = item.descripcion.trim();
+                return activeItems.length > 1 ? `${idx + 1}. [${tipoLabel}] ${text}` : `[${tipoLabel}] ${text}`;
+            }).filter(Boolean).join('\n\n')
             : newTaskDescription;
+
+        const selectedCategories = Array.from(new Set(
+            activeItems.map(it => it.tipoActividad === 'Otro' ? (it.customTipoActividad || 'Otro') : it.tipoActividad).filter(Boolean)
+        ));
+        const combinedCategories = selectedCategories.length > 0 
+            ? selectedCategories.join(', ') 
+            : (activeServiceType === 'Otro' ? (customServiceType || 'Otro') : activeServiceType);
+
+        const sosRefaccionesList: any[] = [];
+        if (isSOS) {
+            activeItems.forEach((it, idx) => {
+                if (it.isQuoteIncluded !== false) {
+                    (it.quoteConceptos || []).forEach(c => {
+                        if (c.descripcion.trim() || c.precio) {
+                            sosRefaccionesList.push({
+                                pieza: activeItems.length > 1 ? `[Punto ${idx + 1}] ${c.descripcion}` : c.descripcion,
+                                cantidad: Number(c.cantidad) || 1,
+                                costo_estimado: c.precio ? String(c.precio) : ''
+                            });
+                        }
+                    });
+                    (it.quoteMateriales || []).forEach(m => {
+                        if (m.nombre.trim() || m.precio) {
+                            sosRefaccionesList.push({
+                                pieza: activeItems.length > 1 ? `[Punto ${idx + 1}] ${m.nombre}` : m.nombre,
+                                cantidad: Number(m.cantidad) || 1,
+                                costo_estimado: m.precio ? String(m.precio) : ''
+                            });
+                        }
+                    });
+                }
+            });
+        }
 
         const refaccionesList = refacciones.map(r => ({
             pieza: r.pieza,
             cantidad: Number(r.cantidad) || 1,
             costo_estimado: r.costo_estimado ? String(r.costo_estimado) : ''
         })).concat(
-            isQuoteIncluded ? quoteConceptos.map(c => ({
-                pieza: c.descripcion,
-                cantidad: c.cantidad ? Number(c.cantidad) || 1 : 1,
-                costo_estimado: c.precio ? String(c.precio) : ''
-            })) : []
+            isSOS ? sosRefaccionesList : (
+                isQuoteIncluded ? quoteConceptos.map(c => ({
+                    pieza: c.descripcion,
+                    cantidad: c.cantidad ? Number(c.cantidad) || 1 : 1,
+                    costo_estimado: c.precio ? String(c.precio) : ''
+                })) : []
+            )
         ).concat(
-            isQuoteIncluded ? quoteMateriales.map(m => ({
+            !isSOS && isQuoteIncluded ? quoteMateriales.map(m => ({
                 pieza: m.nombre,
                 cantidad: m.cantidad ? Number(m.cantidad) || 1 : 1,
                 costo_estimado: m.precio ? String(m.precio) : ''
@@ -1891,11 +2373,17 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
             encargado: trabajo?.encargado || '---',
             tecnico: user?.name || trabajo?.tecnico || 'Técnico',
             isVisita: !trabajo?.visitado,
-            reporteTienda: activeServiceType === 'Otro' ? (customServiceType || 'Otro') : activeServiceType,
+            reporteTienda: combinedCategories,
             descripcion: combinedDescText,
             materiales: combinedMateriales,
             refaccionesList: refaccionesList,
             observaciones: '',
+            puntosEvidencia: activeItems.map((item, index) => ({
+                punto: index + 1,
+                tipo: item.tipoActividad === 'Otro' ? item.customTipoActividad : item.tipoActividad,
+                descripcion: item.descripcion,
+                foto: item.foto
+            })).filter(p => p.foto || p.descripcion),
             observacionesList: activeItems.map((item, index) => ({
                 id: String(index + 1),
                 texto: item.descripcion,
@@ -2021,12 +2509,57 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                     marca: it.marca || '',
                     modelo: it.modelo || '',
                     pieza: it.pieza || '',
-                    garantia: it.garantia || ''
+                    garantia: it.garantia || '',
+                    isQuoteIncluded: it.isQuoteIncluded,
+                    quoteConceptos: it.quoteConceptos || [],
+                    quoteMateriales: it.quoteMateriales || []
                 }))
             };
             desc += ` \n|||SERVICE_DATA||| ${JSON.stringify(serviceData)}`;
 
-            if (isQuoteIncluded) {
+            if (isSOS) {
+                const sosConceptos: any[] = [];
+                const sosMateriales: any[] = [];
+                activeItems.forEach((it, idx) => {
+                    if (it.isQuoteIncluded !== false) {
+                        (it.quoteConceptos || []).forEach(c => {
+                            if (c.descripcion.trim() || c.precio) {
+                                sosConceptos.push({
+                                    ...c,
+                                    descripcion: activeItems.length > 1 ? `[Punto ${idx + 1}] ${c.descripcion}` : c.descripcion,
+                                    puntoIndex: idx + 1
+                                });
+                            }
+                        });
+                        (it.quoteMateriales || []).forEach(m => {
+                            if (m.nombre.trim() || m.precio) {
+                                sosMateriales.push({
+                                    ...m,
+                                    nombre: activeItems.length > 1 ? `[Punto ${idx + 1}] ${m.nombre}` : m.nombre,
+                                    puntoIndex: idx + 1
+                                });
+                            }
+                        });
+                    }
+                });
+                if (sosConceptos.length > 0 || sosMateriales.length > 0) {
+                    const quotePayload = {
+                        conceptos: sosConceptos,
+                        materiales: sosMateriales,
+                        comentarios: quoteComentarios,
+                        itemsQuote: activeItems.map((it, idx) => ({
+                            puntoIndex: idx + 1,
+                            descripcion: it.descripcion,
+                            isQuoteIncluded: it.isQuoteIncluded !== false,
+                            conceptos: it.quoteConceptos || [],
+                            materiales: it.quoteMateriales || [],
+                            subtotal: ((it.quoteConceptos || []).reduce((acc, c) => acc + ((Number(c.cantidad) || 1) * (parseFloat(c.precio) || 0)), 0)) +
+                                      ((it.quoteMateriales || []).reduce((acc, m) => acc + ((Number(m.cantidad) || 1) * (parseFloat(m.precio) || 0)), 0))
+                        }))
+                    };
+                    desc += ` \n|||QUOTE_DATA||| ${JSON.stringify(quotePayload)}`;
+                }
+            } else if (isQuoteIncluded) {
                 const quotePayload = { 
                     conceptos: quoteConceptos.filter(c => c.descripcion.trim()),
                     materiales: quoteMateriales.filter(m => m.nombre.trim()),
@@ -2187,7 +2720,12 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                     const refaccionesList = [...conceptosPDF, ...materialesPDF, ...refaccionesBase];
 
 
-                    const combinedMateriales = isQuoteIncluded ? quoteComentarios : '';
+                    const selectedCategories = Array.from(new Set(
+                        activeItems.map(it => it.tipoActividad === 'Otro' ? (it.customTipoActividad || 'Otro') : it.tipoActividad).filter(Boolean)
+                    ));
+                    const combinedCategories = selectedCategories.length > 0 
+                        ? selectedCategories.join(', ') 
+                        : (activeServiceType === 'Otro' ? (customServiceType || 'Otro') : activeServiceType);
 
                     const preparedData = {
                         id: trabajo?.id || 'SD',
@@ -2196,11 +2734,17 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                         encargado: trabajo?.encargado || '---',
                         tecnico: user?.name || trabajo?.tecnico || 'Técnico',
                         isVisita: !trabajo?.visitado,
-                        reporteTienda: activeServiceType === 'Otro' ? (customServiceType || 'Otro') : activeServiceType,
-                        descripcion: newTaskDescription,
+                        reporteTienda: combinedCategories,
+                        descripcion: combinedDesc,
                         materiales: combinedMateriales,
                         refaccionesList: refaccionesList,
                         observaciones: '',
+                        puntosEvidencia: activeItems.map((item, index) => ({
+                            punto: index + 1,
+                            tipo: item.tipoActividad === 'Otro' ? item.customTipoActividad : item.tipoActividad,
+                            descripcion: item.descripcion,
+                            foto: item.foto
+                        })).filter(p => p.foto || p.descripcion),
                         imagenes: {
                             antes: activityPhotos[0] || null,
                             durante: activityPhotos[1] || null,
@@ -3032,7 +3576,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
         }
     };
 
-    // Administrador acepta la cotización SOS y pasa directamente a Ejecución
+    // Cliente o Administrador acepta la cotización SOS y pasa directamente a Ejecución
     const handleAdminAceptarCotizacionSOS = async (cotizId: number) => {
         if (!trabajo) return;
         try {
@@ -3044,7 +3588,24 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
             await updateTrabajo(trabajo.id, {
                 estado: 'En Ejecución'
             });
+
+            // Si pertenece a un grupo [Grupo: REQ-xxxx], sincronizar todos los trabajos hermanos
+            if (groupedJobs && groupedJobs.length > 0) {
+                for (const gJob of groupedJobs) {
+                    if (gJob.id !== trabajo.id) {
+                        try {
+                            await updateEstadoTrabajo(gJob.id, { estado: 'En Ejecución' });
+                            await updateTrabajo(gJob.id, { estado: 'En Ejecución' });
+                        } catch (gErr) {
+                            console.warn(`Error sincronizando trabajo agrupado #${gJob.id}:`, gErr);
+                        }
+                    }
+                }
+            }
+
             setTrabajo(prev => prev ? { ...prev, estado: 'En Ejecución' } : prev);
+
+            const sucursalName = trabajo.sucursal || trabajo.negocio?.nombre || 'la sucursal';
 
             // Notificar al Técnico que ya puede ejecutar el trabajo y hacer su reporte
             try {
@@ -3075,15 +3636,32 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                     await createNotificacion({
                         user_id: targetUserId,
                         titulo: '⚡ Emergencia SOS Aprobada — En Ejecución',
-                        mensaje: `El administrador ha aprobado la cotización de emergencia para "${trabajo.sucursal || 'la sucursal'}". Procede con la reparación y llena el reporte final en la pestaña Trabajo.`,
+                        mensaje: `La cotización de emergencia para "${sucursalName}" fue autorizada. Procede con la reparación y llena el reporte final en la pestaña Trabajo.`,
                         enlace: techUrl
+                    });
+                } else {
+                    await createNotificacionByRole({
+                        role: 'tecnico',
+                        titulo: '⚡ Emergencia SOS Aprobada — En Ejecución',
+                        mensaje: `La cotización de emergencia para "${sucursalName}" fue autorizada. Procede con la reparación y llena el reporte final en la pestaña Trabajo.`,
+                        enlace: `/tecnico/trabajo-detalle/${trabajo.id}?tab=trabajo`
                     });
                 }
             } catch (e) {
                 console.error("Error enviando notificación al técnico en SOS:", e);
             }
 
-            showAlert('Cotización Aprobada', 'La cotización de emergencia fue aprobada. El trabajo ha pasado a fase de ejecución.', 'success');
+            // Notificar al Admin
+            try {
+                await createNotificacionByRole({
+                    role: 'admin',
+                    titulo: '⚡ Emergencia SOS Aprobada por Cliente',
+                    mensaje: `La cotización de emergencia para "${sucursalName}" fue autorizada. El técnico ya se encuentra en ejecución.`,
+                    enlace: `/menu/trabajo-detalle/${trabajo.id}?tab=trabajo`
+                });
+            } catch (e) {}
+
+            showAlert('Cotización Aprobada', 'La cotización de emergencia fue aprobada. El trabajo ha comenzado para el técnico asignado.', 'success');
         } catch (error: any) {
             showAlert('Error', error.response?.data?.message || error.message || 'No se pudo autorizar la cotización.', 'error');
         }
@@ -3129,6 +3707,9 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
 
     const handleClienteAceptarCotizacion = async (cotizId: number) => {
         if (!trabajo) return;
+        if (isSOS) {
+            return handleAdminAceptarCotizacionSOS(cotizId);
+        }
         try {
             await updateCotizacionStatus(cotizId, "Aprobada");
             await updateEstadoTrabajo(trabajo.id, { estado: "Cotización Aprobada" });
@@ -4217,21 +4798,90 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
 
                 {/* DESCRIPTION / SOLUTION */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {mainDesc && (
-                        <div style={{ 
-                            background: '#f8fafc', 
-                            padding: '10px 14px', 
-                            borderRadius: '12px', 
-                            border: '1px solid #f1f5f9',
-                            fontSize: '13.5px',
-                            lineHeight: '1.5',
-                            color: '#475569'
-                        }}>
-                            <p style={{ margin: 0, fontWeight: '500', whiteSpace: 'pre-line' }}>
-                                {mainDesc}
-                            </p>
-                        </div>
-                    )}
+                    {mainDesc && (() => {
+                        const items = parseWorkItems(mainDesc);
+                        if (items.length > 1) {
+                            return (
+                                <div style={{ 
+                                    background: '#f8fafc', 
+                                    padding: '12px 14px', 
+                                    borderRadius: '12px', 
+                                    border: '1px solid #e2e8f0'
+                                }}>
+                                    <div style={{
+                                        display: 'grid',
+                                        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                                        gap: '10px'
+                                    }}>
+                                        {items.map((it, idx) => (
+                                            <div key={idx} style={{
+                                                display: 'flex',
+                                                alignItems: 'flex-start',
+                                                gap: '8px',
+                                                fontSize: '12.5px',
+                                                color: '#334155',
+                                                lineHeight: '1.4',
+                                                background: '#ffffff',
+                                                padding: '8px 12px',
+                                                borderRadius: '8px',
+                                                border: '1px solid #f1f5f9'
+                                            }}>
+                                                <span style={{
+                                                    background: '#1e293b',
+                                                    color: '#ffffff',
+                                                    minWidth: '18px',
+                                                    height: '18px',
+                                                    borderRadius: '50%',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    fontSize: '10px',
+                                                    fontWeight: '800',
+                                                    flexShrink: 0,
+                                                    marginTop: '1px'
+                                                }}>
+                                                    {idx + 1}
+                                                </span>
+                                                <div style={{ flex: 1, minWidth: 0, wordBreak: 'break-word' }}>
+                                                    {it.categoria && (
+                                                        <span style={{
+                                                            background: '#e0f2fe',
+                                                            color: '#0369a1',
+                                                            border: '1px solid #bae6fd',
+                                                            padding: '1px 6px',
+                                                            borderRadius: '4px',
+                                                            fontSize: '10px',
+                                                            fontWeight: '700',
+                                                            marginRight: '6px',
+                                                            display: 'inline-block'
+                                                        }}>
+                                                            {it.categoria}
+                                                        </span>
+                                                    )}
+                                                    <span>{it.texto || it.categoria}</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            );
+                        }
+                        return (
+                            <div style={{ 
+                                background: '#f8fafc', 
+                                padding: '10px 14px', 
+                                borderRadius: '12px', 
+                                border: '1px solid #f1f5f9',
+                                fontSize: '13.5px',
+                                lineHeight: '1.5',
+                                color: '#475569'
+                            }}>
+                                <p style={{ margin: 0, fontWeight: '500', whiteSpace: 'pre-line' }}>
+                                    {mainDesc}
+                                </p>
+                            </div>
+                        );
+                    })()}
 
                     {/* MACHINE INFO (IF AVAILABLE) */}
                     {tarea.serviceData && (tarea.serviceData.marca || tarea.serviceData.modelo) && (
@@ -4363,11 +5013,11 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                         justifyContent: 'space-between',
                                         gap: '6px'
                                     }}>
-                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '120px' }}>
+                                        <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                             {concept.cantidad}x {concept.descripcion}
                                         </span>
                                         {concept.precio && (
-                                            <span style={{ fontWeight: '800', color: '#1d4ed8' }}>
+                                            <span style={{ fontWeight: '800', color: '#1d4ed8', flexShrink: 0 }}>
                                                 ${concept.precio}
                                             </span>
                                         )}
@@ -4408,11 +5058,11 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                         justifyContent: 'space-between',
                                         gap: '6px'
                                     }}>
-                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '120px' }}>
+                                        <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                             {ref.cantidad}x {ref.pieza}
                                         </span>
                                         {ref.costo_estimado && (
-                                            <span style={{ fontWeight: '800' }}>
+                                            <span style={{ fontWeight: '800', flexShrink: 0 }}>
                                                 ${ref.costo_estimado}
                                             </span>
                                         )}
@@ -4432,11 +5082,11 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                         justifyContent: 'space-between',
                                         gap: '6px'
                                     }}>
-                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '120px' }}>
+                                        <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                             {ref.cantidad}x {ref.nombre}
                                         </span>
                                         {ref.precio && (
-                                            <span style={{ fontWeight: '800' }}>
+                                            <span style={{ fontWeight: '800', flexShrink: 0 }}>
                                                 ${ref.precio}
                                             </span>
                                         )}
@@ -4454,11 +5104,11 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                         justifyContent: 'space-between',
                                         gap: '6px'
                                     }}>
-                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '120px' }}>
+                                        <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                             {ref.cantidad}x {ref.material}
                                         </span>
                                         {ref.precio && (
-                                            <span style={{ fontWeight: '800' }}>
+                                            <span style={{ fontWeight: '800', flexShrink: 0 }}>
                                                 {ref.precio}
                                             </span>
                                         )}
@@ -4688,8 +5338,8 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                 return 3;
                             }
                             
-                            // Si el trabajo es Visita, verificamos si ya se aprobó la cotización PERO solo si el estado global no es explícitamente anterior
-                            if (trabajo.tipo === "Visita") {
+                            // Si el trabajo es Visita o SOS, verificamos si ya se aprobó la cotización PERO solo si el estado global no es explícitamente anterior
+                            if (trabajo.tipo === "Visita" || isSOS) {
                                 // Si globalmente está Asignado, En Proceso, En Espera y la visita no ha terminado (o se mandó a revisión)
                                 if (["En Proceso", "En Espera", "Asignado"].includes(estado)) {
                                     if (trabajo.visitado && estado === "En Espera") return 3;
@@ -4708,7 +5358,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                 return 1;
                             }
                             
-                            // Si es Trabajo directo o SOS
+                            // Si es Trabajo directo
                             if (["En Proceso", "En Espera", "Asignado", "En Ejecución"].includes(estado)) {
                                 return 4;
                             }
@@ -4838,10 +5488,9 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                     // NO MOSTRAR SI RECHAZADA
                                     if (trabajo.estado === 'Rechazada') return false;
                                     
-                                    // Tab Registro solo aparece en tipo Visita y mientras el técnico NO haya enviado al admin (visitado: false)
-                                    // En emergencias SOS no hay visita
+                                    // Tab Registro solo aparece mientras el técnico NO haya enviado al admin (visitado: false)
                                     if (trabajo?.visitado) return false;
-                                    return trabajo.tipo === 'Visita' && !isSOS;
+                                    return (trabajo.tipo === 'Visita' || isSOS);
                                 }
                                 if (tabName === 'Trabajo') {
                                     // El Administrador General nunca ve la pestaña de Trabajo (él no hace el trabajo, sino los técnicos autónomos)
@@ -4850,7 +5499,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                     }
                                     if (trabajo.estado === 'Rechazada') return false;
                                     if (isSOS) {
-                                        return ['Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución', 'En Proceso', 'Finalizado'].includes(trabajo.estado);
+                                        return ['Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución', 'Finalizado'].includes(trabajo.estado);
                                     }
                                     if (['Cotización Aceptada', 'Cotización Aprobada', 'Aceptada', 'En Ejecución'].includes(trabajo.estado)) return true;
                                     const quoteStates = ['Cotización Enviada', 'En Espera', 'Sugerencia de Técnico', 'Cotización Rechazada', 'Cotización Reactivada', 'Pendiente de Cotización', 'Reasignación Solicitada'];
@@ -5286,7 +5935,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                 </svg>
                                             </div>
                                             {groupedJobs.length > 0 ? (
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', width: '100%', boxSizing: 'border-box', overflow: 'hidden' }}>
                                                     <span className={styles.bentoLabel} style={{ color: '#0f172a', fontWeight: '800', fontSize: '13px', textTransform: 'uppercase', marginBottom: '5px', display: 'block' }}>
                                                         📋 Servicios creados en esta Solicitud ({groupedJobs.length})
                                                     </span>
@@ -5294,31 +5943,31 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                         const cleanDesc = groupJob.descripcion?.replace(/\[Grupo:\s*REQ-\d+\]\s*\n?/, "") || "";
                                                         const photos = parseFotoUrls(groupJob.foto_url);
                                                         return (
-                                                            <div key={groupJob.id} style={{ padding: '14px', background: '#ffffff', borderRadius: '12px', border: '1px solid #cbd5e1' }}>
+                                                            <div key={groupJob.id} style={{ padding: '14px', background: '#ffffff', borderRadius: '12px', border: '1px solid #cbd5e1', width: '100%', maxWidth: '100%', boxSizing: 'border-box', overflow: 'hidden' }}>
                                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px', marginBottom: '8px', borderBottom: '1px solid #f1f5f9', paddingBottom: '6px' }}>
-                                                                    <span style={{ fontSize: '12px', fontWeight: '800', color: '#1e293b', flex: 1, minWidth: 0, wordBreak: 'break-word', lineHeight: '1.4' }}>
+                                                                    <span style={{ fontSize: '12px', fontWeight: '800', color: '#1e293b', flex: 1, minWidth: 0, wordBreak: 'break-word', overflowWrap: 'anywhere', lineHeight: '1.4' }}>
                                                                         🛠️ SERVICIO #{idx + 1}: {groupJob.titulo}
                                                                     </span>
                                                                     <span style={{ margin: 0, fontSize: '11px', fontWeight: '800', background: '#e2e8f0', color: '#334155', padding: '3px 8px', borderRadius: '8px', whiteSpace: 'nowrap', flexShrink: 0, display: 'inline-flex', alignItems: 'center', letterSpacing: '0.3px' }}>
                                                                         ID: {groupJob.id}
                                                                     </span>
                                                                 </div>
-                                                                <p className={styles.descriptionQuote} style={{ margin: '0 0 10px 0', fontSize: '13px', color: '#334155', fontStyle: 'normal' }}>
+                                                                <p className={styles.descriptionQuote} style={{ margin: '0 0 10px 0', fontSize: '13px', color: '#334155', fontStyle: 'normal', wordBreak: 'break-word', overflowWrap: 'anywhere', whiteSpace: 'pre-wrap', maxWidth: '100%' }}>
                                                                     "{cleanDesc || "Sin descripción."}"
                                                                 </p>
                                                                 {photos.length > 0 && (
-                                                                    <div>
+                                                                    <div style={{ width: '100%', boxSizing: 'border-box', overflow: 'hidden' }}>
                                                                         <span className={styles.bentoLabel} style={{ marginBottom: '6px', color: '#64748b', fontSize: '11px', display: 'block' }}>
                                                                             Evidencia ({photos.length}):
                                                                         </span>
-                                                                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                                                                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', width: '100%', boxSizing: 'border-box' }}>
                                                                             {photos.map((url, pIdx) => (
                                                                                 <img
                                                                                     key={pIdx}
                                                                                     src={url}
                                                                                     alt={`Evidencia ${idx + 1}-${pIdx + 1}`}
                                                                                     onClick={(e) => { e.stopPropagation(); setSelectedZoomImage(url); }}
-                                                                                    style={{ width: '60px', height: '60px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #e2e8f0', cursor: 'pointer', transition: 'transform 0.15s ease' }}
+                                                                                    style={{ width: '56px', height: '56px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #e2e8f0', cursor: 'pointer', transition: 'transform 0.15s ease', flexShrink: 0 }}
                                                                                     onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
                                                                                     onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
                                                                                 />
@@ -5331,24 +5980,24 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                     })}
                                                 </div>
                                             ) : (
-                                                <>
+                                                <div style={{ width: '100%', boxSizing: 'border-box', overflow: 'hidden' }}>
                                                     {trabajo.descripcion && (
                                                         <>
                                                             <span className={styles.bentoLabel} style={{ marginBottom: '4px', color: '#334155' }}>Problema Reportado</span>
-                                                            <p className={styles.descriptionQuote}>"{trabajo.descripcion}"</p>
+                                                            <p className={styles.descriptionQuote} style={{ wordBreak: 'break-word', overflowWrap: 'anywhere', whiteSpace: 'pre-wrap', maxWidth: '100%' }}>"{trabajo.descripcion}"</p>
                                                         </>
                                                     )}
                                                     {parseFotoUrls(trabajo.foto_url).length > 0 && (
-                                                        <div style={{ marginTop: '10px' }}>
+                                                        <div style={{ marginTop: '10px', width: '100%', boxSizing: 'border-box', overflow: 'hidden' }}>
                                                             <span className={styles.bentoLabel} style={{ marginBottom: '6px', color: '#334155', display: 'block' }}>Fotos Adjuntas ({parseFotoUrls(trabajo.foto_url).length}):</span>
-                                                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', width: '100%', boxSizing: 'border-box' }}>
                                                                 {parseFotoUrls(trabajo.foto_url).map((url, idx) => (
                                                                     <img 
                                                                         key={idx}
                                                                         src={url} 
                                                                         alt={`Evidencia ${idx + 1}`} 
                                                                         onClick={(e) => { e.stopPropagation(); setSelectedZoomImage(url); }}
-                                                                        style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', cursor: 'pointer', transition: 'transform 0.15s ease' }} 
+                                                                        style={{ width: '64px', height: '64px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', cursor: 'pointer', transition: 'transform 0.15s ease', flexShrink: 0 }} 
                                                                         onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
                                                                         onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
                                                                     />
@@ -5356,7 +6005,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                             </div>
                                                         </div>
                                                     )}
-                                                </>
+                                                </div>
                                             )}
                                         </div>
                                     )}
@@ -5703,16 +6352,16 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                 </div>
                                             )}
 
-                                            {/* SOS: Estado En Espera -> Elaborar cotización */}
+                                            {/* SOS: Estado En Espera -> Elaborar cotización / registro */}
                                             {isSOS && trabajo.estado === 'En Espera' && (
                                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '10px' }}>
                                                     <button
-                                                        onClick={() => setActiveTab('Cotización')}
+                                                        onClick={() => setActiveTab('Registro')}
                                                         style={{ padding: '12px 10px', background: 'linear-gradient(135deg, #f26522 0%, #d14d13 100%)', color: '#fff', border: 'none', borderRadius: '12px', fontSize: '13px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 4px 12px rgba(242,101,34,0.25)', transition: 'all 0.2s ease' }}
                                                         onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')}
                                                         onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}
                                                     >
-                                                        💰 Elaborar Propuesta de Cotización (SOS)
+                                                        📝 Realizar Registro y Cotización (SOS)
                                                     </button>
                                                 </div>
                                             )}
@@ -5785,228 +6434,531 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
 
                                 {/* VISTA CLIENTE: bitácora premium de cotizaciones */}
                                 {(user?.role === 'cliente' || user?.role === 'encargado' || user?.role === 'gerente-sucursal') && (
-                                    <div style={{ maxWidth: '760px', margin: '0 auto', width: '100%' }}>
-                                        {/* Header */}
-                                        <div className={styles.clientCotizHeader}>
-                                            <div className={styles.clientCotizHeaderIcon}>
-                                                <HiOutlineCurrencyDollar size={22} color="white" />
-                                            </div>
-                                            <div>
-                                                <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '800', color: '#1e293b' }}>Cotizaciones Recibidas</h2>
-                                                <p style={{ margin: 0, fontSize: '13px', color: '#94a3b8', fontWeight: '600' }}>{cotizaciones.length} opción{cotizaciones.length !== 1 ? 'es' : ''} disponible{cotizaciones.length !== 1 ? 's' : ''}</p>
-                                            </div>
-                                        </div>
-
-                                        {cotizaciones.length === 0 ? (
-                                            <div style={{ background: '#fff', borderRadius: '24px', padding: '60px 40px', textAlign: 'center', border: '1.5px solid #f1f5f9', boxShadow: '0 4px 20px rgba(0,0,0,0.02)' }}>
-                                                <div style={{ fontSize: '48px', marginBottom: '16px' }}>📭</div>
-                                                <p style={{ margin: 0, color: '#94a3b8', fontWeight: '700', fontSize: '16px' }}>Aún no hay cotizaciones disponibles.</p>
-                                                <p style={{ margin: '8px 0 0 0', color: '#cbd5e1', fontSize: '14px' }}>Te notificaremos en cuanto el administrador envíe una propuesta.</p>
-                                            </div>
-                                        ) : (
-                                            cotizaciones.map((cotiz, idx) => {
-                                                const THREE_HOURS = 3 * 60 * 60 * 1000;
-                                                const isApproved = cotiz.estado === 'Aprobada';
-                                                const isRejected = cotiz.estado === 'Rechazada';
-                                                const isPending = cotiz.estado === 'Pendiente';
-
-                                                // Rejection countdown state
-                                                const rejectedAt = cotiz.id ? (rejectionTimestamps[cotiz.id] ?? null) : null;
-                                                const msLeft = rejectedAt ? (rejectedAt + THREE_HOURS) - nowMs : 0;
-                                                const withinWindow = isRejected && rejectedAt && msLeft > 0;
-                                                const windowExpired = isRejected && rejectedAt && msLeft <= 0;
-                                                const rejectionReason = cotiz.id ? (rejectionReasons[cotiz.id] ?? '') : '';
-
-                                                // Parse cotización descripción into sections
-                                                const rawDesc = cotiz.descripcion || '';
-                                                const cotizTitle = getQuoteTitle(rawDesc, `Propuesta #${idx + 1}`);
-                                                const cleanDesc = cleanQuoteDescription(rawDesc);
-
-                                                // Extract service concepts ("Mano de Obra / Servicio Técnico" lines)
-                                                const conceptLines: { name: string; qty: string; price: string }[] = [];
-                                                const materialLines: { name: string; qty: string; price: string }[] = [];
-                                                let descriptionText = '';
-
-                                                cleanDesc.split('\n').forEach(line => {
-                                                    const trimmed = line.trim();
-                                                    if (!trimmed) return;
-                                                    const serviceMatch = trimmed.match(/^[\-\*]?\s*(.+?)\s*\/\s*Servicio Técnico\s*-\s*(.+)$/);
-                                                    if (serviceMatch) {
-                                                        const pricePart = serviceMatch[2].trim();
-                                                        const namePart = serviceMatch[1].trim();
-                                                        const qtyMatch = namePart.match(/^(.+?)\s*\((\d+)\)$/);
-                                                        conceptLines.push({
-                                                            name: qtyMatch ? qtyMatch[1].trim() : namePart,
-                                                            qty: qtyMatch ? `${qtyMatch[2]}x` : '1x',
-                                                            price: pricePart.startsWith('$') ? pricePart : `$${pricePart}`
-                                                        });
-                                                        return;
-                                                    }
-                                                    const parsedMats = parseMaterials(trimmed);
-                                                    if (parsedMats.length > 0 && parsedMats[0].precio) {
-                                                        parsedMats.forEach(m => materialLines.push({ name: m.material, qty: m.cantidad ? `${m.cantidad}x` : '1x', price: m.precio.startsWith('$') ? m.precio : `$${m.precio}` }));
-                                                    } else {
-                                                        descriptionText += (descriptionText ? '\n' : '') + trimmed;
-                                                    }
-                                                });
-
-                                                const cardClass = `${styles.clientCotizCard}${
-                                                    isApproved ? ' ' + styles.approved :
-                                                    isRejected ? ' ' + styles.rejected : ''
-                                                }`;
-
-                                                return (
-                                                    <div key={cotiz.id} className={cardClass}>
-                                                        <div className={styles.clientCotizStripe} />
-                                                        <div className={styles.clientCotizCardInner}>
-                                                            {/* Header */}
-                                                            <div className={styles.clientCotizCardHeader}>
-                                                                <div>
-                                                                    <p className={styles.clientCotizCardTitle}>{cotizTitle}</p>
-                                                                    <p className={styles.clientCotizCardSubtitle}>Registro #{idx + 1} · Bitácora de Cotización</p>
-                                                                </div>
-                                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
-                                                                    <p className={styles.clientCotizPriceLabel}>MONTO TOTAL</p>
-                                                                    <p className={styles.clientCotizPrice}>${Number(cotiz.monto).toLocaleString('es-MX')}</p>
-                                                                </div>
-                                                            </div>
-
-                                                            {/* Badge de estado */}
-                                                            <div style={{ marginBottom: '16px' }}>
-                                                                <span className={`${styles.clientCotizBadge} ${isApproved ? styles.approved : isRejected ? styles.rejected : styles.pending}`}>
-                                                                    {isApproved ? '✓ Aprobada' : isRejected ? '✕ Rechazada' : '⏳ Pendiente de Revisión'}
-                                                                </span>
-                                                            </div>
-
-                                                            {/* Descripción general si hay texto libre */}
-                                                            {descriptionText && (
-                                                                <div className={styles.clientCotizSectionFull}>
-                                                                    <p className={styles.clientCotizSectionLabel}><span>📝</span> Descripción y Alcance</p>
-                                                                    <p style={{ margin: 0, fontSize: '13px', color: '#475569', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>{descriptionText}</p>
-                                                                </div>
-                                                            )}
-
-                                                            {/* Conceptos de Servicio + Materiales */}
-                                                            <div className={styles.clientCotizSections}>
-                                                                {/* Conceptos */}
-                                                                <div className={styles.clientCotizSection}>
-                                                                    <p className={styles.clientCotizSectionLabel}><span>🔧</span> Conceptos de Servicio</p>
-                                                                    {conceptLines.length === 0 ? (
-                                                                        <p className={styles.clientCotizEmpty}>Sin conceptos registrados</p>
-                                                                    ) : conceptLines.map((c, i) => (
-                                                                        <div key={i} className={styles.clientCotizItem}>
-                                                                            <span className={styles.clientCotizItemQty}>{c.qty}</span>
-                                                                            <span className={styles.clientCotizItemName}>{c.name}</span>
-                                                                            <span className={styles.clientCotizItemPrice}>{c.price}</span>
-                                                                        </div>
-                                                                    ))}
-                                                                </div>
-                                                                {/* Materiales */}
-                                                                <div className={styles.clientCotizSection}>
-                                                                    <p className={styles.clientCotizSectionLabel}><span>🪛</span> Materiales</p>
-                                                                    {materialLines.length === 0 ? (
-                                                                        <p className={styles.clientCotizEmpty}>Sin materiales</p>
-                                                                    ) : materialLines.map((m, i) => (
-                                                                        <div key={i} className={styles.clientCotizItem}>
-                                                                            <span className={styles.clientCotizItemQty}>{m.qty}</span>
-                                                                            <span className={styles.clientCotizItemName}>{m.name}</span>
-                                                                            <span className={styles.clientCotizItemPrice}>{m.price}</span>
-                                                                        </div>
-                                                                    ))}
-                                                                </div>
-                                                            </div>
-
-                                                            {/* Total */}
-                                                            <div className={styles.clientCotizTotalRow}>
-                                                                <span className={styles.clientCotizTotalLabel}>⚡ Monto Total</span>
-                                                                <span className={styles.clientCotizTotalValue}>${Number(cotiz.monto).toLocaleString('es-MX')}</span>
-                                                            </div>
-
-                                                            {/* Botón Ver y Descargar PDF Oficial */}
-                                                            <button 
-                                                                type="button"
-                                                                onClick={() => setPreviewQuote(cotiz)} 
-                                                                className={styles.clientCotizPdfBtn}
-                                                                style={{
-                                                                    display: 'flex',
-                                                                    alignItems: 'center',
-                                                                    justifyContent: 'center',
-                                                                    gap: '8px',
-                                                                    width: '100%',
-                                                                    padding: '13px 18px',
-                                                                    background: '#eff6ff',
-                                                                    color: '#1d4ed8',
-                                                                    border: '1.5px solid #bfdbfe',
-                                                                    borderRadius: '12px',
-                                                                    fontSize: '14px',
-                                                                    fontWeight: '800',
-                                                                    cursor: 'pointer',
-                                                                    boxSizing: 'border-box',
-                                                                    marginBottom: '16px',
-                                                                    boxShadow: '0 2px 8px rgba(37, 99, 235, 0.08)',
-                                                                    transition: 'all 0.2s ease'
-                                                                }}
-                                                            >
-                                                                <HiOutlineDocumentText size={20} color="#2563eb" /> 
-                                                                <span>Ver Presupuesto PDF (Descargar)</span>
-                                                            </button>
-
-                                                            {/* Motivo de rechazo */}
-                                                            {isRejected && rejectionReason && (
-                                                                <div className={styles.clientCotizRejectionBox}>
-                                                                    <p className={styles.clientCotizRejectionTitle}>✕ Motivo de Rechazo</p>
-                                                                    <p className={styles.clientCotizRejectionText}>{rejectionReason}</p>
-                                                                </div>
-                                                            )}
-
-                                                            {/* Countdown de cancelación (dentro de 3h) */}
-                                                            {withinWindow && (
-                                                                <div className={styles.clientCotizCountdownBox}>
-                                                                    <p className={styles.clientCotizCountdownText}>⏱ Puedes cancelar el rechazo en:</p>
-                                                                    <span className={styles.clientCotizCountdownTimer}>{formatCountdown(msLeft)}</span>
-                                                                </div>
-                                                            )}
-
-                                                            {/* Botones según estado */}
-                                                            {isPending && (
-                                                                <div className={styles.clientCotizActions}>
-                                                                    <button className={styles.clientCotizBtnAccept} onClick={() => handleClienteAceptarCotizacion(cotiz.id!)}>
-                                                                        <HiOutlineCheckCircle size={20} /> Aceptar Propuesta
-                                                                    </button>
-                                                                    <button className={styles.clientCotizBtnRecotizar} onClick={() => { setCotizParaRecotizar(cotiz.id!); setShowRecotizModal(true); }}>
-                                                                        🔁 Re-Cotizar
-                                                                    </button>
-                                                                    <button className={styles.clientCotizBtnReject} onClick={() => handleClienteRechazarCotizacion(cotiz.id!)}>
-                                                                        <HiOutlineXCircle size={18} /> Rechazar
-                                                                    </button>
-                                                                </div>
-                                                            )}
-
-                                                            {/* Dentro de la ventana: cancelar rechazo */}
-                                                            {withinWindow && (
-                                                                <button className={styles.clientCotizBtnCancelReject} onClick={() => handleCancelarRechazo(cotiz.id!)}>
-                                                                    ↩️ Cancelar Rechazo y Aceptar esta Cotización
-                                                                </button>
-                                                            )}
-
-                                                            {/* Ventana expirada: solicitar reactivación */}
-                                                            {windowExpired && (
-                                                                <button className={styles.clientCotizBtnReactivate} onClick={() => handleSolicitarReactivacion(cotiz.id!)}>
-                                                                    🔄 Solicitar Reactivación de Cotización
-                                                                </button>
-                                                            )}
-
-                                                            {/* Aprobada: mensaje final */}
-                                                            {isApproved && (
-                                                                <div className={styles.clientCotizApprovedMsg}>
-                                                                    <HiOutlineCheckCircle size={22} />
-                                                                    <span><strong>Propuesta Aceptada.</strong> El administrador ha sido notificado y procederá con la asignación del técnico.</span>
-                                                                </div>
-                                                            )}
+                                    <div style={{ maxWidth: '820px', margin: '0 auto', width: '100%' }}>
+                                        {isSOS ? (
+                                            /* SOS INTERACTIVE ITEM-BY-ITEM QUOTATION SELECTION & APPROVAL */
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                                {/* Header SOS */}
+                                                <div style={{ background: '#fff', borderRadius: '24px', padding: '24px', border: '1.5px solid #fed7aa', boxShadow: '0 4px 20px rgba(249, 115, 22, 0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                                                        <div style={{ width: '48px', height: '48px', borderRadius: '16px', background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '24px', boxShadow: '0 4px 12px rgba(249, 115, 22, 0.3)' }}>
+                                                            🚨
+                                                        </div>
+                                                        <div>
+                                                            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '800', color: '#1e293b' }}>
+                                                                Cotización de Emergencia SOS
+                                                            </h2>
+                                                            <p style={{ margin: '2px 0 0', fontSize: '13px', color: '#64748b', fontWeight: '600' }}>
+                                                                Evaluado por {trabajo?.tecnico || 'el técnico'} · {flattenedSosPoints.length} {flattenedSosPoints.length === 1 ? 'punto registrado' : 'puntos registrados'}
+                                                            </p>
                                                         </div>
                                                     </div>
-                                                );
-                                            })
+                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                                                        <span style={{ fontSize: '11px', fontWeight: '800', color: '#9a3412', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Seleccionado</span>
+                                                        <span style={{ fontSize: '26px', fontWeight: '900', color: '#ea580c' }}>
+                                                            ${selectedSosTotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                                                        </span>
+                                                    </div>
+                                                </div>
+
+                                                {/* SubTareas / Puntos de Revisión */}
+                                                {!flattenedSosPoints || flattenedSosPoints.length === 0 ? (
+                                                    <div style={{ background: '#fff', borderRadius: '24px', padding: '60px 40px', textAlign: 'center', border: '1.5px solid #f1f5f9', boxShadow: '0 4px 20px rgba(0,0,0,0.02)' }}>
+                                                        <div style={{ fontSize: '48px', marginBottom: '16px' }}>⏳</div>
+                                                        <p style={{ margin: 0, color: '#94a3b8', fontWeight: '700', fontSize: '16px' }}>El técnico aún no ha enviado los puntos de revisión.</p>
+                                                        <p style={{ margin: '8px 0 0 0', color: '#cbd5e1', fontSize: '14px' }}>En cuanto termine su evaluación en la sucursal, los conceptos aparecerán aquí para tu autorización.</p>
+                                                    </div>
+                                                ) : (
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                                        {flattenedSosPoints.map((point, idx) => {
+                                                            if (!point) return null;
+                                                            const isSelected = selectedSosPoints[point.id] !== false;
+                                                            const pointTotal = Number(point.subtotal) || 0;
+                                                            const isJobRunning = ['Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución', 'Finalizado'].includes(trabajo?.estado || '');
+
+                                                            return (
+                                                                <div key={point.id || idx} style={{
+                                                                    background: '#fff',
+                                                                    borderRadius: '20px',
+                                                                    border: isSelected ? '2px solid #fdba74' : '1.5px solid #e2e8f0',
+                                                                    boxShadow: isSelected ? '0 8px 24px rgba(249, 115, 22, 0.12)' : '0 2px 8px rgba(0,0,0,0.03)',
+                                                                    overflow: 'hidden',
+                                                                    transition: 'all 0.2s ease',
+                                                                    opacity: isSelected ? 1 : 0.65
+                                                                }}>
+                                                                    {/* Point Header */}
+                                                                    <div style={{
+                                                                        padding: '16px 20px',
+                                                                        background: isSelected ? '#fff7ed' : '#f8fafc',
+                                                                        borderBottom: '1px solid #fed7aa',
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        justifyContent: 'space-between',
+                                                                        flexWrap: 'wrap',
+                                                                        gap: '12px'
+                                                                    }}>
+                                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                                            {!isJobRunning && (
+                                                                                <input
+                                                                                    type="checkbox"
+                                                                                    checked={isSelected}
+                                                                                    onChange={() => toggleSosPoint(point.id)}
+                                                                                    style={{ width: '20px', height: '20px', accentColor: '#ea580c', cursor: 'pointer' }}
+                                                                                />
+                                                                            )}
+                                                                            <div>
+                                                                                <span style={{ fontSize: '11px', fontWeight: '800', color: '#ea580c', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
+                                                                                    Punto #{point.pointNumber || idx + 1}
+                                                                                </span>
+                                                                                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#1e293b' }}>
+                                                                                    {point.titulo || 'Punto de Revisión'}
+                                                                                </h3>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div style={{ textAlign: 'right' }}>
+                                                                            <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748b' }}>Subtotal Punto</span>
+                                                                            <p style={{ margin: 0, fontSize: '18px', fontWeight: '900', color: isSelected ? '#ea580c' : '#94a3b8' }}>
+                                                                                ${pointTotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                                                                            </p>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {/* Point Body */}
+                                                                    <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                                                        {/* Descripción */}
+                                                                        {Boolean(point.descripcion) && (
+                                                                            <div>
+                                                                                <p style={{ margin: '0 0 6px', fontSize: '12px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase' }}>
+                                                                                    📝 Hallazgo / Diagnóstico
+                                                                                </p>
+                                                                                <p style={{ margin: 0, fontSize: '14px', color: '#334155', lineHeight: '1.5', background: '#f8fafc', padding: '12px 16px', borderRadius: '12px', border: '1px solid #f1f5f9' }}>
+                                                                                    {point.descripcion}
+                                                                                </p>
+                                                                            </div>
+                                                                        )}
+
+                                                                        {/* Fotos si hay */}
+                                                                        {Array.isArray(point.photos) && point.photos.length > 0 && (
+                                                                            <div>
+                                                                                <p style={{ margin: '0 0 8px', fontSize: '12px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase' }}>
+                                                                                    📷 Evidencia Fotográfica ({point.photos.length})
+                                                                                </p>
+                                                                                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                                                                                    {point.photos.map((pUrl: string, pIdx: number) => {
+                                                                                        if (!pUrl || typeof pUrl !== 'string') return null;
+                                                                                        return (
+                                                                                            <a key={pIdx} href={pUrl} target="_blank" rel="noreferrer" style={{ display: 'block', width: '80px', height: '80px', borderRadius: '12px', overflow: 'hidden', border: '1.5px solid #e2e8f0', boxShadow: '0 2px 6px rgba(0,0,0,0.08)' }}>
+                                                                                                <img src={pUrl} alt={`Foto ${pIdx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                                                            </a>
+                                                                                        );
+                                                                                    })}
+                                                                                </div>
+                                                                            </div>
+                                                                        )}
+
+                                                                        {/* Conceptos de Mano de Obra y Refacciones */}
+                                                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px' }}>
+                                                                            {/* Conceptos */}
+                                                                            <div style={{ background: '#f8fafc', borderRadius: '14px', padding: '14px', border: '1px solid #e2e8f0' }}>
+                                                                                <p style={{ margin: '0 0 10px', fontSize: '12px', fontWeight: '800', color: '#0369a1', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                                    <span>🔧</span> Conceptos de Servicio / Mano de Obra
+                                                                                </p>
+                                                                                {Array.isArray(point.conceptos) && point.conceptos.length > 0 ? (
+                                                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                                                                        {point.conceptos.map((c: any, cIdx: number) => {
+                                                                                            if (!c) return null;
+                                                                                            const lineTotal = (Number(c.cantidad) || 1) * (Number(c.precio) || 0);
+                                                                                            return (
+                                                                                                <div key={cIdx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', background: '#fff', padding: '8px 12px', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
+                                                                                                    <span style={{ fontWeight: '700', color: '#334155' }}>
+                                                                                                        <strong style={{ color: '#0284c7' }}>{c.cantidad || 1}x</strong> {c.descripcion || ''}
+                                                                                                    </span>
+                                                                                                    <span style={{ fontWeight: '800', color: '#0f172a' }}>
+                                                                                                        ${(Number(lineTotal) || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                                                                                                    </span>
+                                                                                                </div>
+                                                                                            );
+                                                                                        })}
+                                                                                    </div>
+                                                                                ) : (
+                                                                                    <p style={{ margin: 0, fontSize: '12px', color: '#94a3b8', fontStyle: 'italic' }}>Sin conceptos adicionales</p>
+                                                                                )}
+                                                                            </div>
+
+                                                                            {/* Materiales */}
+                                                                            <div style={{ background: '#f8fafc', borderRadius: '14px', padding: '14px', border: '1px solid #e2e8f0' }}>
+                                                                                <p style={{ margin: '0 0 10px', fontSize: '12px', fontWeight: '800', color: '#b45309', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                                    <span>🪛</span> Refacciones y Materiales
+                                                                                </p>
+                                                                                {Array.isArray(point.materiales) && point.materiales.length > 0 ? (
+                                                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                                                                        {point.materiales.map((m: any, mIdx: number) => {
+                                                                                            if (!m) return null;
+                                                                                            const lineTotal = (Number(m.cantidad) || 1) * (Number(m.precio) || 0);
+                                                                                            return (
+                                                                                                <div key={mIdx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', background: '#fff', padding: '8px 12px', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
+                                                                                                    <span style={{ fontWeight: '700', color: '#334155' }}>
+                                                                                                        <strong style={{ color: '#d97706' }}>{m.cantidad || 1}x</strong> {m.nombre || ''}
+                                                                                                    </span>
+                                                                                                    <span style={{ fontWeight: '800', color: '#0f172a' }}>
+                                                                                                        ${(Number(lineTotal) || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                                                                                                    </span>
+                                                                                                </div>
+                                                                                            );
+                                                                                        })}
+                                                                                    </div>
+                                                                                ) : (
+                                                                                    <p style={{ margin: 0, fontSize: '12px', color: '#94a3b8', fontStyle: 'italic' }}>Sin refacciones requeridas</p>
+                                                                                )}
+                                                                            </div>
+                                                                        </div>
+
+                                                                        {/* Toggle selection footer per point */}
+                                                                        {!isJobRunning && (
+                                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '10px', borderTop: '1px solid #f1f5f9', flexWrap: 'wrap', gap: '8px' }}>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => toggleSosPoint(point.id)}
+                                                                                    style={{
+                                                                                        padding: '8px 14px',
+                                                                                        borderRadius: '10px',
+                                                                                        border: isSelected ? '1.5px solid #86efac' : '1.5px solid #cbd5e1',
+                                                                                        background: isSelected ? '#f0fdf4' : '#f8fafc',
+                                                                                        color: isSelected ? '#166534' : '#64748b',
+                                                                                        fontWeight: '800',
+                                                                                        fontSize: '12px',
+                                                                                        cursor: 'pointer',
+                                                                                        display: 'flex',
+                                                                                        alignItems: 'center',
+                                                                                        gap: '6px'
+                                                                                    }}
+                                                                                >
+                                                                                    {isSelected ? '✓ Incluido en la cotización' : '+ Incluir este punto'}
+                                                                                </button>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => {
+                                                                                        setCotizParaRecotizar(point.subTareaId);
+                                                                                        setShowRecotizModal(true);
+                                                                                    }}
+                                                                                    style={{
+                                                                                        padding: '8px 14px',
+                                                                                        borderRadius: '10px',
+                                                                                        border: '1.5px solid #fed7aa',
+                                                                                        background: '#fff7ed',
+                                                                                        color: '#ea580c',
+                                                                                        fontWeight: '800',
+                                                                                        fontSize: '12px',
+                                                                                        cursor: 'pointer'
+                                                                                    }}
+                                                                                >
+                                                                                    🔁 Solicitar ajuste a este punto
+                                                                                </button>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
+
+                                                {/* Sticky / Bottom Summary & Actions for Client */}
+                                                {Array.isArray(flattenedSosPoints) && flattenedSosPoints.length > 0 && (
+                                                    <div style={{
+                                                        background: '#fff',
+                                                        borderRadius: '24px',
+                                                        padding: '24px',
+                                                        border: '2px solid #fed7aa',
+                                                        boxShadow: '0 8px 30px rgba(0,0,0,0.08)',
+                                                        display: 'flex',
+                                                        flexDirection: 'column',
+                                                        gap: '16px'
+                                                    }}>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                                                            <div>
+                                                                <span style={{ fontSize: '13px', fontWeight: '800', color: '#64748b' }}>RESUMEN DE AUTORIZACIÓN</span>
+                                                                <p style={{ margin: '2px 0 0', fontSize: '15px', fontWeight: '700', color: '#1e293b' }}>
+                                                                    {flattenedSosPoints.filter(p => p && selectedSosPoints[p.id] !== false).length} de {flattenedSosPoints.length} puntos seleccionados
+                                                                </p>
+                                                            </div>
+                                                            <div style={{ textAlign: 'right' }}>
+                                                                <span style={{ fontSize: '13px', fontWeight: '800', color: '#64748b' }}>MONTO TOTAL</span>
+                                                                <p style={{ margin: '2px 0 0', fontSize: '28px', fontWeight: '900', color: '#ea580c' }}>
+                                                                    ${(Number(selectedSosTotal) || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+
+                                                        {['Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución', 'Finalizado'].includes(trabajo?.estado || '') ? (
+                                                            <div style={{ background: '#f0fdf4', border: '1.5px solid #86efac', borderRadius: '14px', padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '12px', color: '#166534', fontWeight: '800', fontSize: '15px' }}>
+                                                                <span style={{ fontSize: '24px' }}>✓</span>
+                                                                <div>
+                                                                    <p style={{ margin: 0 }}>Cotización Aprobada y Autorizada</p>
+                                                                    <p style={{ margin: '2px 0 0', fontSize: '13px', fontWeight: '600', color: '#15803d' }}>El técnico ya está en ejecución de los trabajos autorizados.</p>
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={handleClientAceptarCotizacionSOS}
+                                                                    style={{
+                                                                        flex: 2,
+                                                                        minWidth: '220px',
+                                                                        padding: '16px 24px',
+                                                                        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                                                        color: '#fff',
+                                                                        border: 'none',
+                                                                        borderRadius: '16px',
+                                                                        fontSize: '16px',
+                                                                        fontWeight: '800',
+                                                                        cursor: 'pointer',
+                                                                        boxShadow: '0 6px 20px rgba(16, 185, 129, 0.35)',
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        justifyContent: 'center',
+                                                                        gap: '10px'
+                                                                    }}
+                                                                >
+                                                                    <HiOutlineCheckCircle size={22} />
+                                                                    Aceptar y Autorizar (${(Number(selectedSosTotal) || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })})
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        setCotizParaRecotizar(subTareas[0]?.id || 0);
+                                                                        setShowRecotizModal(true);
+                                                                    }}
+                                                                    style={{
+                                                                        flex: 1,
+                                                                        minWidth: '160px',
+                                                                        padding: '16px 20px',
+                                                                        background: '#fff',
+                                                                        color: '#d97706',
+                                                                        border: '2px solid #fed7aa',
+                                                                        borderRadius: '16px',
+                                                                        fontSize: '14px',
+                                                                        fontWeight: '800',
+                                                                        cursor: 'pointer'
+                                                                    }}
+                                                                >
+                                                                    🔁 Solicitar Re-Cotización
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            /* NON-SOS STANDARD FLOW */
+                                            <>
+                                                {/* Header */}
+                                                <div className={styles.clientCotizHeader}>
+                                                    <div className={styles.clientCotizHeaderIcon}>
+                                                        <HiOutlineCurrencyDollar size={22} color="white" />
+                                                    </div>
+                                                    <div>
+                                                        <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '800', color: '#1e293b' }}>Cotizaciones Recibidas</h2>
+                                                        <p style={{ margin: 0, fontSize: '13px', color: '#94a3b8', fontWeight: '600' }}>{cotizaciones.length} opción{cotizaciones.length !== 1 ? 'es' : ''} disponible{cotizaciones.length !== 1 ? 's' : ''}</p>
+                                                    </div>
+                                                </div>
+
+                                                {cotizaciones.length === 0 ? (
+                                                    <div style={{ background: '#fff', borderRadius: '24px', padding: '60px 40px', textAlign: 'center', border: '1.5px solid #f1f5f9', boxShadow: '0 4px 20px rgba(0,0,0,0.02)' }}>
+                                                        <div style={{ fontSize: '48px', marginBottom: '16px' }}>📭</div>
+                                                        <p style={{ margin: 0, color: '#94a3b8', fontWeight: '700', fontSize: '16px' }}>Aún no hay cotizaciones disponibles.</p>
+                                                        <p style={{ margin: '8px 0 0 0', color: '#cbd5e1', fontSize: '14px' }}>Te notificaremos en cuanto el administrador envíe una propuesta.</p>
+                                                    </div>
+                                                ) : (
+                                                    cotizaciones.map((cotiz, idx) => {
+                                                        const THREE_HOURS = 3 * 60 * 60 * 1000;
+                                                        const isApproved = cotiz.estado === 'Aprobada';
+                                                        const isRejected = cotiz.estado === 'Rechazada';
+                                                        const isPending = cotiz.estado === 'Pendiente';
+
+                                                        const rejectedAt = cotiz.id ? (rejectionTimestamps[cotiz.id] ?? null) : null;
+                                                        const msLeft = rejectedAt ? (rejectedAt + THREE_HOURS) - nowMs : 0;
+                                                        const withinWindow = isRejected && rejectedAt && msLeft > 0;
+                                                        const windowExpired = isRejected && rejectedAt && msLeft <= 0;
+                                                        const rejectionReason = cotiz.id ? (rejectionReasons[cotiz.id] ?? '') : '';
+
+                                                        const rawDesc = cotiz.descripcion || '';
+                                                        const cotizTitle = getQuoteTitle(rawDesc, `Propuesta #${idx + 1}`);
+                                                        const cleanDesc = cleanQuoteDescription(rawDesc);
+
+                                                        const conceptLines: { name: string; qty: string; price: string }[] = [];
+                                                        const materialLines: { name: string; qty: string; price: string }[] = [];
+                                                        let descriptionText = '';
+
+                                                        cleanDesc.split('\n').forEach(line => {
+                                                            const trimmed = line.trim();
+                                                            if (!trimmed) return;
+                                                            const serviceMatch = trimmed.match(/^[\-\*]?\s*(.+?)\s*\/\s*Servicio Técnico\s*-\s*(.+)$/);
+                                                            if (serviceMatch) {
+                                                                const pricePart = serviceMatch[2].trim();
+                                                                const namePart = serviceMatch[1].trim();
+                                                                const qtyMatch = namePart.match(/^(.+?)\s*\((\d+)\)$/);
+                                                                conceptLines.push({
+                                                                    name: qtyMatch ? qtyMatch[1].trim() : namePart,
+                                                                    qty: qtyMatch ? `${qtyMatch[2]}x` : '1x',
+                                                                    price: pricePart.startsWith('$') ? pricePart : `$${pricePart}`
+                                                                });
+                                                                return;
+                                                            }
+                                                            const parsedMats = parseMaterials(trimmed);
+                                                            if (parsedMats.length > 0 && parsedMats[0].precio) {
+                                                                parsedMats.forEach(m => materialLines.push({ name: m.material, qty: m.cantidad ? `${m.cantidad}x` : '1x', price: m.precio.startsWith('$') ? m.precio : `$${m.precio}` }));
+                                                            } else {
+                                                                descriptionText += (descriptionText ? '\n' : '') + trimmed;
+                                                            }
+                                                        });
+
+                                                        const cardClass = `${styles.clientCotizCard}${
+                                                            isApproved ? ' ' + styles.approved :
+                                                            isRejected ? ' ' + styles.rejected : ''
+                                                        }`;
+
+                                                        return (
+                                                            <div key={cotiz.id} className={cardClass}>
+                                                                <div className={styles.clientCotizStripe} />
+                                                                <div className={styles.clientCotizCardInner}>
+                                                                    <div className={styles.clientCotizCardHeader}>
+                                                                        <div>
+                                                                            <p className={styles.clientCotizCardTitle}>{cotizTitle}</p>
+                                                                            <p className={styles.clientCotizCardSubtitle}>Registro #{idx + 1} · Bitácora de Cotización</p>
+                                                                        </div>
+                                                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                                                                            <p className={styles.clientCotizPriceLabel}>MONTO TOTAL</p>
+                                                                            <p className={styles.clientCotizPrice}>${Number(cotiz.monto).toLocaleString('es-MX')}</p>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    <div style={{ marginBottom: '16px' }}>
+                                                                        <span className={`${styles.clientCotizBadge} ${isApproved ? styles.approved : isRejected ? styles.rejected : styles.pending}`}>
+                                                                            {isApproved ? '✓ Aprobada' : isRejected ? '✕ Rechazada' : '⏳ Pendiente de Revisión'}
+                                                                        </span>
+                                                                    </div>
+
+                                                                    {descriptionText && (
+                                                                        <div className={styles.clientCotizSectionFull}>
+                                                                            <p className={styles.clientCotizSectionLabel}><span>📝</span> Descripción y Alcance</p>
+                                                                            <p style={{ margin: 0, fontSize: '13px', color: '#475569', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>{descriptionText}</p>
+                                                                        </div>
+                                                                    )}
+
+                                                                    <div className={styles.clientCotizSections}>
+                                                                        <div className={styles.clientCotizSection}>
+                                                                            <p className={styles.clientCotizSectionLabel}><span>🔧</span> Conceptos de Servicio</p>
+                                                                            {conceptLines.length === 0 ? (
+                                                                                <p className={styles.clientCotizEmpty}>Sin conceptos registrados</p>
+                                                                            ) : conceptLines.map((c, i) => (
+                                                                                <div key={i} className={styles.clientCotizItem}>
+                                                                                    <span className={styles.clientCotizItemQty}>{c.qty}</span>
+                                                                                    <span className={styles.clientCotizItemName}>{c.name}</span>
+                                                                                    <span className={styles.clientCotizItemPrice}>{c.price}</span>
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
+                                                                        <div className={styles.clientCotizSection}>
+                                                                            <p className={styles.clientCotizSectionLabel}><span>🪛</span> Materiales</p>
+                                                                            {materialLines.length === 0 ? (
+                                                                                <p className={styles.clientCotizEmpty}>Sin materiales</p>
+                                                                            ) : materialLines.map((m, i) => (
+                                                                                <div key={i} className={styles.clientCotizItem}>
+                                                                                    <span className={styles.clientCotizItemQty}>{m.qty}</span>
+                                                                                    <span className={styles.clientCotizItemName}>{m.name}</span>
+                                                                                    <span className={styles.clientCotizItemPrice}>{m.price}</span>
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
+                                                                    </div>
+
+                                                                    <div className={styles.clientCotizTotalRow}>
+                                                                        <span className={styles.clientCotizTotalLabel}>⚡ Monto Total</span>
+                                                                        <span className={styles.clientCotizTotalValue}>${Number(cotiz.monto).toLocaleString('es-MX')}</span>
+                                                                    </div>
+
+                                                                    <button 
+                                                                        type="button"
+                                                                        onClick={() => setPreviewQuote(cotiz)} 
+                                                                        className={styles.clientCotizPdfBtn}
+                                                                        style={{
+                                                                            display: 'flex',
+                                                                            alignItems: 'center',
+                                                                            justifyContent: 'center',
+                                                                            gap: '8px',
+                                                                            width: '100%',
+                                                                            padding: '13px 18px',
+                                                                            background: '#eff6ff',
+                                                                            color: '#1d4ed8',
+                                                                            border: '1.5px solid #bfdbfe',
+                                                                            borderRadius: '12px',
+                                                                            fontSize: '14px',
+                                                                            fontWeight: '800',
+                                                                            cursor: 'pointer',
+                                                                            boxSizing: 'border-box',
+                                                                            marginBottom: '16px',
+                                                                            boxShadow: '0 2px 8px rgba(37, 99, 235, 0.08)',
+                                                                            transition: 'all 0.2s ease'
+                                                                        }}
+                                                                    >
+                                                                        <HiOutlineDocumentText size={20} color="#2563eb" /> 
+                                                                        <span>Ver Presupuesto PDF (Descargar)</span>
+                                                                    </button>
+
+                                                                    {isRejected && rejectionReason && (
+                                                                        <div className={styles.clientCotizRejectionBox}>
+                                                                            <p className={styles.clientCotizRejectionTitle}>✕ Motivo de Rechazo</p>
+                                                                            <p className={styles.clientCotizRejectionText}>{rejectionReason}</p>
+                                                                        </div>
+                                                                    )}
+
+                                                                    {withinWindow && (
+                                                                        <div className={styles.clientCotizCountdownBox}>
+                                                                            <p className={styles.clientCotizCountdownText}>⏱ Puedes cancelar el rechazo en:</p>
+                                                                            <span className={styles.clientCotizCountdownTimer}>{formatCountdown(msLeft)}</span>
+                                                                        </div>
+                                                                    )}
+
+                                                                    {isPending && (
+                                                                        <div className={styles.clientCotizActions}>
+                                                                            <button className={styles.clientCotizBtnAccept} onClick={() => handleClienteAceptarCotizacion(cotiz.id!)}>
+                                                                                <HiOutlineCheckCircle size={20} /> Aceptar Propuesta
+                                                                            </button>
+                                                                            <button className={styles.clientCotizBtnRecotizar} onClick={() => { setCotizParaRecotizar(cotiz.id!); setShowRecotizModal(true); }}>
+                                                                                🔁 Re-Cotizar
+                                                                            </button>
+                                                                            <button className={styles.clientCotizBtnReject} onClick={() => handleClienteRechazarCotizacion(cotiz.id!)}>
+                                                                                <HiOutlineXCircle size={18} /> Rechazar
+                                                                            </button>
+                                                                        </div>
+                                                                    )}
+
+                                                                    {withinWindow && (
+                                                                        <button className={styles.clientCotizBtnCancelReject} onClick={() => handleCancelarRechazo(cotiz.id!)}>
+                                                                            ↩️ Cancelar Rechazo y Aceptar esta Cotización
+                                                                        </button>
+                                                                    )}
+
+                                                                    {windowExpired && (
+                                                                        <button className={styles.clientCotizBtnReactivate} onClick={() => handleSolicitarReactivacion(cotiz.id!)}>
+                                                                            🔄 Solicitar Reactivación de Cotización
+                                                                        </button>
+                                                                    )}
+
+                                                                    {isApproved && (
+                                                                        <div className={styles.clientCotizApprovedMsg}>
+                                                                            <HiOutlineCheckCircle size={22} />
+                                                                            <span><strong>Propuesta Aceptada.</strong> El administrador ha sido notificado y procederá con la asignación del técnico.</span>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })
+                                                )}
+                                            </>
                                         )}
                                     </div>
                                 )}
@@ -6357,8 +7309,8 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                                             </div>
                                                                         )}
 
-                                                                        {/* ACCIONES DE ADMIN EN SOS PARA APROBAR O RECOTIZAR LA PROPUESTA DEL TÉCNICO */}
-                                                                        {isSOS && isAdminUser && cotiz.estado === 'Pendiente' && (
+                                                                        {/* ACCIONES DE CLIENTE O ADMIN EN SOS PARA APROBAR O RECOTIZAR LA PROPUESTA DEL TÉCNICO */}
+                                                                        {isSOS && cotiz.estado === 'Pendiente' && (isAdminUser || user?.role === 'cliente' || user?.role === 'encargado' || isAutonomoAdmin(user?.role)) && (
                                                                             <div style={{ marginTop: '14px', paddingTop: '12px', borderTop: '1.5px dashed #fed7aa', display: 'flex', gap: '10px' }}>
                                                                                 <button
                                                                                     onClick={() => handleAdminAceptarCotizacionSOS(cotiz.id!)}
@@ -6414,8 +7366,8 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                     </div>
                                                 )}
 
-                                                {/* BOTÓN DE ASIGNACIÓN CUANDO SE ACEPTA LA COTIZACIÓN */}
-                                                {(trabajo?.estado === 'Cotización Aceptada' || trabajo?.estado === 'Cotización Aprobada') && (user?.role === 'admin' || isAutonomoAdmin(user?.role)) && (
+                                                {/* BOTÓN DE ASIGNACIÓN CUANDO SE ACEPTA LA COTIZACIÓN (SOLO FLUJO NORMAL, NO SOS) */}
+                                                {!isSOS && (trabajo?.estado === 'Cotización Aceptada' || trabajo?.estado === 'Cotización Aprobada') && (user?.role === 'admin' || isAutonomoAdmin(user?.role)) && (
                                                     <button onClick={handleOpenAssignModal}
                                                         style={{ width: '100%', padding: '16px', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', borderRadius: '15px', fontSize: '15px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 8px 20px rgba(16,185,129,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', marginTop: '10px' }}>
                                                         <span style={{ fontSize: '18px' }}>✅</span> Asignar Trabajo al Técnico
@@ -7969,106 +8921,137 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                         activeTab === 'Registro' && (
                             <div style={{
                                 width: '100%',
-                                maxWidth: '520px',
+                                maxWidth: '1200px',
                                 margin: '0 auto',
-                                padding: '24px 20px',
-                                background: '#ffffff',
-                                borderRadius: '24px',
-                                border: '1.5px solid #cbd5e1',
-                                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.07), 0 8px 10px -6px rgba(0, 0, 0, 0.04)',
-                                minHeight: '300px',
                                 boxSizing: 'border-box'
                             }}>
                                 {/* CASO 1: TRABAJO EN ESTADO "ASIGNADO" (Debe aceptar asignación) */}
                                 {(isTechRole || user?.role === 'tecnico' || user?.role === 'tecnico-normal' || user?.role === 'tecnico-autonomo') && trabajo.estado === 'Asignado' && (
-                                    <div style={{ textAlign: 'center', padding: '40px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
-                                        <div style={{ fontSize: '48px' }}>👷</div>
-                                        <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#1e293b', margin: 0 }}>Tienes esta visita asignada</h3>
-                                        <p style={{ fontSize: '14px', color: '#64748b', maxWidth: '380px', margin: 0, lineHeight: '1.5' }}>
-                                            Para comenzar con el registro de problemas y actividades en esta sucursal, primero debes aceptar la asignación de este trabajo.
-                                        </p>
-                                        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
-                                            <button
-                                                onClick={handleAceptarAsignacion}
-                                                style={{
-                                                    padding: '14px 28px',
-                                                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                                                    color: '#ffffff',
-                                                    border: 'none',
-                                                    borderRadius: '16px',
-                                                    fontSize: '15px',
-                                                    fontWeight: '800',
-                                                    cursor: 'pointer',
-                                                    boxShadow: '0 8px 24px rgba(16, 185, 129, 0.3)',
-                                                    transition: 'all 0.2s'
-                                                }}
-                                                onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
-                                                onMouseLeave={e => e.currentTarget.style.transform = 'none'}
-                                            >
-                                                ✅ Aceptar Asignación
-                                            </button>
-                                            <button
-                                                onClick={handleTecnicoRechazarAsignacion}
-                                                style={{
-                                                    padding: '14px 28px',
-                                                    background: '#fff1f2',
-                                                    color: '#e11d48',
-                                                    border: '1.5px solid #fecdd3',
-                                                    borderRadius: '16px',
-                                                    fontSize: '15px',
-                                                    fontWeight: '800',
-                                                    cursor: 'pointer',
-                                                    transition: 'all 0.2s'
-                                                }}
-                                                onMouseEnter={e => e.currentTarget.style.background = '#ffe4e6'}
-                                                onMouseLeave={e => e.currentTarget.style.background = '#fff1f2'}
-                                            >
-                                                ❌ Rechazar Asignación
-                                            </button>
+                                    <div style={{
+                                        width: '100%',
+                                        maxWidth: '480px',
+                                        margin: '0 auto',
+                                        padding: '24px 20px',
+                                        background: '#ffffff',
+                                        borderRadius: '20px',
+                                        border: '1.5px solid #cbd5e1',
+                                        boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.07), 0 8px 10px -6px rgba(0, 0, 0, 0.04)',
+                                        boxSizing: 'border-box'
+                                    }}>
+                                        <div style={{ textAlign: 'center', padding: '14px 10px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px' }}>
+                                            <div style={{ fontSize: '36px', lineHeight: 1 }}>👷</div>
+                                            <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#1e293b', margin: 0 }}>Tienes esta visita asignada</h3>
+                                            <p style={{ fontSize: '13.5px', color: '#64748b', maxWidth: '380px', margin: 0, lineHeight: '1.45' }}>
+                                                Para comenzar con el registro de problemas y actividades en esta sucursal, primero debes aceptar la asignación de este trabajo.
+                                            </p>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%', maxWidth: '280px', marginTop: '4px' }}>
+                                                <button
+                                                    onClick={handleAceptarAsignacion}
+                                                    style={{
+                                                        width: '100%',
+                                                        padding: '11px 20px',
+                                                        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                                        color: '#ffffff',
+                                                        border: 'none',
+                                                        borderRadius: '12px',
+                                                        fontSize: '14px',
+                                                        fontWeight: '800',
+                                                        cursor: 'pointer',
+                                                        boxShadow: '0 4px 12px rgba(16, 185, 129, 0.25)',
+                                                        transition: 'all 0.2s',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        gap: '6px'
+                                                    }}
+                                                    onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+                                                    onMouseLeave={e => e.currentTarget.style.transform = 'none'}
+                                                >
+                                                    ✅ Aceptar Asignación
+                                                </button>
+                                                <button
+                                                    onClick={handleTecnicoRechazarAsignacion}
+                                                    style={{
+                                                        width: '100%',
+                                                        padding: '10px 20px',
+                                                        background: '#fff1f2',
+                                                        color: '#e11d48',
+                                                        border: '1.5px solid #fecdd3',
+                                                        borderRadius: '12px',
+                                                        fontSize: '14px',
+                                                        fontWeight: '800',
+                                                        cursor: 'pointer',
+                                                        transition: 'all 0.2s',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        gap: '6px'
+                                                    }}
+                                                    onMouseEnter={e => e.currentTarget.style.background = '#ffe4e6'}
+                                                    onMouseLeave={e => e.currentTarget.style.background = '#fff1f2'}
+                                                >
+                                                    ❌ Rechazar Asignación
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 )}
 
                                 {/* CASO 2: TRABAJO EN ESTADO "EN ESPERA" (Debe comenzar registro) */}
                                 {(user?.role === 'tecnico' || user?.role === 'tecnico-normal') && trabajo.estado === 'En Espera' && (
-                                    <div style={{ textAlign: 'center', padding: '40px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
-                                        <div style={{ fontSize: '48px' }}>📍</div>
-                                        <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#1e293b', margin: 0 }}>Asignación Aceptada</h3>
-                                        <p style={{ fontSize: '14px', color: '#64748b', maxWidth: '380px', margin: 0, lineHeight: '1.5' }}>
-                                            Ya has aceptado este trabajo. Presiona el botón "Comenzar Registro" cuando estés listo para evaluar los problemas de la sucursal.
-                                        </p>
-                                        <button
-                                            onClick={() => handleEmpezarTrabajoTipo('Visita')}
-                                            style={{
-                                                padding: '14px 28px',
-                                                background: 'linear-gradient(135deg, #f26522 0%, #d14d13 100%)',
-                                                color: '#ffffff',
-                                                border: 'none',
-                                                borderRadius: '16px',
-                                                fontSize: '15px',
-                                                fontWeight: '800',
-                                                cursor: 'pointer',
-                                                boxShadow: '0 8px 24px rgba(242, 101, 34, 0.3)',
-                                                transition: 'all 0.2s'
-                                            }}
-                                            onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
-                                            onMouseLeave={e => e.currentTarget.style.transform = 'none'}
-                                        >
-                                            🚀 Comenzar Registro
-                                        </button>
+                                    <div style={{
+                                        width: '100%',
+                                        maxWidth: '480px',
+                                        margin: '0 auto',
+                                        padding: '24px 20px',
+                                        background: '#ffffff',
+                                        borderRadius: '20px',
+                                        border: '1.5px solid #cbd5e1',
+                                        boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.07), 0 8px 10px -6px rgba(0, 0, 0, 0.04)',
+                                        boxSizing: 'border-box'
+                                    }}>
+                                        <div style={{ textAlign: 'center', padding: '14px 10px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px' }}>
+                                            <div style={{ fontSize: '36px', lineHeight: 1 }}>📍</div>
+                                            <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#1e293b', margin: 0 }}>Asignación Aceptada</h3>
+                                            <p style={{ fontSize: '13.5px', color: '#64748b', maxWidth: '380px', margin: 0, lineHeight: '1.45' }}>
+                                                Ya has aceptado este trabajo. Presiona el botón "Comenzar Registro" cuando estés listo para evaluar los problemas de la sucursal.
+                                            </p>
+                                            <button
+                                                onClick={() => handleEmpezarTrabajoTipo('Visita')}
+                                                style={{
+                                                    width: '100%',
+                                                    maxWidth: '280px',
+                                                    padding: '11px 20px',
+                                                    background: 'linear-gradient(135deg, #f26522 0%, #d14d13 100%)',
+                                                    color: '#ffffff',
+                                                    border: 'none',
+                                                    borderRadius: '12px',
+                                                    fontSize: '14px',
+                                                    fontWeight: '800',
+                                                    cursor: 'pointer',
+                                                    boxShadow: '0 4px 12px rgba(242, 101, 34, 0.25)',
+                                                    transition: 'all 0.2s',
+                                                    marginTop: '4px'
+                                                }}
+                                                onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+                                                onMouseLeave={e => e.currentTarget.style.transform = 'none'}
+                                            >
+                                                🚀 Comenzar Registro
+                                            </button>
+                                        </div>
                                     </div>
                                 )}
 
                                 {/* CASO 3: TRABAJO EN PROCESO O FINALIZADO */}
                                 {Boolean(trabajo.estado === 'En Proceso' || trabajo.estado === 'Cotización Enviada' || trabajo.visitado) && (
-                                    <div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%' }}>
                                         {/* Botón de Agregar (Solo visible si está en proceso y no se ha finalizado/enviado) */}
-                                        {((user?.role === 'tecnico' || user?.role === 'tecnico-normal') || user?.role === 'admin') && trabajo.tipo === 'Visita' && !trabajo.visitado && trabajo.estado === 'En Proceso' && (
-                                            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '20px' }}>
+                                        {((user?.role === 'tecnico' || user?.role === 'tecnico-normal') || user?.role === 'admin') && (trabajo.tipo === 'Visita' || isSOS) && !trabajo.visitado && trabajo.estado === 'En Proceso' && (
+                                            <div style={{ width: '100%' }}>
                                                 <button
                                                     onClick={openNewTaskModal}
                                                     className={styles.addTaskButton}
-                                                    style={{ margin: 0 }}
+                                                    style={{ margin: 0, width: '100%' }}
                                                 >
                                                     <div className={styles.addTaskIcon}>+</div>
                                                     Agregar Problema / Registro
@@ -8078,23 +9061,23 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
 
                                         {/* LISTADO DE ACTIVIDADES REGISTRADAS */}
                                         {subTareas.length > 0 ? (
-                                            <div className={styles.taskList} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                            <div className={styles.taskList} style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%' }}>
                                                 {[...subTareas].sort((a, b) => a.id - b.id).map(tarea => renderTaskCard(tarea, true))}
                                             </div>
                                         ) : (
                                             trabajo.estado === 'En Proceso' && (
-                                                <div style={{ textAlign: 'center', padding: '40px 20px', color: '#94a3b8', fontSize: '14px' }}>
-                                                    📭 Aún no has registrado ningún problema en la sucursal. Utiliza el botón "Agregar" superior para registrar los trabajos necesarios.
+                                                <div style={{ textAlign: 'center', padding: '40px 20px', color: '#94a3b8', fontSize: '14px', background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
+                                                    📭 Aún no has registrado ningún problema en la sucursal. Utiliza el botón "Agregar Problema / Registro" superior para registrar los trabajos necesarios.
                                                 </div>
                                             )
                                         )}
 
-                                        {/* BOTÓN DE CONFIRMAR DATOS Y ENVIAR AL ADMIN GENERAL */}
+                                        {/* BOTÓN DE CONFIRMAR DATOS Y ENVIAR AL ADMIN / CLIENTE */}
                                         {(user?.role === 'tecnico' || user?.role === 'tecnico-normal') && subTareas.length > 0 && (
-                                            <div style={{ marginTop: '25px', display: 'flex', justifyContent: 'center', width: '100%' }}>
+                                            <div style={{ marginTop: '10px', display: 'flex', justifyContent: 'center', width: '100%' }}>
                                                 {trabajo?.visitado ? (
                                                     <div style={{ background: '#f0fdf4', border: '1.5px solid #86efac', borderRadius: '16px', padding: '16px 24px', display: 'flex', alignItems: 'center', gap: '10px', color: '#166534', fontWeight: '800', fontSize: '14px', boxShadow: '0 4px 12px rgba(34, 197, 94, 0.15)' }}>
-                                                        <span style={{ fontSize: '20px' }}>✓</span> Información Enviada al Administrador
+                                                        <span style={{ fontSize: '20px' }}>✓</span> {isSOS ? 'Cotización Enviada al Cliente' : 'Información Enviada al Administrador'}
                                                     </div>
                                                 ) : (
                                                     <button
@@ -8120,7 +9103,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                         onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
                                                         onMouseLeave={e => e.currentTarget.style.transform = 'none'}
                                                     >
-                                                        🚀 Enviar al Administrador
+                                                        {isSOS ? '🚀 Enviar Cotización al Cliente' : '🚀 Enviar al Administrador'}
                                                     </button>
                                                 )}
                                             </div>
@@ -8212,7 +9195,44 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                                                 <div className={historialStyles.cardInfo}>
                                                                                     <div className={historialStyles.cardHeader}>
                                                                                         <div>
-                                                                                            <h3 className={historialStyles.concepto} style={{ marginTop: '0' }}>{tarea.titulo}</h3>
+                                                                                            <h3 className={historialStyles.concepto} style={{ marginTop: '0', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                                                                                <span>{tarea.titulo}</span>
+                                                                                            </h3>
+                                                                                            {((tarea.totalPoints && tarea.totalPoints > 1) || isSOS || tarea.isSOS) && (
+                                                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', flexWrap: 'wrap' }}>
+                                                                                                    {(isSOS || tarea.isSOS) ? (
+                                                                                                        <span style={{
+                                                                                                            fontSize: '11px',
+                                                                                                            background: '#fff1f2',
+                                                                                                            color: '#e11d48',
+                                                                                                            border: '1px solid #fecdd3',
+                                                                                                            padding: '2px 8px',
+                                                                                                            borderRadius: '12px',
+                                                                                                            fontWeight: '700',
+                                                                                                            display: 'inline-flex',
+                                                                                                            alignItems: 'center',
+                                                                                                            gap: '4px'
+                                                                                                        }}>
+                                                                                                            🚨 Solicitud SOS {tarea.totalPoints && tarea.totalPoints > 1 ? `• Trabajo ${tarea.pointIndex || 1} de ${tarea.totalPoints}` : ''}
+                                                                                                        </span>
+                                                                                                    ) : (tarea.totalPoints && tarea.totalPoints > 1 ? (
+                                                                                                        <span style={{
+                                                                                                            fontSize: '11px',
+                                                                                                            background: '#eff6ff',
+                                                                                                            color: '#1d4ed8',
+                                                                                                            border: '1px solid #bfdbfe',
+                                                                                                            padding: '2px 8px',
+                                                                                                            borderRadius: '12px',
+                                                                                                            fontWeight: '700',
+                                                                                                            display: 'inline-flex',
+                                                                                                            alignItems: 'center',
+                                                                                                            gap: '4px'
+                                                                                                        }}>
+                                                                                                            🔗 Solicitud Conjunta • Trabajo {tarea.pointIndex || 1} de {tarea.totalPoints}
+                                                                                                        </span>
+                                                                                                    ) : null)}
+                                                                                                </div>
+                                                                                            )}
                                                                                         </div>
                                                                                         <div className={`${historialStyles.statusBadge} ${historialStyles.badgeSuccess}`} style={{ background: isPreReport ? '#fff3e0' : (!hasTaskReport ? '#f1f5f9' : undefined), color: isPreReport ? '#e65100' : (!hasTaskReport ? '#64748b' : undefined) }}>
                                                                                             <span className={historialStyles.statusIcon}>{hasTaskReport ? '✓' : (isPreReport ? '⚠️' : '⏳')}</span> {hasTaskReport ? 'Completado' : (isPreReport ? 'Pre-Reporte' : 'Pendiente')}
@@ -8228,12 +9248,12 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                                                         }
                                                                                         
                                                                                         return (
-                                                                                            <div style={{ padding: '0 15px 15px' }}>
-                                                                                                {descText && <p className={historialStyles.descripcion} style={{ margin: 0, color: '#475569' }}>{descText}</p>}
+                                                                                            <div style={{ marginTop: '4px' }}>
+                                                                                                {descText && <p className={historialStyles.descripcion} style={{ margin: 0, color: '#64748b' }}>{descText}</p>}
                                                                                                 {notasText && (
-                                                                                                    <div style={{ marginTop: '12px', padding: '12px', background: '#f8fafc', borderRadius: '10px', fontSize: '13px', color: '#475569', border: '1px solid #e2e8f0' }}>
-                                                                                                        <strong style={{ display: 'block', marginBottom: '8px', color: '#1e293b', fontSize: '12px', textTransform: 'uppercase' }}>📝 Notas de cotización</strong>
-                                                                                                        <ul style={{ margin: '0', paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                                                                    <div style={{ marginTop: '8px', padding: '8px 12px', background: '#f8fafc', borderRadius: '10px', fontSize: '12px', color: '#475569', border: '1px solid #e2e8f0' }}>
+                                                                                                        <strong style={{ display: 'block', marginBottom: '4px', color: '#1e293b', fontSize: '11px', textTransform: 'uppercase' }}>📝 Notas de cotización</strong>
+                                                                                                        <ul style={{ margin: '0', paddingLeft: '18px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
                                                                                                             {notasText.split(/(?=\s-\s)|(?=^-)/).map(s => s.replace(/^-/, '').trim()).filter(s => s.length > 0).map((nota, i) => (
                                                                                                                 <li key={i}>{nota}</li>
                                                                                                             ))}
@@ -8780,10 +9800,10 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                  Selecciona el tipo de actividad y describe el trabajo realizado por cada punto
                                              </span>
                                          </div>
-                                         {taskItems.length < 3 && (
+                                         {taskItems.length < 10 && (
                                              <button
                                                  type="button"
-                                                 onClick={() => setTaskItems([...taskItems, { id: String(Date.now()), descripcion: '', foto: '', tipoActividad: 'Mantenimiento', customTipoActividad: '', marca: '', modelo: '', pieza: '', garantia: '' }])}
+                                                 onClick={() => setTaskItems([...taskItems, { id: String(Date.now()), descripcion: '', foto: '', tipoActividad: 'Mantenimiento', customTipoActividad: '', marca: '', modelo: '', pieza: '', garantia: '', isQuoteIncluded: isSOS, quoteConceptos: isSOS ? [{ descripcion: '', cantidad: '1', precio: '' }] : [], quoteMateriales: [], quoteComentarios: '' }])}
                                                  style={{
                                                      background: '#fff3ed',
                                                      color: '#f26522',
@@ -8801,7 +9821,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                      transition: 'all 0.2s ease'
                                                  }}
                                              >
-                                                 + Añadir otro punto ({taskItems.length}/3)
+                                                 + Añadir otro punto ({taskItems.length}/10)
                                              </button>
                                          )}
                                      </div>
@@ -9178,12 +10198,216 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                          )}
                                                      </div>
                                                  </div>
+
+                                                 {/* COTIZACIÓN POR PUNTO DE REVISIÓN EN SOS */}
+                                                 {isSOS && (
+                                                     <div style={{ marginTop: '16px', background: '#fffbeb', padding: '14px 16px', borderRadius: '12px', border: '1.5px solid #fde68a' }}>
+                                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: item.isQuoteIncluded !== false ? '12px' : '0' }}>
+                                                             <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: '800', color: '#b45309', cursor: 'pointer' }}>
+                                                                 <input
+                                                                     type="checkbox"
+                                                                     checked={item.isQuoteIncluded !== false}
+                                                                     onChange={(e) => {
+                                                                         const checked = e.target.checked;
+                                                                         setTaskItems(prev => prev.map((it, i) => i === index ? {
+                                                                             ...it,
+                                                                             isQuoteIncluded: checked,
+                                                                             quoteConceptos: checked && (!it.quoteConceptos || it.quoteConceptos.length === 0) ? [{ descripcion: it.descripcion || '', cantidad: '1', precio: '' }] : it.quoteConceptos
+                                                                         } : it));
+                                                                     }}
+                                                                     style={{ width: '16px', height: '16px', accentColor: '#d97706' }}
+                                                                 />
+                                                                 💰 Cotización para el Punto {index + 1}
+                                                             </label>
+                                                             {item.isQuoteIncluded !== false && (
+                                                                 <span style={{ fontSize: '11px', fontWeight: '800', color: '#b45309', background: '#fef3c7', padding: '2px 8px', borderRadius: '6px', border: '1px solid #fde68a' }}>
+                                                                     Total Punto: ${(
+                                                                         ((item.quoteConceptos || []).reduce((acc, c) => acc + ((Number(c.cantidad) || 1) * (parseFloat(c.precio) || 0)), 0)) +
+                                                                         ((item.quoteMateriales || []).reduce((acc, m) => acc + ((Number(m.cantidad) || 1) * (parseFloat(m.precio) || 0)), 0))
+                                                                     ).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                                 </span>
+                                                             )}
+                                                         </div>
+
+                                                         {item.isQuoteIncluded !== false && (
+                                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '10px' }}>
+                                                                 {/* 1. CONCEPTOS DE SERVICIO PARA ESTE PUNTO */}
+                                                                 <div>
+                                                                     <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#92400e', marginBottom: '6px', textTransform: 'uppercase' }}>
+                                                                         1. Mano de Obra / Concepto de Servicio:
+                                                                     </label>
+                                                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                                         {(item.quoteConceptos && item.quoteConceptos.length > 0 ? item.quoteConceptos : [{ descripcion: item.descripcion || '', cantidad: '1', precio: '' }]).map((concepto, cIdx) => (
+                                                                             <div key={cIdx} style={{ display: 'flex', gap: '8px', alignItems: 'center', background: '#ffffff', padding: '8px 10px', borderRadius: '8px', border: '1px solid #fed7aa' }}>
+                                                                                 <input
+                                                                                     placeholder="Descripción del concepto (ej. Reparación de fuga)..."
+                                                                                     value={concepto.descripcion}
+                                                                                     onChange={(e) => {
+                                                                                         const val = e.target.value;
+                                                                                         setTaskItems(prev => prev.map((it, i) => {
+                                                                                             if (i !== index) return it;
+                                                                                             const currConceptos = it.quoteConceptos && it.quoteConceptos.length > 0 ? [...it.quoteConceptos] : [{ descripcion: '', cantidad: '1', precio: '' }];
+                                                                                             currConceptos[cIdx] = { ...currConceptos[cIdx], descripcion: val };
+                                                                                             return { ...it, quoteConceptos: currConceptos };
+                                                                                         }));
+                                                                                     }}
+                                                                                     style={{ flex: 3, padding: '7px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px' }}
+                                                                                 />
+                                                                                 <input
+                                                                                     type="number"
+                                                                                     placeholder="Cant."
+                                                                                     value={concepto.cantidad}
+                                                                                     onChange={(e) => {
+                                                                                         const val = e.target.value;
+                                                                                         setTaskItems(prev => prev.map((it, i) => {
+                                                                                             if (i !== index) return it;
+                                                                                             const currConceptos = it.quoteConceptos && it.quoteConceptos.length > 0 ? [...it.quoteConceptos] : [{ descripcion: '', cantidad: '1', precio: '' }];
+                                                                                             currConceptos[cIdx] = { ...currConceptos[cIdx], cantidad: val };
+                                                                                             return { ...it, quoteConceptos: currConceptos };
+                                                                                         }));
+                                                                                     }}
+                                                                                     style={{ width: '55px', padding: '7px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px' }}
+                                                                                 />
+                                                                                 <input
+                                                                                     type="number"
+                                                                                     placeholder="Precio ($)"
+                                                                                     value={concepto.precio}
+                                                                                     onChange={(e) => {
+                                                                                         const val = e.target.value;
+                                                                                         setTaskItems(prev => prev.map((it, i) => {
+                                                                                             if (i !== index) return it;
+                                                                                             const currConceptos = it.quoteConceptos && it.quoteConceptos.length > 0 ? [...it.quoteConceptos] : [{ descripcion: '', cantidad: '1', precio: '' }];
+                                                                                             currConceptos[cIdx] = { ...currConceptos[cIdx], precio: val };
+                                                                                             return { ...it, quoteConceptos: currConceptos };
+                                                                                         }));
+                                                                                     }}
+                                                                                     style={{ width: '85px', padding: '7px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px' }}
+                                                                                 />
+                                                                                 {(item.quoteConceptos || []).length > 1 && (
+                                                                                     <button
+                                                                                         type="button"
+                                                                                         onClick={() => {
+                                                                                             setTaskItems(prev => prev.map((it, i) => {
+                                                                                                 if (i !== index) return it;
+                                                                                                 const currConceptos = (it.quoteConceptos || []).filter((_, idx) => idx !== cIdx);
+                                                                                                 return { ...it, quoteConceptos: currConceptos };
+                                                                                             }));
+                                                                                         }}
+                                                                                         style={{ background: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca', borderRadius: '6px', padding: '5px 8px', cursor: 'pointer', fontSize: '11px' }}
+                                                                                     >
+                                                                                         ✕
+                                                                                     </button>
+                                                                                 )}
+                                                                             </div>
+                                                                         ))}
+                                                                         <button
+                                                                             type="button"
+                                                                             onClick={() => {
+                                                                                 setTaskItems(prev => prev.map((it, i) => {
+                                                                                     if (i !== index) return it;
+                                                                                     const curr = it.quoteConceptos && it.quoteConceptos.length > 0 ? [...it.quoteConceptos] : [{ descripcion: '', cantidad: '1', precio: '' }];
+                                                                                     return { ...it, quoteConceptos: [...curr, { descripcion: '', cantidad: '1', precio: '' }] };
+                                                                                 }));
+                                                                             }}
+                                                                             style={{ background: '#ffffff', color: '#d97706', border: '1px dashed #f59e0b', padding: '6px', borderRadius: '6px', cursor: 'pointer', fontSize: '11.5px', fontWeight: '700' }}
+                                                                         >
+                                                                             + Agregar Concepto al Punto {index + 1}
+                                                                         </button>
+                                                                     </div>
+                                                                 </div>
+
+                                                                 {/* 2. MATERIALES PARA ESTE PUNTO */}
+                                                                 <div>
+                                                                     <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#92400e', marginBottom: '6px', textTransform: 'uppercase' }}>
+                                                                         2. Materiales / Refacciones de este punto: <span style={{ fontWeight: '400', fontSize: '10px' }}>(Opcional)</span>
+                                                                     </label>
+                                                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                                         {(item.quoteMateriales || []).map((mat, mIdx) => (
+                                                                             <div key={mIdx} style={{ display: 'flex', gap: '8px', alignItems: 'center', background: '#ffffff', padding: '8px 10px', borderRadius: '8px', border: '1px solid #fed7aa' }}>
+                                                                                 <input
+                                                                                     placeholder="Nombre del material..."
+                                                                                     value={mat.nombre}
+                                                                                     onChange={(e) => {
+                                                                                         const val = e.target.value;
+                                                                                         setTaskItems(prev => prev.map((it, i) => {
+                                                                                             if (i !== index) return it;
+                                                                                             const currMats = [...(it.quoteMateriales || [])];
+                                                                                             currMats[mIdx] = { ...currMats[mIdx], nombre: val };
+                                                                                             return { ...it, quoteMateriales: currMats };
+                                                                                         }));
+                                                                                     }}
+                                                                                     style={{ flex: 3, padding: '7px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px' }}
+                                                                                 />
+                                                                                 <input
+                                                                                     type="number"
+                                                                                     placeholder="Cant."
+                                                                                     value={mat.cantidad}
+                                                                                     onChange={(e) => {
+                                                                                         const val = e.target.value;
+                                                                                         setTaskItems(prev => prev.map((it, i) => {
+                                                                                             if (i !== index) return it;
+                                                                                             const currMats = [...(it.quoteMateriales || [])];
+                                                                                             currMats[mIdx] = { ...currMats[mIdx], cantidad: val };
+                                                                                             return { ...it, quoteMateriales: currMats };
+                                                                                         }));
+                                                                                     }}
+                                                                                     style={{ width: '55px', padding: '7px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px' }}
+                                                                                 />
+                                                                                 <input
+                                                                                     type="number"
+                                                                                     placeholder="Costo ($)"
+                                                                                     value={mat.precio}
+                                                                                     onChange={(e) => {
+                                                                                         const val = e.target.value;
+                                                                                         setTaskItems(prev => prev.map((it, i) => {
+                                                                                             if (i !== index) return it;
+                                                                                             const currMats = [...(it.quoteMateriales || [])];
+                                                                                             currMats[mIdx] = { ...currMats[mIdx], precio: val };
+                                                                                             return { ...it, quoteMateriales: currMats };
+                                                                                         }));
+                                                                                     }}
+                                                                                     style={{ width: '85px', padding: '7px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px' }}
+                                                                                 />
+                                                                                 <button
+                                                                                     type="button"
+                                                                                     onClick={() => {
+                                                                                         setTaskItems(prev => prev.map((it, i) => {
+                                                                                             if (i !== index) return it;
+                                                                                             const currMats = (it.quoteMateriales || []).filter((_, idx) => idx !== mIdx);
+                                                                                             return { ...it, quoteMateriales: currMats };
+                                                                                         }));
+                                                                                     }}
+                                                                                     style={{ background: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca', borderRadius: '6px', padding: '5px 8px', cursor: 'pointer', fontSize: '11px' }}
+                                                                                 >
+                                                                                     ✕
+                                                                                 </button>
+                                                                             </div>
+                                                                         ))}
+                                                                         <button
+                                                                             type="button"
+                                                                             onClick={() => {
+                                                                                 setTaskItems(prev => prev.map((it, i) => {
+                                                                                     if (i !== index) return it;
+                                                                                     const curr = it.quoteMateriales ? [...it.quoteMateriales] : [];
+                                                                                     return { ...it, quoteMateriales: [...curr, { nombre: '', cantidad: '1', precio: '' }] };
+                                                                                 }));
+                                                                             }}
+                                                                             style={{ background: '#ffffff', color: '#64748b', border: '1px dashed #cbd5e1', padding: '6px', borderRadius: '6px', cursor: 'pointer', fontSize: '11.5px', fontWeight: '700' }}
+                                                                         >
+                                                                             + Agregar Material al Punto {index + 1}
+                                                                         </button>
+                                                                     </div>
+                                                                 </div>
+                                                             </div>
+                                                         )}
+                                                     </div>
+                                                 )}
                                              </div>
                                          ))}
                                      </div>
                                  </div>
 
-                                { (
+                                { !isSOS && (
                                     <div style={{ marginTop: '18px', background: '#f8fafc', padding: '16px 18px', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
                                         <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13.5px', fontWeight: '700', color: '#1e293b', cursor: 'pointer' }}>
                                             <input
@@ -9938,12 +11162,16 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                         <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: '#ecfdf5', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px auto', fontSize: '32px' }}>
                             📤
                         </div>
-                        <h3 style={{ margin: '0 0 12px 0', fontSize: '20px', fontWeight: '800', color: '#0f172a' }}>¿Enviar Información al Administrador?</h3>
+                        <h3 style={{ margin: '0 0 12px 0', fontSize: '20px', fontWeight: '800', color: '#0f172a' }}>
+                            {isSOS ? '¿Enviar Cotización de Emergencia?' : '¿Enviar Información al Administrador?'}
+                        </h3>
                         <p style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#64748b', lineHeight: '1.6' }}>
-                            Una vez confirmado, el <strong>Administrador General</strong> recibirá los registros de tu visita.
+                            {isSOS 
+                                ? 'La cotización desglosada será enviada al Cliente y al Administrador para su autorización inmediata.'
+                                : 'Una vez confirmado, el Administrador General recibirá los registros de tu visita.'}
                         </p>
                         <div style={{ background: '#fef9c3', border: '1px solid #fde68a', borderRadius: '12px', padding: '12px 16px', marginBottom: '20px', fontSize: '13px', color: '#92400e', textAlign: 'left' }}>
-                            ⚠️ <strong>Atención:</strong> Después de enviar, ya no podrás modificar ni agregar más registros a esta visita.
+                            ⚠️ <strong>Atención:</strong> Después de enviar, ya no podrás modificar ni agregar más registros a esta {isSOS ? 'emergencia' : 'visita'}.
                         </div>
                         <div style={{ display: 'flex', gap: '12px' }}>
                             <button
@@ -9956,47 +11184,159 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                 onClick={async () => {
                                     setShowSendConfirmModal(false);
                                     try {
-                                        // 1. Actualizar trabajo actual a 'En Espera' y visitado: true
-                                        await updateEstadoTrabajo(Number(id), { estado: 'En Espera', visitado: true });
-                                        
-                                        // 2. Si pertenece a un grupo [Grupo: REQ-xxxx], sincronizar todos los trabajos hermanos
-                                        if (groupedJobs && groupedJobs.length > 0) {
-                                            for (const gJob of groupedJobs) {
-                                                if (gJob.id !== Number(id)) {
-                                                    try {
-                                                        await updateEstadoTrabajo(gJob.id, { estado: 'En Espera', visitado: true });
-                                                    } catch (gErr) {
-                                                        console.warn(`Error actualizando trabajo agrupado #${gJob.id}:`, gErr);
+                                        if (isSOS) {
+                                            // 1. Calcular total y desglose de las subTareas
+                                            let totalCalculado = 0;
+                                            const quoteDescriptions: string[] = [];
+
+                                            subTareas.forEach((st: any, idx: number) => {
+                                                let stTotal = 0;
+                                                if (st.quoteData) {
+                                                    if (st.quoteData.conceptos && Array.isArray(st.quoteData.conceptos)) {
+                                                        for (const c of st.quoteData.conceptos) {
+                                                            stTotal += (Number(c.cantidad) || 1) * (Number(c.precio) || 0);
+                                                        }
+                                                    }
+                                                    if (st.quoteData.materiales && Array.isArray(st.quoteData.materiales)) {
+                                                        for (const m of st.quoteData.materiales) {
+                                                            stTotal += (Number(m.cantidad) || 1) * (Number(m.precio) || 0);
+                                                        }
+                                                    }
+                                                    if (stTotal === 0 && st.quoteData.monto) {
+                                                        stTotal = parseFloat(String(st.quoteData.monto).replace(/[^0-9.]/g, '')) || 0;
+                                                    }
+                                                } else if (st.cotizacionMonto && !isNaN(Number(String(st.cotizacionMonto).replace(/[^0-9.]/g, '')))) {
+                                                    stTotal = parseFloat(String(st.cotizacionMonto).replace(/[^0-9.]/g, '')) || 0;
+                                                }
+                                                totalCalculado += stTotal;
+                                                const pointName = st.titulo || `Punto #${idx + 1}`;
+                                                quoteDescriptions.push(`${pointName}: $${stTotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`);
+                                            });
+
+                                            // 2. Crear registro de cotización en base de datos
+                                            try {
+                                                const formData = new FormData();
+                                                formData.append('trabajo_id', String(id));
+                                                formData.append('monto', String(totalCalculado));
+                                                formData.append('total', String(totalCalculado));
+                                                const desc = `Cotización de Emergencia SOS - ${trabajo?.titulo || 'Servicio'}\n` + quoteDescriptions.join('\n');
+                                                formData.append('descripcion', desc);
+                                                formData.append('dias_estimados', '1');
+                                                formData.append('estado', 'Pendiente');
+
+                                                const savedCotiz = await saveCotizacion(formData as any);
+                                                setCotizaciones(prev => [...prev, savedCotiz]);
+                                            } catch (cErr) {
+                                                console.error("Error guardando cotización SOS en backend:", cErr);
+                                            }
+
+                                            // 3. Actualizar estado del trabajo a 'Cotización Enviada' y visitado: true
+                                            await updateEstadoTrabajo(Number(id), { estado: 'Cotización Enviada', visitado: true });
+                                            await updateTrabajo(Number(id), { estado: 'Cotización Enviada', cotizacion: totalCalculado });
+
+                                            // 4. Si pertenece a un grupo [Grupo: REQ-xxxx], sincronizar todos los trabajos hermanos
+                                            if (groupedJobs && groupedJobs.length > 0) {
+                                                for (const gJob of groupedJobs) {
+                                                    if (gJob.id !== Number(id)) {
+                                                        try {
+                                                            await updateEstadoTrabajo(gJob.id, { estado: 'Cotización Enviada', visitado: true });
+                                                            await updateTrabajo(gJob.id, { estado: 'Cotización Enviada', cotizacion: totalCalculado });
+                                                        } catch (gErr) {
+                                                            console.warn(`Error actualizando trabajo agrupado #${gJob.id}:`, gErr);
+                                                        }
                                                     }
                                                 }
                                             }
-                                        }
 
-                                        setTrabajo((prev: any) => prev ? { ...prev, estado: 'En Espera', visitado: true } : prev);
-                                        setActiveTab('Datos');
+                                            setTrabajo((prev: any) => prev ? { ...prev, estado: 'Cotización Enviada', visitado: true, cotizacion: totalCalculado } : prev);
+                                            setActiveTab('Cotización');
 
-                                        const techName = user?.name || 'Técnico';
-                                        const sucursalName = trabajo?.sucursal || trabajo?.negocio?.nombre || 'tu sucursal';
+                                            const techName = user?.name || 'Técnico';
+                                            const sucursalName = trabajo?.sucursal || trabajo?.negocio?.nombre || 'tu sucursal';
 
-                                        // Notificar al Admin General
-                                        try {
-                                            await createNotificacionByRole({
-                                                role: 'admin',
-                                                titulo: '📍 Visita Completada — Cotización Requerida',
-                                                mensaje: `El técnico ${techName} ha finalizado el registro de visita en ${sucursalName}. Revisa los problemas y envía la cotización al cliente.`,
-                                                enlace: `/menu/trabajo-detalle/${id}`
-                                            });
-                                        } catch (notiErr) {
-                                            console.error("Error notificando al Admin:", notiErr);
-                                        }
+                                            // 5. Notificar al Cliente / Encargado
+                                            try {
+                                                if (trabajo?.negocio_id) {
+                                                    await createNotificacionNegocio({
+                                                        negocio_id: trabajo.negocio_id,
+                                                        titulo: '🚨 Cotización de Emergencia SOS Lista',
+                                                        mensaje: `El técnico ${techName} ha completado la evaluación en ${sucursalName}. La cotización por $${totalCalculado.toLocaleString('es-MX', { minimumFractionDigits: 2 })} está lista para su autorización.`,
+                                                        enlace: `/cliente/trabajo-detalle/${id}?tab=cotizacion`
+                                                    });
+                                                }
+                                                await createNotificacionByRole({
+                                                    role: 'encargado',
+                                                    titulo: '🚨 Cotización de Emergencia SOS Lista',
+                                                    mensaje: `El técnico ${techName} ha completado la evaluación en ${sucursalName}. Cotización por $${totalCalculado.toLocaleString('es-MX', { minimumFractionDigits: 2 })} pendiente de autorización.`,
+                                                    enlace: `/cliente/trabajo-detalle/${id}?tab=cotizacion`
+                                                });
+                                            } catch (notifErr) {
+                                                console.error("Error notificando al cliente en SOS:", notifErr);
+                                            }
 
-                                        showAlert('Información Enviada', 'Los registros de la visita han sido enviados al Administrador. El trabajo queda en espera de cotización y aprobación.', 'success');
+                                            // 6. Notificar al Admin General
+                                            try {
+                                                await createNotificacionByRole({
+                                                    role: 'admin',
+                                                    titulo: '🚨 Cotización SOS Generada por Técnico',
+                                                    mensaje: `El técnico ${techName} ha enviado la cotización por $${totalCalculado.toLocaleString('es-MX', { minimumFractionDigits: 2 })} para ${sucursalName}. En espera de aprobación del cliente.`,
+                                                    enlace: `/menu/trabajo-detalle/${id}?tab=cotizacion`
+                                                });
+                                            } catch (notiErr) {
+                                                console.error("Error notificando al Admin:", notiErr);
+                                            }
 
-                                        // Redirigir al técnico a su tablero para que el trabajo se retire de su panel activo
-                                        if (user?.role === 'tecnico' || user?.role === 'tecnico-normal') {
-                                            navigate('/tecnico/tablero');
-                                        } else if (user?.role === 'tecnico-autonomo') {
-                                            navigate('/tecnico-autonomo/solicitudes');
+                                            showAlert('Cotización Enviada', 'La cotización de emergencia SOS ha sido enviada al cliente para su revisión y aprobación.', 'success');
+
+                                            // Redirigir al técnico a su tablero
+                                            if (user?.role === 'tecnico' || user?.role === 'tecnico-normal') {
+                                                navigate('/tecnico');
+                                            } else if (user?.role === 'tecnico-autonomo') {
+                                                navigate('/tecnico-autonomo');
+                                            }
+                                        } else {
+                                            // 1. Actualizar trabajo actual a 'En Espera' y visitado: true
+                                            await updateEstadoTrabajo(Number(id), { estado: 'En Espera', visitado: true });
+                                            
+                                            // 2. Si pertenece a un grupo [Grupo: REQ-xxxx], sincronizar todos los trabajos hermanos
+                                            if (groupedJobs && groupedJobs.length > 0) {
+                                                for (const gJob of groupedJobs) {
+                                                    if (gJob.id !== Number(id)) {
+                                                        try {
+                                                            await updateEstadoTrabajo(gJob.id, { estado: 'En Espera', visitado: true });
+                                                        } catch (gErr) {
+                                                            console.warn(`Error actualizando trabajo agrupado #${gJob.id}:`, gErr);
+                                                        }
+                                                    }
+                                                }
+                                            }
+
+                                            setTrabajo((prev: any) => prev ? { ...prev, estado: 'En Espera', visitado: true } : prev);
+                                            setActiveTab('Datos');
+
+                                            const techName = user?.name || 'Técnico';
+                                            const sucursalName = trabajo?.sucursal || trabajo?.negocio?.nombre || 'tu sucursal';
+
+                                            // Notificar al Admin General
+                                            try {
+                                                await createNotificacionByRole({
+                                                    role: 'admin',
+                                                    titulo: '📍 Visita Completada — Cotización Requerida',
+                                                    mensaje: `El técnico ${techName} ha finalizado el registro de visita en ${sucursalName}. Revisa los problemas y envía la cotización al cliente.`,
+                                                    enlace: `/menu/trabajo-detalle/${id}`
+                                                });
+                                            } catch (notiErr) {
+                                                console.error("Error notificando al Admin:", notiErr);
+                                            }
+
+                                            showAlert('Información Enviada', 'Los registros de la visita han sido enviados al Administrador. El trabajo queda en espera de cotización y aprobación.', 'success');
+
+                                            // Redirigir al técnico a su tablero para que el trabajo se retire de su panel activo
+                                            if (user?.role === 'tecnico' || user?.role === 'tecnico-normal') {
+                                                navigate('/tecnico');
+                                            } else if (user?.role === 'tecnico-autonomo') {
+                                                navigate('/tecnico-autonomo');
+                                            }
                                         }
                                     } catch (err: any) {
                                         showAlert('Error', err?.message || 'No se pudo enviar la información', 'error');
@@ -10004,7 +11344,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                 }}
                                 style={{ flex: 1.5, padding: '13px', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#ffffff', border: 'none', borderRadius: '14px', fontWeight: '800', fontSize: '14px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)' }}
                             >
-                                ✅ Sí, Enviar al Administrador
+                                {isSOS ? '✅ Sí, Enviar Cotización' : '✅ Sí, Enviar al Administrador'}
                             </button>
                         </div>
                     </div>

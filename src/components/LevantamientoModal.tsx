@@ -336,6 +336,8 @@ const LevantamientoModal: React.FC<LevantamientoModalProps> = ({ isOpen, onClose
 
         setSections(updatedSections);
         resetEquipmentForm(targetSubId);
+        // Persistir inmediatamente en el servidor
+        onSave(updatedSections);
     };
 
     const handleDeleteEquipmentFromSubArea = (eqId: string, eqName: string) => {
@@ -358,6 +360,8 @@ const LevantamientoModal: React.FC<LevantamientoModalProps> = ({ isOpen, onClose
                     return sec;
                 });
                 setSections(updatedSections);
+                // Persistir inmediatamente en el servidor
+                onSave(updatedSections);
             },
             () => {},
             "Sí, eliminar",

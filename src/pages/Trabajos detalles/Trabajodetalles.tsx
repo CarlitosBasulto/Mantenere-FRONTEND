@@ -952,42 +952,40 @@ const TrabajoDetalle: React.FC = () => {
                     {/* COLUMNA IZQUIERDA */}
                     <div className={styles.leftColumn}>
                         {/* BOTONES DE ACCIÓN */}
-                        <div className={styles.tabBarWrapper} style={{ justifyContent: "flex-start", margin: "0 0 20px 0" }}>
-                            {canSeeActions && (
-                                <div className={styles.actionButtonsGroup}>
-                                    {canSeeSOS && (
-                                        <button className={styles.sosBtn} onClick={handleSOSRequest} translate="no">🚨 SOS</button>
-                                    )}
-                                    {canSeeSolicitud && (
-                                        <button className={styles.newRequestBtn} onClick={() => {
-                                            setIsSOSRequest(false);
-                                            setIsEditingRequest(false);
-                                            setEditingRequestId(null);
-                                            setNewRequestData({ categoria: "Electricidad", cliente: businessName, fecha: new Date().toISOString().split("T")[0], descripcion: "", equipoSeleccionado: "", trabajador_id: "" });
-                                            setFormServices([{ id: "svc-" + Date.now(), categoria: "Electricidad", customCategoria: "", descripcion: "", equipoSeleccionado: "", fotos: [], fotosPreviewUrls: [], isMinimized: false }]);
-                                            setFotosSOS([]);
-                                            setFotosPreviewUrls([]);
-                                            setIsRequestModalOpen(true);
-                                        }}>
-                                            <HiOutlineClipboardDocument size={18} />
-                                            Solicitud
-                                        </button>
-                                    )}
-                                    {canSeeEquipos && (
-                                        <button className={styles.equiposBtn} onClick={() => setSearchParams({ tab: "equipos" })}>
-                                            <HiOutlineArchiveBox size={18} />
-                                            Equipos
-                                        </button>
-                                    )}
-                                    {isTecnico && (
-                                        <button className={styles.historialBtn} onClick={() => setSearchParams({ tab: "historial" })}>
-                                            <HiOutlineClock size={20} />
-                                            Ver Historial
-                                        </button>
-                                    )}
-                                </div>
-                            )}
-                        </div>
+                        {canSeeActions && (
+                            <div className={styles.actionButtonsGroup}>
+                                {canSeeSOS && (
+                                    <button className={styles.sosBtn} onClick={handleSOSRequest} translate="no">🚨 SOS</button>
+                                )}
+                                {canSeeSolicitud && (
+                                    <button className={styles.newRequestBtn} onClick={() => {
+                                        setIsSOSRequest(false);
+                                        setIsEditingRequest(false);
+                                        setEditingRequestId(null);
+                                        setNewRequestData({ categoria: "Electricidad", cliente: businessName, fecha: new Date().toISOString().split("T")[0], descripcion: "", equipoSeleccionado: "", trabajador_id: "" });
+                                        setFormServices([{ id: "svc-" + Date.now(), categoria: "Electricidad", customCategoria: "", descripcion: "", equipoSeleccionado: "", fotos: [], fotosPreviewUrls: [], isMinimized: false }]);
+                                        setFotosSOS([]);
+                                        setFotosPreviewUrls([]);
+                                        setIsRequestModalOpen(true);
+                                    }}>
+                                        <HiOutlineClipboardDocument size={18} />
+                                        Solicitud
+                                    </button>
+                                )}
+                                {canSeeEquipos && (
+                                    <button className={styles.equiposBtn} onClick={() => setSearchParams({ tab: "equipos" })}>
+                                        <HiOutlineArchiveBox size={18} />
+                                        Equipos
+                                    </button>
+                                )}
+                                {isTecnico && (
+                                    <button className={styles.historialBtn} onClick={() => setSearchParams({ tab: "historial" })}>
+                                        <HiOutlineClock size={20} />
+                                        Ver Historial
+                                    </button>
+                                )}
+                            </div>
+                        )}
 
                         {/* RESUMEN MÓVIL */}
                         <div className={styles.mobileSummaryWrapper}>

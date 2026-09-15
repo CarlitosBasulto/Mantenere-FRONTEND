@@ -610,8 +610,9 @@ const PerfilEmpresaUnificado: React.FC<{ config: PerfilEmpresaConfig }> = ({ con
             if (imagenPortadaSafe) apiPayload.imagen_portada = imagenPortadaSafe;
 
             const updateRes = await updateNegocio(Number(editId), apiPayload);
-            if (updateRes?.data?.areas) {
-                const mergedAreas = updateRes.data.areas.map((serverArea: any) => {
+            const serverAreasList = updateRes?.data?.areas || updateRes?.areas;
+            if (serverAreasList && Array.isArray(serverAreasList)) {
+                const mergedAreas = serverAreasList.map((serverArea: any) => {
                     const localArea = newLevantamientoData.find(a => 
                         String(a.id) === String(serverArea.id) || a.nombreArea === serverArea.nombreArea
                     );

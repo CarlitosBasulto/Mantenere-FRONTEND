@@ -5,8 +5,9 @@ import menuStyles from "../../components/Menu.module.css";
 import { useAuth } from "../../context/AuthContext";
 import { normalizeRole, isAutonomoAdmin } from "../../utils/roles";
 import { useModal } from "../../context/ModalContext";
-import { getNegocios } from "../../services/base/negociosService";
-import { getTrabajos } from "../../services/base/trabajosService";
+import { getNegocios } from "../../services/negociosService";
+import { getTrabajos } from "../../services/trabajosService";
+import BusinessPostIts from "../../components/BusinessPostIts";
 
 
 interface Negocio {
@@ -77,8 +78,8 @@ const ListaNegocios: React.FC = () => {
                 if (stored) setNegocios(JSON.parse(stored));
             }
 
-            // 2. Cargar trabajos ÚNICAMENTE para técnicos (los demás roles no los necesitan en esta vista)
-            if (user && normalizeRole(user?.role) === 'tecnico-normal') {
+            // 2. Cargar trabajos para calcular los post-its de estado de cada negocio
+            if (user) {
                 try {
                     const jobsApi = await getTrabajos();
                     setGlobalJobs(jobsApi);
@@ -197,18 +198,10 @@ const ListaNegocios: React.FC = () => {
                         const matchPos = coverUrl.match(/[?&]posy=(\d+)/);
                         const posY = matchPos ? `${matchPos[1]}%` : 'center';
 
+                        const negocioJobs = globalJobs.filter((j: any) => Number(j.negocio_id) === Number(negocio.id));
+
                         return (
                             <div style={{ position: 'sticky', top: `calc(10px + ${index * 14}px)`, zIndex: index, paddingBottom: '10px' }} key={negocio.id}>
-                                {hasSOS && (
-                                    <div className={styles.badgeSOS}>
-                                        EMERGENCIA SOS
-                                    </div>
-                                )}
-                                {hasDiagnosis && !hasSOS && (
-                                    <div className={styles.badgeDiagnosis}>
-                                        DIAGNÓSTICO LISTO
-                                    </div>
-                                )}
                                 <div
                                     className={styles.jobCard}
                                     onClick={() => handleCardClick(negocio.id)}
@@ -218,6 +211,13 @@ const ListaNegocios: React.FC = () => {
                                         ['--card-bg' as any]: cardBg
                                     }}
                                 >
+                                    {/* Post-it Notes interactivos con código de color en la esquina superior derecha */}
+                                    <BusinessPostIts 
+                                        jobs={negocioJobs} 
+                                        negocioId={negocio.id} 
+                                        negocioNombre={negocio.nombre} 
+                                    />
+
                                     {hasValidCover && (
                                         <div className={styles.cardRightImageWrapper}>
                                             <img

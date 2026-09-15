@@ -72,6 +72,210 @@ const getCleanNotes = (text: string) => {
     return cleanLines.join('\n').trim();
 };
 
+export const getDiagnosticCategories = (trabajo: any, reporteData: any, subTareas?: any[]) => {
+    const categoriesSet = new Set<string>();
+
+    const addCat = (val: any) => {
+        if (!val || typeof val !== 'string') return;
+        const trimmed = val.split('|||SERVICE_DATA|||')[0].trim();
+        if (trimmed && trimmed.length < 50 && !trimmed.toLowerCase().includes('sin diagnóstico')) {
+            trimmed.split(/[\/,+&]/).forEach(c => {
+                const cleaned = c.trim();
+                if (cleaned && cleaned.length < 40 && !cleaned.toLowerCase().startsWith('punto') && !cleaned.toLowerCase().startsWith('foto')) {
+                    const formatted = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+                    categoriesSet.add(formatted);
+                }
+            });
+        }
+    };
+
+    // 1. Initial base service from trabajo
+    addCat(trabajo?.servicio);
+    addCat(trabajo?.categoria);
+    addCat(trabajo?.tipo_servicio);
+    addCat(trabajo?.nombre_servicio);
+    if (trabajo?.titulo && trabajo.titulo.length < 30 && !trabajo.titulo.toLowerCase().includes('visita')) {
+        addCat(trabajo.titulo);
+    }
+
+    // 2. reporteTienda
+    if (reporteData?.reporteTienda && reporteData.reporteTienda.length < 40 && !reporteData.reporteTienda.includes('\n') && !reporteData.reporteTienda.includes('. [')) {
+        addCat(reporteData.reporteTienda);
+    }
+
+    // 3. Extract bracket tags [Category] from descripcion
+    if (reporteData?.descripcion) {
+        const matches = reporteData.descripcion.match(/\[([^\]]+)\]/g);
+        if (matches) {
+            matches.forEach((m: string) => {
+                const tag = m.replace(/[\[\]]/g, '').trim();
+                if (tag && tag.length < 40 && !tag.toLowerCase().startsWith('punto') && !tag.toLowerCase().startsWith('foto')) {
+                    const formatted = tag.charAt(0).toUpperCase() + tag.slice(1);
+                    categoriesSet.add(formatted);
+                }
+            });
+        }
+    }
+
+    // 4. Subtareas / ServiceData items
+    if (subTareas && Array.isArray(subTareas)) {
+        subTareas.forEach(st => {
+            if (st.serviceData?.tipoServicio) addCat(st.serviceData.tipoServicio);
+            if (st.serviceData?.items && Array.isArray(st.serviceData.items)) {
+                st.serviceData.items.forEach((it: any) => {
+                    const t = it.customTipo || it.tipo;
+                    addCat(t);
+                });
+            }
+            if (st.tipoActividad) addCat(st.tipoActividad);
+            if (st.categoria) addCat(st.categoria);
+        });
+    }
+
+    if (reporteData?.equipoInfo?.tipo) {
+        addCat(reporteData.equipoInfo.tipo);
+    }
+
+    if (categoriesSet.size > 0) {
+        return Array.from(categoriesSet).join(', ');
+    }
+
+    return reporteData?.reporteTienda || trabajo?.servicio || trabajo?.titulo || 'Servicio General';
+};
+
+export const parseWorkItems = (rawDesc: string) => {
+    if (!rawDesc || !rawDesc.trim() || rawDesc === 'Sin descripción de trabajo.' || rawDesc === 'Sin descripción registrada.') {
+        return [];
+    }
+    const cleanDesc = rawDesc.split('|||SERVICE_DATA|||')[0].trim();
+    if (!cleanDesc) return [];
+
+    // Split by numbered pattern e.g. "1. ", "2. " or newlines
+    const numberedMatches = cleanDesc.split(/(?=(?:^|\s+)\d+\.\s+)/g).map(s => s.trim()).filter(Boolean);
+    if (numberedMatches.length > 1 || (numberedMatches.length === 1 && /^\d+\.\s+/.test(numberedMatches[0]))) {
+        return numberedMatches.map(itemStr => {
+            const withoutNum = itemStr.replace(/^\d+\.\s*/, '').trim();
+            const tagMatch = withoutNum.match(/^\[([^\]]+)\]\s*([\s\S]*)$/);
+            if (tagMatch) {
+                return {
+                    categoria: tagMatch[1].trim(),
+                    texto: tagMatch[2].trim()
+                };
+            }
+            return {
+                categoria: '',
+                texto: withoutNum
+            };
+        });
+    }
+
+    const lines = cleanDesc.split(/\n+/).map(l => l.trim()).filter(Boolean);
+    if (lines.length > 1) {
+        return lines.map(line => {
+            const cleanLine = line.replace(/^\d+\.\s*/, '').trim();
+            const tagMatch = cleanLine.match(/^\[([^\]]+)\]\s*([\s\S]*)$/);
+            if (tagMatch) {
+                return {
+                    categoria: tagMatch[1].trim(),
+                    texto: tagMatch[2].trim()
+                };
+            }
+            return {
+                categoria: '',
+                texto: cleanLine
+            };
+        });
+    }
+
+    const tagMatch = cleanDesc.match(/^\[([^\]]+)\]\s*([\s\S]*)$/);
+    if (tagMatch) {
+        return [{
+            categoria: tagMatch[1].trim(),
+            texto: tagMatch[2].trim()
+        }];
+    }
+
+    return [{
+        categoria: '',
+        texto: cleanDesc
+    }];
+};
+
+export interface EvidenceItem {
+    id: string | number;
+    puntoNumero?: number;
+    titulo: string;
+    categoria?: string;
+    descripcion?: string;
+    foto: string;
+}
+
+export const getAllVisitEvidences = (reporteData: any, trabajo?: any): EvidenceItem[] => {
+    // 1. If explicit puntosEvidencia array is passed
+    if (reporteData?.puntosEvidencia && Array.isArray(reporteData.puntosEvidencia) && reporteData.puntosEvidencia.length > 0) {
+        return reporteData.puntosEvidencia
+            .filter((p: any) => p && p.foto)
+            .map((p: any, idx: number) => ({
+                id: `punto-${idx + 1}`,
+                puntoNumero: p.punto || idx + 1,
+                titulo: `Punto de Revisión ${p.punto || idx + 1}`,
+                categoria: p.tipo || '',
+                descripcion: p.descripcion || '',
+                foto: p.foto
+            }));
+    }
+
+    const parsedWorkItems = parseWorkItems(reporteData?.descripcion || '');
+
+    // 2. If observacionesList is present with images
+    if (reporteData?.observacionesList && Array.isArray(reporteData.observacionesList) && reporteData.observacionesList.length > 0) {
+        const items: EvidenceItem[] = [];
+        let count = 0;
+        reporteData.observacionesList.forEach((obs: any, idx: number) => {
+            const relatedWork = parsedWorkItems[idx];
+            const imgs = (obs.imagenes && Array.isArray(obs.imagenes) ? obs.imagenes : (obs.foto ? [obs.foto] : [])).filter(Boolean);
+            imgs.forEach((img: string) => {
+                count++;
+                items.push({
+                    id: `obs-${idx}-${count}`,
+                    puntoNumero: idx + 1,
+                    titulo: `Punto de Revisión ${idx + 1}`,
+                    categoria: relatedWork?.categoria || '',
+                    descripcion: (obs.texto && obs.texto !== 'Sin observaciones registradas.') ? obs.texto : (relatedWork?.texto || ''),
+                    foto: img
+                });
+            });
+        });
+        if (items.length > 0) return items;
+    }
+
+    // 3. Collect from standard imagenes (antes, durante, despues) and imagenesObservacion / imagenObservacion
+    const allImgs: string[] = [];
+    if (reporteData?.imagenes?.antes) allImgs.push(reporteData.imagenes.antes);
+    if (reporteData?.imagenes?.durante) allImgs.push(reporteData.imagenes.durante);
+    if (reporteData?.imagenes?.despues) allImgs.push(reporteData.imagenes.despues);
+    if (reporteData?.imagenesObservacion && Array.isArray(reporteData.imagenesObservacion)) {
+        reporteData.imagenesObservacion.forEach((img: string) => {
+            if (img && !allImgs.includes(img)) allImgs.push(img);
+        });
+    }
+    if (reporteData?.imagenObservacion && !allImgs.includes(reporteData.imagenObservacion)) {
+        allImgs.push(reporteData.imagenObservacion);
+    }
+
+    return allImgs.filter(Boolean).map((img, idx) => {
+        const work = parsedWorkItems[idx];
+        return {
+            id: `img-${idx + 1}`,
+            puntoNumero: idx + 1,
+            titulo: parsedWorkItems.length > 0 ? `Punto de Revisión ${idx + 1}` : `Foto ${idx + 1}`,
+            categoria: work?.categoria || '',
+            descripcion: work?.texto || '',
+            foto: img
+        };
+    });
+};
+
 export default function ReportePDFPreview({ trabajo, reporteData, subTareas, isVisita: isVisitaProp, onClose, onSendToAdminAutonomo }: ReportePDFPreviewProps) {
     const isVisita = isVisitaProp ?? reporteData?.isVisita ?? (trabajo?.tipo === 'Visita' || trabajo?.originalTipo === 'Visita');
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -156,9 +360,11 @@ export default function ReportePDFPreview({ trabajo, reporteData, subTareas, isV
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
+    const allVisitEvidences = getAllVisitEvidences(reporteData, trabajo);
     const mainImgsExist = reporteData.imagenes.antes || reporteData.imagenes.durante || reporteData.imagenes.despues;
     const hasObs = (reporteData.observacionesList && reporteData.observacionesList.length > 0) || reporteData.observaciones?.trim() || reporteData.imagenesObservacion?.length || reporteData.imagenObservacion;
-    const totalPages = (mainImgsExist || hasObs) ? 2 : 1;
+    const hasEvidences = allVisitEvidences.length > 0;
+    const totalPages = (mainImgsExist || hasObs || hasEvidences) ? 2 : 1;
 
     const isMobile = screenWidth < 768;
     const availableWidth = isMobile ? screenWidth - 30 : 800;
@@ -326,22 +532,84 @@ export default function ReportePDFPreview({ trabajo, reporteData, subTareas, isV
                         </div>
 
                         {(() => {
-                            const isVisita = trabajo?.tipo === 'Visita' || trabajo?.originalTipo === 'Visita';
+                            const isVisita = trabajo?.tipo === 'Visita' || trabajo?.originalTipo === 'Visita' || reporteData.isVisita;
                             const llegadaTask = subTareas?.find((t: any) => t.serviceData?.horaLlegada);
+                            const diagnosticCategories = getDiagnosticCategories(trabajo, reporteData, subTareas);
                             return (
                                 <div style={{ background: '#f8fafc', padding: '15px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
                                     <h4 style={{ margin: '0 0 10px 0', fontSize: '12px', fontWeight: '800', color: '#1e293b', textTransform: 'uppercase', borderBottom: '1px solid #cbd5e1', paddingBottom: '4px' }}>Detalles del Servicio</h4>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '12px', color: '#475569' }}>
-                                        <div><strong>{isVisita ? 'Diagnóstico / Visita:' : 'Diagnóstico / Reporte:'}</strong> {reporteData.reporteTienda || 'Sin diagnóstico registrado.'}</div>
+                                        <div><strong>{isVisita ? 'Diagnóstico / Visita:' : 'Diagnóstico / Reporte:'}</strong> {diagnosticCategories}</div>
                                         {llegadaTask && (
                                             <div><strong>Hora de Llegada:</strong> {llegadaTask.serviceData.horaLlegada}</div>
                                         )}
-                                        <div><strong>{isVisita ? 'Trabajo a Realizar:' : 'Trabajo Realizado:'}</strong> {reporteData.descripcion || 'Sin descripción de trabajo.'}</div>
                                     </div>
                                 </div>
                             );
                         })()}
                     </div>
+
+                    {/* Trabajo a Realizar / Realizado (Ubicado arriba de Materiales y Refacciones Cotizados) */}
+                    {(() => {
+                        const isVisita = trabajo?.tipo === 'Visita' || trabajo?.originalTipo === 'Visita' || reporteData.isVisita;
+                        const workItems = parseWorkItems(reporteData.descripcion);
+
+                        return (
+                            <div style={{ marginBottom: '22px' }}>
+                                <h4 style={{ margin: '0 0 10px 0', fontSize: '12px', fontWeight: '800', color: '#1e293b', textTransform: 'uppercase' }}>
+                                    {isVisita ? 'Trabajo a Realizar' : 'Trabajo Realizado'}
+                                </h4>
+                                <div style={{ background: '#f8fafc', padding: '14px 16px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                                    {workItems.length > 0 ? (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                            {workItems.map((item, idx) => (
+                                                <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', fontSize: '12px', color: '#334155', lineHeight: '1.4' }}>
+                                                    <span style={{
+                                                        background: '#1e293b',
+                                                        color: '#ffffff',
+                                                        minWidth: '20px',
+                                                        height: '20px',
+                                                        borderRadius: '50%',
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        fontSize: '11px',
+                                                        fontWeight: '800',
+                                                        flexShrink: 0,
+                                                        marginTop: '1px'
+                                                    }}>
+                                                        {idx + 1}
+                                                    </span>
+                                                    <div style={{ flex: 1 }}>
+                                                        {item.categoria && (
+                                                            <span style={{
+                                                                background: '#e0f2fe',
+                                                                color: '#0369a1',
+                                                                border: '1px solid #bae6fd',
+                                                                padding: '1px 7px',
+                                                                borderRadius: '4px',
+                                                                fontSize: '11px',
+                                                                fontWeight: '700',
+                                                                marginRight: '6px',
+                                                                display: 'inline-block'
+                                                            }}>
+                                                                {item.categoria}
+                                                            </span>
+                                                        )}
+                                                        <span style={{ whiteSpace: 'pre-wrap' }}>{item.texto || item.categoria}</span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>
+                                            {isVisita ? 'Sin descripción de trabajo a realizar.' : 'Sin descripción de trabajo realizado.'}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    })()}
 
                     {/* Refacciones y Piezas Table */}
                     {(() => {
@@ -542,8 +810,8 @@ export default function ReportePDFPreview({ trabajo, reporteData, subTareas, isV
                 </div>
 
                 {/* PAGE 2 */}
-                {(mainImgsExist || hasObs) && (
-                    <div className="pdf-page" style={{ position: 'relative', background: '#fff', padding: '50px', boxSizing: 'border-box', border: '1px solid #e2e8f0', borderRadius: '12px', minHeight: '297mm', fontFamily: 'Arial, sans-serif', boxShadow: '0 4px 15px rgba(0,0,0,0.1)' }}>
+                {(mainImgsExist || hasObs || hasEvidences) && (
+                    <div className="pdf-page" style={{ position: 'relative', background: '#fff', padding: '50px', boxSizing: 'border-box', border: '1px solid #e2e8f0', borderRadius: '12px', minHeight: '297mm', fontFamily: 'Arial, sans-serif', boxShadow: '0 4px 15px rgba(0,0,0,0.1)', width: '800px', minWidth: '800px' }}>
                         {/* Header Banner */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#1e293b', padding: '15px 30px', margin: '-50px -50px 30px -50px', color: 'white' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
@@ -561,96 +829,98 @@ export default function ReportePDFPreview({ trabajo, reporteData, subTareas, isV
                                 )}
                             </div>
                             <div style={{ textAlign: 'right' }}>
-                                <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: 'white' }}>TESTIGOS FOTOGRÁFICOS</h2>
+                                <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: 'white' }}>
+                                    {isVisita ? 'REGISTRO DE VISITA' : 'TESTIGOS FOTOGRÁFICOS'}
+                                </h2>
                                 <span style={{ fontSize: '11px', color: '#94a3b8', display: 'block', marginTop: '2px' }}>FECHA: {reporteData.fecha}</span>
                             </div>
                         </div>
 
                         <div style={{ borderBottom: '3px solid #c99b21', margin: '-30px -50px 25px -50px' }} />
 
-                        {/* Fotografías Testigo */}
-                        {mainImgsExist && (
-                            <div style={{ marginBottom: '30px' }}>
-                                <h4 style={{ margin: '0 0 20px 0', fontSize: '12px', fontWeight: '800', color: '#1e293b', textTransform: 'uppercase', borderBottom: '1px solid #cbd5e1', paddingBottom: '4px' }}>Testigos Fotográficos</h4>
-                                <div style={{ display: 'flex', gap: '15px', justifyContent: 'flex-start' }}>
-                                    {reporteData.imagenes.antes && (
-                                        <div style={{ textAlign: 'center', width: '130px' }}>
-                                            <img src={reporteData.imagenes.antes} alt="Antes" style={{ width: '130px', height: '130px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #e2e8f0' }} />
-                                            <span style={{ fontSize: '10px', fontWeight: 'bold', color: '#64748b', display: 'block', marginTop: '5px' }}>
-                                                {reporteData.isActivityReport
-                                                    ? 'FOTO 1'
-                                                    : (trabajo?.tipo === 'Visita' || trabajo?.originalTipo === 'Visita' ? 'ANTES' : 'FOTO 1')}
+                        {/* Section Header */}
+                        <h4 style={{ margin: '0 0 16px 0', fontSize: '12px', fontWeight: '800', color: '#1e293b', textTransform: 'uppercase', borderBottom: '1px solid #cbd5e1', paddingBottom: '4px' }}>
+                            {isVisita ? 'Registro Fotográfico de la Visita' : 'Testigos Fotográficos'}
+                        </h4>
+
+                        {/* Unified Evidence Grid */}
+                        {allVisitEvidences.length > 0 ? (
+                            <div style={{ 
+                                display: 'grid', 
+                                gridTemplateColumns: allVisitEvidences.length <= 4 ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)', 
+                                gap: '16px', 
+                                marginBottom: '20px' 
+                            }}>
+                                {allVisitEvidences.map((evi, idx) => (
+                                    <div key={evi.id || idx} style={{
+                                        background: '#f8fafc',
+                                        border: '1px solid #e2e8f0',
+                                        borderRadius: '10px',
+                                        padding: '12px',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: '8px'
+                                    }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+                                            <span style={{ fontSize: '11px', fontWeight: '800', color: '#1e293b', textTransform: 'uppercase' }}>
+                                                {evi.titulo || `Punto ${idx + 1}`}
                                             </span>
+                                            {evi.categoria && (
+                                                <span style={{
+                                                    background: '#e0f2fe',
+                                                    color: '#0369a1',
+                                                    border: '1px solid #bae6fd',
+                                                    padding: '1px 6px',
+                                                    borderRadius: '4px',
+                                                    fontSize: '9px',
+                                                    fontWeight: '700'
+                                                }}>
+                                                    {evi.categoria}
+                                                </span>
+                                            )}
                                         </div>
-                                    )}
-                                    {reporteData.imagenes.durante && (
-                                        <div style={{ textAlign: 'center', width: '130px' }}>
-                                            <img src={reporteData.imagenes.durante} alt="Durante" style={{ width: '130px', height: '130px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #e2e8f0' }} />
-                                            <span style={{ fontSize: '10px', fontWeight: 'bold', color: '#64748b', display: 'block', marginTop: '5px' }}>
-                                                {reporteData.isActivityReport
-                                                    ? 'FOTO 2'
-                                                    : (trabajo?.tipo === 'Visita' || trabajo?.originalTipo === 'Visita' ? 'DURANTE' : 'FOTO 2')}
-                                            </span>
-                                        </div>
-                                    )}
-                                    {reporteData.imagenes.despues && (
-                                        <div style={{ textAlign: 'center', width: '130px' }}>
-                                            <img src={reporteData.imagenes.despues} alt="Después" style={{ width: '130px', height: '130px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #e2e8f0' }} />
-                                            <span style={{ fontSize: '10px', fontWeight: 'bold', color: '#64748b', display: 'block', marginTop: '5px' }}>
-                                                {reporteData.isActivityReport
-                                                    ? 'FOTO 3'
-                                                    : (trabajo?.tipo === 'Visita' || trabajo?.originalTipo === 'Visita' ? 'DESPUÉS' : 'FOTO 3')}
-                                            </span>
-                                        </div>
-                                    )}
-                                </div>
+                                        <img 
+                                            src={evi.foto} 
+                                            alt={evi.titulo || `Evidencia ${idx + 1}`} 
+                                            style={{
+                                                width: '100%',
+                                                height: allVisitEvidences.length <= 4 ? '160px' : '120px',
+                                                objectFit: 'cover',
+                                                borderRadius: '6px',
+                                                border: '1px solid #cbd5e1',
+                                                background: '#fff'
+                                            }} 
+                                        />
+                                        {evi.descripcion && (
+                                            <p style={{
+                                                margin: 0,
+                                                fontSize: '10px',
+                                                color: '#475569',
+                                                lineHeight: '1.3',
+                                                whiteSpace: 'pre-wrap',
+                                                maxHeight: '40px',
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis'
+                                            }}>
+                                                {evi.descripcion}
+                                            </p>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div style={{ background: '#f8fafc', padding: '15px', borderRadius: '10px', border: '1px solid #e2e8f0', fontSize: '12px', color: '#64748b' }}>
+                                No se registraron evidencias fotográficas.
                             </div>
                         )}
-                        {/* Structured Observations */}
-                        {(() => {
-                            let list = reporteData.observacionesList ? [...reporteData.observacionesList] : [];
-                            const extraImgs = (reporteData.imagenesObservacion && reporteData.imagenesObservacion.length > 0)
-                                ? reporteData.imagenesObservacion
-                                : (reporteData.imagenObservacion ? [reporteData.imagenObservacion] : []);
-                                
-                            if (!list || list.length === 0) {
-                                if (reporteData.observaciones?.trim() || extraImgs.length > 0) {
-                                    list = [{
-                                        id: 'fallback-preview',
-                                        texto: reporteData.observaciones || '',
-                                        imagenes: extraImgs.filter(Boolean) as string[]
-                                    }];
-                                } else {
-                                    list = [];
-                                }
-                            } else if (list.length === 1 && (!list[0].imagenes || list[0].imagenes.length === 0) && extraImgs.length > 0) {
-                                list[0].imagenes = extraImgs.filter(Boolean) as string[];
-                            }
 
-                            if (list.length > 0) {
-                                return (
-                                    <div style={{ marginTop: '20px' }}>
-                                        <h4 style={{ margin: '0 0 15px 0', fontSize: '12px', fontWeight: '800', color: '#1e293b', textTransform: 'uppercase', borderBottom: '1px solid #cbd5e1', paddingBottom: '4px' }}>Observaciones y Evidencias</h4>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                                            {list.map((obs, idx) => (
-                                                <div key={obs.id || idx} style={{ background: '#f8fafc', padding: '15px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                                                    <h5 style={{ margin: '0 0 6px 0', fontSize: '11px', fontWeight: '800', color: '#1e293b' }}>Observación #{idx + 1}</h5>
-                                                    <p style={{ margin: '0 0 10px 0', fontSize: '11px', color: '#475569', whiteSpace: 'pre-wrap' }}>{obs.texto || 'Sin observaciones registradas.'}</p>
-                                                    {obs.imagenes && obs.imagenes.length > 0 && (
-                                                        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                                                            {obs.imagenes.map((img, imgIdx) => (
-                                                                <img key={imgIdx} src={img} alt={`Evidencia ${idx + 1}-${imgIdx + 1}`} style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '4px', border: '1px solid #cbd5e1' }} />
-                                                            ))}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                );
-                            }
-                            return null;
-                        })()}
+                        {/* Observaciones generales adicionales (solo si el técnico ingresó notas explícitas) */}
+                        {reporteData.observaciones && reporteData.observaciones.trim() && !reporteData.observaciones.toLowerCase().includes('sin observaciones') && (
+                            <div style={{ marginTop: '15px', background: '#f8fafc', padding: '14px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                                <h5 style={{ margin: '0 0 6px 0', fontSize: '11px', fontWeight: '800', color: '#1e293b', textTransform: 'uppercase' }}>Observaciones Adicionales</h5>
+                                <p style={{ margin: 0, fontSize: '11px', color: '#475569', whiteSpace: 'pre-wrap' }}>{reporteData.observaciones}</p>
+                            </div>
+                        )}
 
                         {/* Page Footer */}
                         <div style={{ position: 'absolute', bottom: '20px', left: 0, right: 0, textAlign: 'center', fontSize: '10px', color: '#94a3b8' }}>

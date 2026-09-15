@@ -62,7 +62,12 @@
 
 .borderAccepted {
     background: #4CAF50;
-    /* Verde estilo ListaNegocios */
+    /* Verde éxito */
+}
+
+.borderPending {
+    background: #f59e0b;
+    /* Ámbar pendiente */
 }
 
 .borderRejected {
@@ -168,6 +173,11 @@
 .badgeAccepted {
     background: #dfffd6;
     color: #2e7d32;
+}
+
+.badgePending {
+    background: #fef3c7;
+    color: #b45309;
 }
 
 .badgeRejected {

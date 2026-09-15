@@ -118,6 +118,7 @@ function App() {
                             </ProtectedRoute>
                         }>
                             <Route index element={<DashboardTecnico />} />
+                            <Route path="tablero" element={<Navigate to="/tecnico" replace />} />
                             <Route path="solicitudes" element={<ListaSolicitudes />} />
                             <Route path="mi-perfil" element={<MiPerfil />} />
                             <Route path="historial" element={<AdminHistorial />} />
@@ -133,6 +134,7 @@ function App() {
                             </ProtectedRoute>
                         }>
                             <Route index element={<DashboardTecnicoAutonomo />} />
+                            <Route path="tablero" element={<Navigate to="/tecnico-autonomo" replace />} />
                             <Route path="solicitudes" element={<ListaSolicitudes />} />
                             <Route path="mi-perfil" element={<MiPerfil />} />
                             <Route path="historial" element={<AdminHistorial />} />

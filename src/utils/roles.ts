@@ -10,19 +10,20 @@ export const AUTONOMO_ROLES = [
   'tecnico-autonomo'
 ];
 
-export const isBaseRole = (role?: string) => BASE_ROLES.includes(role || '');
-export const isAutonomoRole = (role?: string) => {
+export const isBaseRole = (role?: any) => BASE_ROLES.includes(normalizeRole(role));
+export const isAutonomoRole = (role?: any) => {
   const norm = normalizeRole(role);
   return norm === 'autonomo' || norm === 'propietario-autonomo' || norm === 'administrador-general' || norm === 'gerente-sucursal' || norm === 'tecnico-autonomo';
 };
 
-export const isAutonomoAdmin = (role?: string): boolean => {
+export const isAutonomoAdmin = (role?: any): boolean => {
   const norm = normalizeRole(role);
   return norm === 'autonomo' || norm === 'propietario-autonomo' || norm === 'administrador-general';
 };
 
 // Nombres viejos que vienen del backend (mientras migran)
-export const normalizeRole = (role?: string): string => {
+export const normalizeRole = (role?: any): string => {
+  const roleStr = typeof role === 'object' && role !== null ? role.name : role;
   const map: Record<string, string> = {
     'admin-autonomo': 'propietario-autonomo',
     'gerente-general': 'administrador-general',
@@ -30,5 +31,5 @@ export const normalizeRole = (role?: string): string => {
     'Trabajador': 'tecnico-normal',
     'tecnico': 'tecnico-normal',
   };
-  return map[role || ''] ?? role ?? '';
+  return map[roleStr || ''] ?? roleStr ?? '';
 };

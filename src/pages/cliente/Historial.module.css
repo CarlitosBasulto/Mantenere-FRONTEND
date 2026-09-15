@@ -129,6 +129,10 @@
     font-size: 15px;
     color: #666;
     margin: 5px 0;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+    max-width: 100%;
 }
 
 .cardFooter {
