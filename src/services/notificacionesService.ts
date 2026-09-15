@@ -47,6 +47,8 @@ export const createNotificacionByRole = async (data: {
     titulo: string;
     mensaje: string;
     enlace?: string;
+    negocio_id?: number;
+    admin_autonomo_id?: number;
 }) => {
     const response = await api.post(`/notificaciones/rol`, data);
     return response.data;

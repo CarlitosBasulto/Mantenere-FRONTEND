@@ -120,11 +120,13 @@ const TrabajoDetalle: React.FC = () => {
             return;
         }
         try {
+            const isEncargado = user?.role === 'gerente-sucursal' || user?.role === 'encargado';
             await createNotificacionByRole({
                 role: "admin",
                 titulo: "Solicitud de Técnico",
                 mensaje: `El usuario ${user?.name || "encargado"} solicita un técnico con especialidad: ${requestRole}.`,
-                enlace: "/menu/trabajadores"
+                enlace: isAutonomoAdmin(user?.role) || isEncargado ? "/autonomo/trabajadores" : "/menu/trabajadores",
+                negocio_id: Number(id)
             });
             showAlert("Éxito", "Solicitud enviada al administrador principal.", "success");
             setIsTechRequestModalOpen(false);
@@ -770,12 +772,16 @@ const TrabajoDetalle: React.FC = () => {
                 }
 
                 try {
-                    const categoriasCreadas = formServices.map(s => s.categoria === "Otro" && s.customCategoria.trim() !== "" ? s.customCategoria.trim() : s.categoria).join(", ");
+                    const svcList = modalFormServices && modalFormServices.length > 0 ? modalFormServices : formServices;
+                    const categoriasCreadas = svcList.map(s => s.categoria === "Otro" && s.customCategoria.trim() !== "" ? s.customCategoria.trim() : s.categoria).join(", ");
+                    const isEncargado = user?.role === 'gerente-sucursal' || user?.role === 'encargado';
+                    const roleLabel = isEncargado ? "El encargado" : "El cliente";
                     await createNotificacionByRole({
                         role: "Admin",
                         titulo: isEmergency ? "🚨 Nueva Alerta SOS" : "🔧 Nueva Solicitud de Servicio",
-                        mensaje: `El cliente "${user?.name || "Cliente"}" ha creado una solicitud para la sucursal "${businessName}": [${categoriasCreadas}].`,
-                        enlace: `/menu/solicitudes`
+                        mensaje: `${roleLabel} "${user?.name || "Usuario"}" ha creado una solicitud para la sucursal "${businessName}": [${categoriasCreadas}].`,
+                        enlace: isEncargado || isAutonomoAdmin(user?.role) ? `/autonomo/solicitudes` : `/menu/solicitudes`,
+                        negocio_id: Number(id)
                     });
                 } catch (notiError) {
                     console.error("Error al notificar al administrador:", notiError);

@@ -3075,7 +3075,9 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                 role: 'admin',
                                 titulo: '📍 Visita Finalizada',
                                 mensaje: `El técnico ${user?.name || 'Sistema'} ha concluido la visita en ${trabajo.sucursal || 'la sucursal'}. Ya puede enviar cotización al cliente.`,
-                                enlace: `/menu/trabajo-detalle/${trabajo.id}`
+                                enlace: trabajo?.admin_autonomo_id ? `/autonomo/trabajo-detalle/${trabajo.id}` : `/menu/trabajo-detalle/${trabajo.id}`,
+                                negocio_id: trabajo?.negocio_id,
+                                admin_autonomo_id: trabajo?.admin_autonomo_id
                             });
                             
                             // Notificar al admin autonomo (subgerente) específico de la sucursal
@@ -3123,7 +3125,9 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                 role: 'admin',
                                 titulo: '✅ Trabajo Finalizado',
                                 mensaje: `El técnico ${user?.name || 'Sistema'} finalizó el trabajo en ${trabajo.sucursal || 'la sucursal'}. El reporte ya está disponible.`,
-                                enlace: `/menu/trabajo-detalle/${trabajo.id}`
+                                enlace: trabajo?.admin_autonomo_id ? `/autonomo/trabajo-detalle/${trabajo.id}` : `/menu/trabajo-detalle/${trabajo.id}`,
+                                negocio_id: trabajo?.negocio_id,
+                                admin_autonomo_id: trabajo?.admin_autonomo_id
                             });
                         } catch (notiErr) {
                             console.error("Error enviando notificación de trabajo finalizado:", notiErr);
@@ -11268,7 +11272,9 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                     role: 'encargado',
                                                     titulo: '🚨 Cotización de Emergencia SOS Lista',
                                                     mensaje: `El técnico ${techName} ha completado la evaluación en ${sucursalName}. Cotización por $${totalCalculado.toLocaleString('es-MX', { minimumFractionDigits: 2 })} pendiente de autorización.`,
-                                                    enlace: `/cliente/trabajo-detalle/${id}?tab=cotizacion`
+                                                    enlace: `/cliente/trabajo-detalle/${id}?tab=cotizacion`,
+                                                    negocio_id: trabajo?.negocio_id,
+                                                    admin_autonomo_id: trabajo?.admin_autonomo_id
                                                 });
                                             } catch (notifErr) {
                                                 console.error("Error notificando al cliente en SOS:", notifErr);
@@ -11280,7 +11286,9 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                     role: 'admin',
                                                     titulo: '🚨 Cotización SOS Generada por Técnico',
                                                     mensaje: `El técnico ${techName} ha enviado la cotización por $${totalCalculado.toLocaleString('es-MX', { minimumFractionDigits: 2 })} para ${sucursalName}. En espera de aprobación del cliente.`,
-                                                    enlace: `/menu/trabajo-detalle/${id}?tab=cotizacion`
+                                                    enlace: trabajo?.admin_autonomo_id ? `/autonomo/trabajo-detalle/${id}?tab=cotizacion` : `/menu/trabajo-detalle/${id}?tab=cotizacion`,
+                                                    negocio_id: trabajo?.negocio_id,
+                                                    admin_autonomo_id: trabajo?.admin_autonomo_id
                                                 });
                                             } catch (notiErr) {
                                                 console.error("Error notificando al Admin:", notiErr);
@@ -11323,7 +11331,9 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                     role: 'admin',
                                                     titulo: '📍 Visita Completada — Cotización Requerida',
                                                     mensaje: `El técnico ${techName} ha finalizado el registro de visita en ${sucursalName}. Revisa los problemas y envía la cotización al cliente.`,
-                                                    enlace: `/menu/trabajo-detalle/${id}`
+                                                    enlace: trabajo?.admin_autonomo_id ? `/autonomo/trabajo-detalle/${id}` : `/menu/trabajo-detalle/${id}`,
+                                                    negocio_id: trabajo?.negocio_id,
+                                                    admin_autonomo_id: trabajo?.admin_autonomo_id
                                                 });
                                             } catch (notiErr) {
                                                 console.error("Error notificando al Admin:", notiErr);
