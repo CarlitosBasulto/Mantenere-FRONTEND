@@ -296,17 +296,17 @@ const MiPerfil: React.FC = () => {
 
     const handleGuardarGerente = () => {
         if (!gerenteData.nombre.trim() || !gerenteData.apellidos.trim() || !gerenteData.email.trim()) {
-            showAlert("Campos Incompletos", "Por favor llena nombre, apellidos y correo del gerente.", "warning");
+            showAlert("Campos Incompletos", "Por favor llena nombre, apellidos y correo del administrador general.", "warning");
             return;
         }
         if (gerenteData.password && gerenteData.password.length < 8) {
-            showAlert("Contraseña Corta", "La contraseña del gerente debe tener al menos 8 caracteres.", "warning");
+            showAlert("Contraseña Corta", "La contraseña del administrador general debe tener al menos 8 caracteres.", "warning");
             return;
         }
 
         showConfirm(
-            "Asignar Gerente",
-            "¿Estás seguro de que deseas guardar los datos de este encargado?",
+            "Asignar Administrador General",
+            "¿Estás seguro de que deseas guardar los datos de este administrador general?",
             async () => {
                 try {
                     const fullGerenteName = `${gerenteData.nombre.trim()} ${gerenteData.apellidos.trim()}`;
@@ -316,10 +316,10 @@ const MiPerfil: React.FC = () => {
                         password: gerenteData.password || 'Mantenere123.' 
                     });
                     setHasGerente(true);
-                    showAlert("Éxito", "Encargado asignado correctamente.", "success");
+                    showAlert("Éxito", "Administrador General asignado correctamente.", "success");
                 } catch (error) {
                     console.error(error);
-                    showAlert("Error", "Ocurrió un error al asignar el gerente. Puede que el correo ya esté en uso.", "error");
+                    showAlert("Error", "Ocurrió un error al asignar el administrador general. Puede que el correo ya esté en uso.", "error");
                 }
             }
         );
@@ -580,29 +580,29 @@ const MiPerfil: React.FC = () => {
                 </div>
             )}
 
-            {/* GERENTE GENERAL (solo admin-autonomo) */}
+            {/* ADMINISTRADOR GENERAL (solo admin-autonomo) */}
             {isAutonomoAdmin(user?.role) && (
                 <div className="perfil-fiscal-container">
                     <div className="perfil-card" style={{ marginTop: '20px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
                             <p style={{ fontSize: '12px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
-                                👨‍💼 Encargado (Mano Derecha) {hasGerente && <span style={{ color: '#16a34a', marginLeft: '5px' }}>✓ Asignado</span>}
+                                👨‍💼 Administrador General (Mano Derecha) {hasGerente && <span style={{ color: '#16a34a', marginLeft: '5px' }}>✓ Asignado</span>}
                             </p>
                             <span style={{ fontSize: '11px', background: '#e3f2fd', color: '#1565c0', padding: '3px 10px', borderRadius: '10px', fontWeight: 'bold' }}>
                                 Acceso total
                             </span>
                         </div>
                         <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '16px' }}>
-                            Asigna un gerente que tendrá los mismos permisos que tú para gestionar sucursales, técnicos y trabajos, pero no podrá ver ni modificar tu información fiscal ni tu perfil.
+                            Asigna un administrador general que tendrá los mismos permisos que tú para gestionar todas las sucursales, técnicos y trabajos, pero no podrá ver ni modificar tu información fiscal ni tu perfil.
                         </p>
                         <div className="perfil-grid">
                             <div>
                                 <Label>Nombre(s)</Label>
-                                <Input name="nombre" placeholder="Nombre(s) del gerente" value={gerenteData.nombre} onChange={handleGerenteChange} />
+                                <Input name="nombre" placeholder="Nombre(s) del administrador" value={gerenteData.nombre} onChange={handleGerenteChange} />
                             </div>
                             <div>
                                 <Label>Apellidos</Label>
-                                <Input name="apellidos" placeholder="Apellidos del gerente" value={gerenteData.apellidos} onChange={handleGerenteChange} />
+                                <Input name="apellidos" placeholder="Apellidos del administrador" value={gerenteData.apellidos} onChange={handleGerenteChange} />
                             </div>
                             <div>
                                 <Label>Correo Electrónico</Label>
@@ -624,7 +624,7 @@ const MiPerfil: React.FC = () => {
                                 onMouseEnter={e => { e.currentTarget.style.background = '#c7d2fe'; }}
                                 onMouseLeave={e => { e.currentTarget.style.background = '#e0e7ff'; }}
                             >
-                                {hasGerente ? 'Actualizar Gerente' : 'Asignar Gerente'}
+                                {hasGerente ? 'Actualizar Administrador General' : 'Asignar Administrador General'}
                             </button>
                         </div>
                     </div>

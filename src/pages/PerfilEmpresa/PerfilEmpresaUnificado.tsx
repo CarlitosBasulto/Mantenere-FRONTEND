@@ -40,6 +40,13 @@ import LevantamientoFlotaMockup from "../../components/LevantamientoFlotaMockup"
 import AreaVisualGrid from '../../components/AreaVisualGrid';
 import ModalSeleccionEspacio from '../../components/ModalSeleccionEspacio';
 
+export interface PerfilEmpresaConfig {
+    isAutonomo?: boolean;
+    canDelete?: boolean;
+    useMapLocation?: boolean;
+    notificationRoleTarget?: string;
+}
+
 export interface Equipment {
     id?: string;
     nombre: string;
@@ -106,7 +113,7 @@ const PerfilEmpresaUnificado: React.FC<{ config: PerfilEmpresaConfig }> = ({ con
     const navigate = useNavigate();
     const { user } = useAuth();
     const { showAlert, showConfirm, showPrompt } = useModal();
-    const canEdit = user?.role === 'cliente' || user?.role === 'encargado' || user?.role === 'autonomo';
+    const canEdit = user?.role === 'cliente' || user?.role === 'encargado' || user?.role === 'autonomo' || isAutonomoAdmin(user?.role);
 
     const [formData, setFormData] = useState<BusinessData>({
         nombreSucursal: "",
@@ -1028,7 +1035,7 @@ const PerfilEmpresaUnificado: React.FC<{ config: PerfilEmpresaConfig }> = ({ con
 
 
                         {/* CARD 4: ACCESO DE ENCARGADO DE SUCURSAL */}
-                        {editId && canEdit && (user?.role === 'gerente-general' || user?.role === 'admin-autonomo') && (
+                        {editId && canEdit && (isAutonomoAdmin(user?.role) || user?.role === 'admin' || config?.isAutonomo) && (
                             <div className={styles.infoCard}>
                                 <h2 className={styles.sectionTitle}>
                                     <HiOutlineKey /> Acceso de Encargado de Sucursal
@@ -1073,7 +1080,7 @@ const PerfilEmpresaUnificado: React.FC<{ config: PerfilEmpresaConfig }> = ({ con
                                     </div>
                                     <div className={styles.inputGroup} style={{ position: 'relative' }}>
                                         <label className={styles.label}>
-                                            {encargadoExistente ? 'Nueva Contraseña (opcional)' : 'Contraseña'}
+                                            {encargadoExistente ? 'Nueva Contraseña (mínimo 8 caracteres)' : 'Contraseña (mínimo 8 caracteres)'}
                                         </label>
                                         <input
                                             type={showPassword ? 'text' : 'password'}
