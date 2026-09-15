@@ -21,6 +21,11 @@ export const isAutonomoAdmin = (role?: any): boolean => {
   return norm === 'autonomo' || norm === 'propietario-autonomo' || norm === 'administrador-general';
 };
 
+export const isAutonomoPropietario = (role?: string): boolean => {
+  const norm = normalizeRole(role);
+  return norm === 'autonomo' || norm === 'propietario-autonomo';
+};
+
 // Nombres viejos que vienen del backend (mientras migran)
 export const normalizeRole = (role?: any): string => {
   const roleStr = typeof role === 'object' && role !== null ? role.name : role;
