@@ -70,6 +70,7 @@ interface ModalNuevoTrabajadorProps {
 
 const ModalNuevoTrabajador: React.FC<ModalNuevoTrabajadorProps> = ({ isOpen, onClose, onSave }) => {
     const [name, setName] = useState("");
+    const [lastName, setLastName] = useState("");
     const [phone, setPhone] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -113,10 +114,12 @@ const ModalNuevoTrabajador: React.FC<ModalNuevoTrabajadorProps> = ({ isOpen, onC
             return;
         }
 
+        const fullName = lastName.trim() ? `${name.trim()} ${lastName.trim()}` : name.trim();
+
         try {
             setIsSubmitting(true);
             await onSave({
-                nombre: name.trim(),
+                nombre: fullName,
                 telefono: phone.trim(),
                 correo: email.trim(),
                 password: password,
@@ -124,6 +127,7 @@ const ModalNuevoTrabajador: React.FC<ModalNuevoTrabajadorProps> = ({ isOpen, onC
                 roles: roles
             });
             setName("");
+            setLastName("");
             setPhone("");
             setEmail("");
             setPassword("");
@@ -146,14 +150,25 @@ const ModalNuevoTrabajador: React.FC<ModalNuevoTrabajadorProps> = ({ isOpen, onC
                 <form onSubmit={handleSubmit} className={styles.workerForm}>
                     <div className={styles.formGrid}>
                         <div className={styles.formField}>
-                            <label>Nombre Completo</label>
+                            <label>Nombre(s)</label>
                             <input
                                 type="text"
                                 className={styles.premiumInput}
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
-                                placeholder="Ej. Juan Pérez"
+                                placeholder="Ej. Juan"
                                 required
+                            />
+                        </div>
+
+                        <div className={styles.formField}>
+                            <label>Apellidos</label>
+                            <input
+                                type="text"
+                                className={styles.premiumInput}
+                                value={lastName}
+                                onChange={(e) => setLastName(e.target.value)}
+                                placeholder="Ej. Pérez"
                             />
                         </div>
 
@@ -180,7 +195,7 @@ const ModalNuevoTrabajador: React.FC<ModalNuevoTrabajadorProps> = ({ isOpen, onC
                             />
                         </div>
 
-                        <div className={styles.formField}>
+                        <div className={styles.formField} style={{ gridColumn: 'span 2' }}>
                             <label>Contraseña</label>
                             <input
                                 type="text"
