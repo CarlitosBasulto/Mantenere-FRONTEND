@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../../context/AuthContext";
 import { useModal } from "../../../context/ModalContext";
-import { isAutonomoAdmin } from "../../../utils/roles";
+import { isAutonomoAdmin, isAutonomoPropietario } from "../../../utils/roles";
 import { getTrabajadores, updateTrabajador } from "../../../services/trabajadoresService";
 import { getUserById, updateUser } from "../../../services/usersService";
 import { getNegocios } from "../../../services/negociosService";
@@ -115,7 +115,7 @@ const MiPerfil: React.FC = () => {
                     console.error("Error fetching user data:", err);
                 }
 
-                if (user.role === 'autonomo') {
+                if (isAutonomoPropietario(user?.role)) {
                     try {
                         const gerenteRes = await getGerenteGeneral();
                         if (gerenteRes.gerente) {
@@ -438,7 +438,7 @@ const MiPerfil: React.FC = () => {
                                 {formData.nombre || 'Mi Perfil'}
                             </h1>
                             <p style={{ margin: '0 0 4px', fontSize: '11px', color: '#f26522', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                                {user?.role === 'admin' ? 'Administrador' : user?.role === 'tecnico' ? 'Técnico' : user?.role === 'encargado' ? 'Encargado de Sucursal' : user?.role === 'gerente-general' ? 'Encargado General' : isAutonomoAdmin(user?.role) ? 'Administrador General' : 'Cliente'}
+                                {user?.role === 'admin' ? 'Administrador' : user?.role === 'tecnico' ? 'Técnico' : user?.role === 'encargado' ? 'Encargado de Sucursal' : isAutonomoPropietario(user?.role) ? 'Propietario Autónomo' : isAutonomoAdmin(user?.role) ? 'Administrador General' : 'Cliente'}
                             </p>
                             <p style={{ margin: 0, fontSize: '11px', color: '#94a3b8' }}>
                                 Toca la foto para editarla
@@ -550,8 +550,8 @@ const MiPerfil: React.FC = () => {
                 </div>
             </div>
 
-            {/* DATOS FISCALES (solo clientes o admin-autonomo) */}
-            {(user?.role === 'cliente' || isAutonomoAdmin(user?.role)) && (
+            {/* DATOS FISCALES (solo clientes o propietario-autonomo) */}
+            {(user?.role === 'cliente' || isAutonomoPropietario(user?.role)) && (
                 <div className="perfil-fiscal-container">
                     <div className="perfil-card">
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
@@ -580,8 +580,8 @@ const MiPerfil: React.FC = () => {
                 </div>
             )}
 
-            {/* ADMINISTRADOR GENERAL (solo admin-autonomo) */}
-            {isAutonomoAdmin(user?.role) && (
+            {/* ADMINISTRADOR GENERAL (solo propietario-autonomo) */}
+            {isAutonomoPropietario(user?.role) && (
                 <div className="perfil-fiscal-container">
                     <div className="perfil-card" style={{ marginTop: '20px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
