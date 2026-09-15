@@ -1,22 +1,17 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import styles from "./ListaTrabajadoresUnificado.module.css";
-import { createNotificacionByRole } from "../../services/notificacionesService";
 import menuStyles from "../../components/Menu.module.css";
 import { HiOutlineUser, HiX } from 'react-icons/hi';
 import { 
     HiOutlinePhone, 
     HiOutlineMapPin, 
-    HiOutlineCalendarDays, 
-    HiOutlineEllipsisVertical, 
-    HiOutlineListBullet, 
-    HiOutlineUserMinus, 
-    HiOutlineUserPlus,
     HiOutlineEnvelope,
     HiOutlineWrench
 } from 'react-icons/hi2';
 import { useNavigate } from "react-router-dom";
 import { useModal } from "../../context/ModalContext";
 import { useAuth } from "../../context/AuthContext";
+
 export interface ListaTrabajadoresConfig {
     isAutonomo: boolean;
     basePath: string;
@@ -27,22 +22,266 @@ export interface ListaTrabajadoresConfig {
     };
 }
 
-
 interface Trabajador {
     id: number;
     nombre: string;
     fecha: string;
-    puesto: string; // Especialidad(es)
+    puesto: string;
     telefono?: string;
     correo?: string;
-    contrasena?: string; // Agregado: contraseña
     estado: "Activo" | "Baja";
     avatar?: string;
+    direccion?: string;
+    rfc?: string;
 }
 
+function getRelativeTime(fecha: string): string {
+    const parts = fecha.split('/');
+    if (parts.length === 3) {
+        const d = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10) - 1;
+        const y = parseInt(parts[2], 10);
+        const refDate = new Date(y, m, d);
+        const now = new Date();
+        refDate.setHours(0, 0, 0, 0);
+        now.setHours(0, 0, 0, 0);
+        const diffTime = now.getTime() - refDate.getTime();
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+        if (diffDays <= 0) return "Hoy";
+        if (diffDays === 1) return "Hace 1 día";
+        return `Hace ${diffDays} días`;
+    }
+    return "";
+}
+
+// ── Subcomponente Modal: Aislado para evitar re-renderizados y cuellos de botella ──
+interface ModalNuevoTrabajadorProps {
+    isOpen: boolean;
+    onClose: () => void;
+    onSave: (workerData: {
+        nombre: string;
+        telefono: string;
+        correo: string;
+        password: string;
+        tipo: "Interno" | "Externo";
+        roles: string[];
+    }) => Promise<void>;
+}
+
+const ModalNuevoTrabajador: React.FC<ModalNuevoTrabajadorProps> = ({ isOpen, onClose, onSave }) => {
+    const [name, setName] = useState("");
+    const [phone, setPhone] = useState("");
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+    const [type, setType] = useState<"Interno" | "Externo">("Interno");
+    const [roles, setRoles] = useState<string[]>([]);
+    const [availableRoles, setAvailableRoles] = useState(["General", "Electricista", "Plomero", "Albañil", "Pintor"]);
+    const [newCategoryName, setNewCategoryName] = useState("");
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const { showAlert } = useModal();
+
+    if (!isOpen) return null;
+
+    const handleRoleToggle = (role: string) => {
+        setRoles(prev => prev.includes(role) ? prev.filter(r => r !== role) : [...prev, role]);
+    };
+
+    const handleAddCategory = () => {
+        const trimmed = newCategoryName.trim();
+        if (trimmed) {
+            if (!availableRoles.includes(trimmed)) setAvailableRoles(prev => [...prev, trimmed]);
+            if (!roles.includes(trimmed)) setRoles(prev => [...prev, trimmed]);
+            setNewCategoryName("");
+        }
+    };
+
+    const handleRemoveCategory = (role: string) => {
+        setAvailableRoles(prev => prev.filter(r => r !== role));
+        setRoles(prev => prev.filter(r => r !== role));
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+
+        if (!name.trim() || !email.trim() || !password.trim()) {
+            showAlert("Campos Incompletos", "Rellena nombre, correo y contraseña obligatoriamente.", "warning");
+            return;
+        }
+
+        if (password.length < 6) {
+            showAlert("Contraseña Inválida", "La contraseña debe tener un mínimo de 6 caracteres.", "warning");
+            return;
+        }
+
+        try {
+            setIsSubmitting(true);
+            await onSave({
+                nombre: name.trim(),
+                telefono: phone.trim(),
+                correo: email.trim(),
+                password: password,
+                tipo: type,
+                roles: roles
+            });
+            setName("");
+            setPhone("");
+            setEmail("");
+            setPassword("");
+            setType("Interno");
+            setRoles([]);
+            onClose();
+        } catch {
+            // El error se maneja en onSave
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    return (
+        <div className={styles.modalOverlay}>
+            <div className={`${styles.modalContent} ${styles.modalWide}`}>
+                <h2 className={styles.modalTitleLarge}>Nuevo Trabajador</h2>
+                <p className={styles.modalSubtitle}>Ingresa los datos para registrar un nuevo integrante al equipo.</p>
+                
+                <form onSubmit={handleSubmit} className={styles.workerForm}>
+                    <div className={styles.formGrid}>
+                        <div className={styles.formField}>
+                            <label>Nombre Completo</label>
+                            <input
+                                type="text"
+                                className={styles.premiumInput}
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                placeholder="Ej. Juan Pérez"
+                                required
+                            />
+                        </div>
+
+                        <div className={styles.formField}>
+                            <label>Teléfono</label>
+                            <input
+                                type="tel"
+                                className={styles.premiumInput}
+                                value={phone}
+                                onChange={(e) => setPhone(e.target.value)}
+                                placeholder="Ej. 993 123 4567"
+                            />
+                        </div>
+
+                        <div className={styles.formField}>
+                            <label>Correo Electrónico</label>
+                            <input
+                                type="email"
+                                className={styles.premiumInput}
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                placeholder="Ej. juan@correo.com"
+                                required
+                            />
+                        </div>
+
+                        <div className={styles.formField}>
+                            <label>Contraseña</label>
+                            <input
+                                type="text"
+                                className={styles.premiumInput}
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                placeholder="Mínimo 6 caracteres"
+                                required
+                            />
+                        </div>
+                    </div>
+
+                    <div className={styles.typeSection} style={{ marginBottom: '20px', marginTop: '10px' }}>
+                        <label className={styles.sectionLabel} style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: '#334155', fontWeight: '600' }}>Tipo de Técnico</label>
+                        <div style={{ display: 'flex', gap: '20px' }}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', cursor: 'pointer' }}>
+                                <input 
+                                    type="radio" 
+                                    name="workerType" 
+                                    value="Interno" 
+                                    checked={type === "Interno"} 
+                                    onChange={(e) => setType(e.target.value as "Interno" | "Externo")}
+                                />
+                                Técnico Interno
+                            </label>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', cursor: 'pointer' }}>
+                                <input 
+                                    type="radio" 
+                                    name="workerType" 
+                                    value="Externo" 
+                                    checked={type === "Externo"} 
+                                    onChange={(e) => setType(e.target.value as "Interno" | "Externo")}
+                                />
+                                Técnico Externo
+                            </label>
+                        </div>
+                    </div>
+
+                    <div className={styles.specialtySection}>
+                        <label className={styles.sectionLabel}>Puesto / Especialidad (Selecciona al menos uno)</label>
+                        <div className={styles.rolesGrid}>
+                            {availableRoles.map(role => (
+                                <div key={role} className={styles.roleChipWrapper}>
+                                    <label className={styles.roleChip}>
+                                        <input
+                                            type="checkbox"
+                                            checked={roles.includes(role)}
+                                            onChange={() => handleRoleToggle(role)}
+                                        />
+                                        <span className={styles.chipLabel}>{role}</span>
+                                    </label>
+                                    <button 
+                                        type="button" 
+                                        className={styles.deleteRoleBtn}
+                                        onClick={() => handleRemoveCategory(role)}
+                                        title={`Eliminar ${role}`}
+                                    >
+                                        <HiX size={14} />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* AGREGAR NUEVA CATEGORÍA */}
+                        <div className={styles.addCategoryWrapper}>
+                            <input 
+                                type="text"
+                                placeholder="Otra especialidad..."
+                                className={styles.addCategoryInput}
+                                value={newCategoryName}
+                                onChange={(e) => setNewCategoryName(e.target.value)}
+                                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddCategory(); }}}
+                            />
+                            <button 
+                                type="button" 
+                                className={styles.addCategoryBtn}
+                                onClick={handleAddCategory}
+                            >
+                                + Agregar
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className={styles.modalActionsRow}>
+                        <button type="submit" className={styles.saveWorkerBtn} disabled={isSubmitting}>
+                            {isSubmitting ? 'Guardando...' : 'Guardar Trabajador'}
+                        </button>
+                        <button type="button" className={styles.cancelLink} onClick={onClose} disabled={isSubmitting}>
+                            Cancelar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+};
+
+// ── Componente Principal Unificado ──
 const ListaTrabajadoresUnificado: React.FC<{ config: ListaTrabajadoresConfig }> = ({ config }) => {
     const navigate = useNavigate();
-    const { user } = useAuth(); // Agregado useAuth para saber el rol
+    const { user } = useAuth();
     const { showAlert, showConfirm } = useModal();
     const [trabajadoresData, setTrabajadoresData] = useState<Trabajador[]>([]);
     const [flippedCardId, setFlippedCardId] = useState<number | null>(null);
@@ -56,44 +295,27 @@ const ListaTrabajadoresUnificado: React.FC<{ config: ListaTrabajadoresConfig }> 
     const fetchTrabajadores = async () => {
         try {
             const data = await config.trabajadoresService.getTrabajadores();
-            
-            const stored = localStorage.getItem('trabajadores_list');
-            const localList = stored ? JSON.parse(stored) : [];
+            const rawList = Array.isArray(data) ? data : [];
 
-            const mapped: Trabajador[] = data.map((t: any) => {
-                let localAvatar = t.avatar;
-                if (!localAvatar) {
-                    const localWorker = localList.find((w: any) => w.nombre === t.nombre || w.correo === t.correo);
-                    if (localWorker && localWorker.avatar) {
-                        localAvatar = localWorker.avatar;
-                    } else {
-                        // Check profile key directly just in case
-                        const profileKey = `profile_${t.nombre?.replace(/\s+/g, '') || 'default'}`;
-                        const profileData = localStorage.getItem(profileKey);
-                        if (profileData) {
-                            localAvatar = JSON.parse(profileData).imagenPerfil;
-                        }
-                    }
-                }
-
+            const mapped: Trabajador[] = rawList.map((t: any) => {
+                const avatar = t.avatar || t.user?.avatar || null;
                 return {
                     id: t.id,
-                    nombre: t.nombre,
-                    fecha: new Date(t.created_at).toLocaleDateString("es-ES"),
+                    nombre: t.nombre || t.user?.name || "Sin Nombre",
+                    fecha: t.created_at ? new Date(t.created_at).toLocaleDateString("es-ES") : "—",
                     puesto: t.puesto || "General",
-                    correo: t.correo,
-                    telefono: t.telefono,
-                    avatar: localAvatar, // Usa el local si la API falló en guardarlo
-                    estado: t.estado === "Activo" || t.estado?.toLowerCase() === "activo" ? "Activo" : "Baja"
+                    correo: t.correo || t.user?.email || "",
+                    telefono: t.telefono || t.user?.telefono || "",
+                    avatar: avatar,
+                    estado: (t.estado === "Activo" || t.estado?.toLowerCase() === "activo") ? "Activo" : "Baja",
+                    direccion: t.direccion,
+                    rfc: t.rfc
                 };
             });
             
             setTrabajadoresData(mapped);
         } catch (error) {
             console.error("Error cargando trabajadores:", error);
-            // Fallback
-            const saved = localStorage.getItem('trabajadores_list');
-            if (saved) setTrabajadoresData(JSON.parse(saved));
         }
     };
 
@@ -104,90 +326,22 @@ const ListaTrabajadoresUnificado: React.FC<{ config: ListaTrabajadoresConfig }> 
     const [searchText, setSearchText] = useState("");
     const [filterStatus, setFilterStatus] = useState<string[]>(["Activo", "Baja"]);
     const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
-
-    // ESTADOS PARA "NUEVO TRABAJADOR"
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-    const [newWorkerName, setNewWorkerName] = useState("");
-    const [newWorkerFirstName, setNewWorkerFirstName] = useState("");
-    const [newWorkerLastName, setNewWorkerLastName] = useState("");
-    const [newWorkerDOB, setNewWorkerDOB] = useState("");
-    const [newWorkerAddress, setNewWorkerAddress] = useState("");
-    const [newWorkerRFC, setNewWorkerRFC] = useState("");
-    
-    // ESTADOS PARA "SOLICITAR TÉCNICO"
-    const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
-    const [requestRole, setRequestRole] = useState("");
-    
-    const handleRequestTechnician = async () => {
-        if (!requestRole) {
-            showAlert("Atención", "Por favor selecciona el tipo de técnico que necesitas.", "warning");
-            return;
-        }
-        try {
-            await createNotificacionByRole({
-                role: 'admin',
-                titulo: 'Solicitud de Técnico',
-                mensaje: `El administrador ${user?.name || 'autónomo'} solicita un técnico con especialidad: ${requestRole}.`,
-                enlace: '/menu/trabajadores'
-            });
-            showAlert("Éxito", "Solicitud enviada al administrador principal.", "success");
-            setIsRequestModalOpen(false);
-            setRequestRole("");
-        } catch (error) {
-            console.error(error);
-            showAlert("Error", "No se pudo enviar la solicitud.", "error");
-        }
-    };
-    const [newWorkerRoles, setNewWorkerRoles] = useState<string[]>([]);
-    const [newWorkerPhone, setNewWorkerPhone] = useState("");
-    const [newWorkerEmail, setNewWorkerEmail] = useState("");
-    const [newWorkerPassword, setNewWorkerPassword] = useState("");
-    const [newWorkerType, setNewWorkerType] = useState<"Interno" | "Externo">("Interno");
-    const [newCategoryName, setNewCategoryName] = useState("");
-
-    const [availableRoles, setAvailableRoles] = useState(["General", "Electricista", "Plomero", "Albañil", "Pintor"]);
-
-    const handleRoleToggle = (role: string) => {
-        if (newWorkerRoles.includes(role)) {
-            setNewWorkerRoles(newWorkerRoles.filter(r => r !== role));
-        } else {
-            setNewWorkerRoles([...newWorkerRoles, role]);
-        }
-    };
-
-    const handleAddCategory = () => {
-        if (newCategoryName.trim()) {
-            const trimmed = newCategoryName.trim();
-            if (!availableRoles.includes(trimmed)) {
-                setAvailableRoles([...availableRoles, trimmed]);
-            }
-            if (!newWorkerRoles.includes(trimmed)) {
-                setNewWorkerRoles([...newWorkerRoles, trimmed]);
-            }
-            setNewCategoryName("");
-        }
-    };
-
-    const handleRemoveCategory = (role: string) => {
-        setAvailableRoles(availableRoles.filter(r => r !== role));
-        setNewWorkerRoles(newWorkerRoles.filter(r => r !== role));
-    };
-
-
-
-    // Estado temporal para el modal de filtro
     const [tempFilter, setTempFilter] = useState("Activos");
 
-    // FILTRADO
-    const filteredWorkers = trabajadoresData.filter((tr) => {
-        const matchesText = tr.nombre.toLowerCase().includes(searchText.toLowerCase());
-        let matchesStatus = true;
-        if (filterStatus.length === 1) {
-            if (filterStatus.includes("Activo") && tr.estado !== "Activo") matchesStatus = false;
-            if (filterStatus.includes("Baja") && tr.estado !== "Baja") matchesStatus = false;
-        }
-        return matchesText && matchesStatus;
-    });
+    // FILTRADO CON MEMOIZACIÓN PARA RENDIMIENTO
+    const filteredWorkers = useMemo(() => {
+        const q = searchText.trim().toLowerCase();
+        return trabajadoresData.filter((tr) => {
+            const matchesText = !q || tr.nombre.toLowerCase().includes(q) || (tr.puesto && tr.puesto.toLowerCase().includes(q)) || (tr.correo && tr.correo.toLowerCase().includes(q));
+            let matchesStatus = true;
+            if (filterStatus.length === 1) {
+                if (filterStatus.includes("Activo") && tr.estado !== "Activo") matchesStatus = false;
+                if (filterStatus.includes("Baja") && tr.estado !== "Baja") matchesStatus = false;
+            }
+            return matchesText && matchesStatus;
+        });
+    }, [trabajadoresData, searchText, filterStatus]);
 
     const handleApplyFilter = () => {
         if (tempFilter === "Activos") setFilterStatus(["Activo"]);
@@ -195,50 +349,28 @@ const ListaTrabajadoresUnificado: React.FC<{ config: ListaTrabajadoresConfig }> 
         setIsFilterModalOpen(false);
     };
 
-    const handleAddWorker = async (e: React.FormEvent) => {
-        e.preventDefault();
-
-        if (config.isAutonomo) {
-            if (!newWorkerFirstName || !newWorkerLastName || !newWorkerEmail || !newWorkerPassword) {
-                showAlert("Campos Incompletos", "Rellena nombre, apellidos, correo y contraseña obligatoriamente.", "warning");
-                return;
-            }
-        } else {
-            if (!newWorkerName || !newWorkerEmail || !newWorkerPassword) {
-                showAlert("Campos Incompletos", "Rellena nombre, correo y contraseña obligatoriamente.", "warning");
-                return;
-            }
-        }
-
+    const handleSaveWorker = async (workerData: {
+        nombre: string;
+        telefono: string;
+        correo: string;
+        password: string;
+        tipo: "Interno" | "Externo";
+        roles: string[];
+    }) => {
         try {
-            const rolesSeleccionados = newWorkerRoles.length > 0 ? newWorkerRoles.join(", ") : "General";
-            const puestoConTipo = `${rolesSeleccionados} - ${newWorkerType}`;
+            const rolesSeleccionados = workerData.roles.length > 0 ? workerData.roles.join(", ") : "General";
+            const puestoConTipo = `${rolesSeleccionados} - ${workerData.tipo}`;
+            
             await config.trabajadoresService.createTrabajador({
-                nombre: config.isAutonomo ? `${newWorkerFirstName} ${newWorkerLastName}` : newWorkerName,
-                ...(config.isAutonomo && { rfc: newWorkerRFC, direccion: newWorkerAddress, fecha_nacimiento: newWorkerDOB }),
-                correo: newWorkerEmail,
-                password: newWorkerPassword,
+                nombre: workerData.nombre,
+                correo: workerData.correo,
+                password: workerData.password,
                 puesto: puestoConTipo,
-                telefono: newWorkerPhone || null,
-                tipo: newWorkerType
+                telefono: workerData.telefono || null,
+                tipo: workerData.tipo
             });
 
-            // Refrescar
             await fetchTrabajadores();
-
-            // Reset y cerrar
-            setNewWorkerName("");
-            setNewWorkerFirstName("");
-            setNewWorkerLastName("");
-            setNewWorkerDOB("");
-            setNewWorkerAddress("");
-            setNewWorkerRFC("");
-            setNewWorkerRoles([]);
-            setNewWorkerPhone("");
-            setNewWorkerEmail("");
-            setNewWorkerPassword("");
-            setNewWorkerType("Interno");
-            setIsAddModalOpen(false);
             showAlert("Éxito", "Trabajador creado exitosamente.", "success");
         } catch (error: any) {
             console.error("Error al crear trabajador:", error);
@@ -250,14 +382,14 @@ const ListaTrabajadoresUnificado: React.FC<{ config: ListaTrabajadoresConfig }> 
                 } else if (error.response.data.message) {
                     showAlert("Error", error.response.data.message, "error");
                 } else {
-                    showAlert("Validación Fallida", "Revisa que el correo no se repita y la contraseña tenga 6 caracteres.", "warning");
+                    showAlert("Validación Fallida", "Revisa que el correo no esté registrado previamente.", "warning");
                 }
             } else {
-                showAlert("Error", "Hubo un error contactando al servidor.", "error");
+                showAlert("Error", error.response?.data?.message || "Hubo un error contactando al servidor.", "error");
             }
+            throw error;
         }
     };
-
 
     const handleDeactivateWorker = async (worker: Trabajador) => {
         showConfirm(
@@ -310,7 +442,7 @@ const ListaTrabajadoresUnificado: React.FC<{ config: ListaTrabajadoresConfig }> 
                         <div className={menuStyles.searchCard}>
                             <input
                                 type="text"
-                                placeholder="Buscar..."
+                                placeholder="Buscar técnico por nombre, especialidad o correo..."
                                 className={menuStyles.searchInput}
                                 value={searchText}
                                 onChange={(e) => setSearchText(e.target.value)}
@@ -338,29 +470,11 @@ const ListaTrabajadoresUnificado: React.FC<{ config: ListaTrabajadoresConfig }> 
                     </button>
                 </div>
 
-                {/* LISTA DE TRABAJADORES - GRID 3 COLUMNAS */}
+                {/* LISTA DE TRABAJADORES - GRID */}
                 <div className={styles.jobsSection}>
                     {filteredWorkers.map((worker) => {
-                        const relativeTime = (() => {
-                            const parts = worker.fecha.split('/');
-                            if (parts.length === 3) {
-                                const d = parseInt(parts[0], 10);
-                                const m = parseInt(parts[1], 10) - 1;
-                                const y = parseInt(parts[2], 10);
-                                const refDate = new Date(y, m, d);
-                                const now = new Date();
-                                refDate.setHours(0,0,0,0);
-                                now.setHours(0,0,0,0);
-                                const diffTime = now.getTime() - refDate.getTime();
-                                const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-                                if (diffDays <= 0) return "Hoy";
-                                if (diffDays === 1) return "Hace 1 día";
-                                return `Hace ${diffDays} días`;
-                            }
-                            return "";
-                        })();
-
-                        const displayLocation = (worker as any).direccion || (worker as any).ciudad || 'Mérida, Yucatán';
+                        const relativeTime = getRelativeTime(worker.fecha);
+                        const displayLocation = worker.direccion || 'Mérida, Yucatán';
 
                         return (
                             <div
@@ -438,8 +552,6 @@ const ListaTrabajadoresUnificado: React.FC<{ config: ListaTrabajadoresConfig }> 
                 </div>
             </div>
 
-
-
             {/* MODAL DE FILTRO */}
             {isFilterModalOpen && (
                 <div className={styles.modalOverlay}>
@@ -476,148 +588,14 @@ const ListaTrabajadoresUnificado: React.FC<{ config: ListaTrabajadoresConfig }> 
             )}
 
             {/* MODAL NUEVO TRABAJADOR */}
-            {isAddModalOpen && (
-                <div className={styles.modalOverlay}>
-                    <div className={`${styles.modalContent} ${styles.modalWide}`}>
-                        <h2 className={styles.modalTitleLarge}>Nuevo Trabajador</h2>
-                        <p className={styles.modalSubtitle}>Ingresa los datos para registrar un nuevo integrante al equipo.</p>
-                        
-                        <form onSubmit={handleAddWorker} className={styles.workerForm}>
-                            <div className={styles.formGrid}>
-                                <div className={styles.formField}>
-                                    <label>Nombre Completo</label>
-                                    <input
-                                        type="text"
-                                        className={styles.premiumInput}
-                                        value={newWorkerName}
-                                        onChange={(e) => setNewWorkerName(e.target.value)}
-                                        placeholder="Ej. Juan Pérez"
-                                        required
-                                    />
-                                </div>
-
-                                <div className={styles.formField}>
-                                    <label>Teléfono</label>
-                                    <input
-                                        type="tel"
-                                        className={styles.premiumInput}
-                                        value={newWorkerPhone}
-                                        onChange={(e) => setNewWorkerPhone(e.target.value)}
-                                        placeholder="Ej. 993 123 4567"
-                                    />
-                                </div>
-
-                                <div className={styles.formField}>
-                                    <label>Correo Electrónico</label>
-                                    <input
-                                        type="email"
-                                        className={styles.premiumInput}
-                                        value={newWorkerEmail}
-                                        onChange={(e) => setNewWorkerEmail(e.target.value)}
-                                        placeholder="Ej. juan@correo.com"
-                                        required
-                                    />
-                                </div>
-
-                                <div className={styles.formField}>
-                                    <label>Contraseña</label>
-                                    <input
-                                        type="text"
-                                        className={styles.premiumInput}
-                                        value={newWorkerPassword}
-                                        onChange={(e) => setNewWorkerPassword(e.target.value)}
-                                        placeholder="Mínimo 6 caracteres"
-                                        required
-                                    />
-                                </div>
-                            </div>
-
-                            <div className={styles.typeSection} style={{ marginBottom: '20px', marginTop: '10px' }}>
-                                <label className={styles.sectionLabel} style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: '#334155', fontWeight: '600' }}>Tipo de Técnico</label>
-                                <div style={{ display: 'flex', gap: '20px' }}>
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', cursor: 'pointer' }}>
-                                        <input 
-                                            type="radio" 
-                                            name="workerType" 
-                                            value="Interno" 
-                                            checked={newWorkerType === "Interno"} 
-                                            onChange={(e) => setNewWorkerType(e.target.value as "Interno" | "Externo")}
-                                        />
-                                        Técnico Interno
-                                    </label>
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', cursor: 'pointer' }}>
-                                        <input 
-                                            type="radio" 
-                                            name="workerType" 
-                                            value="Externo" 
-                                            checked={newWorkerType === "Externo"} 
-                                            onChange={(e) => setNewWorkerType(e.target.value as "Interno" | "Externo")}
-                                        />
-                                        Técnico Externo
-                                    </label>
-                                </div>
-                            </div>
-
-                            <div className={styles.specialtySection}>
-                                <label className={styles.sectionLabel}>Puesto / Especialidad (Selecciona al menos uno)</label>
-                                <div className={styles.rolesGrid}>
-                                    {availableRoles.map(role => (
-                                        <div key={role} className={styles.roleChipWrapper}>
-                                            <label className={styles.roleChip}>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={newWorkerRoles.includes(role)}
-                                                    onChange={() => handleRoleToggle(role)}
-                                                />
-                                                <span className={styles.chipLabel}>{role}</span>
-                                            </label>
-                                            <button 
-                                                type="button" 
-                                                className={styles.deleteRoleBtn}
-                                                onClick={() => handleRemoveCategory(role)}
-                                                title={`Eliminar ${role}`}
-                                            >
-                                                <HiX size={14} />
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
-
-                                {/* AGREGAR NUEVA CATEGORÍA */}
-                                <div className={styles.addCategoryWrapper}>
-                                    <input 
-                                        type="text"
-                                        placeholder="Otra especialidad..."
-                                        className={styles.addCategoryInput}
-                                        value={newCategoryName}
-                                        onChange={(e) => setNewCategoryName(e.target.value)}
-                                        onKeyDown={(e) => { if(e.key === 'Enter') { e.preventDefault(); handleAddCategory(); }}}
-                                    />
-                                    <button 
-                                        type="button" 
-                                        className={styles.addCategoryBtn}
-                                        onClick={handleAddCategory}
-                                    >
-                                        + Agregar
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div className={styles.modalActionsRow}>
-                                <button type="submit" className={styles.saveWorkerBtn}>Guardar Trabajador</button>
-                                <button type="button" className={styles.cancelLink} onClick={() => setIsAddModalOpen(false)}>Cancelar</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
-
-
+            <ModalNuevoTrabajador 
+                isOpen={isAddModalOpen} 
+                onClose={() => setIsAddModalOpen(false)} 
+                onSave={handleSaveWorker} 
+            />
 
         </div>
     );
 };
 
 export default ListaTrabajadoresUnificado;
-
-
