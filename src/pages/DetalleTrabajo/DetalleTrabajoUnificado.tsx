@@ -913,12 +913,20 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
             return raw ? JSON.parse(raw) : {};
         } catch { return {}; }
     });
-    // Tick each second to update countdowns
+    // Tick only when there is an active rejection within the 3-hour window
     const [nowMs, setNowMs] = useState(Date.now());
     useEffect(() => {
+        const THREE_HOURS = 3 * 60 * 60 * 1000;
+        const hasActiveRejection = cotizaciones.some(c => {
+            if (c.estado !== 'Rechazada' || !c.id) return false;
+            const rejAt = rejectionTimestamps[c.id];
+            return rejAt && (rejAt + THREE_HOURS) > Date.now();
+        });
+        if (!hasActiveRejection) return;
+
         const interval = setInterval(() => setNowMs(Date.now()), 1000);
         return () => clearInterval(interval);
-    }, []);
+    }, [cotizaciones, rejectionTimestamps]);
 
     // Modal Hora Llegada
     const [showHoraLlegadaModal, setShowHoraLlegadaModal] = useState(false);
@@ -1255,12 +1263,6 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                 // Ajuste inteligente de pestaña según el estado del trabajo y rol
                 const isJobSOS = Boolean(mappedJob.tipo === "SOS" || mappedJob.prioridad === "Emergencia" || (mappedJob.titulo || '').includes("SOS") || (mappedJob as any)?.isEmergency);
 
-                // Auto-healing para SOS si el técnico ya visitó/envió pero quedó en 'En Espera'
-                if (isJobSOS && mappedJob.visitado && mappedJob.estado === 'En Espera') {
-                    mappedJob.estado = 'Cotización Enviada';
-                    updateEstadoTrabajo(mappedJob.id, { estado: 'Cotización Enviada' }).catch(() => {});
-                }
-
                 if (!rawTabParam) {
                     if (mappedJob.estado === 'Rechazada') {
                         setActiveTab('Datos');
@@ -1317,14 +1319,9 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                 fetchAll();
             }
         };
-        const handleWindowFocus = () => {
-            fetchAll();
-        };
         window.addEventListener('storage', handleStorageChange);
-        window.addEventListener('focus', handleWindowFocus);
         return () => {
             window.removeEventListener('storage', handleStorageChange);
-            window.removeEventListener('focus', handleWindowFocus);
         };
     }, [id]);
 
@@ -2026,12 +2023,10 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
 
             if (assignedNames) {
                 try {
-                    // Update in Backend (for all grouped jobs if part of a group, or single job)
+                    // Update in Backend (parallel unified update for grouped jobs or single job)
                     const jobsToAssign = (groupedJobs && groupedJobs.length > 0) ? groupedJobs : [trabajo];
 
-                    for (const currentJob of jobsToAssign) {
-                        await assignTrabajador(currentJob.id, selectedTechnicians[0]);
-
+                    await Promise.all(jobsToAssign.map(async (currentJob) => {
                         const isQuoteState = currentJob.estado === "Cotización Enviada" || currentJob.estado === "Reasignación Solicitada";
                         const isCotizacionAprobadaReassign = currentJob.estado === "Cotización Aceptada" || currentJob.estado === "Cotización Aprobada";
                         
@@ -2053,19 +2048,20 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                             currentNuevoTitulo = currentNuevoTitulo.replace("(Reparación)", "(Visita)");
                         }
 
-                        await updateEstadoTrabajo(currentJob.id, { 
-                            estado: currentNewEstado,
-                            visitado: selectedType === "Trabajo" 
-                        });
-
                         const finalTipo = isSOS ? "SOS" : selectedType;
+
                         await updateTrabajo(currentJob.id, {
+                            trabajador_id: selectedTechnicians[0],
+                            estado: currentNewEstado,
+                            visitado: selectedType === "Trabajo",
                             tipo: finalTipo,
                             titulo: currentNuevoTitulo,
+                            fecha_programada: asignarFecha || undefined,
+                            horaAsignada: asignarHora || undefined,
                             motivo_reasignacion: null,
                             motivo_rechazo: null
                         });
-                    }
+                    }));
 
                     // Calculate state for current single view job
                     const isQuoteState = trabajo.estado === "Cotización Enviada" || trabajo.estado === "Reasignación Solicitada";
@@ -3043,6 +3039,21 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
         if (!trabajo) return;
 
         const isVisita = trabajo.tipo === "Visita";
+
+        if (!isVisita) {
+            const execTasks = getExecutableTasks(subTareas, reporteFinal, trabajo.id);
+            const totalCount = execTasks.length || 1;
+            const doneCount = execTasks.filter(t => isTaskReportFinalized(t)).length;
+            if (doneCount < totalCount) {
+                showAlert(
+                    'Reportes Pendientes',
+                    `Aún tienes reportes pendientes (${doneCount} de ${totalCount} completados). Debes completar y guardar el reporte de todas las tareas antes de poder finalizar y entregar el trabajo.`,
+                    'warning'
+                );
+                return;
+            }
+        }
+
         const message = isVisita
             ? "¿Estás seguro de finalizar la visita y enviar el diagnóstico al administrador? Ya no podrás editar este registro."
             : "¿Estás seguro de finalizar y entregar este trabajo? Al confirmar, el reporte completo y las evidencias fotográficas se enviarán al administrador y al cliente para su revisión final.";
@@ -3685,11 +3696,28 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
             const formData = new FormData();
             formData.append('monto', editCosto);
             formData.append('descripcion', editNotas);
+            formData.append('estado', 'Pendiente');
             if (editArchivoFile) formData.append('archivo', editArchivoFile);
+
             const updated = await updateCotizacion(editingCotizacion.id, formData as any);
-            setCotizaciones(prev => prev.map(c => c.id === updated.id ? updated : c));
+            await updateCotizacionStatus(editingCotizacion.id, "Pendiente");
+
+            if (trabajo?.id) {
+                await updateEstadoTrabajo(trabajo.id, { estado: "Cotización Enviada" });
+                setTrabajo(prev => prev ? { ...prev, estado: "Cotización Enviada" } : prev);
+
+                const fresh = await getCotizacionesByTrabajoId(trabajo.id);
+                if (Array.isArray(fresh) && fresh.length > 0) {
+                    setCotizaciones(fresh);
+                } else if (updated?.id) {
+                    setCotizaciones(prev => prev.map(c => c.id === updated.id ? { ...c, ...updated, estado: 'Pendiente' as const } : c));
+                }
+            } else if (updated?.id) {
+                setCotizaciones(prev => prev.map(c => c.id === updated.id ? { ...c, ...updated, estado: 'Pendiente' as const } : c));
+            }
+
             setEditingCotizacion(null);
-            showAlert('Actualizada', 'Los cambios se guardaron correctamente.', 'success');
+            showAlert('Propuesta Actualizada', 'Los cambios se guardaron y la cotización se envió nuevamente al cliente.', 'success');
         } catch (error: any) {
             showAlert('Error', error.response?.data?.message || error.message, 'error');
         }
@@ -4031,7 +4059,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
 
             setCotizaciones(prev => prev.map(c => c.id === cotizId ? { ...c, estado: "Rechazada" as const } : c));
             setTrabajo((prev) => prev ? { ...prev, estado: "Cotización Rechazada" } : prev);
-            setOpenChat(true);
+            setIsTechDrawerOpen(true);
 
             showAlert('Recotización Solicitada', 'Se ha solicitado una recotización al administrador y se abrió el chat.', 'info');
         } catch (error: any) {
@@ -4049,10 +4077,14 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
             await updateCotizacionStatus(cotizParaRecotizar, "Rechazada");
             await updateEstadoTrabajo(trabajo.id, { estado: "Cotización Rechazada" });
 
+            const targetCotiz = cotizaciones.find(c => c.id === cotizParaRecotizar);
+            const cotizTitle = targetCotiz?.descripcion ? getQuoteTitle(targetCotiz.descripcion, `Cotización #${cotizParaRecotizar}`) : `Cotización #${cotizParaRecotizar}`;
+            const cotizMonto = targetCotiz?.monto ? `$${Number(targetCotiz.monto).toLocaleString('es-MX')}` : '';
+
             await createNotificacionByRole({
                 role: 'admin',
                 titulo: '🔁 Re-Cotización Solicitada por el Cliente',
-                mensaje: `El cliente solicita re-cotización para "${trabajo.sucursal || 'la sucursal'}". Motivo: ${recotizMotivo}`,
+                mensaje: `El cliente solicita re-cotizar "${cotizTitle}" (${cotizMonto}) para "${trabajo.sucursal || 'la sucursal'}". Motivo: ${recotizMotivo}`,
                 enlace: `/menu/trabajo-detalle/${trabajo.id}?tab=cotizacion`
             });
 
@@ -4062,7 +4094,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                     await createNotificacion({
                         user_id: techUserId2,
                         titulo: '🔁 Solicitud de Re-Cotización',
-                        mensaje: `El cliente solicita re-cotización para "${trabajo.sucursal || 'la sucursal'}". Motivo: ${recotizMotivo}`,
+                        mensaje: `El cliente solicita re-cotizar "${cotizTitle}" (${cotizMonto}) para "${trabajo.sucursal || 'la sucursal'}". Motivo: ${recotizMotivo}`,
                         enlace: `/tecnico-autonomo/trabajo-detalle/${trabajo.id}?tab=cotizacion`
                     });
                 } catch (e) { console.error("Error notificando técnico:", e); }
@@ -4073,7 +4105,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                     await createNotificacion({
                         user_id: trabajo.admin_autonomo_id,
                         titulo: '🔁 Solicitud de Re-Cotización',
-                        mensaje: `El cliente solicita re-cotización para "${trabajo.sucursal || 'la sucursal'}". Motivo: ${recotizMotivo}`,
+                        mensaje: `El cliente solicita re-cotizar "${cotizTitle}" (${cotizMonto}) para "${trabajo.sucursal || 'la sucursal'}". Motivo: ${recotizMotivo}`,
                         enlace: `/autonomo/trabajo-detalle/${trabajo.id}?tab=cotizacion`
                     });
                 } catch (e) { console.error("Error notificando admin autónomo:", e); }
@@ -4085,7 +4117,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                 await fetch(`${API_URL}/trabajos/${trabajo.id}/chat`, {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: `🔁 SOLICITUD DE RE-COTIZACIÓN\nMotivo: ${recotizMotivo}` })
+                    body: JSON.stringify({ message: `🔁 SOLICITUD DE RE-COTIZACIÓN\nPropuesta: ${cotizTitle} (${cotizMonto})\nMotivo: ${recotizMotivo}` })
                 });
             } catch (err) { console.error(err); }
 
@@ -4094,7 +4126,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
             setShowRecotizModal(false);
             setRecotizMotivo('');
             setCotizParaRecotizar(null);
-            setOpenChat(true);
+            setIsTechDrawerOpen(true);
             showAlert('Re-Cotización Enviada', 'El administrador ha sido notificado. El chat está abierto para continuar la negociación.', 'info');
         } catch (error: any) {
             showAlert('Error', error.response?.data?.message || error.message, 'error');
@@ -4342,9 +4374,9 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
 
             setCotizaciones(prev => prev.map(c => c.estado === 'Pendiente' ? { ...c, estado: "Rechazada" as const } : c));
             setTrabajo((prev) => prev ? { ...prev, estado: "Cotización Rechazada" } : prev);
-            setOpenChat(true);
+            setIsTechDrawerOpen(true);
 
-            showAlert('Recotización Solicitada', 'Se ha solicitado la recotización global al administrador.', 'info');
+            showAlert('Recotización Solicitada', 'Se ha solicitado la recotización global al administrador y se abrió el chat.', 'info');
         } catch (error: any) {
             showAlert('Error', error.response?.data?.message || error.message, 'error');
         }
@@ -4409,7 +4441,8 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
     };
 
     const isTaskReportFinalized = (t: any): boolean => {
-        if (t.estado === 'Completa' || t.estado === 'Finalizado' || trabajo?.estado === 'Finalizado' || trabajo?.estado === 'Completado') {
+        if (!t) return false;
+        if (t.estado === 'Completa') {
             return true;
         }
         const tId = String(t.id);
@@ -4417,13 +4450,18 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
         const baseId = t.baseId;
         const workId = trabajo?.id;
 
-        const checkKeys = [
-            workId && pIdx !== undefined ? `${workId}_${pIdx}` : null,
-            workId && tId ? `${workId}_${tId}` : null,
-            tId,
-            baseId && pIdx !== undefined ? `${baseId}_${pIdx}` : null,
-            baseId ? `${baseId}` : null
-        ].filter(Boolean);
+        const checkKeys: string[] = [];
+        if (workId && pIdx !== undefined) checkKeys.push(`${workId}_${pIdx}`);
+        if (workId && tId && tId !== String(workId)) checkKeys.push(`${workId}_${tId}`);
+        if (baseId && pIdx !== undefined) checkKeys.push(`${baseId}_${pIdx}`);
+        if (tId && tId !== String(workId) && tId !== String(baseId)) checkKeys.push(tId);
+
+        // If it's a single task with NO sub-points
+        if (!pIdx && (!t.totalPoints || t.totalPoints <= 1)) {
+            if (workId) checkKeys.push(String(workId));
+            if (baseId) checkKeys.push(String(baseId));
+            if (trabajo?.estado === 'Finalizado' || trabajo?.estado === 'Completado') return true;
+        }
 
         for (const k of checkKeys) {
             if (localStorage.getItem(`tarea_finalizada_${k}`) === 'true') return true;
@@ -4431,7 +4469,9 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
             if (raw) {
                 try {
                     const parsed = JSON.parse(raw);
-                    if (parsed.isReportFinalizado && !parsed.isVisita) return true;
+                    if (parsed && (parsed.isReportFinalizado || parsed.imagenes || parsed.descripcion || parsed.reporteTienda)) {
+                        return true;
+                    }
                 } catch (_) {}
             }
         }
@@ -4439,12 +4479,15 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
         if (reporteFinal && reporteFinal.solucion) {
             try {
                 const parsedSol = typeof reporteFinal.solucion === 'string' ? JSON.parse(reporteFinal.solucion) : reporteFinal.solucion;
-                if (!parsedSol.isVisita && (parsedSol.isReportFinalizado || parsedSol.isExecutionReport)) {
-                    if (parsedSol.subReports && typeof parsedSol.subReports === 'object') {
-                        for (const k of checkKeys) {
-                            if (parsedSol.subReports[k as string]?.isReportFinalizado) return true;
+                if (parsedSol.subReports && typeof parsedSol.subReports === 'object') {
+                    for (const k of checkKeys) {
+                        if (parsedSol.subReports[k] && (parsedSol.subReports[k].isReportFinalizado || parsedSol.subReports[k].descripcion || parsedSol.subReports[k].imagenes)) {
+                            return true;
                         }
                     }
+                }
+                if (!pIdx && (!t.totalPoints || t.totalPoints <= 1) && (parsedSol.isReportFinalizado || parsedSol.isExecutionReport)) {
+                    return true;
                 }
             } catch (_) {}
         }
@@ -4454,11 +4497,22 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
 
     const renderTaskCard = (tarea: SubTarea, isInteractive: boolean = true) => {
         let taskReport: any = null;
+        const tId = String(tarea.id);
+        const pIdx = tarea.pointIndex;
+        const baseId = tarea.baseId;
+        const workId = trabajo?.id;
+
         const candidateKeys = [
-            `report_data_${tarea.id}`,
-            `report_data_temporal_${tarea.id}`,
-            tarea.baseId && tarea.pointIndex ? `report_data_${tarea.baseId}_${tarea.pointIndex}` : '',
-            trabajo?.id && tarea.pointIndex ? `report_data_${trabajo.id}_${tarea.pointIndex}` : ''
+            `report_data_${tId}`,
+            `report_data_temporal_${tId}`,
+            workId ? `report_data_${workId}_${tId}` : '',
+            workId ? `report_data_temporal_${workId}_${tId}` : '',
+            baseId && pIdx !== undefined ? `report_data_${baseId}_${pIdx}` : '',
+            baseId && pIdx !== undefined ? `report_data_temporal_${baseId}_${pIdx}` : '',
+            workId && pIdx !== undefined ? `report_data_${workId}_${pIdx}` : '',
+            workId && pIdx !== undefined ? `report_data_temporal_${workId}_${pIdx}` : '',
+            workId && (!pIdx && (!tarea.totalPoints || tarea.totalPoints <= 1)) ? `report_data_${workId}` : '',
+            workId && (!pIdx && (!tarea.totalPoints || tarea.totalPoints <= 1)) ? `report_data_temporal_${workId}` : ''
         ].filter(Boolean);
 
         for (const k of candidateKeys) {
@@ -4466,13 +4520,13 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
             if (raw) {
                 try {
                     taskReport = JSON.parse(raw);
-                    if (taskReport && (taskReport.imagenes || taskReport.descripcion || taskReport.reporteTienda)) break;
+                    if (taskReport && (taskReport.imagenes || taskReport.observacionesList || taskReport.descripcion || taskReport.reporteTienda)) break;
                 } catch (_) {}
             }
         }
 
         if (!taskReport && reporteFinal) {
-            taskReport = findMatchingSubReport(reporteFinal, tarea);
+            taskReport = findMatchingSubReport(reporteFinal, { ...tarea, trabajoId: trabajo?.id });
         }
 
         const getCategoryIcon = (titulo: string) => {
@@ -4542,12 +4596,22 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
             // Comments/additional notes
             const combinedMateriales = tarea.quoteData?.comentarios || tarea.quoteData?.detalles || '';
 
-            const reportToUse = taskReport || findMatchingSubReport(reporteFinal, tarea);
+            const reportToUse = taskReport || findMatchingSubReport(reporteFinal, { ...tarea, trabajoId: trabajo?.id });
+            const collectedObsPhotos: string[] = [];
+            if (Array.isArray(reportToUse?.observacionesList)) {
+                reportToUse.observacionesList.forEach((o: any) => {
+                    if (o && Array.isArray(o.imagenes)) {
+                        collectedObsPhotos.push(...o.imagenes);
+                    }
+                });
+            }
+
             const reportPhotos = reportToUse ? [
                 reportToUse.imagenes?.antes,
                 reportToUse.imagenes?.durante,
                 reportToUse.imagenes?.despues,
-                ...(reportToUse.imagenesObservacion || (reportToUse.imagenObservacion ? [reportToUse.imagenObservacion] : []))
+                ...(reportToUse.imagenesObservacion || (reportToUse.imagenObservacion ? [reportToUse.imagenObservacion] : [])),
+                ...collectedObsPhotos
             ].filter(Boolean) : (tarea.photos || []);
 
             const preparedData = {
@@ -4597,30 +4661,40 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
             });
         }
 
-        // 2. Si hay fotos del reporte de ejecución (Antes / Durante / Después) explícitamente guardadas para esta tarea
-        if (taskReport?.isExecutionReport || tarea.estado === 'Completa' || trabajo?.estado === 'Finalizado') {
-            if (taskReport?.imagenes?.antes) rawUrls.push(taskReport.imagenes.antes);
-            if (taskReport?.imagenes?.durante) rawUrls.push(taskReport.imagenes.durante);
-            if (taskReport?.imagenes?.despues) rawUrls.push(taskReport.imagenes.despues);
+        // 2. Si hay fotos del reporte de ejecución (Antes / Durante / Después / Observaciones) guardadas para esta tarea
+        if (taskReport) {
+            if (taskReport.imagenes?.antes) rawUrls.push(taskReport.imagenes.antes);
+            if (taskReport.imagenes?.durante) rawUrls.push(taskReport.imagenes.durante);
+            if (taskReport.imagenes?.despues) rawUrls.push(taskReport.imagenes.despues);
 
-            if (Array.isArray(taskReport?.imagenes)) {
+            if (Array.isArray(taskReport.imagenes)) {
                 taskReport.imagenes.forEach((img: any) => {
                     const u = typeof img === 'string' ? img : (img?.ruta || img?.url);
                     if (u) rawUrls.push(u);
                 });
             }
-            if (Array.isArray(taskReport?.photos)) {
+            if (Array.isArray(taskReport.photos)) {
                 taskReport.photos.forEach((img: any) => {
                     const u = typeof img === 'string' ? img : (img?.ruta || img?.url);
                     if (u) rawUrls.push(u);
                 });
             }
 
-            if (taskReport?.imagenesObservacion && taskReport.imagenesObservacion.length > 0) {
+            if (Array.isArray(taskReport.observacionesList)) {
+                taskReport.observacionesList.forEach((obs: any) => {
+                    if (obs && Array.isArray(obs.imagenes)) {
+                        obs.imagenes.forEach((img: string) => {
+                            if (img) rawUrls.push(img);
+                        });
+                    }
+                });
+            }
+
+            if (taskReport.imagenesObservacion && Array.isArray(taskReport.imagenesObservacion) && taskReport.imagenesObservacion.length > 0) {
                 taskReport.imagenesObservacion.forEach((img: string) => {
                     if (img) rawUrls.push(img);
                 });
-            } else if (taskReport?.imagenObservacion) {
+            } else if (taskReport.imagenObservacion) {
                 rawUrls.push(taskReport.imagenObservacion);
             }
         }
@@ -6433,37 +6507,64 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
 
 
                     {
-                        config.canCotizar && activeTab === 'Cotización' && (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                        config.canCotizar && activeTab === 'Cotización' && (() => {
+                            const actualReporte = reporteFinal || (() => {
+                                const fallbackReportDataRaw = localStorage.getItem(`report_data_${trabajo?.id}`);
+                                const temporalReportDataRaw = localStorage.getItem(`report_data_temporal_${trabajo?.id}`);
+                                try {
+                                    return fallbackReportDataRaw ? JSON.parse(fallbackReportDataRaw) : (temporalReportDataRaw ? JSON.parse(temporalReportDataRaw) : null);
+                                } catch (e) {
+                                    return null;
+                                }
+                            })();
 
-                                {/* VISTA CLIENTE: bitácora premium de cotizaciones */}
-                                {(user?.role === 'cliente' || user?.role === 'encargado' || user?.role === 'gerente-sucursal') && (
-                                    <div style={{ maxWidth: '820px', margin: '0 auto', width: '100%' }}>
-                                        {isSOS ? (
-                                            /* SOS INTERACTIVE ITEM-BY-ITEM QUOTATION SELECTION & APPROVAL */
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                                                {/* Header SOS */}
-                                                <div style={{ background: '#fff', borderRadius: '24px', padding: '24px', border: '1.5px solid #fed7aa', boxShadow: '0 4px 20px rgba(249, 115, 22, 0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                                                        <div style={{ width: '48px', height: '48px', borderRadius: '16px', background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '24px', boxShadow: '0 4px 12px rgba(249, 115, 22, 0.3)' }}>
-                                                            🚨
+                            const canEditCotizacion = isSOS ? false : isAdminUser;
+                            const showLeftColumn = cotizaciones.length > 0 || canEditCotizacion || (isSOS && isTechRole);
+                            const hasTechData = Boolean(subTareas.some(t => t.esCotizacion) || actualReporte || (quoteHistory && quoteHistory.length > 0));
+
+                            return (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', position: 'relative' }}>
+
+                                    {/* VISTA CLIENTE: bitácora premium de cotizaciones */}
+                                    {(user?.role === 'cliente' || user?.role === 'encargado' || user?.role === 'gerente-sucursal') && (
+                                        <div style={{ maxWidth: '820px', margin: '0 auto', width: '100%' }}>
+                                            {isSOS ? (
+                                                /* SOS INTERACTIVE ITEM-BY-ITEM QUOTATION SELECTION & APPROVAL */
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                                    {/* Header SOS */}
+                                                    <div style={{ background: '#fff', borderRadius: '24px', padding: '24px', border: '1.5px solid #fed7aa', boxShadow: '0 4px 20px rgba(249, 115, 22, 0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                                                            <div style={{ width: '48px', height: '48px', borderRadius: '16px', background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '24px', boxShadow: '0 4px 12px rgba(249, 115, 22, 0.3)' }}>
+                                                                🚨
+                                                            </div>
+                                                            <div>
+                                                                <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '800', color: '#1e293b' }}>
+                                                                    Cotización de Emergencia SOS
+                                                                </h2>
+                                                                <p style={{ margin: '2px 0 0', fontSize: '13px', color: '#64748b', fontWeight: '600' }}>
+                                                                    Evaluado por {trabajo?.tecnico || 'el técnico'} · {flattenedSosPoints.length} {flattenedSosPoints.length === 1 ? 'punto registrado' : 'puntos registrados'}
+                                                                </p>
+                                                            </div>
                                                         </div>
-                                                        <div>
-                                                            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '800', color: '#1e293b' }}>
-                                                                Cotización de Emergencia SOS
-                                                            </h2>
-                                                            <p style={{ margin: '2px 0 0', fontSize: '13px', color: '#64748b', fontWeight: '600' }}>
-                                                                Evaluado por {trabajo?.tecnico || 'el técnico'} · {flattenedSosPoints.length} {flattenedSosPoints.length === 1 ? 'punto registrado' : 'puntos registrados'}
-                                                            </p>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setIsTechDrawerOpen(true)}
+                                                                className={styles.techDrawerDesktopTrigger}
+                                                                style={{ margin: 0 }}
+                                                            >
+                                                                <HiOutlineChatBubbleLeftRight size={17} color="#f26522" />
+                                                                <span>💬 Chat con Administrador</span>
+                                                                <HiOutlineChevronLeft size={16} style={{ strokeWidth: 3 }} />
+                                                            </button>
+                                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                                                                <span style={{ fontSize: '11px', fontWeight: '800', color: '#9a3412', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Seleccionado</span>
+                                                                <span style={{ fontSize: '26px', fontWeight: '900', color: '#ea580c' }}>
+                                                                    ${selectedSosTotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                                                                </span>
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                                                        <span style={{ fontSize: '11px', fontWeight: '800', color: '#9a3412', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Seleccionado</span>
-                                                        <span style={{ fontSize: '26px', fontWeight: '900', color: '#ea580c' }}>
-                                                            ${selectedSosTotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
-                                                        </span>
-                                                    </div>
-                                                </div>
 
                                                 {/* SubTareas / Puntos de Revisión */}
                                                 {!flattenedSosPoints || flattenedSosPoints.length === 0 ? (
@@ -6757,15 +6858,27 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                         ) : (
                                             /* NON-SOS STANDARD FLOW */
                                             <>
-                                                {/* Header */}
-                                                <div className={styles.clientCotizHeader}>
-                                                    <div className={styles.clientCotizHeaderIcon}>
-                                                        <HiOutlineCurrencyDollar size={22} color="white" />
+                                                {/* Header con botón de Chat */}
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+                                                    <div className={styles.clientCotizHeader} style={{ margin: 0 }}>
+                                                        <div className={styles.clientCotizHeaderIcon}>
+                                                            <HiOutlineCurrencyDollar size={22} color="white" />
+                                                        </div>
+                                                        <div>
+                                                            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '800', color: '#1e293b' }}>Cotizaciones Recibidas</h2>
+                                                            <p style={{ margin: 0, fontSize: '13px', color: '#94a3b8', fontWeight: '600' }}>{cotizaciones.length} opción{cotizaciones.length !== 1 ? 'es' : ''} disponible{cotizaciones.length !== 1 ? 's' : ''}</p>
+                                                        </div>
                                                     </div>
-                                                    <div>
-                                                        <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '800', color: '#1e293b' }}>Cotizaciones Recibidas</h2>
-                                                        <p style={{ margin: 0, fontSize: '13px', color: '#94a3b8', fontWeight: '600' }}>{cotizaciones.length} opción{cotizaciones.length !== 1 ? 'es' : ''} disponible{cotizaciones.length !== 1 ? 's' : ''}</p>
-                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setIsTechDrawerOpen(true)}
+                                                        className={styles.techDrawerDesktopTrigger}
+                                                        style={{ margin: 0 }}
+                                                    >
+                                                        <HiOutlineChatBubbleLeftRight size={17} color="#f26522" />
+                                                        <span>💬 Chat con Administrador</span>
+                                                        <HiOutlineChevronLeft size={16} style={{ strokeWidth: 3 }} />
+                                                    </button>
                                                 </div>
 
                                                 {cotizaciones.length === 0 ? (
@@ -6968,54 +7081,21 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                 )}
 
                                 {/* VISTA ADMIN: columna izquierda (gestión de cotizaciones), columna derecha (actividades del técnico) */}
-                                {!['cliente', 'encargado', 'gerente-sucursal'].includes(user?.role || '') && (() => {
-                                    const actualReporte = reporteFinal || (() => {
-                                        const fallbackReportDataRaw = localStorage.getItem(`report_data_${trabajo?.id}`);
-                                        const temporalReportDataRaw = localStorage.getItem(`report_data_temporal_${trabajo?.id}`);
-                                        try {
-                                            return fallbackReportDataRaw ? JSON.parse(fallbackReportDataRaw) : (temporalReportDataRaw ? JSON.parse(temporalReportDataRaw) : null);
-                                        } catch (e) {
-                                            return null;
-                                        }
-                                    })();
-
-                                    const canEditCotizacion = isSOS ? false : isAdminUser;
-                                    const showLeftColumn = cotizaciones.length > 0 || canEditCotizacion || (isSOS && isTechRole);
-                                    const hasTechData = Boolean(subTareas.some(t => t.esCotizacion) || actualReporte || (quoteHistory && quoteHistory.length > 0));
-
-                                    return (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%', maxWidth: '100%', position: 'relative' }}>
-                                            
-                                            {/* BOTÓN SUPERIOR DE ACCESO RÁPIDO A COTIZACIÓN DEL TÉCNICO Y CHAT (PC / DESKTOP) */}
-                                            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginBottom: '-6px' }}>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setIsTechDrawerOpen(true)}
-                                                    className={styles.techDrawerDesktopTrigger}
-                                                >
-                                                    <HiOutlineDocumentText size={17} color="#f26522" />
-                                                    <span>Ver Cotización del Técnico & Chat</span>
-                                                    <HiOutlineChevronLeft size={16} style={{ strokeWidth: 3 }} />
-                                                </button>
-                                            </div>
-
-                                            {/* BOTÓN FLOTANTE LATERAL EN EL BORDE DERECHO */}
-                                            {!isTechDrawerOpen && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setIsTechDrawerOpen(true)}
-                                                    className={styles.techDrawerFloatingTrigger}
-                                                    title="Ver Cotización del Técnico & Chat"
-                                                >
-                                                    <HiOutlineChevronLeft size={20} style={{ strokeWidth: 3 }} />
-                                                    <span style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', fontSize: '11px', fontWeight: '900', letterSpacing: '0.6px', textTransform: 'uppercase' }}>
-                                                        Técnico & Chat
-                                                    </span>
-                                                    {hasTechData && (
-                                                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#fff', boxShadow: '0 0 6px #fff' }} />
-                                                    )}
-                                                </button>
-                                            )}
+                                {!['cliente', 'encargado', 'gerente-sucursal'].includes(user?.role || '') && (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%', maxWidth: '100%', position: 'relative' }}>
+                                        
+                                        {/* BOTÓN SUPERIOR DE ACCESO RÁPIDO A COTIZACIÓN DEL TÉCNICO Y CHAT (PC / DESKTOP) */}
+                                        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginBottom: '-6px' }}>
+                                            <button
+                                                type="button"
+                                                onClick={() => setIsTechDrawerOpen(true)}
+                                                className={styles.techDrawerDesktopTrigger}
+                                            >
+                                                <HiOutlineDocumentText size={17} color="#f26522" />
+                                                <span>Ver Cotización del Técnico & Chat</span>
+                                                <HiOutlineChevronLeft size={16} style={{ strokeWidth: 3 }} />
+                                            </button>
+                                        </div>
 
                                             {/* COLUMNA PRINCIPAL (ANCHO COMPLETO): lista de cotizaciones y formulario */}
                                             {showLeftColumn && (
@@ -7025,26 +7105,51 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                         <div className={styles.adminRecotizBanner}>
                                                             <div className={styles.adminRecotizBannerIcon}>🔁</div>
                                                             <div className={styles.adminRecotizBannerContent}>
-                                                                <h4 className={styles.adminRecotizBannerTitle}>Solicitud de Re-Cotización / Ajuste de Cliente</h4>
+                                                                <h4 className={styles.adminRecotizBannerTitle}>Solicitud de Re-Cotización del Cliente</h4>
                                                                 <p className={styles.adminRecotizBannerText}>
-                                                                    El cliente ha solicitado una re-cotización o rechazó la propuesta previa. Puedes chatear en tiempo real con el cliente para acordar el monto, o reactivar la cotización.
+                                                                    El cliente solicitó ajustar la propuesta marcada. Puedes <strong>modificar los precios/conceptos y reenviarla</strong>, o reactivar la cotización previa si no habrá cambios.
                                                                 </p>
                                                                 <div className={styles.adminRecotizBannerActions}>
                                                                     <button
                                                                         className={styles.adminRecotizBtnChat}
-                                                                        onClick={() => setOpenChat(true)}
+                                                                        onClick={() => setIsTechDrawerOpen(true)}
                                                                     >
                                                                         <HiOutlineChatBubbleLeftRight size={16} /> Abrir Chat con Cliente
                                                                     </button>
-                                                                    {cotizaciones.filter(c => c.estado === 'Rechazada').map(c => (
-                                                                        <button
-                                                                            key={c.id}
-                                                                            className={styles.adminRecotizBtnReactivate}
-                                                                            onClick={() => handleAdminReactivarCotizacion(c.id!)}
-                                                                        >
-                                                                            ✅ Reactivar Cotización #{c.id}
-                                                                        </button>
-                                                                    ))}
+                                                                    {cotizaciones.filter(c => c.estado === 'Rechazada').map(c => {
+                                                                        const cTitle = getQuoteTitle(c.descripcion || "", `Cotización #${c.id}`);
+                                                                        const cMonto = c.monto ? `$${Number(c.monto).toLocaleString('es-MX')}` : '';
+                                                                        return (
+                                                                            <div key={c.id} style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                                                                                <button
+                                                                                    style={{
+                                                                                        padding: '8px 14px',
+                                                                                        borderRadius: '10px',
+                                                                                        background: 'linear-gradient(135deg, #f26522, #d14d13)',
+                                                                                        color: '#fff',
+                                                                                        border: 'none',
+                                                                                        fontWeight: '800',
+                                                                                        fontSize: '12px',
+                                                                                        cursor: 'pointer',
+                                                                                        display: 'flex',
+                                                                                        alignItems: 'center',
+                                                                                        gap: '6px',
+                                                                                        boxShadow: '0 2px 8px rgba(242, 101, 34, 0.25)'
+                                                                                    }}
+                                                                                    onClick={() => handleEditarCotizacion(c)}
+                                                                                >
+                                                                                    ✏️ Ajustar {cTitle} ({cMonto})
+                                                                                </button>
+                                                                                <button
+                                                                                    className={styles.adminRecotizBtnReactivate}
+                                                                                    onClick={() => handleAdminReactivarCotizacion(c.id!)}
+                                                                                    title="Reactivar la propuesta original sin modificar precios"
+                                                                                >
+                                                                                    ↺ Reactivar sin cambios
+                                                                                </button>
+                                                                            </div>
+                                                                        );
+                                                                    })}
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -7260,7 +7365,53 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                                 const displayEstado = (trabajo?.estado === 'Cotización Aceptada') ? 'Aprobada' : (cotiz.estado || 'Pendiente');
                                                                 const displayEstadoText = (trabajo?.estado === 'Cotización Aceptada') ? 'Aceptada' : (cotiz.estado || 'Pendiente');
                                                                 return (
-                                                                    <div key={cotiz.id} style={{ background: '#fafafa', border: '1.5px solid #f1f5f9', borderRadius: '18px', padding: '16px', boxSizing: 'border-box', width: '100%' }}>
+                                                                    <div key={cotiz.id} style={{
+                                                                        background: cotiz.estado === 'Rechazada' ? '#fff5f5' : '#fafafa',
+                                                                        border: cotiz.estado === 'Rechazada' ? '2px solid #fca5a5' : '1.5px solid #f1f5f9',
+                                                                        borderRadius: '18px',
+                                                                        padding: '16px',
+                                                                        boxSizing: 'border-box',
+                                                                        width: '100%'
+                                                                    }}>
+                                                                        {cotiz.estado === 'Rechazada' && (
+                                                                            <div style={{
+                                                                                background: '#fee2e2',
+                                                                                border: '1px solid #fecaca',
+                                                                                borderRadius: '10px',
+                                                                                padding: '8px 12px',
+                                                                                marginBottom: '10px',
+                                                                                display: 'flex',
+                                                                                alignItems: 'center',
+                                                                                justifyContent: 'space-between',
+                                                                                gap: '8px',
+                                                                                flexWrap: 'wrap'
+                                                                            }}>
+                                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                                    <span style={{ fontSize: '14px' }}>🔁</span>
+                                                                                    <span style={{ fontSize: '12px', fontWeight: '800', color: '#991b1b' }}>
+                                                                                        El cliente solicitó re-cotizar esta propuesta
+                                                                                    </span>
+                                                                                </div>
+                                                                                {canEditCotizacion && (
+                                                                                    <button
+                                                                                        onClick={() => handleEditarCotizacion(cotiz)}
+                                                                                        style={{
+                                                                                            background: 'linear-gradient(135deg, #f26522, #d14d13)',
+                                                                                            color: 'white',
+                                                                                            border: 'none',
+                                                                                            borderRadius: '8px',
+                                                                                            padding: '5px 12px',
+                                                                                            fontSize: '11px',
+                                                                                            fontWeight: '800',
+                                                                                            cursor: 'pointer',
+                                                                                            boxShadow: '0 2px 6px rgba(242, 101, 34, 0.3)'
+                                                                                        }}
+                                                                                    >
+                                                                                        ✏️ Ajustar y Reenviar
+                                                                                    </button>
+                                                                                )}
+                                                                            </div>
+                                                                        )}
                                                                         {isEditing ? (
                                                                             /* FORMULARIO INLINE DE EDICIÓN */
                                                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%', boxSizing: 'border-box' }}>
@@ -7277,7 +7428,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                                                     {editArchivoFile ? `✓ ${editNombreArchivo}` : '📎 Cambiar documento (opcional)'}
                                                                                 </button>
                                                                                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                                                                                    <button onClick={handleUpdateCotizacion} style={{ flex: 1, padding: '12px', background: 'linear-gradient(135deg, #f26522, #d14d13)', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: '800', cursor: 'pointer', fontSize: '14px' }}>💾 Guardar cambios</button>
+                                                                                    <button onClick={handleUpdateCotizacion} style={{ flex: 1, padding: '12px', background: 'linear-gradient(135deg, #f26522, #d14d13)', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: '800', cursor: 'pointer', fontSize: '14px' }}>💾 Guardar cambios y Reenviar</button>
                                                                                     <button onClick={() => setEditingCotizacion(null)} style={{ padding: '12px 16px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', fontWeight: '700', cursor: 'pointer', fontSize: '14px', color: '#475569' }}>Cancelar</button>
                                                                                 </div>
                                                                             </div>
@@ -7290,7 +7441,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                                                         {getQuoteTitle(cotiz.descripcion || "", `Opción ${idx + 1}`)}
                                                                                     </p>
                                                                                     <span style={{ padding: '4px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: '800', background: estadoBadge[displayEstado], color: estadoText[displayEstado], flexShrink: 0 }}>
-                                                                                        {displayEstadoText}
+                                                                                        {cotiz.estado === 'Rechazada' ? 'Re-Cotizar / Rechazada' : displayEstadoText}
                                                                                     </span>
                                                                                 </div>
 
@@ -7301,7 +7452,9 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                                                         <button onClick={() => { setCosto(cotiz.monto?.toString() || ''); setNotas(cotiz.descripcion || ''); setShowPDFPreview(true); }} style={{ padding: '7px 11px', borderRadius: '10px', background: '#fef2f2', border: '1px solid #fecaca', cursor: 'pointer', fontSize: '12px', fontWeight: '700', color: '#ef4444', display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}><HiOutlineDocumentText size={15} /> Preview PDF</button>
                                                                                         {canEditCotizacion && (
                                                                                             <>
-                                                                                                <button onClick={() => handleEditarCotizacion(cotiz)} style={{ padding: '7px 11px', borderRadius: '10px', background: '#f1f5f9', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: '700', color: '#475569', whiteSpace: 'nowrap' }}>✏️ Editar</button>
+                                                                                                <button onClick={() => handleEditarCotizacion(cotiz)} style={{ padding: '7px 11px', borderRadius: '10px', background: cotiz.estado === 'Rechazada' ? 'linear-gradient(135deg, #f26522, #d14d13)' : '#f1f5f9', color: cotiz.estado === 'Rechazada' ? '#fff' : '#475569', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: '700', whiteSpace: 'nowrap' }}>
+                                                                                                    {cotiz.estado === 'Rechazada' ? '✏️ Ajustar' : '✏️ Editar'}
+                                                                                                </button>
                                                                                                 <button onClick={() => handleEliminarCotizacion(cotiz.id!)} style={{ padding: '7px 11px', borderRadius: '10px', background: '#fef2f2', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: '700', color: '#ef4444' }}>🗑️</button>
                                                                                             </>
                                                                                         )}
@@ -7665,34 +7818,59 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                 )}
                                             </div>
                                             )}
+                                        </div>
+                                    )}
 
+                                    {/* BOTÓN FLOTANTE LATERAL DERECHO (Permite abrir / ocultar el Drawer en cualquier momento) */}
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsTechDrawerOpen(!isTechDrawerOpen)}
+                                        className={styles.techDrawerFloatingTrigger}
+                                        title={user?.role === 'cliente' ? 'Abrir / Ocultar Chat con Administrador' : 'Abrir / Ocultar Cotización del Técnico & Chat'}
+                                    >
+                                        {user?.role === 'cliente' ? (
+                                            <>
+                                                <HiOutlineChatBubbleLeftRight size={20} />
+                                                <span style={{ writingMode: 'vertical-rl', textOrientation: 'mixed', fontSize: '11px', fontWeight: '800', letterSpacing: '1px' }}>
+                                                    CHAT ADMIN
+                                                </span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <HiOutlineDocumentText size={20} />
+                                                <span style={{ writingMode: 'vertical-rl', textOrientation: 'mixed', fontSize: '11px', fontWeight: '800', letterSpacing: '1px' }}>
+                                                    TÉCNICO & CHAT
+                                                </span>
+                                            </>
+                                        )}
+                                    </button>
 
-                                            {/* SLIDE-OVER DRAWER LATERAL: Reporte, sugerencias, PDF del técnico y Chat */}
-                                            {isTechDrawerOpen && (
-                                                <div 
-                                                    className={styles.techDrawerOverlay} 
-                                                    onClick={() => setIsTechDrawerOpen(false)}
-                                                />
-                                            )}
+                                    {/* SLIDE-OVER DRAWER LATERAL: Reporte, sugerencias, PDF del técnico y Chat */}
+                                    {isTechDrawerOpen && (
+                                        <div 
+                                            className={styles.techDrawerOverlay} 
+                                            onClick={() => setIsTechDrawerOpen(false)}
+                                        />
+                                    )}
 
-                                            <div 
-                                                className={styles.techDrawerPanel}
-                                                style={{
-                                                    transform: isTechDrawerOpen ? 'translateX(0)' : 'translateX(105%)'
-                                                }}
-                                            >
+                                    <div 
+                                        className={styles.techDrawerPanel}
+                                        style={{
+                                            transform: isTechDrawerOpen ? 'translateX(0)' : 'translateX(105%)'
+                                        }}
+                                    >
                                                 {/* CABECERA DEL DRAWER */}
                                                 <div className={styles.techDrawerHeader}>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                                         <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'linear-gradient(135deg, #f26522, #d14d13)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
-                                                            <HiOutlineDocumentText size={20} />
+                                                            {user?.role === 'cliente' ? <HiOutlineChatBubbleLeftRight size={20} /> : <HiOutlineDocumentText size={20} />}
                                                         </div>
                                                         <div>
                                                             <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#1e293b' }}>
-                                                                Cotización del Técnico & Chat
+                                                                {user?.role === 'cliente' ? '💬 Chat con Administrador' : 'Cotización del Técnico & Chat'}
                                                             </h3>
                                                             <span style={{ fontSize: '11px', color: '#64748b' }}>
-                                                                Sugerencias, evidencias y negociación
+                                                                {user?.role === 'cliente' ? 'Negociación y consultas directas' : 'Sugerencias, evidencias y negociación'}
                                                             </span>
                                                         </div>
                                                     </div>
@@ -7721,6 +7899,38 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
 
                                                 {/* CONTENIDO DEL DRAWER CON SCROLL TRANSPARENTE */}
                                                 <div className={`${styles.techDrawerContent} ${styles.cardTransparentScroll}`}>
+                                                    {user?.role === 'cliente' ? (
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                                            <div style={{
+                                                                background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
+                                                                border: '1.5px solid #bfdbfe',
+                                                                borderRadius: '16px',
+                                                                padding: '16px 18px',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                gap: '12px'
+                                                            }}>
+                                                                <div style={{ fontSize: '24px' }}>💬</div>
+                                                                <div>
+                                                                    <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '850', color: '#1e40af' }}>
+                                                                        Chat de Negociación con Administrador
+                                                                    </h4>
+                                                                    <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#3b82f6' }}>
+                                                                        Conversa en tiempo real para consultar dudas o acordar ajustes a la cotización.
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+
+                                                            {isTechDrawerOpen && trabajo && (
+                                                                <NegotiationChatWidget 
+                                                                    trabajoId={trabajo.id} 
+                                                                    currentUser={user} 
+                                                                    inlineMode={true}
+                                                                />
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        <>
                                                     {/* Card 2: Evidencia Fotográfica */}
                                                 {actualReporte && (actualReporte.imagenes?.antes || actualReporte.imagenes?.durante || actualReporte.imagenes?.despues || actualReporte.imagenObservacion || (actualReporte.imagenesObservacion && actualReporte.imagenesObservacion.length > 0)) && (
                                                     <div style={{ background: '#fff', borderRadius: '24px', padding: '24px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)', border: '1px solid #e2e8f0' }}>
@@ -8184,7 +8394,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                                 </div>
 
                                                                 {/* CHAT DE NEGOCIACIÓN ÚNICO PARA EL TRABAJO */}
-                                                                {trabajo && user?.role !== 'cliente' && (
+                                                                {isTechDrawerOpen && trabajo && user?.role !== 'cliente' && (
                                                                     <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '2px dashed #e2e8f0' }}>
                                                                         <NegotiationChatWidget 
                                                                             trabajoId={trabajo.id} 
@@ -8473,14 +8683,13 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                         )}
                                                     </div>
                                                 )}
-                                                </div>
-                                            </div>
+                                                </>
+                                            )}
                                         </div>
-                                    );
-                                })()}
-
-                            </div>
-                        )
+                                    </div>
+                                </div>
+                            );
+                        })()
                     }
 
             {/* El Chat de Negociación ha sido eliminado por solicitud */}
@@ -8718,32 +8927,25 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                     </div>
                                 )}
 
-                                {/* BANNER DE AVANCE PROGRESIVO DE REPORTES (ej. 1/3 Completados) */}
+                                {/* BANNER DE AVANCE PROGRESIVO DE REPORTES (ej. 1/7 Completados) */}
                                 {(() => {
                                     const execTasks = getExecutableTasks(subTareas, reporteFinal, trabajo?.id);
                                     const total = execTasks.length || 1;
-                                    const completed = (trabajo?.estado === 'Finalizado' || trabajo?.estado === 'Completado' || !!reporteFinal)
-                                        ? total
-                                        : execTasks.filter(t => (
-                                            t.estado === 'Completa' || 
-                                            t.estado === 'Finalizado' || 
-                                            !!localStorage.getItem(`report_data_${t.id}`) ||
-                                            (t.baseId && t.pointIndex ? (!!localStorage.getItem(`report_data_${t.baseId}_${t.pointIndex}`) || !!localStorage.getItem(`report_data_temporal_${t.baseId}_${t.pointIndex}`)) : false) ||
-                                            (t.baseId ? (!!localStorage.getItem(`report_data_${t.baseId}`) || !!localStorage.getItem(`report_data_temporal_${t.baseId}`)) : false)
-                                        )).length;
+                                    const completed = execTasks.filter(t => isTaskReportFinalized(t)).length;
                                     const percentage = Math.round((completed / total) * 100);
+                                    const isAllCompleted = completed === total && total > 0;
 
                                     return (
                                         <div style={{
-                                            background: completed === total ? 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)' : 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
-                                            border: `2px solid ${completed === total ? '#10b981' : '#3b82f6'}`,
+                                            background: isAllCompleted ? 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)' : 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
+                                            border: `2px solid ${isAllCompleted ? '#10b981' : '#3b82f6'}`,
                                             borderRadius: '20px',
                                             padding: '18px 24px',
                                             marginBottom: '24px',
                                             display: 'flex',
                                             flexDirection: 'column',
                                             gap: '12px',
-                                            boxShadow: '0 4px 16px rgba(59, 130, 246, 0.1)'
+                                            boxShadow: isAllCompleted ? '0 4px 16px rgba(16, 185, 129, 0.1)' : '0 4px 16px rgba(59, 130, 246, 0.1)'
                                         }}>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
@@ -8751,7 +8953,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                         width: '42px',
                                                         height: '42px',
                                                         borderRadius: '12px',
-                                                        background: completed === total ? '#10b981' : '#3b82f6',
+                                                        background: isAllCompleted ? '#10b981' : '#3b82f6',
                                                         color: '#ffffff',
                                                         display: 'flex',
                                                         alignItems: 'center',
@@ -8759,14 +8961,14 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                         fontSize: '20px',
                                                         fontWeight: '900'
                                                     }}>
-                                                        {completed === total ? '✅' : '📊'}
+                                                        {isAllCompleted ? '✅' : '📊'}
                                                     </div>
                                                     <div>
-                                                        <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '850', color: completed === total ? '#065f46' : '#1e3a8a' }}>
+                                                        <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '850', color: isAllCompleted ? '#065f46' : '#1e3a8a' }}>
                                                             Avance de Reportes: {completed} de {total} Completados ({percentage}%)
                                                         </h3>
-                                                        <p style={{ margin: '2px 0 0 0', fontSize: '13px', color: completed === total ? '#047857' : '#2563eb' }}>
-                                                            {completed === total 
+                                                        <p style={{ margin: '2px 0 0 0', fontSize: '13px', color: isAllCompleted ? '#047857' : '#2563eb' }}>
+                                                            {isAllCompleted 
                                                                 ? "🎉 Todos los reportes han sido enviados. Puedes entregar el trabajo finalizado."
                                                                 : `Cada reporte enviado notifica individualmente al Administrador y Cliente (${completed}/${total}).`}
                                                         </p>
@@ -8778,8 +8980,8 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                     borderRadius: '20px',
                                                     fontWeight: '900',
                                                     fontSize: '13px',
-                                                    color: completed === total ? '#059669' : '#1d4ed8',
-                                                    border: `1.5px solid ${completed === total ? '#a7f3d0' : '#bfdbfe'}`
+                                                    color: isAllCompleted ? '#059669' : '#1d4ed8',
+                                                    border: `1.5px solid ${isAllCompleted ? '#a7f3d0' : '#bfdbfe'}`
                                                 }}>
                                                     {completed} / {total} ENVIADOS
                                                 </div>
@@ -8869,8 +9071,8 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                 {((user?.role === 'tecnico' || user?.role === 'tecnico-normal' || user?.role === 'tecnico-autonomo') || user?.role === 'admin' || user?.role === 'autonomo') && (() => {
                                     const execTasks = getExecutableTasks(subTareas, reporteFinal, trabajo?.id);
                                     const totalCount = execTasks.length || 1;
-                                    const doneCount = execTasks.filter(t => t.estado === 'Completa' || !!localStorage.getItem(`report_data_${t.id}`)).length;
-                                    const isAllDone = doneCount === totalCount && doneCount > 0;
+                                    const doneCount = execTasks.filter(t => isTaskReportFinalized(t)).length;
+                                    const isAllDone = doneCount === totalCount && totalCount > 0;
 
                                     return (
                                         <div style={{ marginTop: '35px', paddingTop: '20px', borderTop: '2px dashed #e2e8f0', display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -11017,7 +11219,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                         </div>
 
                         {groupedJobs.length > 0 ? (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginBottom: '25px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginBottom: '25px', width: '100%', boxSizing: 'border-box', overflow: 'hidden' }}>
                                 <span style={{ display: 'block', fontSize: '12px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '8px' }}>
                                     Servicios en esta Solicitud ({groupedJobs.length})
                                 </span>
@@ -11025,24 +11227,24 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                     const cleanDesc = groupJob.descripcion?.replace(/\[Grupo:\s*REQ-\d+\]\s*\n?/, "") || "";
                                     const photos = parseFotoUrls(groupJob.foto_url);
                                     return (
-                                        <div key={groupJob.id} style={{ padding: '16px', background: '#f8fafc', borderRadius: '16px', border: '1px solid #cbd5e1' }}>
+                                        <div key={groupJob.id} style={{ padding: '16px', background: '#f8fafc', borderRadius: '16px', border: '1px solid #cbd5e1', width: '100%', maxWidth: '100%', boxSizing: 'border-box', overflow: 'hidden' }}>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px', marginBottom: '8px', borderBottom: '1px solid #f1f5f9', paddingBottom: '6px' }}>
-                                                <span style={{ fontSize: '13px', fontWeight: '800', color: '#1e293b', flex: 1, minWidth: 0, wordBreak: 'break-word', lineHeight: '1.4' }}>
+                                                <span style={{ fontSize: '13px', fontWeight: '800', color: '#1e293b', flex: 1, minWidth: 0, wordBreak: 'break-word', overflowWrap: 'anywhere', lineHeight: '1.4' }}>
                                                     🛠️ SERVICIO #{idx + 1}: {groupJob.titulo}
                                                 </span>
                                                 <span style={{ fontSize: '11px', fontWeight: '800', background: '#e2e8f0', color: '#334155', padding: '3px 8px', borderRadius: '8px', whiteSpace: 'nowrap', flexShrink: 0, display: 'inline-flex', alignItems: 'center', letterSpacing: '0.3px' }}>
                                                     ID: {groupJob.id}
                                                 </span>
                                             </div>
-                                            <p style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#334155' }}>
+                                            <p style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#334155', wordBreak: 'break-word', overflowWrap: 'anywhere', whiteSpace: 'pre-wrap', maxWidth: '100%' }}>
                                                 "{cleanDesc || "Sin descripción."}"
                                             </p>
                                             {photos.length > 0 && (
-                                                <div>
+                                                <div style={{ width: '100%', boxSizing: 'border-box', overflow: 'hidden' }}>
                                                     <span style={{ fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '6px', display: 'block' }}>
                                                         Fotos de Evidencia ({photos.length})
                                                     </span>
-                                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '8px' }}>
+                                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: '8px', width: '100%', boxSizing: 'border-box' }}>
                                                         {photos.map((url, pIdx) => (
                                                             <div key={pIdx} style={{ position: 'relative', paddingTop: '100%', borderRadius: '8px', overflow: 'hidden', border: '1px solid #cbd5e1', cursor: 'zoom-in' }} onClick={(e) => { e.stopPropagation(); setSelectedZoomImage(url); }}>
                                                                 <img src={url} alt={`Evidencia ${idx+1}-${pIdx+1}`} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -11056,18 +11258,18 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                 })}
                             </div>
                         ) : (
-                            <>
+                            <div style={{ width: '100%', boxSizing: 'border-box', overflow: 'hidden' }}>
                                 {trabajo.descripcion && (
-                                    <div style={{ marginBottom: '25px' }}>
+                                    <div style={{ marginBottom: '25px', width: '100%', boxSizing: 'border-box', overflow: 'hidden' }}>
                                         <span style={{ display: 'block', fontSize: '12px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '8px' }}>Descripción Reportada</span>
-                                        <p style={{ fontSize: '16px', color: '#334155', lineHeight: '1.6', margin: 0, padding: '16px', background: '#f8fafc', borderRadius: '12px', borderLeft: '4px solid #3b82f6' }}>"{trabajo.descripcion}"</p>
+                                        <p style={{ fontSize: '16px', color: '#334155', lineHeight: '1.6', margin: 0, padding: '16px', background: '#f8fafc', borderRadius: '12px', borderLeft: '4px solid #3b82f6', wordBreak: 'break-word', overflowWrap: 'anywhere', whiteSpace: 'pre-wrap', maxWidth: '100%' }}>"{trabajo.descripcion}"</p>
                                     </div>
                                 )}
 
                                 {parseFotoUrls(trabajo.foto_url).length > 0 && (
-                                    <div style={{ marginBottom: '30px' }}>
+                                    <div style={{ marginBottom: '30px', width: '100%', boxSizing: 'border-box', overflow: 'hidden' }}>
                                         <span style={{ display: 'block', fontSize: '12px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '12px' }}>Fotos de Evidencia ({parseFotoUrls(trabajo.foto_url).length})</span>
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '12px' }}>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '12px', width: '100%', boxSizing: 'border-box' }}>
                                             {parseFotoUrls(trabajo.foto_url).map((url, idx) => (
                                                 <div key={idx} style={{ position: 'relative', paddingTop: '100%', borderRadius: '12px', overflow: 'hidden', border: '1px solid #e2e8f0', cursor: 'zoom-in' }} onClick={(e) => { e.stopPropagation(); setSelectedZoomImage(url); }}>
                                                     <img src={url} alt={`Evidencia ${idx+1}`} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -11076,7 +11278,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                         </div>
                                     </div>
                                 )}
-                            </>
+                            </div>
                         )}
 
                         {/* BOTONES PARA TÉCNICO: Aceptar, Rechazar dentro del modal */}

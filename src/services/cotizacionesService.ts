@@ -44,10 +44,27 @@ export const saveCotizacion = async (data: Partial<Cotizacion> | FormData): Prom
 // ✏️ Editar una cotización existente
 export const updateCotizacion = async (id: number, data: FormData | Partial<Cotizacion>): Promise<Cotizacion> => {
     try {
-        // NOTE: Do NOT set Content-Type manually for FormData — Axios sets it
-        // automatically with the correct multipart/form-data boundary.
-        const response = await api.put(`/cotizaciones/${id}`, data);
-        return response.data.data;
+        let response;
+        if (data instanceof FormData) {
+            const hasFile = data.get('archivo') instanceof File;
+            if (!hasFile) {
+                const jsonPayload: Record<string, any> = {};
+                data.forEach((value, key) => {
+                    if (key !== 'archivo') {
+                        jsonPayload[key] = key === 'monto' ? (isNaN(Number(value)) ? value : Number(value)) : value;
+                    }
+                });
+                response = await api.put(`/cotizaciones/${id}`, jsonPayload);
+            } else {
+                if (!data.has('_method')) {
+                    data.append('_method', 'PUT');
+                }
+                response = await api.post(`/cotizaciones/${id}`, data);
+            }
+        } else {
+            response = await api.put(`/cotizaciones/${id}`, data);
+        }
+        return response.data?.data || response.data;
     } catch (error: any) {
         console.error('[updateCotizacion] error:', error?.response?.data);
         throw error;

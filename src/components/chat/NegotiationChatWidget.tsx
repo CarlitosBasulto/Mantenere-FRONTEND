@@ -115,23 +115,33 @@ const NegotiationChatWidget: React.FC<ChatProps> = ({ trabajoId, currentUser, on
     };
 
     const handleSendMessage = async () => {
-        if (!inputText.trim()) return;
+        const text = inputText.trim();
+        if (!text) return;
 
+        setInputText('');
         try {
             const token = localStorage.getItem('token');
             const payload = {
-                message: inputText.trim(),
+                message: text,
                 is_quote: false,
                 quote_amount: null
             };
-            await axios.post(`${API_URL}/trabajos/${trabajoId}/chat`, payload, {
+            const res = await axios.post(`${API_URL}/trabajos/${trabajoId}/chat`, payload, {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
-            setInputText('');
-            fetchMessages();
+            if (res.data?.id || res.data?.chat?.id) {
+                const newChat = res.data.chat || res.data;
+                setMessages(prev => {
+                    if (prev.some(m => m.id === newChat.id)) return prev;
+                    return [...prev, newChat];
+                });
+            } else {
+                fetchMessages();
+            }
         } catch (error) {
             console.error("Error sending message:", error);
+            setInputText(text);
             setToast({ show: true, message: 'Error al enviar el mensaje.', type: 'error' });
             setTimeout(() => setToast(prev => ({ ...prev, show: false })), 3000);
         }

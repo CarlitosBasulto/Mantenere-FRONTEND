@@ -414,9 +414,9 @@ export const generateMaintenanceReportPDF = async (data: PDFReportData, returnBl
         // --- 7. PÁGINA 2: EVIDENCIA Y OBSERVACIONES ---
         // Build the lists of main images and observation images to determine if page 2 is needed
         const mainImages: { src: string; label: string }[] = [];
-        if (data.imagenes.antes) mainImages.push({ src: data.imagenes.antes, label: 'ANTES' });
-        if (data.imagenes.durante) mainImages.push({ src: data.imagenes.durante, label: 'DURANTE' });
-        if (data.imagenes.despues) mainImages.push({ src: data.imagenes.despues, label: 'DESPUÉS' });
+        if (data.imagenes.antes) mainImages.push({ src: data.imagenes.antes, label: '1. ANTES (ESTADO INICIAL)' });
+        if (data.imagenes.durante) mainImages.push({ src: data.imagenes.durante, label: '2. DURANTE (PROCESO)' });
+        if (data.imagenes.despues) mainImages.push({ src: data.imagenes.despues, label: '3. DESPUÉS (FINALIZADO)' });
 
         let obsListToRender = data.observacionesList;
         if (!obsListToRender || obsListToRender.length === 0) {

@@ -840,11 +840,111 @@ export default function ReportePDFPreview({ trabajo, reporteData, subTareas, isV
 
                         {/* Section Header */}
                         <h4 style={{ margin: '0 0 16px 0', fontSize: '12px', fontWeight: '800', color: '#1e293b', textTransform: 'uppercase', borderBottom: '1px solid #cbd5e1', paddingBottom: '4px' }}>
-                            {isVisita ? 'Registro Fotográfico de la Visita' : 'Testigos Fotográficos'}
+                            {isVisita ? 'Registro Fotográfico de la Visita' : 'Testigos Fotográficos del Servicio'}
                         </h4>
 
-                        {/* Unified Evidence Grid */}
-                        {allVisitEvidences.length > 0 ? (
+                        {/* 1. ETAPAS PRINCIPALES DEL SERVICIO (Antes, Durante, Después) */}
+                        {mainImgsExist && (
+                            <div style={{ marginBottom: '22px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px' }}>
+                                    {/* 1. Antes */}
+                                    <div style={{
+                                        background: '#f8fafc',
+                                        border: '1px solid #e2e8f0',
+                                        borderRadius: '10px',
+                                        padding: '10px',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: '8px'
+                                    }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                            <span style={{ fontSize: '11px', fontWeight: '800', color: '#1e293b' }}>
+                                                1. Antes (Estado Inicial)
+                                            </span>
+                                            <span style={{ fontSize: '9px', fontWeight: '700', color: '#0369a1', background: '#e0f2fe', padding: '1px 6px', borderRadius: '4px' }}>
+                                                Inicial
+                                            </span>
+                                        </div>
+                                        {reporteData.imagenes?.antes ? (
+                                            <img 
+                                                src={reporteData.imagenes.antes} 
+                                                alt="Antes (Estado Inicial)" 
+                                                style={{ width: '100%', height: '140px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#fff' }} 
+                                            />
+                                        ) : (
+                                            <div style={{ height: '140px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f1f5f9', borderRadius: '6px', color: '#94a3b8', fontSize: '11px', fontStyle: 'italic', border: '1px dashed #cbd5e1' }}>
+                                                Sin fotografía
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* 2. Durante */}
+                                    <div style={{
+                                        background: '#f8fafc',
+                                        border: '1px solid #e2e8f0',
+                                        borderRadius: '10px',
+                                        padding: '10px',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: '8px'
+                                    }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                            <span style={{ fontSize: '11px', fontWeight: '800', color: '#1e293b' }}>
+                                                2. Durante (Proceso)
+                                            </span>
+                                            <span style={{ fontSize: '9px', fontWeight: '700', color: '#ca8a04', background: '#fef9c3', padding: '1px 6px', borderRadius: '4px' }}>
+                                                Proceso
+                                            </span>
+                                        </div>
+                                        {reporteData.imagenes?.durante ? (
+                                            <img 
+                                                src={reporteData.imagenes.durante} 
+                                                alt="Durante (Proceso)" 
+                                                style={{ width: '100%', height: '140px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#fff' }} 
+                                            />
+                                        ) : (
+                                            <div style={{ height: '140px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f1f5f9', borderRadius: '6px', color: '#94a3b8', fontSize: '11px', fontStyle: 'italic', border: '1px dashed #cbd5e1' }}>
+                                                Sin fotografía
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* 3. Después */}
+                                    <div style={{
+                                        background: '#f8fafc',
+                                        border: '1px solid #e2e8f0',
+                                        borderRadius: '10px',
+                                        padding: '10px',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: '8px'
+                                    }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                            <span style={{ fontSize: '11px', fontWeight: '800', color: '#1e293b' }}>
+                                                3. Después (Finalizado)
+                                            </span>
+                                            <span style={{ fontSize: '9px', fontWeight: '700', color: '#15803d', background: '#dcfce7', padding: '1px 6px', borderRadius: '4px' }}>
+                                                Final
+                                            </span>
+                                        </div>
+                                        {reporteData.imagenes?.despues ? (
+                                            <img 
+                                                src={reporteData.imagenes.despues} 
+                                                alt="Después (Finalizado)" 
+                                                style={{ width: '100%', height: '140px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#fff' }} 
+                                            />
+                                        ) : (
+                                            <div style={{ height: '140px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f1f5f9', borderRadius: '6px', color: '#94a3b8', fontSize: '11px', fontStyle: 'italic', border: '1px dashed #cbd5e1' }}>
+                                                Sin fotografía
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 2. VISITAS / DIAGNÓSTICOS CON PUNTOS DE REVISIÓN (Si no hubo fases antes/durante/despues) */}
+                        {!mainImgsExist && allVisitEvidences.length > 0 && (
                             <div style={{ 
                                 display: 'grid', 
                                 gridTemplateColumns: allVisitEvidences.length <= 4 ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)', 
@@ -908,17 +1008,67 @@ export default function ReportePDFPreview({ trabajo, reporteData, subTareas, isV
                                     </div>
                                 ))}
                             </div>
-                        ) : (
-                            <div style={{ background: '#f8fafc', padding: '15px', borderRadius: '10px', border: '1px solid #e2e8f0', fontSize: '12px', color: '#64748b' }}>
-                                No se registraron evidencias fotográficas.
-                            </div>
                         )}
 
-                        {/* Observaciones generales adicionales (solo si el técnico ingresó notas explícitas) */}
-                        {reporteData.observaciones && reporteData.observaciones.trim() && !reporteData.observaciones.toLowerCase().includes('sin observaciones') && (
-                            <div style={{ marginTop: '15px', background: '#f8fafc', padding: '14px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                                <h5 style={{ margin: '0 0 6px 0', fontSize: '11px', fontWeight: '800', color: '#1e293b', textTransform: 'uppercase' }}>Observaciones Adicionales</h5>
-                                <p style={{ margin: 0, fontSize: '11px', color: '#475569', whiteSpace: 'pre-wrap' }}>{reporteData.observaciones}</p>
+                        {/* 3. OBSERVACIONES ADICIONALES (Lista estructurada por bloques) */}
+                        {reporteData.observacionesList && reporteData.observacionesList.length > 0 ? (
+                            <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                <h5 style={{ margin: '0 0 4px 0', fontSize: '11px', fontWeight: '800', color: '#1e293b', textTransform: 'uppercase' }}>
+                                    Observaciones Adicionales ({reporteData.observacionesList.length})
+                                </h5>
+                                {reporteData.observacionesList.map((obs, idx) => {
+                                    const imgs = (obs.imagenes && Array.isArray(obs.imagenes) ? obs.imagenes : (obs.foto ? [obs.foto] : [])).filter(Boolean);
+                                    return (
+                                        <div key={obs.id || idx} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                <span style={{ fontSize: '11px', fontWeight: '800', color: '#334155' }}>
+                                                    📝 Observación #{idx + 1}
+                                                </span>
+                                            </div>
+                                            {obs.texto && obs.texto.trim() && obs.texto !== 'Sin observaciones registradas.' && (
+                                                <p style={{ margin: 0, fontSize: '11px', color: '#475569', background: '#fff', padding: '8px 12px', borderRadius: '6px', border: '1px solid #e2e8f0', whiteSpace: 'pre-wrap' }}>
+                                                    {obs.texto}
+                                                </p>
+                                            )}
+                                            {imgs.length > 0 && (
+                                                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '2px' }}>
+                                                    {imgs.map((img: string, imgIdx: number) => (
+                                                        <div key={imgIdx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
+                                                            <img 
+                                                                src={img} 
+                                                                alt={`Obs #${idx + 1} Foto ${imgIdx + 1}`} 
+                                                                style={{ width: '90px', height: '90px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#fff' }} 
+                                                            />
+                                                            <span style={{ fontSize: '9px', color: '#64748b', fontWeight: '600' }}>Foto {imgIdx + 1}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        ) : (
+                            /* Fallback para observaciones en texto plano */
+                            reporteData.observaciones && reporteData.observaciones.trim() && !reporteData.observaciones.toLowerCase().includes('sin observaciones') && (
+                                <div style={{ marginTop: '12px', background: '#f8fafc', padding: '12px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                                    <h5 style={{ margin: '0 0 6px 0', fontSize: '11px', fontWeight: '800', color: '#1e293b', textTransform: 'uppercase' }}>Observaciones Adicionales</h5>
+                                    <p style={{ margin: 0, fontSize: '11px', color: '#475569', whiteSpace: 'pre-wrap' }}>{reporteData.observaciones}</p>
+                                    {((reporteData.imagenesObservacion && reporteData.imagenesObservacion.length > 0) || reporteData.imagenObservacion) && (
+                                        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '8px' }}>
+                                            {(reporteData.imagenesObservacion || [reporteData.imagenObservacion]).filter(Boolean).map((img, imgIdx) => (
+                                                <img key={imgIdx} src={img} alt={`Extra ${imgIdx + 1}`} style={{ width: '90px', height: '90px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#fff' }} />
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )
+                        )}
+
+                        {/* Mensaje si no hay evidencias ni observaciones */}
+                        {!mainImgsExist && allVisitEvidences.length === 0 && !hasObs && (
+                            <div style={{ background: '#f8fafc', padding: '15px', borderRadius: '10px', border: '1px solid #e2e8f0', fontSize: '12px', color: '#64748b', textAlign: 'center' }}>
+                                No se registraron evidencias fotográficas ni observaciones adicionales.
                             </div>
                         )}
 
