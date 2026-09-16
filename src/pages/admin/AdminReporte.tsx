@@ -373,6 +373,10 @@ const AdminReporte: React.FC = () => {
                         try {
                             const parsed = JSON.parse(raw);
                             if (parsed && (parsed.isExecutionReport || parsed.isReportFinalizado || parsed.descripcion || parsed.imagenes)) {
+                                // Evitar cargar borradores temporales que pertenecían a otra subtarea o punto anterior
+                                if (subParam && parsed.subtareaId && parsed.subtareaId !== subParam && parsed.subtareaId !== `${safeId}_${pIdx}` && parsed.subtareaId !== `${targetAct?.id}_${pIdx}`) {
+                                    continue;
+                                }
                                 temporalData = raw;
                                 break;
                             }
@@ -396,12 +400,12 @@ const AdminReporte: React.FC = () => {
                                 trabajoId: safeId,
                                 baseId: targetAct?.id,
                                 titulo: taskTitle 
-                            }) || parsedDb;
+                            });
 
                             if (matched && !matched.isVisita) {
                                 temporalData = JSON.stringify(matched);
                                 isExplicitTaskDraft = true;
-                            } else if (existingDb.descripcion && !existingDb.descripcion.startsWith('Reporte de Tarea:') && existingDb.descripcion !== 'Reporte generado') {
+                            } else if (!subParam && existingDb.descripcion && !existingDb.descripcion.startsWith('Reporte de Tarea:') && existingDb.descripcion !== 'Reporte generado') {
                                 setDescripcion(existingDb.descripcion);
                             }
                         }

@@ -612,11 +612,12 @@ const Historial: React.FC<HistorialProps> = ({ businessId }) => {
             const wId = tarea.trabajoId;
 
             // 1. Verificar si existe reporte específico de este sub-punto en localStorage (aislado por trabajoId)
+            const isSubPoint = Boolean(pIdx || (subId && subId.includes('_')));
             const candidateKeys = [
                 wId && pIdx ? `report_data_${wId}_${pIdx}` : '',
                 wId && subId ? (subId.startsWith(`${wId}_`) ? `report_data_${subId}` : `report_data_${wId}_${subId}`) : '',
                 baseId && pIdx ? `report_data_${baseId}_${pIdx}` : '',
-                wId ? `report_data_${wId}` : ''
+                (!isSubPoint && wId) ? `report_data_${wId}` : ''
             ].filter(Boolean);
 
             for (const k of candidateKeys) {
