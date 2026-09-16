@@ -913,6 +913,12 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
             return raw ? JSON.parse(raw) : {};
         } catch { return {}; }
     });
+    const [recotizacionReasons, setRecotizacionReasons] = useState<Record<number, string>>(() => {
+        try {
+            const raw = localStorage.getItem('cotiz_recotizacion_reasons');
+            return raw ? JSON.parse(raw) : {};
+        } catch { return {}; }
+    });
     // Tick only when there is an active rejection within the 3-hour window
     const [nowMs, setNowMs] = useState(Date.now());
     useEffect(() => {
@@ -4121,6 +4127,10 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                 });
             } catch (err) { console.error(err); }
 
+            const newRecotiz = { ...recotizacionReasons, [cotizParaRecotizar]: recotizMotivo };
+            setRecotizacionReasons(newRecotiz);
+            localStorage.setItem('cotiz_recotizacion_reasons', JSON.stringify(newRecotiz));
+
             setCotizaciones(prev => prev.map(c => c.id === cotizParaRecotizar ? { ...c, estado: "Rechazada" as const } : c));
             setTrabajo((prev) => prev ? { ...prev, estado: "Cotización Rechazada" } : prev);
             setShowRecotizModal(false);
@@ -4133,7 +4143,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
         }
     };
 
-    /** Cliente → Cancelar el rechazo (dentro de las 3 horas) */
+    /** Cliente → Cancelar el rechazo / recotización (dentro de las 3 horas) */
     const handleCancelarRechazo = async (cotizId: number) => {
         if (!trabajo) return;
         try {
@@ -4149,20 +4159,26 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
             delete newTs[cotizId];
             const newReasons = { ...rejectionReasons };
             delete newReasons[cotizId];
+            const newRecotiz = { ...recotizacionReasons };
+            delete newRecotiz[cotizId];
+
             setRejectionTimestamps(newTs);
             setRejectionReasons(newReasons);
+            setRecotizacionReasons(newRecotiz);
+
             localStorage.setItem('cotiz_rejections', JSON.stringify(newTs));
             localStorage.setItem('cotiz_rejection_reasons', JSON.stringify(newReasons));
+            localStorage.setItem('cotiz_recotizacion_reasons', JSON.stringify(newRecotiz));
 
             await createNotificacionByRole({
                 role: 'admin',
                 titulo: '↩️ Cliente reactivó cotización',
-                mensaje: `El cliente canceló su rechazo y la cotización #${cotizId} para "${trabajo.sucursal || ''}" volvió a Pendiente.`,
+                mensaje: `El cliente canceló su solicitud de cambio y la cotización #${cotizId} para "${trabajo.sucursal || ''}" volvió a estar disponible.`,
                 enlace: `/menu/trabajo-detalle/${trabajo.id}?tab=cotizacion`
             });
 
             setCotizaciones(prev => prev.map(c => c.id === cotizId ? { ...c, estado: "Pendiente" as const } : c));
-            showAlert('Rechazo Cancelado', 'La cotización volvió a estar disponible para aceptar.', 'success');
+            showAlert('Solicitud Cancelada', 'La cotización volvió a estar disponible para aceptar.', 'success');
         } catch (error: any) {
             showAlert('Error', error.response?.data?.message || error.message, 'error');
         }
@@ -5434,12 +5450,9 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                             if (trabajo.tipo === "Visita" || isSOS) {
                                 // Si globalmente está Asignado, En Proceso, En Espera y la visita no ha terminado (o se mandó a revisión)
                                 if (["En Proceso", "En Espera", "Asignado"].includes(estado)) {
-                                    if (trabajo.visitado && estado === "En Espera") return 3;
-                                    // Si la cotización fue aprobada y se reasignó para ejecución, el estado vuelve a ser "Asignado" o "En Proceso"
-                                    // Podemos saber si está en ejecución porque ya hay una cotización aprobada o aceptada
                                     const hasApprovedQuote = subTareas.some(t => t.cotizacionEstado === 'Aprobada') || cotizaciones.some(c => c.estado === 'Aprobada');
                                     if (hasApprovedQuote) return 4;
-                                    
+                                    if (trabajo.visitado && estado === "En Espera") return 3;
                                     return 2;
                                 }
                                 if (estado === "En Ejecución") return 4;
@@ -5593,11 +5606,17 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                     if (isSOS) {
                                         return ['Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución', 'Finalizado'].includes(trabajo.estado);
                                     }
-                                    if (['Cotización Aceptada', 'Cotización Aprobada', 'Aceptada', 'En Ejecución'].includes(trabajo.estado)) return true;
-                                    const quoteStates = ['Cotización Enviada', 'En Espera', 'Sugerencia de Técnico', 'Cotización Rechazada', 'Cotización Reactivada', 'Pendiente de Cotización', 'Reasignación Solicitada'];
-                                    if (quoteStates.includes(trabajo.estado)) return false;
-                                    if (trabajo.tipo === 'Visita' && !['Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución'].includes(trabajo.estado)) return false;
-                                    return trabajo.tipo === 'Trabajo';
+                                    const hasApprovedQuote = ['Cotización Aceptada', 'Cotización Aprobada', 'Aceptada', 'En Ejecución'].includes(trabajo.estado) || cotizaciones.some(c => c.estado === 'Aprobada');
+                                    if (hasApprovedQuote) return true;
+                                    if (trabajo.tipo === 'Trabajo') {
+                                        const pendingQuoteStates = ['Cotización Enviada', 'Cotización Rechazada', 'Pendiente de Cotización'];
+                                        if (pendingQuoteStates.includes(trabajo.estado) && !hasApprovedQuote) return false;
+                                        return true;
+                                    }
+                                    if (trabajo.tipo === 'Visita') {
+                                        return hasApprovedQuote;
+                                    }
+                                    return false;
                                 }
                                 return true;
                             })
@@ -6463,7 +6482,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '10px' }}>
                                                     {trabajo.tipo === 'Visita' && !trabajo.visitado ? (
                                                         <button onClick={() => handleEmpezarTrabajoTipo('Visita')} style={{ padding: '12px 10px', background: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)', color: '#fff', border: 'none', borderRadius: '12px', fontSize: '13px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 4px 12px rgba(30,41,59,0.2)', transition: 'all 0.2s ease' }} onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')} onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}>📍 Iniciar Visita</button>
-                                                    ) : trabajo.visitado ? (
+                                                    ) : (trabajo.tipo === 'Visita' && trabajo.visitado && !cotizaciones.some(c => c.estado === 'Aprobada')) ? (
                                                         <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '12px', border: '1px solid #e2e8f0', textAlign: 'center', color: '#64748b', fontSize: '13px', fontWeight: '600' }}>
                                                             ⏳ Visita completada. Esperando cotización del Administrador y aprobación del cliente.
                                                         </div>
@@ -6907,11 +6926,13 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                         const isApproved = cotiz.estado === 'Aprobada';
                                                         const isRejected = cotiz.estado === 'Rechazada';
                                                         const isPending = cotiz.estado === 'Pendiente';
+                                                        const isRecotizRequested = isRejected && !!(cotiz.id && recotizacionReasons[cotiz.id]);
+                                                        const recotizReason = cotiz.id ? (recotizacionReasons[cotiz.id] ?? '') : '';
 
                                                         const rejectedAt = cotiz.id ? (rejectionTimestamps[cotiz.id] ?? null) : null;
                                                         const msLeft = rejectedAt ? (rejectedAt + THREE_HOURS) - nowMs : 0;
-                                                        const withinWindow = isRejected && rejectedAt && msLeft > 0;
-                                                        const windowExpired = isRejected && rejectedAt && msLeft <= 0;
+                                                        const withinWindow = isRejected && !isRecotizRequested && rejectedAt && msLeft > 0;
+                                                        const windowExpired = isRejected && !isRecotizRequested && rejectedAt && msLeft <= 0;
                                                         const rejectionReason = cotiz.id ? (rejectionReasons[cotiz.id] ?? '') : '';
 
                                                         const rawDesc = cotiz.descripcion || '';
@@ -6947,6 +6968,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
 
                                                         const cardClass = `${styles.clientCotizCard}${
                                                             isApproved ? ' ' + styles.approved :
+                                                            isRecotizRequested ? ' ' + styles.recotizacion :
                                                             isRejected ? ' ' + styles.rejected : ''
                                                         }`;
 
@@ -6966,8 +6988,12 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                                     </div>
 
                                                                     <div style={{ marginBottom: '16px' }}>
-                                                                        <span className={`${styles.clientCotizBadge} ${isApproved ? styles.approved : isRejected ? styles.rejected : styles.pending}`}>
-                                                                            {isApproved ? '✓ Aprobada' : isRejected ? '✕ Rechazada' : '⏳ Pendiente de Revisión'}
+                                                                        <span className={`${styles.clientCotizBadge} ${
+                                                                            isApproved ? styles.approved : 
+                                                                            isRecotizRequested ? styles.recotizacion :
+                                                                            isRejected ? styles.rejected : styles.pending
+                                                                        }`}>
+                                                                            {isApproved ? '✓ Aprobada' : isRecotizRequested ? '🔁 Re-Cotización Solicitada' : isRejected ? '✕ Rechazada' : '⏳ Pendiente de Revisión'}
                                                                         </span>
                                                                     </div>
 
@@ -7038,12 +7064,73 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                                         <span>Ver Presupuesto PDF (Descargar)</span>
                                                                     </button>
 
-                                                                    {isRejected && rejectionReason && (
+                                                                    {isRecotizRequested ? (
+                                                                        <div style={{
+                                                                            background: '#fff7ed',
+                                                                            border: '1.5px solid #fed7aa',
+                                                                            borderRadius: '14px',
+                                                                            padding: '16px',
+                                                                            marginBottom: '16px'
+                                                                        }}>
+                                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                                                                                <span style={{ fontSize: '18px' }}>🔁</span>
+                                                                                <p style={{ margin: 0, fontSize: '13.5px', fontWeight: '800', color: '#9a3412' }}>
+                                                                                    Solicitud de Re-Cotización enviada al Administrador
+                                                                                </p>
+                                                                            </div>
+                                                                            {recotizReason && (
+                                                                                <p style={{ margin: '0 0 10px 0', fontSize: '13px', color: '#7c2d12', fontStyle: 'italic', background: '#ffedd5', padding: '10px 14px', borderRadius: '10px', border: '1px solid #fdba74' }}>
+                                                                                    "{recotizReason}"
+                                                                                </p>
+                                                                            )}
+                                                                            <p style={{ margin: '0 0 14px 0', fontSize: '12.5px', color: '#9a3412', lineHeight: '1.4' }}>
+                                                                                El administrador ha sido notificado para ajustar esta propuesta. Puedes comunicarte con él a través del chat o cancelar la solicitud si decides aceptar la propuesta actual.
+                                                                            </p>
+                                                                            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => setIsTechDrawerOpen(true)}
+                                                                                    style={{
+                                                                                        padding: '11px 18px',
+                                                                                        borderRadius: '10px',
+                                                                                        background: 'linear-gradient(135deg, #f26522, #ea580c)',
+                                                                                        color: '#fff',
+                                                                                        border: 'none',
+                                                                                        fontWeight: '750',
+                                                                                        fontSize: '13px',
+                                                                                        cursor: 'pointer',
+                                                                                        display: 'flex',
+                                                                                        alignItems: 'center',
+                                                                                        gap: '6px',
+                                                                                        boxShadow: '0 4px 10px rgba(242, 101, 34, 0.25)'
+                                                                                    }}
+                                                                                >
+                                                                                    <HiOutlineChatBubbleLeftRight size={17} /> Abrir Chat con Administrador
+                                                                                </button>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => handleCancelarRechazo(cotiz.id!)}
+                                                                                    style={{
+                                                                                        padding: '11px 16px',
+                                                                                        borderRadius: '10px',
+                                                                                        background: '#ffffff',
+                                                                                        color: '#64748b',
+                                                                                        border: '1.5px solid #cbd5e1',
+                                                                                        fontWeight: '700',
+                                                                                        fontSize: '13px',
+                                                                                        cursor: 'pointer'
+                                                                                    }}
+                                                                                >
+                                                                                    ↩️ Cancelar y Aceptar Propuesta
+                                                                                </button>
+                                                                            </div>
+                                                                        </div>
+                                                                    ) : isRejected && rejectionReason ? (
                                                                         <div className={styles.clientCotizRejectionBox}>
                                                                             <p className={styles.clientCotizRejectionTitle}>✕ Motivo de Rechazo</p>
                                                                             <p className={styles.clientCotizRejectionText}>{rejectionReason}</p>
                                                                         </div>
-                                                                    )}
+                                                                    ) : null}
 
                                                                     {withinWindow && (
                                                                         <div className={styles.clientCotizCountdownBox}>
