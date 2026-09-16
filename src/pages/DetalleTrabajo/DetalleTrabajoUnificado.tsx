@@ -11774,6 +11774,13 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                         estado: (trabajo as any).estado_republica || (trabajo as any).negocio?.estado,
                         plaza: trabajo.plaza || (trabajo as any).negocio?.nombrePlaza
                     }}
+                    sucursalCoordsProp={
+                        (trabajo as any).negocio?.latitud && (trabajo as any).negocio?.longitud
+                            ? { lat: parseFloat((trabajo as any).negocio.latitud), lng: parseFloat((trabajo as any).negocio.longitud) }
+                            : (trabajo as any).latitud_sucursal && (trabajo as any).longitud_sucursal
+                                ? { lat: parseFloat((trabajo as any).latitud_sucursal), lng: parseFloat((trabajo as any).longitud_sucursal) }
+                                : null
+                    }
                     tecnicoName={trabajo.tecnico || 'Técnico de Servicio'}
                     tecnicoCoords={(trabajo as any).latitud_llegada && (trabajo as any).longitud_llegada ? { lat: parseFloat((trabajo as any).latitud_llegada), lng: parseFloat((trabajo as any).longitud_llegada) } : null}
                     llegadaConfirmadaAt={(trabajo as any).hora_llegada}
