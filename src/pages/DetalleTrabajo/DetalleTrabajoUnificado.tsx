@@ -5583,6 +5583,10 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                 }
 
                                 if (tabName === 'Cotización') {
+                                    // En flujo normal (no SOS): el admin/autonomo-admin solo ve cotización cuando ya existe o hay estados avanzados
+                                    if (user?.role === 'admin' || isAutonomoAdminUser) {
+                                        return cotizaciones.length > 0 || ['Cotización Enviada', 'Cotización Aceptada', 'Cotización Aprobada', 'Cotización Rechazada', 'En Ejecución', 'En Proceso', 'Finalizado', 'Completado'].includes(trabajo.estado);
+                                    }
                                     return true;
                                 }
                                 if (tabName === 'Registro') {
@@ -6013,8 +6017,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                              <span style={{ fontSize: '13px', color: '#059669', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
                                                  📅 Cita solicitada: {trabajo.fecha_programada ? (trabajo.fecha_programada.includes('-') ? trabajo.fecha_programada.split('-').reverse().join('/') : trabajo.fecha_programada) : trabajo.fecha}
                                              </span>
-                                             {trabajo.latitud_llegada && user?.role !== 'tecnico' &&
-                                              !['Cotización Enviada', 'Cotización Aceptada', 'En Proceso', 'Finalizado', 'Completado'].includes(trabajo.estado) && (
+                                             {trabajo.latitud_llegada && !['Cotización Enviada', 'Cotización Aceptada', 'En Proceso', 'Finalizado', 'Completado'].includes(trabajo.estado) && (
                                                 <button 
                                                     onClick={(e) => { e.stopPropagation(); setShowMapModal(true); }}
                                                     style={{ padding: '6px 12px', background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0', borderRadius: '8px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', transition: 'all 0.2s' }}
@@ -6324,33 +6327,39 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                 </div>
                                             ) : null
                                         ) : (
-                                            // FLUJO NORMAL: botón asignar siempre visible
-                                            <button
-                                                onClick={handleOpenAssignModal}
-                                                style={{
-                                                    marginTop: '8px',
-                                                    display: 'inline-flex',
-                                                    alignItems: 'center',
-                                                    gap: '8px',
-                                                    background: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)',
-                                                    color: 'white',
-                                                    border: 'none',
-                                                    padding: '10px 20px',
-                                                    borderRadius: '25px',
-                                                    fontSize: '13px',
-                                                    fontWeight: '700',
-                                                    cursor: 'pointer',
-                                                    transition: 'all 0.2s ease',
-                                                    boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)',
-                                                    whiteSpace: 'nowrap',
-                                                    width: '100%',
-                                                    justifyContent: 'center'
-                                                }}
-                                                onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-1px)')}
-                                                onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}
-                                            >
-                                                {trabajo.tecnico && trabajo.tecnico !== 'Sin asignar' && trabajo.tecnico !== 'Sin Asignar' ? `👤 Técnico: ${trabajo.tecnico}` : '👤 Asignar Técnico'}
-                                            </button>
+                                            // FLUJO NORMAL: solo mostrar botón asignar si aún no hay técnico asignado/aceptado
+                                            (!trabajo.tecnico || trabajo.tecnico === 'Sin asignar' || trabajo.tecnico === 'Sin Asignar') && !['En Espera', 'En Proceso', 'En Ejecución', 'Cotización Enviada', 'Cotización Aceptada', 'Cotización Aprobada', 'Finalizado', 'Completado'].includes(trabajo.estado) ? (
+                                                <button
+                                                    onClick={handleOpenAssignModal}
+                                                    style={{
+                                                        marginTop: '8px',
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '8px',
+                                                        background: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)',
+                                                        color: 'white',
+                                                        border: 'none',
+                                                        padding: '10px 20px',
+                                                        borderRadius: '25px',
+                                                        fontSize: '13px',
+                                                        fontWeight: '700',
+                                                        cursor: 'pointer',
+                                                        transition: 'all 0.2s ease',
+                                                        boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)',
+                                                        whiteSpace: 'nowrap',
+                                                        width: '100%',
+                                                        justifyContent: 'center'
+                                                    }}
+                                                    onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-1px)')}
+                                                    onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}
+                                                >
+                                                    👤 Asignar Técnico
+                                                </button>
+                                            ) : trabajo.tecnico && trabajo.tecnico !== 'Sin asignar' && trabajo.tecnico !== 'Sin Asignar' ? (
+                                                <div style={{ marginTop: '8px', background: '#f0fdf4', border: '1.5px solid #86efac', borderRadius: '25px', padding: '10px 20px', fontSize: '13px', fontWeight: '700', color: '#15803d', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', width: '100%', boxSizing: 'border-box' }}>
+                                                    ✅ Técnico: {trabajo.tecnico}
+                                                </div>
+                                            ) : null
                                         )
                                     )}
 
