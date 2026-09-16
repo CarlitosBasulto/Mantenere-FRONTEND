@@ -464,6 +464,8 @@ const PerfilEmpresaUnificado: React.FC<{ config: PerfilEmpresaConfig }> = ({ con
                 manzana: formData.manzana,
                 lote: formData.lote,
                 calleAv: formData.calleAv,
+                latitud: formData.latitud || '',
+                longitud: formData.longitud || '',
                 levantamiento: finalLevantamiento,
                 imagenPerfil: finalImagenPerfil,
                 imagen_portada: finalImagenPortada
@@ -1030,6 +1032,107 @@ const PerfilEmpresaUnificado: React.FC<{ config: PerfilEmpresaConfig }> = ({ con
                                     <label className={styles.label}>Código Postal</label>
                                     <input type="text" name="cp" className={styles.input} placeholder="97000" value={formData.cp || ''} onChange={handleChange} disabled={!canEdit} />
                                 </div>
+
+                                {/* GPS: Coordenadas de la Sucursal */}
+                                {canEdit && (
+                                    <div style={{ gridColumn: '1 / -1', marginTop: '8px' }}>
+                                        <div style={{
+                                            background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
+                                            border: '1.5px solid #86efac',
+                                            borderRadius: '16px',
+                                            padding: '16px 20px',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: '12px'
+                                        }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                                                <div>
+                                                    <span style={{ fontSize: '13px', fontWeight: '800', color: '#15803d', display: 'block' }}>📍 Coordenadas GPS de la Sucursal</span>
+                                                    <span style={{ fontSize: '11px', color: '#4ade80' }}>
+                                                        {formData.latitud && formData.longitud
+                                                            ? `✓ Coordenadas registradas: ${parseFloat(formData.latitud).toFixed(6)}, ${parseFloat(formData.longitud).toFixed(6)}`
+                                                            : 'Sin coordenadas — el mapa usará geocodificación por dirección (menos preciso)'}
+                                                    </span>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        if (!navigator.geolocation) {
+                                                            alert('Tu navegador no soporta geolocalización.');
+                                                            return;
+                                                        }
+                                                        navigator.geolocation.getCurrentPosition(
+                                                            (pos) => {
+                                                                setFormData(prev => ({
+                                                                    ...prev,
+                                                                    latitud: pos.coords.latitude.toString(),
+                                                                    longitud: pos.coords.longitude.toString()
+                                                                }));
+                                                            },
+                                                            () => alert('No se pudo obtener la ubicación. Verifica los permisos del navegador.'),
+                                                            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+                                                        );
+                                                    }}
+                                                    style={{
+                                                        background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)',
+                                                        color: 'white',
+                                                        border: 'none',
+                                                        padding: '10px 18px',
+                                                        borderRadius: '12px',
+                                                        fontSize: '13px',
+                                                        fontWeight: '800',
+                                                        cursor: 'pointer',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '6px',
+                                                        boxShadow: '0 4px 12px rgba(22, 163, 74, 0.3)',
+                                                        whiteSpace: 'nowrap'
+                                                    }}
+                                                    onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-1px)')}
+                                                    onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}
+                                                >
+                                                    📡 Capturar mi Ubicación GPS Actual
+                                                </button>
+                                            </div>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                                                <div>
+                                                    <label style={{ fontSize: '11px', fontWeight: '700', color: '#15803d', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Latitud</label>
+                                                    <input
+                                                        type="text"
+                                                        name="latitud"
+                                                        className={styles.input}
+                                                        placeholder="Ej: 20.967600"
+                                                        value={formData.latitud || ''}
+                                                        onChange={handleChange}
+                                                        style={{ fontFamily: 'monospace', fontSize: '13px' }}
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label style={{ fontSize: '11px', fontWeight: '700', color: '#15803d', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Longitud</label>
+                                                    <input
+                                                        type="text"
+                                                        name="longitud"
+                                                        className={styles.input}
+                                                        placeholder="Ej: -89.592600"
+                                                        value={formData.longitud || ''}
+                                                        onChange={handleChange}
+                                                        style={{ fontFamily: 'monospace', fontSize: '13px' }}
+                                                    />
+                                                </div>
+                                            </div>
+                                            {formData.latitud && formData.longitud && (
+                                                <a
+                                                    href={`https://www.google.com/maps?q=${formData.latitud},${formData.longitud}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    style={{ fontSize: '12px', color: '#16a34a', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none' }}
+                                                >
+                                                    🗺️ Verificar en Google Maps ↗
+                                                </a>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
