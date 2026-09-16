@@ -650,7 +650,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
     const searchParams = new URLSearchParams(location.search);
     const rawTabParam = (searchParams.get('tab') || '').toLowerCase();
     const isTechRole = user?.role === 'tecnico' || user?.role === 'tecnico-normal' || user?.role === 'tecnico-autonomo';
-    const isAutonomoAdminUser = Boolean(
+    const isAutonomoAdminUser = !isTechRole && Boolean(
         isAutonomoAdmin(user?.role) || 
         user?.role === 'autonomo' || 
         user?.role === 'admin-autonomo' || 
@@ -659,7 +659,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
         config?.basePath === '/autonomo' ||
         location.pathname.startsWith('/autonomo')
     );
-    const isAdminUser = Boolean(user?.role === 'admin' || isAutonomoAdminUser);
+    const isAdminUser = !isTechRole && Boolean(user?.role === 'admin' || isAutonomoAdminUser);
     const initialTab: "Datos" | "Trabajo" | "Registro" | "Historial" | "Cotización" = 
         (rawTabParam === 'cotizacion' || rawTabParam === 'cotización') ? 'Cotización' : 
         (rawTabParam === 'historial') ? 'Historial' : 
@@ -3153,8 +3153,8 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                     );
 
                     // Redirigir al técnico al menú para evitar que siga editando
-                    if ((user?.role === 'tecnico' || user?.role === 'tecnico-normal')) {
-                        navigate('/tecnico/solicitudes');
+                    if (isTechRole) {
+                        navigate(user?.role === 'tecnico-autonomo' ? '/tecnico-autonomo' : '/tecnico/solicitudes');
                     }
                 } catch (error: any) {
                     showAlert(
@@ -3890,7 +3890,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
             }
 
             // If the user is a technician rejecting a chat quote
-            if ((user?.role === 'tecnico' || user?.role === 'tecnico-normal') && rejectionMode === "cotizacion" && !quoteToReject) {
+            if (isTechRole && rejectionMode === "cotizacion" && !quoteToReject) {
                 await handleQuoteAction('reject', rejectionReason);
                 return;
             }
@@ -5568,7 +5568,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                     return tabName === 'Datos' || tabName === 'Historial' || tabName === 'Trabajo';
                                 }
                                 // Técnico normal NUNCA ve la tab de Cotización (eso es responsabilidad del Admin), a menos que sea SOS
-                                if (tabName === 'Cotización' && !isSOS && (user?.role === 'tecnico' || user?.role === 'tecnico-normal')) return false;
+                                if (tabName === 'Cotización' && !isSOS && isTechRole) return false;
 
                                 // EN SOS:
                                 // El Administrador NO elabora cotizaciones de emergencia (las elabora el técnico asignado).
@@ -5729,7 +5729,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                 </p>
                                             </div>
                                         </div>
-                                    ) : (isEditingExecutionTime && ((user?.role === 'tecnico' || user?.role === 'tecnico-normal') || user?.role === 'admin' || user?.role === 'autonomo' || user?.role === 'gerente-general')) ? (
+                                    ) : (isEditingExecutionTime && (isTechRole || user?.role === 'admin' || user?.role === 'autonomo' || user?.role === 'gerente-general')) ? (
                                         <div style={{ background: 'white', padding: '16px 20px', borderRadius: '14px', border: '1.5px solid #10b981', display: 'flex', flexDirection: 'column', gap: '14px' }}>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                 <h4 style={{ margin: 0, fontSize: '13px', fontWeight: '800', color: '#065f46', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
@@ -7178,7 +7178,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                 )}
 
                                 {/* VISTA ADMIN: columna izquierda (gestión de cotizaciones), columna derecha (actividades del técnico) */}
-                                {!['cliente', 'encargado', 'gerente-sucursal'].includes(user?.role || '') && (
+                                {!['cliente', 'encargado', 'gerente-sucursal'].includes(user?.role || '') && !isTechRole && (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%', maxWidth: '100%', position: 'relative' }}>
                                         
                                         {/* BOTÓN SUPERIOR DE ACCESO RÁPIDO A COTIZACIÓN DEL TÉCNICO Y CHAT (PC / DESKTOP) */}
@@ -7386,7 +7386,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                     ) : (
                                                         cotizaciones.length === 0 && !canEditCotizacion && (
                                                             <>
-                                                                {(user?.role === 'tecnico' || user?.role === 'tecnico-normal') && latestChatQuote && trabajo?.estado !== 'Trabajo' && trabajo?.estado !== 'Finalizado' ? (
+                                                                {isTechRole && latestChatQuote && trabajo?.estado !== 'Trabajo' && trabajo?.estado !== 'Finalizado' ? (
                                                                     <div style={{ background: '#fff', borderRadius: '24px', padding: '30px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)', border: '2px solid #fde68a' }}>
                                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
                                                                             <div style={{ width: '50px', height: '50px', borderRadius: '14px', background: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -9144,7 +9144,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                 <p style={{ margin: '2px 0 0 0', fontSize: '13px', color: '#b45309' }}>Las labores están pausadas. Haz clic en reanudar cuando desees continuar.</p>
                                             </div>
                                         </div>
-                                        {((user?.role === 'tecnico' || user?.role === 'tecnico-normal') || user?.role === 'admin') && (
+                                        {(isTechRole || user?.role === 'admin') && (
                                             <button
                                                 onClick={handleReanudarTrabajo}
                                                 style={{ padding: '10px 18px', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', borderRadius: '12px', fontSize: '13px', fontWeight: '800', cursor: 'pointer' }}
@@ -9337,7 +9337,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                 )}
 
                                 {/* CASO 2: TRABAJO EN ESTADO "EN ESPERA" (Debe comenzar registro) */}
-                                {(user?.role === 'tecnico' || user?.role === 'tecnico-normal') && trabajo.estado === 'En Espera' && (
+                                {isTechRole && trabajo.estado === 'En Espera' && (
                                     <div style={{
                                         width: '100%',
                                         maxWidth: '480px',
@@ -9385,7 +9385,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                 {Boolean(trabajo.estado === 'En Proceso' || trabajo.estado === 'Cotización Enviada' || trabajo.visitado) && (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%' }}>
                                         {/* Botón de Agregar (Solo visible si está en proceso y no se ha finalizado/enviado) */}
-                                        {((user?.role === 'tecnico' || user?.role === 'tecnico-normal') || user?.role === 'admin') && (trabajo.tipo === 'Visita' || isSOS) && !trabajo.visitado && trabajo.estado === 'En Proceso' && (
+                                        {(isTechRole || user?.role === 'admin') && (trabajo.tipo === 'Visita' || isSOS) && !trabajo.visitado && trabajo.estado === 'En Proceso' && (
                                             <div style={{ width: '100%' }}>
                                                 <button
                                                     onClick={openNewTaskModal}
@@ -9412,7 +9412,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                         )}
 
                                         {/* BOTÓN DE CONFIRMAR DATOS Y ENVIAR AL ADMIN / CLIENTE */}
-                                        {(user?.role === 'tecnico' || user?.role === 'tecnico-normal') && subTareas.length > 0 && (
+                                        {isTechRole && subTareas.length > 0 && (
                                             <div style={{ marginTop: '10px', display: 'flex', justifyContent: 'center', width: '100%' }}>
                                                 {trabajo?.visitado ? (
                                                     <div style={{ background: '#f0fdf4', border: '1.5px solid #86efac', borderRadius: '16px', padding: '16px 24px', display: 'flex', alignItems: 'center', gap: '10px', color: '#166534', fontWeight: '800', fontSize: '14px', boxShadow: '0 4px 12px rgba(34, 197, 94, 0.15)' }}>
@@ -11425,7 +11425,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                         )}
 
                         {/* BOTONES PARA TÉCNICO: Aceptar, Rechazar dentro del modal */}
-                        {(user?.role === 'tecnico' || user?.role === 'tecnico-normal') && ['Asignado', 'Solicitud', 'Pendiente'].includes(trabajo?.estado || '') && (
+                        {isTechRole && ['Asignado', 'Solicitud', 'Pendiente'].includes(trabajo?.estado || '') && (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%', marginTop: '20px' }}>
                                 <button 
                                     onClick={handleAceptarAsignacion} 
