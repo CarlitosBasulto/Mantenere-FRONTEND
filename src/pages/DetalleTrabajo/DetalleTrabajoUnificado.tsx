@@ -5583,13 +5583,15 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                 }
 
                                 if (tabName === 'Cotización') {
-                                    // En flujo normal (no SOS): el admin/autonomo-admin solo ve cotización cuando ya existe o hay estados avanzados
+                                    // En flujo normal (no SOS): el admin/autonomo-admin solo ve cotización cuando el técnico ya envió una
                                     if (user?.role === 'admin' || isAutonomoAdminUser) {
-                                        return cotizaciones.length > 0 || ['Cotización Enviada', 'Cotización Aceptada', 'Cotización Aprobada', 'Cotización Rechazada', 'En Ejecución', 'En Proceso', 'Finalizado', 'Completado'].includes(trabajo.estado);
+                                        return cotizaciones.length > 0 && ['Cotización Enviada', 'Cotización Aceptada', 'Cotización Aprobada', 'Cotización Rechazada', 'En Ejecución', 'Finalizado', 'Completado'].includes(trabajo.estado);
                                     }
                                     return true;
                                 }
                                 if (tabName === 'Registro') {
+                                    // Admin general y autonomo-admin NUNCA ven Registro (es exclusivo del técnico)
+                                    if (user?.role === 'admin' || isAutonomoAdminUser) return false;
                                     // NO MOSTRAR SI RECHAZADA
                                     if (trabajo.estado === 'Rechazada') return false;
                                     
@@ -6017,7 +6019,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                              <span style={{ fontSize: '13px', color: '#059669', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
                                                  📅 Cita solicitada: {trabajo.fecha_programada ? (trabajo.fecha_programada.includes('-') ? trabajo.fecha_programada.split('-').reverse().join('/') : trabajo.fecha_programada) : trabajo.fecha}
                                              </span>
-                                             {trabajo.latitud_llegada && !['Cotización Enviada', 'Cotización Aceptada', 'En Proceso', 'Finalizado', 'Completado'].includes(trabajo.estado) && (
+                                             {trabajo.latitud_llegada && !['Finalizado', 'Completado'].includes(trabajo.estado) && (
                                                 <button 
                                                     onClick={(e) => { e.stopPropagation(); setShowMapModal(true); }}
                                                     style={{ padding: '6px 12px', background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0', borderRadius: '8px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', transition: 'all 0.2s' }}
