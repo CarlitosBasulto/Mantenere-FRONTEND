@@ -5583,9 +5583,9 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                 }
 
                                 if (tabName === 'Cotización') {
-                                    // En flujo normal (no SOS): el admin/autonomo-admin solo ve cotización cuando el técnico ya envió una
+                                    // En flujo normal (no SOS): admin/autonomo-admin ve cotización cuando el técnico ya envió una (por estado O por cotizaciones cargadas)
                                     if (user?.role === 'admin' || isAutonomoAdminUser) {
-                                        return cotizaciones.length > 0 && ['Cotización Enviada', 'Cotización Aceptada', 'Cotización Aprobada', 'Cotización Rechazada', 'En Ejecución', 'Finalizado', 'Completado'].includes(trabajo.estado);
+                                        return cotizaciones.length > 0 || ['Cotización Enviada', 'Cotización Aceptada', 'Cotización Aprobada', 'Cotización Rechazada', 'En Ejecución', 'Finalizado', 'Completado'].includes(trabajo.estado);
                                     }
                                     return true;
                                 }
