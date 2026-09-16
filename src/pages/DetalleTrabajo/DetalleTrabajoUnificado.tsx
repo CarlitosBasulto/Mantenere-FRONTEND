@@ -1631,13 +1631,9 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
     const [requestRole, setRequestRole] = useState("");
     const [selectedType, setSelectedType] = useState<"Visita" | "Trabajo">("Visita");
 
-    // Auto-seleccionar "Trabajo" si es SOS al abrir el modal
+    // Al abrir modal de asignación, para SOS se inicia como Visita diagnóstica urgente
     const handleOpenAssignModal = () => {
-        if (isSOS) {
-            setSelectedType("Trabajo");
-        } else {
-            setSelectedType("Visita");
-        }
+        setSelectedType("Visita");
         
         if (trabajo?.trabajador_id && !selectedTechnicians.includes(trabajo.trabajador_id)) {
             setSelectedTechnicians([trabajo.trabajador_id]);
@@ -2101,7 +2097,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                         titulo: nuevoTitulo,
                         motivo_reasignacion: null,
                         motivo_rechazo: null,
-                        visitado: isSOS || selectedType === "Trabajo",
+                        visitado: isSOS ? false : (selectedType === "Trabajo"),
                         fechaAsignada: asignarFecha,
                         horaAsignada: asignarHora
                     };
@@ -6587,7 +6583,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                                 style={{ margin: 0 }}
                                                             >
                                                                 <HiOutlineChatBubbleLeftRight size={17} color="#f26522" />
-                                                                <span>💬 Chat con Administrador</span>
+                                                                <span>💬 Chat con el Técnico</span>
                                                                 <HiOutlineChevronLeft size={16} style={{ strokeWidth: 3 }} />
                                                             </button>
                                                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
@@ -7193,7 +7189,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                 className={styles.techDrawerDesktopTrigger}
                                             >
                                                 <HiOutlineDocumentText size={17} color="#f26522" />
-                                                <span>Ver Cotización del Técnico & Chat</span>
+                                                <span>{isSOS && isTechRole ? '💬 Chat con el Cliente & Cotización' : 'Ver Cotización del Técnico & Chat'}</span>
                                                 <HiOutlineChevronLeft size={16} style={{ strokeWidth: 3 }} />
                                             </button>
                                         </div>
@@ -7927,20 +7923,24 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                         type="button"
                                         onClick={() => setIsTechDrawerOpen(!isTechDrawerOpen)}
                                         className={styles.techDrawerFloatingTrigger}
-                                        title={user?.role === 'cliente' ? 'Abrir / Ocultar Chat con Administrador' : 'Abrir / Ocultar Cotización del Técnico & Chat'}
+                                        title={
+                                            isSOS
+                                                ? (isTechRole ? 'Abrir / Ocultar Chat con el Cliente' : ((user?.role === 'cliente' || user?.role === 'encargado') ? 'Abrir / Ocultar Chat con el Técnico' : 'Abrir / Ocultar Cotización del Técnico & Chat'))
+                                                : ((user?.role === 'cliente' || user?.role === 'encargado') ? 'Abrir / Ocultar Chat con Administrador' : 'Abrir / Ocultar Cotización del Técnico & Chat')
+                                        }
                                     >
-                                        {user?.role === 'cliente' ? (
+                                        {(user?.role === 'cliente' || user?.role === 'encargado') ? (
                                             <>
                                                 <HiOutlineChatBubbleLeftRight size={20} />
                                                 <span style={{ writingMode: 'vertical-rl', textOrientation: 'mixed', fontSize: '11px', fontWeight: '800', letterSpacing: '1px' }}>
-                                                    CHAT ADMIN
+                                                    {isSOS ? 'CHAT TÉCNICO' : 'CHAT ADMIN'}
                                                 </span>
                                             </>
                                         ) : (
                                             <>
-                                                <HiOutlineDocumentText size={20} />
+                                                {isSOS && isTechRole ? <HiOutlineChatBubbleLeftRight size={20} /> : <HiOutlineDocumentText size={20} />}
                                                 <span style={{ writingMode: 'vertical-rl', textOrientation: 'mixed', fontSize: '11px', fontWeight: '800', letterSpacing: '1px' }}>
-                                                    TÉCNICO & CHAT
+                                                    {isSOS && isTechRole ? 'CHAT CLIENTE' : 'TÉCNICO & CHAT'}
                                                 </span>
                                             </>
                                         )}
@@ -7964,14 +7964,18 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                 <div className={styles.techDrawerHeader}>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                                         <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'linear-gradient(135deg, #f26522, #d14d13)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
-                                                            {user?.role === 'cliente' ? <HiOutlineChatBubbleLeftRight size={20} /> : <HiOutlineDocumentText size={20} />}
+                                                            {(user?.role === 'cliente' || user?.role === 'encargado' || (isSOS && isTechRole)) ? <HiOutlineChatBubbleLeftRight size={20} /> : <HiOutlineDocumentText size={20} />}
                                                         </div>
                                                         <div>
                                                             <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#1e293b' }}>
-                                                                {user?.role === 'cliente' ? '💬 Chat con Administrador' : 'Cotización del Técnico & Chat'}
+                                                                {(user?.role === 'cliente' || user?.role === 'encargado') 
+                                                                    ? (isSOS ? '💬 Chat con el Técnico (SOS)' : '💬 Chat con Administrador') 
+                                                                    : (isSOS && isTechRole ? '💬 Chat con el Cliente (SOS)' : 'Cotización del Técnico & Chat')}
                                                             </h3>
                                                             <span style={{ fontSize: '11px', color: '#64748b' }}>
-                                                                {user?.role === 'cliente' ? 'Negociación y consultas directas' : 'Sugerencias, evidencias y negociación'}
+                                                                {(user?.role === 'cliente' || user?.role === 'encargado') 
+                                                                    ? (isSOS ? 'Comunicación directa de emergencia' : 'Negociación y consultas directas') 
+                                                                    : (isSOS && isTechRole ? 'Comunicación directa con la sucursal' : 'Sugerencias, evidencias y negociación')}
                                                             </span>
                                                         </div>
                                                     </div>
@@ -8000,11 +8004,11 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
 
                                                 {/* CONTENIDO DEL DRAWER CON SCROLL TRANSPARENTE */}
                                                 <div className={`${styles.techDrawerContent} ${styles.cardTransparentScroll}`}>
-                                                    {user?.role === 'cliente' ? (
+                                                    {(user?.role === 'cliente' || user?.role === 'encargado') ? (
                                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                                                             <div style={{
-                                                                background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
-                                                                border: '1.5px solid #bfdbfe',
+                                                                background: isSOS ? 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)' : 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
+                                                                border: isSOS ? '1.5px solid #fed7aa' : '1.5px solid #bfdbfe',
                                                                 borderRadius: '16px',
                                                                 padding: '16px 18px',
                                                                 display: 'flex',
@@ -8013,11 +8017,13 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                             }}>
                                                                 <div style={{ fontSize: '24px' }}>💬</div>
                                                                 <div>
-                                                                    <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '850', color: '#1e40af' }}>
-                                                                        Chat de Negociación con Administrador
+                                                                    <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '850', color: isSOS ? '#c2410c' : '#1e40af' }}>
+                                                                        {isSOS ? 'Chat Directo con el Técnico (Emergencia SOS)' : 'Chat de Negociación con Administrador'}
                                                                     </h4>
-                                                                    <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#3b82f6' }}>
-                                                                        Conversa en tiempo real para consultar dudas o acordar ajustes a la cotización.
+                                                                    <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: isSOS ? '#ea580c' : '#3b82f6' }}>
+                                                                        {isSOS 
+                                                                            ? 'Conversa en tiempo real con el técnico en sitio para coordinar la reparación o aclarar dudas.'
+                                                                            : 'Conversa en tiempo real para consultar dudas o acordar ajustes a la cotización.'}
                                                                     </p>
                                                                 </div>
                                                             </div>
@@ -8031,7 +8037,29 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                             )}
                                                         </div>
                                                     ) : (
-                                                        <>
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                                            {/* Banner para Técnico en SOS */}
+                                                            {isSOS && isTechRole && (
+                                                                <div style={{
+                                                                    background: 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)',
+                                                                    border: '1.5px solid #fed7aa',
+                                                                    borderRadius: '16px',
+                                                                    padding: '16px 18px',
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '12px'
+                                                                }}>
+                                                                    <div style={{ fontSize: '24px' }}>💬</div>
+                                                                    <div>
+                                                                        <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '850', color: '#c2410c' }}>
+                                                                            Chat Directo con el Cliente (Emergencia SOS)
+                                                                        </h4>
+                                                                        <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#ea580c' }}>
+                                                                            Comunícate en tiempo real con la sucursal para coordinar la atención inmediata.
+                                                                        </p>
+                                                                    </div>
+                                                                </div>
+                                                            )}
                                                     {/* Card 2: Evidencia Fotográfica */}
                                                 {actualReporte && (actualReporte.imagenes?.antes || actualReporte.imagenes?.durante || actualReporte.imagenes?.despues || actualReporte.imagenObservacion || (actualReporte.imagenesObservacion && actualReporte.imagenesObservacion.length > 0)) && (
                                                     <div style={{ background: '#fff', borderRadius: '24px', padding: '24px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)', border: '1px solid #e2e8f0' }}>
@@ -8494,17 +8522,6 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                                     )})}
                                                                 </div>
 
-                                                                {/* CHAT DE NEGOCIACIÓN ÚNICO PARA EL TRABAJO */}
-                                                                {isTechDrawerOpen && trabajo && user?.role !== 'cliente' && (
-                                                                    <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '2px dashed #e2e8f0' }}>
-                                                                        <NegotiationChatWidget 
-                                                                            trabajoId={trabajo.id} 
-                                                                            currentUser={user} 
-                                                                            inlineMode={true}
-                                                                        />
-                                                                    </div>
-                                                                )}
-
                                                                 {/* PESTAÑA DESPLEGABLE DE EVIDENCIA DE COTIZACIONES ANTERIORES */}
                                                                 {quoteHistory.length > 0 && (
                                                                     <div style={{ marginTop: '20px', borderTop: '2px dashed #e2e8f0', paddingTop: '16px' }}>
@@ -8784,7 +8801,22 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                         )}
                                                     </div>
                                                 )}
-                                                </>
+
+                                                {/* CHAT DE NEGOCIACIÓN / CHAT DIRECTO SIEMPRE VISIBLE */}
+                                                {isTechDrawerOpen && trabajo && (
+                                                    <div style={{
+                                                        marginTop: '8px',
+                                                        paddingTop: '16px',
+                                                        borderTop: (subTareas.some(t => t.esCotizacion) || actualReporte || (quoteHistory && quoteHistory.length > 0)) ? '2px dashed #e2e8f0' : 'none'
+                                                    }}>
+                                                        <NegotiationChatWidget 
+                                                            trabajoId={trabajo.id} 
+                                                            currentUser={user} 
+                                                            inlineMode={true}
+                                                        />
+                                                    </div>
+                                                )}
+                                                </div>
                                             )}
                                         </div>
                                     </div>
