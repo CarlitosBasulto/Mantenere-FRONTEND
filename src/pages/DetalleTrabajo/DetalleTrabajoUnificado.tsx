@@ -9301,7 +9301,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                 )}
 
                                 {/* CASO 2: TRABAJO EN ESTADO "EN ESPERA" (Debe comenzar registro) */}
-                                {isTechRole && trabajo.estado === 'En Espera' && (
+                                {(isTechRole || user?.role === 'tecnico' || user?.role === 'tecnico-normal' || user?.role === 'tecnico-autonomo') && trabajo.estado === 'En Espera' && (
                                     <div style={{
                                         width: '100%',
                                         maxWidth: '480px',
@@ -9314,10 +9314,12 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                         boxSizing: 'border-box'
                                     }}>
                                         <div style={{ textAlign: 'center', padding: '14px 10px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px' }}>
-                                            <div style={{ fontSize: '36px', lineHeight: 1 }}>📍</div>
-                                            <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#1e293b', margin: 0 }}>Asignación Aceptada</h3>
+                                            <div style={{ fontSize: '36px', lineHeight: 1 }}>{isSOS ? '🚨' : '📍'}</div>
+                                            <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#1e293b', margin: 0 }}>
+                                                {isSOS ? 'Emergencia Aceptada' : 'Asignación Aceptada'}
+                                            </h3>
                                             <p style={{ fontSize: '13.5px', color: '#64748b', maxWidth: '380px', margin: 0, lineHeight: '1.45' }}>
-                                                Ya has aceptado este trabajo. Presiona el botón "Comenzar Registro" cuando estés listo para evaluar los problemas de la sucursal.
+                                                {isSOS ? 'Ya has aceptado esta solicitud. Presiona el botón para iniciar la visita y registrar los problemas y evidencias en la sucursal.' : 'Ya has aceptado este trabajo. Presiona el botón "Comenzar Registro" cuando estés listo para evaluar los problemas de la sucursal.'}
                                             </p>
                                             <button
                                                 onClick={() => handleEmpezarTrabajoTipo('Visita')}
@@ -9325,21 +9327,21 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                     width: '100%',
                                                     maxWidth: '280px',
                                                     padding: '11px 20px',
-                                                    background: 'linear-gradient(135deg, #f26522 0%, #d14d13 100%)',
+                                                    background: isSOS ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' : 'linear-gradient(135deg, #f26522 0%, #d14d13 100%)',
                                                     color: '#ffffff',
                                                     border: 'none',
                                                     borderRadius: '12px',
                                                     fontSize: '14px',
                                                     fontWeight: '800',
                                                     cursor: 'pointer',
-                                                    boxShadow: '0 4px 12px rgba(242, 101, 34, 0.25)',
+                                                    boxShadow: isSOS ? '0 4px 12px rgba(239, 68, 68, 0.3)' : '0 4px 12px rgba(242, 101, 34, 0.25)',
                                                     transition: 'all 0.2s',
                                                     marginTop: '4px'
                                                 }}
                                                 onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
                                                 onMouseLeave={e => e.currentTarget.style.transform = 'none'}
                                             >
-                                                🚀 Comenzar Registro
+                                                {isSOS ? '🚨 Iniciar Visita de Emergencia' : '🚀 Comenzar Registro'}
                                             </button>
                                         </div>
                                     </div>
@@ -9349,7 +9351,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                 {Boolean(trabajo.estado === 'En Proceso' || trabajo.estado === 'Cotización Enviada' || trabajo.visitado) && (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%' }}>
                                         {/* Botón de Agregar (Solo visible si está en proceso y no se ha finalizado/enviado) */}
-                                        {(isTechRole || user?.role === 'admin') && (trabajo.tipo === 'Visita' || isSOS) && !trabajo.visitado && trabajo.estado === 'En Proceso' && (
+                                        {((isTechRole || user?.role === 'tecnico' || user?.role === 'tecnico-normal' || user?.role === 'tecnico-autonomo') || user?.role === 'admin' || isAutonomoAdminUser) && (trabajo.tipo === 'Visita' || isSOS) && !trabajo.visitado && trabajo.estado === 'En Proceso' && (
                                             <div style={{ width: '100%' }}>
                                                 <button
                                                     onClick={openNewTaskModal}
@@ -9376,7 +9378,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                         )}
 
                                         {/* BOTÓN DE CONFIRMAR DATOS Y ENVIAR AL ADMIN / CLIENTE */}
-                                        {isTechRole && subTareas.length > 0 && (
+                                        {(isTechRole || user?.role === 'tecnico' || user?.role === 'tecnico-normal' || user?.role === 'tecnico-autonomo') && subTareas.length > 0 && (
                                             <div style={{ marginTop: '10px', display: 'flex', justifyContent: 'center', width: '100%' }}>
                                                 {trabajo?.visitado ? (
                                                     <div style={{ background: '#f0fdf4', border: '1.5px solid #86efac', borderRadius: '16px', padding: '16px 24px', display: 'flex', alignItems: 'center', gap: '10px', color: '#166534', fontWeight: '800', fontSize: '14px', boxShadow: '0 4px 12px rgba(34, 197, 94, 0.15)' }}>
