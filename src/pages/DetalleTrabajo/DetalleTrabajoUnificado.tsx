@@ -49,6 +49,7 @@ import ChatTrabajo from "../../components/ChatTrabajo";
 import NegotiationChatWidget from "../../components/chat/NegotiationChatWidget";
 import UbicacionMapaModal from "../../components/modals/UbicacionMapaModal";
 import { findMatchingSubReport } from "../../utils/reportUtils";
+import { safeLocalStorageSet } from "../../utils/storageHelper";
 export interface CotizacionData {
     id?: number;
     costo: string;
@@ -1197,27 +1198,32 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                 try {
                     const dbReport = await getReporteByTrabajoId(Number(id));
                     if (dbReport && dbReport.solucion) {
-                        if (dbReport.solucion.trim().startsWith('{')) {
+                        if (dbReport.solucion && dbReport.solucion.trim().startsWith('{')) {
+                            let parsed: any = null;
                             try {
-                                const parsed = JSON.parse(dbReport.solucion);
+                                parsed = JSON.parse(dbReport.solucion);
                                 setReporteFinal({ ...parsed, dbId: dbReport.id });
-                                localStorage.setItem(`report_data_${id}`, dbReport.solucion);
+                            } catch (parseErr) {
+                                console.warn("Error al analizar JSON de reporte desde BD:", parseErr);
+                            }
+
+                            if (parsed) {
+                                safeLocalStorageSet(`report_data_${id}`, dbReport.solucion, id);
                                 if (parsed.subtareaId) {
-                                    localStorage.setItem(`report_data_${parsed.subtareaId}`, JSON.stringify(parsed));
+                                    safeLocalStorageSet(`report_data_${parsed.subtareaId}`, JSON.stringify(parsed), id);
                                 }
                                 if (parsed.subReports && typeof parsed.subReports === 'object') {
                                     Object.entries(parsed.subReports).forEach(([subKey, subData]) => {
                                         try {
-                                            localStorage.setItem(`report_data_${subKey}`, JSON.stringify(subData));
+                                            const subDataStr = JSON.stringify(subData);
+                                            safeLocalStorageSet(`report_data_${subKey}`, subDataStr, id);
                                             if (subKey.includes('_')) {
                                                 const ptNum = subKey.split('_')[1];
-                                                localStorage.setItem(`report_data_${id}_${ptNum}`, JSON.stringify(subData));
+                                                safeLocalStorageSet(`report_data_${id}_${ptNum}`, subDataStr, id);
                                             }
                                         } catch (_) {}
                                     });
                                 }
-                            } catch (e) {
-                                console.error("Error parsing report JSON:", e);
                             }
                         }
                     }

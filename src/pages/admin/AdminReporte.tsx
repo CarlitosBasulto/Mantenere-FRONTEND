@@ -15,51 +15,7 @@ import {
 } from 'react-icons/hi2';
 import ReportePDFPreview from '../../components/modals/ReportePDFPreview';
 import { findMatchingSubReport } from '../../utils/reportUtils';
-
-const safeLocalStorageSet = (key: string, value: string) => {
-    try {
-        localStorage.setItem(key, value);
-    } catch (e: any) {
-        if (e.name === 'QuotaExceededError' || e.code === 22 || e.code === 1014) {
-            try {
-                // 1. Limpiar todos los borradores temporales viejos
-                for (let i = localStorage.length - 1; i >= 0; i--) {
-                    const k = localStorage.key(i);
-                    if (k && k.startsWith('report_data_temporal_') && k !== key) {
-                        localStorage.removeItem(k);
-                    }
-                }
-                localStorage.setItem(key, value);
-            } catch (_) {
-                try {
-                    // 2. Si aún excede, limpiar firmas pesadas en base64 de la caché local (ya que se guardan en la BD)
-                    const parsed = JSON.parse(value);
-                    if (parsed.firmaEmpresa && parsed.firmaEmpresa.length > 50000) {
-                        parsed.firmaEmpresa = '__PDF_LOADED_IN_STATE__';
-                    }
-                    localStorage.setItem(key, JSON.stringify(parsed));
-                } catch (inner) {
-                    try {
-                        // 3. Fallback: remover claves viejas de reportes terminados para liberar espacio
-                        for (let i = localStorage.length - 1; i >= 0; i--) {
-                            const k = localStorage.key(i);
-                            if (k && (k.startsWith('report_data_') || k.startsWith('report_data_temporal_')) && k !== key) {
-                                localStorage.removeItem(k);
-                            }
-                        }
-                        const parsed = JSON.parse(value);
-                        if (parsed.firmaEmpresa && parsed.firmaEmpresa.length > 20000) {
-                            parsed.firmaEmpresa = '__PDF_LOADED_IN_STATE__';
-                        }
-                        localStorage.setItem(key, JSON.stringify(parsed));
-                    } catch (finalErr) {
-                        console.warn("Aviso: Cuota de localStorage alcanzada, los datos se conservan en la BD.");
-                    }
-                }
-            }
-        }
-    }
-};
+import { safeLocalStorageSet } from '../../utils/storageHelper';
 
 const compressImage = (
     file: File, 
@@ -866,9 +822,19 @@ const AdminReporte: React.FC = () => {
             const acts = await getActividadesByTrabajo(Number(safeTrabajoId));
             const totalTasks = acts.length || 1;
             
+            const currentSubKey = subParam ? String(subParam) : String(safeTrabajoId);
+            const currentActIdStr = parsedActId ? String(parsedActId) : currentSubKey;
+
             let completedCount = 0;
             acts.forEach((a: any) => {
-                if (String(a.id) === String(activeKey) || a.estado === 'Completa' || !!localStorage.getItem(`report_data_${a.id}`)) {
+                const actIdStr = String(a.id);
+                if (
+                    actIdStr === currentActIdStr ||
+                    actIdStr === currentSubKey ||
+                    a.estado === 'Completa' ||
+                    !!localStorage.getItem(`report_data_${a.id}`) ||
+                    !!localStorage.getItem(`report_data_${safeTrabajoId}_${a.id}`)
+                ) {
                     completedCount++;
                 }
             });

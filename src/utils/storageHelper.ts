@@ -65,3 +65,134 @@ export const saveSafeLocalInfo = (storageKey: string, id: string | number, data:
         }
     }
 };
+
+/**
+ * Limpia entradas viejas de reportes o borradores temporales para liberar espacio de localStorage.
+ */
+export const cleanupReportStorage = (keepJobId?: string | number) => {
+    try {
+        const keepStr = keepJobId !== undefined && keepJobId !== null ? String(keepJobId) : null;
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+            const key = localStorage.key(i);
+            if (!key) continue;
+
+            // Eliminar borradores temporales (son efímeros)
+            if (key.startsWith('report_data_temporal_')) {
+                localStorage.removeItem(key);
+                continue;
+            }
+
+            // Si se especificó keepJobId, remover reportes de otros trabajos
+            if (keepStr && key.startsWith('report_data_')) {
+                const parts = key.replace('report_data_', '').split('_');
+                const workId = parts[0];
+                if (workId && workId !== keepStr) {
+                    localStorage.removeItem(key);
+                }
+            }
+        }
+    } catch (e) {
+        console.warn("Error cleaning up storage:", e);
+    }
+};
+
+/**
+ * Guarda de forma segura una clave en localStorage, previniendo errores de QuotaExceededError
+ * mediante limpieza automática de claves temporales, supresión de firmas duplicadas pesadas y
+ * degradación elegante sin arrojar excepciones fatales que rompan la aplicación.
+ */
+export const safeLocalStorageSet = (
+    key: string,
+    value: any,
+    currentJobId?: string | number
+): boolean => {
+    const valueStr = typeof value === 'string' ? value : JSON.stringify(value);
+
+    // 1. Intento directo
+    try {
+        localStorage.setItem(key, valueStr);
+        return true;
+    } catch (e: any) {
+        const isQuota = 
+            e?.name === 'QuotaExceededError' || 
+            e?.code === 22 || 
+            e?.code === 1014 || 
+            String(e?.message || '').toLowerCase().includes('quota');
+
+        if (!isQuota) {
+            console.warn(`[Storage] No se pudo guardar ${key}:`, e);
+            return false;
+        }
+
+        // 2. Primer rescate: Limpiar borradores temporales y reportes de otros trabajos
+        try {
+            cleanupReportStorage(currentJobId);
+            localStorage.setItem(key, valueStr);
+            return true;
+        } catch (_) {
+            // 3. Segundo rescate: Aligerar datos del reporte (firmas gigantes y subreportes duplicados pesados)
+            try {
+                let parsed: any = null;
+                try {
+                    parsed = JSON.parse(valueStr);
+                } catch {
+                    parsed = null;
+                }
+
+                if (parsed && typeof parsed === 'object') {
+                    // Firmas gigantes en base64 (> 15KB)
+                    if (parsed.firmaEmpresa && typeof parsed.firmaEmpresa === 'string' && parsed.firmaEmpresa.length > 15000) {
+                        parsed.firmaEmpresa = '__PDF_LOADED_IN_STATE__';
+                    }
+
+                    // Si tiene subReportes masivos acumulados con imágenes base64 duplicadas
+                    if (parsed.subReports && typeof parsed.subReports === 'object') {
+                        const trimmedSubReports: Record<string, any> = {};
+                        Object.entries(parsed.subReports).forEach(([subK, subV]: [string, any]) => {
+                            if (subV && typeof subV === 'object') {
+                                trimmedSubReports[subK] = {
+                                    ...subV,
+                                    // Mantener metadatos pero aligerar arrays masivos para la caché local
+                                    firmaEmpresa: undefined
+                                };
+                            } else {
+                                trimmedSubReports[subK] = subV;
+                            }
+                        });
+                        parsed.subReports = trimmedSubReports;
+                    }
+
+                    localStorage.setItem(key, JSON.stringify(parsed));
+                    return true;
+                }
+            } catch (innerErr) {
+                // 4. Tercer rescate: Eliminar todas las demás claves de reportes en localStorage
+                try {
+                    for (let i = localStorage.length - 1; i >= 0; i--) {
+                        const k = localStorage.key(i);
+                        if (k && (k.startsWith('report_data_') || k.startsWith('report_data_temporal_')) && k !== key) {
+                            localStorage.removeItem(k);
+                        }
+                    }
+
+                    let parsed: any = null;
+                    try {
+                        parsed = JSON.parse(valueStr);
+                    } catch {
+                        parsed = null;
+                    }
+
+                    if (parsed && typeof parsed === 'object') {
+                        if (parsed.firmaEmpresa) parsed.firmaEmpresa = '__PDF_LOADED_IN_STATE__';
+                        localStorage.setItem(key, JSON.stringify(parsed));
+                        return true;
+                    }
+                } catch (finalErr) {
+                    console.warn(`[Storage] Cuota de almacenamiento alcanzada. La clave "${key}" se omitió de la caché local; los datos se conservan en la base de datos.`);
+                    return false;
+                }
+            }
+        }
+    }
+    return false;
+};
