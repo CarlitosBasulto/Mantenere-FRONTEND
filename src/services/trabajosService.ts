@@ -6,6 +6,14 @@ const fixUrls = (data: any) => {
     const backendBaseUrl = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8085/api').replace(/\/api\/?$/, '');
     let stringified = JSON.stringify(data);
     
+    // Si la cadena no contiene URLs que corregir, devolver directamente el objeto sin re-procesar
+    if (!stringified.includes('http://mantenere-backend') && 
+        !stringified.includes('http://127.0.0.1:8085') && 
+        !stringified.includes('http://localhost:8085') &&
+        !stringified.includes('https://mantenere-backend-production.up.railway.app')) {
+        return data;
+    }
+    
     if (!backendBaseUrl.includes('localhost') && !backendBaseUrl.includes('127.0.0.1')) {
         stringified = stringified.replace(/http:\/\/mantenere-backend/g, 'https://mantenere-backend');
         stringified = stringified.replace(/http:\/\/127\.0\.0\.1:8085/g, 'https://mantenere-backend-production.up.railway.app');

@@ -61,7 +61,8 @@ const DashboardTecnicoAutonomo: React.FC = () => {
                 setTrabajos(myJobs);
                 setNegocios(Array.isArray(nData) ? nData : []);
                 if (Array.isArray(nData) && nData.length > 0) {
-                    setExpanded({ [nData[0].id]: true });
+                    const branchWithJobs = nData.find(n => myJobs.some(j => j.negocio_id === n.id)) || nData[0];
+                    setExpanded({ [branchWithJobs.id]: true });
                 }
             } catch(e) {
                 console.error("Error al cargar dashboard de técnico autónomo:", e);
@@ -73,7 +74,15 @@ const DashboardTecnicoAutonomo: React.FC = () => {
 
     const toggle = (id: number) => setExpanded(prev => ({ ...prev, [id]: !prev[id] }));
 
-    if (loading) return <div style={{padding:'20px'}}>Cargando...</div>;
+    if (loading) {
+        return (
+            <div style={{ padding: '24px', background: '#f8fafc', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', color: '#64748b', fontFamily: 'Inter, sans-serif' }}>
+                <div style={{ width: '40px', height: '40px', border: '3px solid #e2e8f0', borderTopColor: '#3b82f6', borderRadius: '50%', animation: 'dashSpin 0.8s linear infinite' }} />
+                <style>{`@keyframes dashSpin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+                <div style={{ fontSize: '15px', fontWeight: 600 }}>Cargando mi tablero...</div>
+            </div>
+        );
+    }
 
     return (
         <div style={{ padding: '24px', background: '#f8fafc', minHeight: '100vh', fontFamily: 'Inter, sans-serif' }}>
