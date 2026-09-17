@@ -2406,12 +2406,36 @@
     transition: all 0.25s ease;
 }
 
+
 .techDrawerFloatingTrigger:hover {
     transform: translateY(-50%) translateX(-4px);
     box-shadow: -6px 8px 24px rgba(242, 101, 34, 0.5);
     background: linear-gradient(135deg, #ea580c, #c2410c);
 }
 
+.adminCotizacionGrid {
+    display: grid;
+    grid-template-columns: 1.1fr 0.9fr;
+    gap: 28px;
+    align-items: start;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+}
 
+.adminCotizacionGridSingle {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 28px;
+    align-items: start;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+}
 
-
+@media (max-width: 1024px) {
+    .adminCotizacionGrid {
+        grid-template-columns: 1fr !important;
+        gap: 20px;
+    }
+}

@@ -7188,26 +7188,100 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                     </div>
                                 )}
 
+                                {/* DRAWER EXCLUSIVO PARA CHAT DE CLIENTE / ENCARGADO */}
+                                {(user?.role === 'cliente' || user?.role === 'encargado' || user?.role === 'gerente-sucursal') && (
+                                    <>
+                                        {isTechDrawerOpen && (
+                                            <div 
+                                                className={styles.techDrawerOverlay} 
+                                                onClick={() => setIsTechDrawerOpen(false)}
+                                            />
+                                        )}
+                                        <div 
+                                            className={styles.techDrawerPanel}
+                                            style={{
+                                                transform: isTechDrawerOpen ? 'translateX(0)' : 'translateX(105%)'
+                                            }}
+                                        >
+                                            <div className={styles.techDrawerHeader}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                    <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'linear-gradient(135deg, #f26522, #d14d13)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
+                                                        <HiOutlineChatBubbleLeftRight size={20} />
+                                                    </div>
+                                                    <div>
+                                                        <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#1e293b' }}>
+                                                            {isSOS ? '💬 Chat con el Técnico (SOS)' : '💬 Chat con Administrador'}
+                                                        </h3>
+                                                        <span style={{ fontSize: '11px', color: '#64748b' }}>
+                                                            {isSOS ? 'Comunicación directa de emergencia' : 'Negociación y consultas directas'}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setIsTechDrawerOpen(false)}
+                                                    style={{
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '4px',
+                                                        padding: '7px 12px',
+                                                        background: '#f1f5f9',
+                                                        border: 'none',
+                                                        borderRadius: '8px',
+                                                        color: '#475569',
+                                                        fontSize: '12px',
+                                                        fontWeight: '800',
+                                                        cursor: 'pointer'
+                                                    }}
+                                                >
+                                                    <span>Cerrar</span>
+                                                    <HiOutlineChevronRight size={16} />
+                                                </button>
+                                            </div>
+                                            <div className={`${styles.techDrawerContent} ${styles.cardTransparentScroll}`}>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                                    <div style={{
+                                                        background: isSOS ? 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)' : 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
+                                                        border: isSOS ? '1.5px solid #fed7aa' : '1.5px solid #bfdbfe',
+                                                        borderRadius: '16px',
+                                                        padding: '16px 18px',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '12px'
+                                                    }}>
+                                                        <div style={{ fontSize: '24px' }}>💬</div>
+                                                        <div>
+                                                            <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '850', color: isSOS ? '#c2410c' : '#1e40af' }}>
+                                                                {isSOS ? 'Chat Directo con el Técnico (Emergencia SOS)' : 'Chat de Negociación con Administrador'}
+                                                            </h4>
+                                                            <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: isSOS ? '#ea580c' : '#3b82f6' }}>
+                                                                {isSOS 
+                                                                    ? 'Conversa en tiempo real con el técnico en sitio para coordinar la reparación o aclarar dudas.'
+                                                                    : 'Conversa en tiempo real para consultar dudas o acordar ajustes a la cotización.'}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+
+                                                    {isTechDrawerOpen && trabajo && (
+                                                        <NegotiationChatWidget 
+                                                            trabajoId={trabajo.id} 
+                                                            currentUser={user} 
+                                                            inlineMode={true}
+                                                        />
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
+
                                 {/* VISTA ADMIN: columna izquierda (gestión de cotizaciones), columna derecha (actividades del técnico) */}
                                 {!['cliente', 'encargado', 'gerente-sucursal'].includes(user?.role || '') && !isTechRole && (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%', maxWidth: '100%', position: 'relative' }}>
+                                    <div className={showLeftColumn ? styles.adminCotizacionGrid : styles.adminCotizacionGridSingle}>
                                         
-                                        {/* BOTÓN SUPERIOR DE ACCESO RÁPIDO A COTIZACIÓN DEL TÉCNICO Y CHAT (PC / DESKTOP) */}
-                                        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginBottom: '-6px' }}>
-                                            <button
-                                                type="button"
-                                                onClick={() => setIsTechDrawerOpen(true)}
-                                                className={styles.techDrawerDesktopTrigger}
-                                            >
-                                                <HiOutlineDocumentText size={17} color="#f26522" />
-                                                <span>{isSOS && isTechRole ? '💬 Chat con el Cliente & Cotización' : 'Ver Cotización del Técnico & Chat'}</span>
-                                                <HiOutlineChevronLeft size={16} style={{ strokeWidth: 3 }} />
-                                            </button>
-                                        </div>
-
-                                            {/* COLUMNA PRINCIPAL (ANCHO COMPLETO): lista de cotizaciones y formulario */}
-                                            {showLeftColumn && (
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%', maxWidth: '100%' }}>
+                                        {/* COLUMNA PRINCIPAL (IZQUIERDA): lista de cotizaciones y formulario */}
+                                        {showLeftColumn && (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%', maxWidth: '100%' }}>
                                                     {/* Admin Banner for Re-Cotización / Rejected Quote */}
                                                     {(user?.role === 'admin' || user?.role === 'autonomo' || user?.role === 'admin-autonomo') && (trabajo?.estado === 'Cotización Rechazada' || cotizaciones.some(c => c.estado === 'Rechazada')) && (
                                                         <div className={styles.adminRecotizBanner}>
@@ -7926,129 +8000,9 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                 )}
                                             </div>
                                             )}
-                                        </div>
-                                    )}
 
-                                    {/* BOTÓN FLOTANTE LATERAL DERECHO (Permite abrir / ocultar el Drawer en cualquier momento) */}
-                                    <button
-                                        type="button"
-                                        onClick={() => setIsTechDrawerOpen(!isTechDrawerOpen)}
-                                        className={styles.techDrawerFloatingTrigger}
-                                        title={
-                                            isSOS
-                                                ? (isTechRole ? 'Abrir / Ocultar Chat con el Cliente' : ((user?.role === 'cliente' || user?.role === 'encargado') ? 'Abrir / Ocultar Chat con el Técnico' : 'Abrir / Ocultar Cotización del Técnico & Chat'))
-                                                : ((user?.role === 'cliente' || user?.role === 'encargado') ? 'Abrir / Ocultar Chat con Administrador' : 'Abrir / Ocultar Cotización del Técnico & Chat')
-                                        }
-                                    >
-                                        {(user?.role === 'cliente' || user?.role === 'encargado') ? (
-                                            <>
-                                                <HiOutlineChatBubbleLeftRight size={20} />
-                                                <span style={{ writingMode: 'vertical-rl', textOrientation: 'mixed', fontSize: '11px', fontWeight: '800', letterSpacing: '1px' }}>
-                                                    {isSOS ? 'CHAT TÉCNICO' : 'CHAT ADMIN'}
-                                                </span>
-                                            </>
-                                        ) : (
-                                            <>
-                                                {isSOS && isTechRole ? <HiOutlineChatBubbleLeftRight size={20} /> : <HiOutlineDocumentText size={20} />}
-                                                <span style={{ writingMode: 'vertical-rl', textOrientation: 'mixed', fontSize: '11px', fontWeight: '800', letterSpacing: '1px' }}>
-                                                    {isSOS && isTechRole ? 'CHAT CLIENTE' : 'TÉCNICO & CHAT'}
-                                                </span>
-                                            </>
-                                        )}
-                                    </button>
-
-                                    {/* SLIDE-OVER DRAWER LATERAL: Reporte, sugerencias, PDF del técnico y Chat */}
-                                    {isTechDrawerOpen && (
-                                        <div 
-                                            className={styles.techDrawerOverlay} 
-                                            onClick={() => setIsTechDrawerOpen(false)}
-                                        />
-                                    )}
-
-                                    <div 
-                                        className={styles.techDrawerPanel}
-                                        style={{
-                                            transform: isTechDrawerOpen ? 'translateX(0)' : 'translateX(105%)'
-                                        }}
-                                    >
-                                                {/* CABECERA DEL DRAWER */}
-                                                <div className={styles.techDrawerHeader}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                        <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'linear-gradient(135deg, #f26522, #d14d13)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
-                                                            {(user?.role === 'cliente' || user?.role === 'encargado' || (isSOS && isTechRole)) ? <HiOutlineChatBubbleLeftRight size={20} /> : <HiOutlineDocumentText size={20} />}
-                                                        </div>
-                                                        <div>
-                                                            <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#1e293b' }}>
-                                                                {(user?.role === 'cliente' || user?.role === 'encargado') 
-                                                                    ? (isSOS ? '💬 Chat con el Técnico (SOS)' : '💬 Chat con Administrador') 
-                                                                    : (isSOS && isTechRole ? '💬 Chat con el Cliente (SOS)' : 'Cotización del Técnico & Chat')}
-                                                            </h3>
-                                                            <span style={{ fontSize: '11px', color: '#64748b' }}>
-                                                                {(user?.role === 'cliente' || user?.role === 'encargado') 
-                                                                    ? (isSOS ? 'Comunicación directa de emergencia' : 'Negociación y consultas directas') 
-                                                                    : (isSOS && isTechRole ? 'Comunicación directa con la sucursal' : 'Sugerencias, evidencias y negociación')}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setIsTechDrawerOpen(false)}
-                                                        style={{
-                                                            display: 'inline-flex',
-                                                            alignItems: 'center',
-                                                            gap: '4px',
-                                                            padding: '7px 12px',
-                                                            background: '#f1f5f9',
-                                                            border: 'none',
-                                                            borderRadius: '8px',
-                                                            color: '#475569',
-                                                            fontSize: '12px',
-                                                            fontWeight: '800',
-                                                            cursor: 'pointer',
-                                                            transition: 'all 0.2s'
-                                                        }}
-                                                    >
-                                                        <span>Cerrar</span>
-                                                        <HiOutlineChevronRight size={16} />
-                                                    </button>
-                                                </div>
-
-                                                {/* CONTENIDO DEL DRAWER CON SCROLL TRANSPARENTE */}
-                                                <div className={`${styles.techDrawerContent} ${styles.cardTransparentScroll}`}>
-                                                    {(user?.role === 'cliente' || user?.role === 'encargado') ? (
-                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                                            <div style={{
-                                                                background: isSOS ? 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)' : 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
-                                                                border: isSOS ? '1.5px solid #fed7aa' : '1.5px solid #bfdbfe',
-                                                                borderRadius: '16px',
-                                                                padding: '16px 18px',
-                                                                display: 'flex',
-                                                                alignItems: 'center',
-                                                                gap: '12px'
-                                                            }}>
-                                                                <div style={{ fontSize: '24px' }}>💬</div>
-                                                                <div>
-                                                                    <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '850', color: isSOS ? '#c2410c' : '#1e40af' }}>
-                                                                        {isSOS ? 'Chat Directo con el Técnico (Emergencia SOS)' : 'Chat de Negociación con Administrador'}
-                                                                    </h4>
-                                                                    <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: isSOS ? '#ea580c' : '#3b82f6' }}>
-                                                                        {isSOS 
-                                                                            ? 'Conversa en tiempo real con el técnico en sitio para coordinar la reparación o aclarar dudas.'
-                                                                            : 'Conversa en tiempo real para consultar dudas o acordar ajustes a la cotización.'}
-                                                                    </p>
-                                                                </div>
-                                                            </div>
-
-                                                            {isTechDrawerOpen && trabajo && (
-                                                                <NegotiationChatWidget 
-                                                                    trabajoId={trabajo.id} 
-                                                                    currentUser={user} 
-                                                                    inlineMode={true}
-                                                                />
-                                                            )}
-                                                        </div>
-                                                    ) : (
-                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                    {/* COLUMNA DERECHA: Reporte, sugerencias y PDF del técnico (FIJA) */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%', maxWidth: '100%' }}>
                                                             {/* Banner para Técnico en SOS */}
                                                             {isSOS && isTechRole && (
                                                                 <div style={{
@@ -8814,7 +8768,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                 )}
 
                                                 {/* CHAT DE NEGOCIACIÓN / CHAT DIRECTO SIEMPRE VISIBLE */}
-                                                {isTechDrawerOpen && trabajo && (
+                                                {trabajo && (
                                                     <div style={{
                                                         marginTop: '8px',
                                                         paddingTop: '16px',
@@ -8827,10 +8781,9 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                         />
                                                     </div>
                                                 )}
-                                                </div>
-                                            )}
+                                            </div>
                                         </div>
-                                    </div>
+                                    )}
                                 </div>
                             );
                         })()
