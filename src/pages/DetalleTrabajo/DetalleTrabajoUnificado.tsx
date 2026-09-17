@@ -1272,8 +1272,12 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                 if (!rawTabParam) {
                     if (mappedJob.estado === 'Rechazada') {
                         setActiveTab('Datos');
-                    } else if (isAutonomoAdminUser) {
-                        setActiveTab(prev => prev === 'Trabajo' ? 'Datos' : prev);
+                    } else if (isAutonomoAdminUser || user?.role === 'admin') {
+                        if (mappedJob.visitado || ['En Espera', 'Cotización Enviada', 'Cotización Aceptada', 'Cotización Aprobada', 'Cotización Rechazada'].includes(mappedJob.estado) || mappedSubTareas.some((st: any) => st.esCotizacion || st.quoteData || st.hasQuote)) {
+                            setActiveTab('Cotización');
+                        } else {
+                            setActiveTab(prev => prev === 'Trabajo' ? 'Datos' : prev);
+                        }
                     } else if (isJobSOS) {
                         // En emergencias SOS:
                         if (['Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución', 'Finalizado'].includes(mappedJob.estado) && isTechRole) {
@@ -5497,7 +5501,32 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
 
                                     return (
                                         <React.Fragment key={step.id}>
-                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', zIndex: 1, width: '80px', flexShrink: 0 }}>
+                                            <div 
+                                                onClick={() => {
+                                                    if (step.id === 1) setActiveTab('Datos');
+                                                    else if (step.id === 2) {
+                                                        if (isTechRole && !trabajo?.visitado) setActiveTab('Registro');
+                                                        else setActiveTab('Datos');
+                                                    }
+                                                    else if (step.id === 3) setActiveTab('Cotización');
+                                                    else if (step.id === 4) {
+                                                        if (isTechRole) setActiveTab('Trabajo');
+                                                        else setActiveTab('Datos');
+                                                    }
+                                                    else if (step.id === 5) setActiveTab('Historial');
+                                                }}
+                                                style={{ 
+                                                    display: 'flex', 
+                                                    flexDirection: 'column', 
+                                                    alignItems: 'center', 
+                                                    position: 'relative', 
+                                                    zIndex: 1, 
+                                                    width: '80px', 
+                                                    flexShrink: 0,
+                                                    cursor: 'pointer'
+                                                }}
+                                                title={`Ir a ${step.label}`}
+                                            >
                                                 <div style={{
                                                     width: '28px',
                                                     height: '28px',
@@ -5583,8 +5612,12 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                 }
 
                                 if (tabName === 'Cotización') {
-                                    // En flujo normal (no SOS): admin/autonomo-admin ve cotización cuando el técnico ya envió una (por estado O por cotizaciones cargadas)
+                                    // Para Admin y Admin Autónomo, la pestaña de Cotización SIEMPRE debe estar disponible en flujo normal
+                                    // para poder ver sugerencias del técnico y elaborar propuestas oficiales para el cliente
                                     if (user?.role === 'admin' || isAutonomoAdminUser) {
+                                        return true;
+                                    }
+                                    if (user?.role === 'cliente') {
                                         return cotizaciones.length > 0 || ['Cotización Enviada', 'Cotización Aceptada', 'Cotización Aprobada', 'Cotización Rechazada', 'En Ejecución', 'Finalizado', 'Completado'].includes(trabajo.estado);
                                     }
                                     return true;
@@ -5653,7 +5686,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
 
                                     {/* INDICADOR DE NOTIFICACIÓN (ROJO) PARA COTIZACIÓN PENDIENTE */}
                                     {tabName === 'Cotización' && (
-                                        (trabajo?.visitado && cotizaciones.length === 0 && user?.role === 'admin') ||
+                                        (trabajo?.visitado && cotizaciones.length === 0 && (user?.role === 'admin' || isAutonomoAdminUser)) ||
                                         (user?.role === 'cliente' && cotizaciones.some(c => c.estado === 'Pendiente')) ||
                                         ((user?.role === 'tecnico' || user?.role === 'tecnico-normal' || user?.role === 'tecnico-autonomo') && (trabajo?.estado === 'Cotización Rechazada' || cotizaciones.some(c => c.estado === 'Rechazada') || (latestChatQuote && trabajo?.estado !== 'Trabajo' && trabajo?.estado !== 'Finalizado'))) ||
                                         (user?.role !== 'tecnico' && user?.role !== 'cliente' && trabajo?.estado === 'Cotización Enviada')
