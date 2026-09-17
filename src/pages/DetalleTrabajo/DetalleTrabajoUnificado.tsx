@@ -5,7 +5,7 @@ import styles from "./DetalleTrabajoUnificado.module.css";
 import historialStyles from "../cliente/Historial.module.css";
 import { useAuth } from "../../context/AuthContext";
 import { isAutonomoAdmin } from "../../utils/roles";
-import { 
+import {
     HiOutlineInformationCircle,
     HiOutlineWrench,
     HiOutlineClipboardDocumentList,
@@ -86,7 +86,7 @@ interface Trabajo {
     fechaAsignada?: string;
     horaAsignada?: string;
     cotizacion?: CotizacionData;
-        asignaciones?: {
+    asignaciones?: {
         tecnicoId: number;
         tecnicoNombre: string;
         fechaAsignada: string;
@@ -144,7 +144,7 @@ const getAvatarForTech = (nombre: string) => {
         try {
             const data = JSON.parse(profileData);
             if (data.imagenPerfil) return data.imagenPerfil;
-        } catch(e) {}
+        } catch (e) { }
     }
     const stored = localStorage.getItem('trabajadores_list');
     if (stored) {
@@ -152,7 +152,7 @@ const getAvatarForTech = (nombre: string) => {
             const list = JSON.parse(stored);
             const worker = list.find((w: any) => w.nombre === nombre);
             if (worker && worker.avatar) return worker.avatar;
-        } catch(e) {}
+        } catch (e) { }
     }
     const initials = (nombre || 'T').trim().split(' ').filter(Boolean).map(n => n[0]).slice(0, 2).join('').toUpperCase() || 'T';
     return `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 80 80"><circle cx="40" cy="40" r="40" fill="%230e7490"/><text x="50%" y="54%" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="28" font-weight="bold" fill="%23ffffff">${initials}</text></svg>`;
@@ -591,7 +591,7 @@ export const getExecutableTasks = (tasks: SubTarea[], reporteFinal?: any, trabaj
                     if (parsed && (parsed.descripcion || parsed.reporteTienda || parsed.imagenes)) {
                         localPoints.push({ pIdx: p, key: `${checkWorkId}_${p}`, data: parsed });
                     }
-                } catch (_) {}
+                } catch (_) { }
             }
         }
 
@@ -651,21 +651,21 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
     const rawTabParam = (searchParams.get('tab') || '').toLowerCase();
     const isTechRole = user?.role === 'tecnico' || user?.role === 'tecnico-normal' || user?.role === 'tecnico-autonomo';
     const isAutonomoAdminUser = !isTechRole && Boolean(
-        isAutonomoAdmin(user?.role) || 
-        user?.role === 'autonomo' || 
-        user?.role === 'admin-autonomo' || 
-        user?.role === 'administrador-general' || 
+        isAutonomoAdmin(user?.role) ||
+        user?.role === 'autonomo' ||
+        user?.role === 'admin-autonomo' ||
+        user?.role === 'administrador-general' ||
         user?.role === 'propietario-autonomo' ||
         config?.basePath === '/autonomo' ||
         location.pathname.startsWith('/autonomo')
     );
     const isAdminUser = !isTechRole && Boolean(user?.role === 'admin' || isAutonomoAdminUser);
-    const initialTab: "Datos" | "Trabajo" | "Registro" | "Historial" | "Cotización" = 
-        (rawTabParam === 'cotizacion' || rawTabParam === 'cotización') ? 'Cotización' : 
-        (rawTabParam === 'historial') ? 'Historial' : 
-        (rawTabParam === 'registro') ? 'Registro' : 
-        (rawTabParam === 'trabajo' && !isAutonomoAdminUser) ? 'Trabajo' :
-        'Datos';
+    const initialTab: "Datos" | "Trabajo" | "Registro" | "Historial" | "Cotización" =
+        (rawTabParam === 'cotizacion' || rawTabParam === 'cotización') ? 'Cotización' :
+            (rawTabParam === 'historial') ? 'Historial' :
+                (rawTabParam === 'registro') ? 'Registro' :
+                    (rawTabParam === 'trabajo' && !isAutonomoAdminUser) ? 'Trabajo' :
+                        'Datos';
     const [activeTab, setActiveTab] = useState<"Datos" | "Trabajo" | "Registro" | "Historial" | "Cotización">(initialTab);
 
     // MOCK DATA
@@ -785,7 +785,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                         try {
                             await updateEstadoTrabajo(gJob.id, { estado: 'En Ejecución' });
                             await updateTrabajo(gJob.id, { estado: 'En Ejecución', cotizacion: total });
-                        } catch (e) {}
+                        } catch (e) { }
                     }
                 }
             }
@@ -799,7 +799,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                 let targetUserId = (trabajo as any).tecnicoUserId || (trabajo as any).trabajador?.user_id;
                 if (!targetUserId && (trabajo.trabajador_id || trabajo.tecnico)) {
                     const allTrabs = await getTrabajadores();
-                    const found = allTrabs.find((t: any) => 
+                    const found = allTrabs.find((t: any) =>
                         (trabajo.trabajador_id && t.id === trabajo.trabajador_id) ||
                         (trabajo.tecnico && t.nombre?.toLowerCase().trim() === trabajo.tecnico.toLowerCase().trim())
                     );
@@ -836,7 +836,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                     mensaje: `El cliente autorizó ${approvedPoints.length} de ${flattenedSosPoints.length} puntos por $${total.toLocaleString('es-MX', { minimumFractionDigits: 2 })} para "${sucursalName}". El técnico ya se encuentra en fase de ejecución.`,
                     enlace: `/menu/trabajo-detalle/${trabajo.id}?tab=trabajo`
                 });
-            } catch (e) {}
+            } catch (e) { }
 
             showAlert('Cotización Aprobada', `Has aprobado ${approvedPoints.length} puntos de revisión por un total de $${total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}. El trabajo ha comenzado para el técnico.`, 'success');
         } catch (error: any) {
@@ -854,7 +854,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
         if (id) {
             const saved = localStorage.getItem(`quote_history_${id}`);
             if (saved) {
-                try { return JSON.parse(saved); } catch (e) {}
+                try { return JSON.parse(saved); } catch (e) { }
             }
         }
         return [];
@@ -865,7 +865,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
         if (id) {
             const saved = localStorage.getItem(`quote_history_${id}`);
             if (saved) {
-                try { setQuoteHistory(JSON.parse(saved)); } catch (e) {}
+                try { setQuoteHistory(JSON.parse(saved)); } catch (e) { }
             }
         }
     }, [id]);
@@ -973,11 +973,11 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
             return url;
         });
     };
-    
+
     // Modal PDF Preview
     const [showPDFPreview, setShowPDFPreview] = useState<boolean>(false);
     // const [isFromNewReq, setIsFromNewReq] = useState(false);
-    
+
     // Historial Tab State
     const [expandedHistoryMonths, setExpandedHistoryMonths] = useState<Record<string, boolean>>({});
 
@@ -1169,11 +1169,11 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                     trabajador: data.trabajador || null,
                     tecnicoUserId: data.trabajador?.user_id || null
                 };
-                
+
                 // Autofill Marca and Modelo if there is a linked MantenimientoSolicitud
-                const solicitud = data.mantenimiento_solicitud_visita ||  data.mantenimientoSolicitudVisita || data.mantenimiento_solicitud_reparacion || data.mantenimientoSolicitudReparacion;
+                const solicitud = data.mantenimiento_solicitud_visita || data.mantenimientoSolicitudVisita || data.mantenimiento_solicitud_reparacion || data.mantenimientoSolicitudReparacion;
                 const equipo = solicitud ? (solicitud.levantamiento_equipo || solicitud.levantamientoEquipo) : null;
-                
+
                 if (equipo) {
                     setServiceMarca(equipo.marca || equipo.nombre || "");
                     setServiceModelo(equipo.modelo || "");
@@ -1213,7 +1213,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                 const ptNum = subKey.split('_')[1];
                                                 localStorage.setItem(`report_data_${id}_${ptNum}`, JSON.stringify(subData));
                                             }
-                                        } catch (_) {}
+                                        } catch (_) { }
                                     });
                                 }
                             } catch (e) {
@@ -1334,7 +1334,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
     // Evitar cualquier desfase o "cruce de datos": si la pestaña activa no corresponde al estado actual de SOS o al rol
     useEffect(() => {
         if (!trabajo) return;
-        
+
         // En SOS: si la cotización aún NO ha sido aceptada/aprobada, 'Trabajo' NO debe estar activa bajo ninguna circunstancia
         if (isSOS && activeTab === 'Trabajo' && !['Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución', 'Finalizado'].includes(trabajo.estado)) {
             setActiveTab(!trabajo.visitado && isTechRole ? 'Registro' : (trabajo.estado === 'Cotización Enviada' && isTechRole ? 'Cotización' : 'Datos'));
@@ -1367,7 +1367,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                 setLatestChatQuote(null); // Clear the quote notification
                 setShowRejectionModal(false);
                 setRejectionReason("");
-                
+
                 // If accepted, maybe switch tab to Trabajo
                 if (action === 'accept') {
                     setActiveTab('Trabajo');
@@ -1401,7 +1401,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                         const tParts = finalDesc.split(techMarker);
                         try {
                             authorName = tParts[1].split('\n')[0].split('|||')[0].trim();
-                        } catch(e) {}
+                        } catch (e) { }
                     }
 
                     // Limpiamos la descripción mostrada de todos los marcadores técnicos
@@ -1477,24 +1477,24 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                         try {
                             const jsonContent = parts[1].split(serviceMarker)[0].split(quoteMarker)[0].split(techMarker)[0].trim();
                             photosList = JSON.parse(jsonContent);
-                        } catch (e) {}
+                        } catch (e) { }
                     }
 
                     // Build refacciones from QUOTE_DATA if DB refacciones are empty
                     let finalRefacciones = act.refacciones && act.refacciones.length > 0 ? act.refacciones : [];
-                    
+
                     // Deduplicate corrupted DB data: remove items that exist in quoteData
                     if (finalRefacciones.length > 0 && qData) {
                         const qConceptNames = (qData.conceptos || []).map((c: any) => c.descripcion?.trim().toLowerCase());
                         const qMaterialNames = (qData.materiales || []).map((m: any) => m.nombre?.trim().toLowerCase());
-                        
+
                         finalRefacciones = finalRefacciones.filter((r: any) => {
                             const rName = r.pieza?.trim().toLowerCase() || '';
                             const rNameClean = rName.replace(' (material)', '').trim();
-                            
+
                             if (qConceptNames.includes(rNameClean)) return false;
                             if (qMaterialNames.includes(rNameClean)) return false;
-                            
+
                             return true;
                         });
                     }
@@ -1634,18 +1634,18 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
     // Al abrir modal de asignación, para SOS se inicia como Visita diagnóstica urgente
     const handleOpenAssignModal = () => {
         setSelectedType("Visita");
-        
+
         if (trabajo?.trabajador_id && !selectedTechnicians.includes(trabajo.trabajador_id)) {
             setSelectedTechnicians([trabajo.trabajador_id]);
         }
-        
+
         if (!asignarFecha) {
             setAsignarFecha(new Date().toISOString().split('T')[0]);
         }
         if (!asignarHora) {
             setAsignarHora("09:00");
         }
-        
+
         setIsModalOpen(true);
     };
 
@@ -1702,16 +1702,16 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
     const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
     const [newTaskDescription, setNewTaskDescription] = useState("");
     const [isQuoteIncluded, setIsQuoteIncluded] = useState(false);
-    const [quoteConceptos, setQuoteConceptos] = useState<{descripcion: string, cantidad: string, precio: string}[]>([]);
-    const [quoteMateriales, setQuoteMateriales] = useState<{nombre: string, cantidad: string, precio: string}[]>([]);
+    const [quoteConceptos, setQuoteConceptos] = useState<{ descripcion: string, cantidad: string, precio: string }[]>([]);
+    const [quoteMateriales, setQuoteMateriales] = useState<{ nombre: string, cantidad: string, precio: string }[]>([]);
     const [quoteComentarios, setQuoteComentarios] = useState("");
     const [newQuoteFileName, setNewQuoteFileName] = useState("");
     const [activityPhotos, setActivityPhotos] = useState<string[]>([]);
     const [showSendConfirmModal, setShowSendConfirmModal] = useState(false);
-    const [taskItems, setTaskItems] = useState<{ 
-        id: string; 
-        descripcion: string; 
-        foto: string; 
+    const [taskItems, setTaskItems] = useState<{
+        id: string;
+        descripcion: string;
+        foto: string;
         tipoActividad?: string;
         customTipoActividad?: string;
         marca?: string;
@@ -1734,7 +1734,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
     const [serviceEquipoId, setServiceEquipoId] = useState<number | null>(null);
     const [servicePieza, setServicePieza] = useState("");
     const [serviceGarantia, setServiceGarantia] = useState("");
-    const [refacciones, setRefacciones] = useState<{pieza: string, cantidad: number, costo_estimado?: string}[]>([]);
+    const [refacciones, setRefacciones] = useState<{ pieza: string, cantidad: number, costo_estimado?: string }[]>([]);
     const [confirmacionLlegada, setConfirmacionLlegada] = useState(false);
     const [isLocating, setIsLocating] = useState(false);
     const [latitudLlegada, setLatitudLlegada] = useState<string | null>(null);
@@ -1793,7 +1793,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                         mensaje: `El usuario ${user?.name || 'Encargado'} ha solicitado cambiar de técnico para la sucursal ${trabajo.sucursal || ''}. Motivo: ${reassignReason}`,
                         enlace: `/menu/trabajo-detalle/${trabajo.id}`
                     });
-                } catch (e) {}
+                } catch (e) { }
 
                 localStorage.setItem(`reassign_reason_${trabajo.id}`, reassignReason);
 
@@ -1871,9 +1871,9 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                 mensaje: `El técnico ${user?.name || ''} ha confirmado la fecha de ejecución para el ${execFecha} a las ${execHora || '09:00'} en ${trabajo?.sucursal || ''}.`,
                                 enlace: `/autonomo/trabajo-detalle/${trabajo.id}`
                             });
-                        } catch (_) {}
+                        } catch (_) { }
                     }
-                } catch (e) {}
+                } catch (e) { }
 
                 setTrabajo(prev => prev ? {
                     ...prev,
@@ -1884,10 +1884,10 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
 
                 setIsEditingExecutionTime(false);
                 showAlert(
-                    "Horario Confirmado", 
-                    newCount >= 2 
-                        ? "Has utilizado tu única modificación permitida. La fecha y hora han quedado confirmadas de manera definitiva." 
-                        : "Has guardado la fecha y hora de ejecución del trabajo.", 
+                    "Horario Confirmado",
+                    newCount >= 2
+                        ? "Has utilizado tu única modificación permitida. La fecha y hora han quedado confirmadas de manera definitiva."
+                        : "Has guardado la fecha y hora de ejecución del trabajo.",
                     "success"
                 );
             }
@@ -2031,7 +2031,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                     await Promise.all(jobsToAssign.map(async (currentJob) => {
                         const isQuoteState = currentJob.estado === "Cotización Enviada" || currentJob.estado === "Reasignación Solicitada";
                         const isCotizacionAprobadaReassign = currentJob.estado === "Cotización Aceptada" || currentJob.estado === "Cotización Aprobada";
-                        
+
                         let currentNewEstado: string;
                         if (isQuoteState && currentJob.tipo === "Visita") {
                             currentNewEstado = "Cotización Enviada";
@@ -2068,7 +2068,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                     // Calculate state for current single view job
                     const isQuoteState = trabajo.estado === "Cotización Enviada" || trabajo.estado === "Reasignación Solicitada";
                     const isCotizacionAprobadaReassign = trabajo.estado === "Cotización Aceptada" || trabajo.estado === "Cotización Aprobada";
-                    
+
                     let newEstado: string;
                     if (isQuoteState && trabajo.tipo === "Visita") {
                         newEstado = "Cotización Enviada";
@@ -2203,7 +2203,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                     mensaje: `El técnico ${user?.name || 'asignado'} ha aceptado el trabajo en "${trabajo.sucursal || 'Sucursal'}".`,
                     enlace: `/autonomo/trabajo-detalle/${trabajo.id}`
                 });
-            } catch (e) {}
+            } catch (e) { }
 
             if (trabajo.negocio_id) {
                 try {
@@ -2217,7 +2217,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                             tipo: 'Info'
                         });
                     }
-                } catch (e) {}
+                } catch (e) { }
             }
 
             if (isSOS) {
@@ -2237,11 +2237,11 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
             showAlert("Atención", "Debes indicar una hora estimada de llegada.", "warning");
             return;
         }
-        
+
         try {
             await updateEstadoTrabajo(trabajo.id, { estado: "En Espera", hora_llegada: horaLlegada });
             setTrabajo((prev: any) => prev ? { ...prev, estado: "En Espera", hora_llegada: horaLlegada } : prev);
-            
+
             // Notificar al encargado y admin autonomo
             if (trabajo.negocio_id) {
                 const negocioRes = await getNegocio(trabajo.negocio_id);
@@ -2254,7 +2254,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                             mensaje: `El técnico ha aceptado la solicitud y estima llegar a las ${horaLlegada}.`,
                         });
                     } catch (e) { console.error("Error notificando encargado:", e); }
-                    
+
                     if (config.notificarEcosistema && negocioData.admin_autonomo_id) {
                         try {
                             await createNotificacionEcosistema({
@@ -2267,7 +2267,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                     }
                 }
             }
-            
+
             setShowHoraLlegadaModal(false);
             showAlert("Trabajo Aceptado", `Has aceptado la asignación. Llegada estimada a las ${horaLlegada}.`, "success");
         } catch (error) {
@@ -2286,7 +2286,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
         try {
             const isVisita = tipo === 'Visita';
             const nuevoTitulo = trabajo.titulo ? trabajo.titulo.replace("(Visita)", "").replace("(Reparación)", "").trim() + (isVisita ? " (Visita)" : " (Reparación)") : (isVisita ? "Nueva Visita" : "Nueva Reparación");
-            
+
             await updateEstadoTrabajo(trabajo.id, { estado: "En Proceso", visitado: !isVisita });
             await updateTrabajo(trabajo.id, { tipo, titulo: nuevoTitulo });
 
@@ -2311,8 +2311,8 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
         const selectedCategories = Array.from(new Set(
             activeItems.map(it => it.tipoActividad === 'Otro' ? (it.customTipoActividad || 'Otro') : it.tipoActividad).filter(Boolean)
         ));
-        const combinedCategories = selectedCategories.length > 0 
-            ? selectedCategories.join(', ') 
+        const combinedCategories = selectedCategories.length > 0
+            ? selectedCategories.join(', ')
             : (activeServiceType === 'Otro' ? (customServiceType || 'Otro') : activeServiceType);
 
         const sosRefaccionesList: any[] = [];
@@ -2433,13 +2433,13 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
             };
 
             const pdfFile = await generateMaintenanceReportPDF(previewData);
-            
+
             const totalAmount = (previewData.refaccionesList || []).reduce((acc: number, ref: any) => {
                 const qty = Number(ref.cantidad || 1);
                 const unitPrice = parseFloat(ref.costo_estimado) || 0;
                 return acc + (qty * unitPrice);
             }, 0);
-            
+
             const formData = new FormData();
             formData.append('trabajo_id', trabajo?.id.toString() || '');
             formData.append('monto', totalAmount.toString());
@@ -2447,10 +2447,10 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
             if (pdfFile) {
                 formData.append('archivo', pdfFile);
             }
-            
+
             const savedCotiz = await saveCotizacion(formData as any);
             setCotizaciones(prev => [...prev, savedCotiz]);
-            
+
             if (config.notificarEcosistema && trabajo?.admin_autonomo_id) {
                 await createNotificacionEcosistema({
                     admin_autonomo_id: trabajo.admin_autonomo_id,
@@ -2458,10 +2458,10 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                     mensaje: `Se ha enviado una cotización sugerida para la sucursal ${trabajo.sucursal}.`,
                 });
             }
-            
+
             await updateEstadoTrabajo(trabajo!.id, { estado: 'Cotización Enviada' });
             setTrabajo(prev => prev ? { ...prev, estado: 'Cotización Enviada' } : prev);
-            
+
             showAlert('Cotización Enviada', 'Se ha enviado la cotización al Admin Autónomo.', 'success');
             setShowSendQuoteConfirmModal(false);
             setQuoteToSend(null);
@@ -2551,13 +2551,13 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                             conceptos: it.quoteConceptos || [],
                             materiales: it.quoteMateriales || [],
                             subtotal: ((it.quoteConceptos || []).reduce((acc, c) => acc + ((Number(c.cantidad) || 1) * (parseFloat(c.precio) || 0)), 0)) +
-                                      ((it.quoteMateriales || []).reduce((acc, m) => acc + ((Number(m.cantidad) || 1) * (parseFloat(m.precio) || 0)), 0))
+                                ((it.quoteMateriales || []).reduce((acc, m) => acc + ((Number(m.cantidad) || 1) * (parseFloat(m.precio) || 0)), 0))
                         }))
                     };
                     desc += ` \n|||QUOTE_DATA||| ${JSON.stringify(quotePayload)}`;
                 }
             } else if (isQuoteIncluded) {
-                const quotePayload = { 
+                const quotePayload = {
                     conceptos: quoteConceptos.filter(c => c.descripcion.trim()),
                     materiales: quoteMateriales.filter(m => m.nombre.trim()),
                     comentarios: quoteComentarios
@@ -2606,175 +2606,175 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                 let qData = null;
 
                 const quoteMarker = "|||QUOTE_DATA|||";
-                    const serviceMarker = "|||SERVICE_DATA|||";
-                    const techMarker = "|||TECH_NAME|||";
-                    const photosMarker = "|||PHOTOS_DATA|||";
+                const serviceMarker = "|||SERVICE_DATA|||";
+                const techMarker = "|||TECH_NAME|||";
+                const photosMarker = "|||PHOTOS_DATA|||";
 
-                    // Limpiamos la descripción mostrada de todos los marcadores técnicos
-                    const cleanDesc = finalDesc
-                        .split(serviceMarker)[0]
-                        .split(quoteMarker)[0]
-                        .split(techMarker)[0]
-                        .split(photosMarker)[0]
-                        .trim();
+                // Limpiamos la descripción mostrada de todos los marcadores técnicos
+                const cleanDesc = finalDesc
+                    .split(serviceMarker)[0]
+                    .split(quoteMarker)[0]
+                    .split(techMarker)[0]
+                    .split(photosMarker)[0]
+                    .trim();
 
-                    let displayDesc = cleanDesc;
+                let displayDesc = cleanDesc;
 
-                    if (finalDesc.includes(serviceMarker)) {
-                        const parts = finalDesc.split(serviceMarker);
-                        try {
-                            sData = JSON.parse(parts[1].split(quoteMarker)[0].split(techMarker)[0].split(photosMarker)[0].trim());
-                        } catch (e) { }
-                    }
+                if (finalDesc.includes(serviceMarker)) {
+                    const parts = finalDesc.split(serviceMarker);
+                    try {
+                        sData = JSON.parse(parts[1].split(quoteMarker)[0].split(techMarker)[0].split(photosMarker)[0].trim());
+                    } catch (e) { }
+                }
 
-                    if (finalDesc.includes(quoteMarker)) {
-                        const parts = finalDesc.split(quoteMarker);
-                        try {
-                            const jsonContent = parts[1].split(serviceMarker)[0].split(techMarker)[0].split(photosMarker)[0].trim();
-                            if (jsonContent.startsWith('{')) {
-                                qData = JSON.parse(jsonContent);
-                                if (qData.monto) parsedMonto = qData.monto;
-                                if (qData.detalles) displayDesc += "\n\nNotas de cotización:\n" + qData.detalles;
-                            } else {
-                                // Plain text fallback
-                                const firstHyphen = jsonContent.indexOf(" - ");
-                                if (firstHyphen !== -1) {
-                                    const possibleMonto = jsonContent.substring(0, firstHyphen).trim();
-                                    if (!isNaN(Number(possibleMonto.replace('$', '')))) {
-                                        parsedMonto = possibleMonto;
-                                        const detailsText = jsonContent.substring(firstHyphen + 3).trim();
-                                        qData = { monto: possibleMonto, detalles: detailsText };
-                                    } else {
-                                        qData = { monto: "", detalles: jsonContent };
-                                    }
+                if (finalDesc.includes(quoteMarker)) {
+                    const parts = finalDesc.split(quoteMarker);
+                    try {
+                        const jsonContent = parts[1].split(serviceMarker)[0].split(techMarker)[0].split(photosMarker)[0].trim();
+                        if (jsonContent.startsWith('{')) {
+                            qData = JSON.parse(jsonContent);
+                            if (qData.monto) parsedMonto = qData.monto;
+                            if (qData.detalles) displayDesc += "\n\nNotas de cotización:\n" + qData.detalles;
+                        } else {
+                            // Plain text fallback
+                            const firstHyphen = jsonContent.indexOf(" - ");
+                            if (firstHyphen !== -1) {
+                                const possibleMonto = jsonContent.substring(0, firstHyphen).trim();
+                                if (!isNaN(Number(possibleMonto.replace('$', '')))) {
+                                    parsedMonto = possibleMonto;
+                                    const detailsText = jsonContent.substring(firstHyphen + 3).trim();
+                                    qData = { monto: possibleMonto, detalles: detailsText };
                                 } else {
                                     qData = { monto: "", detalles: jsonContent };
                                 }
-                                if (qData.detalles) displayDesc += "\n\nNotas de cotización:\n" + qData.detalles;
+                            } else {
+                                qData = { monto: "", detalles: jsonContent };
                             }
-                        } catch (e) { }
-                    }
-
-                    let photosList: string[] = [];
-                    if (finalDesc.includes(photosMarker)) {
-                        const parts = finalDesc.split(photosMarker);
-                        try {
-                            const jsonContent = parts[1].split(serviceMarker)[0].split(quoteMarker)[0].split(techMarker)[0].trim();
-                            photosList = JSON.parse(jsonContent);
-                        } catch (e) {}
-                    }
-
-                    const esCot = qData !== null;
-
-                    return {
-                        id: act.id,
-                        titulo: act.tipo,
-                        descripcion: displayDesc,
-                        cleanDescripcion: cleanDesc,
-                        rawDescripcion: finalDesc,
-                        estado: "Nueva",
-                        tecnicoNombre: user?.name,
-                        esCotizacion: esCot,
-                        cotizacionMonto: parsedMonto,
-                        cotizacionDetalles: displayDesc,
-                        cotizacionArchivo: "",
-                        cotizacionEstado: "Sugerencia de Técnico",
-                        serviceData: sData,
-                        hasQuote: finalDesc.includes(quoteMarker),
-                        quoteData: qData,
-                        refacciones: act.refacciones,
-                        photos: photosList
-                    };
-                });
-                setSubTareas(mappedSubTareas as any);
-                if (generatePDF) {
-                    // Conceptos de servicio (Mano de obra / servicios)
-                    const conceptosPDF = isQuoteIncluded ? quoteConceptos
-                        .filter(c => c.descripcion && c.descripcion.trim())
-                        .map(c => ({
-                            pieza: c.descripcion,
-                            cantidad: Number(c.cantidad) || 1,
-                            costo_estimado: c.precio ? String(c.precio) : '0'
-                        })) : [];
-
-                    // Materiales físicos
-                    const materialesPDF = isQuoteIncluded ? quoteMateriales
-                        .filter(m => m.nombre && m.nombre.trim())
-                        .map(m => ({
-                            pieza: m.nombre,
-                            cantidad: Number(m.cantidad) || 1,
-                            costo_estimado: m.precio ? String(m.precio) : '0'
-                        })) : [];
-
-                    // Refacciones adicionales del técnico
-                    const refaccionesBase = refacciones.map(r => ({
-                        pieza: r.pieza,
-                        cantidad: Number(r.cantidad) || 1,
-                        costo_estimado: r.costo_estimado ? String(r.costo_estimado) : '0'
-                    }));
-
-                    // Combinar todos: conceptos + materiales + refacciones
-                    const refaccionesList = [...conceptosPDF, ...materialesPDF, ...refaccionesBase];
-
-
-                    const selectedCategories = Array.from(new Set(
-                        activeItems.map(it => it.tipoActividad === 'Otro' ? (it.customTipoActividad || 'Otro') : it.tipoActividad).filter(Boolean)
-                    ));
-                    const combinedCategories = selectedCategories.length > 0 
-                        ? selectedCategories.join(', ') 
-                        : (activeServiceType === 'Otro' ? (customServiceType || 'Otro') : activeServiceType);
-
-                    const preparedData = {
-                        id: trabajo?.id || 'SD',
-                        folio: `COT-${trabajo?.id?.toString().padStart(5, '0')}`,
-                        sucursal: trabajo?.sucursal || '---',
-                        encargado: trabajo?.encargado || '---',
-                        tecnico: user?.name || trabajo?.tecnico || 'Técnico',
-                        isVisita: !trabajo?.visitado,
-                        reporteTienda: combinedCategories,
-                        descripcion: combinedDesc,
-                        materiales: combinedMateriales,
-                        refaccionesList: refaccionesList,
-                        observaciones: '',
-                        puntosEvidencia: activeItems.map((item, index) => ({
-                            punto: index + 1,
-                            tipo: item.tipoActividad === 'Otro' ? item.customTipoActividad : item.tipoActividad,
-                            descripcion: item.descripcion,
-                            foto: item.foto
-                        })).filter(p => p.foto || p.descripcion),
-                        imagenes: {
-                            antes: activityPhotos[0] || null,
-                            durante: activityPhotos[1] || null,
-                            despues: activityPhotos[2] || null
-                        },
-                        imagenObservacion: activityPhotos[3] || null,
-                        imagenesObservacion: activityPhotos[3] ? [activityPhotos[3]] : [],
-                        firmaEmpresa: null,
-                        involucraEquipo: !!serviceMarca || !!serviceModelo,
-                        equipoInfo: (serviceMarca || serviceModelo) ? {
-                            tipo: activeServiceType,
-                            marca: serviceMarca || 'N/A',
-                            modelo: serviceModelo || 'N/A',
-                            piezas: servicePieza || 'N/A',
-                            garantia: serviceGarantia || 'N/A'
-                        } : null,
-                        fecha: new Date().toLocaleDateString('es-MX')
-                    };
-
-                    setActivityPDFData(preparedData);
-                    setShowActivityPDFPreview(true);
-                    
-                    try {
-                        await generateMaintenanceReportPDF(preparedData);
-                    } catch (err) {
-                        console.error("Error generando PDF:", err);
-                    }
+                            if (qData.detalles) displayDesc += "\n\nNotas de cotización:\n" + qData.detalles;
+                        }
+                    } catch (e) { }
                 }
-                showAlert(
-                    'Actividad Registrada',
-                    'La actividad ha sido guardada y sincronizada correctamente.',
-                    'success'
-                );
+
+                let photosList: string[] = [];
+                if (finalDesc.includes(photosMarker)) {
+                    const parts = finalDesc.split(photosMarker);
+                    try {
+                        const jsonContent = parts[1].split(serviceMarker)[0].split(quoteMarker)[0].split(techMarker)[0].trim();
+                        photosList = JSON.parse(jsonContent);
+                    } catch (e) { }
+                }
+
+                const esCot = qData !== null;
+
+                return {
+                    id: act.id,
+                    titulo: act.tipo,
+                    descripcion: displayDesc,
+                    cleanDescripcion: cleanDesc,
+                    rawDescripcion: finalDesc,
+                    estado: "Nueva",
+                    tecnicoNombre: user?.name,
+                    esCotizacion: esCot,
+                    cotizacionMonto: parsedMonto,
+                    cotizacionDetalles: displayDesc,
+                    cotizacionArchivo: "",
+                    cotizacionEstado: "Sugerencia de Técnico",
+                    serviceData: sData,
+                    hasQuote: finalDesc.includes(quoteMarker),
+                    quoteData: qData,
+                    refacciones: act.refacciones,
+                    photos: photosList
+                };
+            });
+            setSubTareas(mappedSubTareas as any);
+            if (generatePDF) {
+                // Conceptos de servicio (Mano de obra / servicios)
+                const conceptosPDF = isQuoteIncluded ? quoteConceptos
+                    .filter(c => c.descripcion && c.descripcion.trim())
+                    .map(c => ({
+                        pieza: c.descripcion,
+                        cantidad: Number(c.cantidad) || 1,
+                        costo_estimado: c.precio ? String(c.precio) : '0'
+                    })) : [];
+
+                // Materiales físicos
+                const materialesPDF = isQuoteIncluded ? quoteMateriales
+                    .filter(m => m.nombre && m.nombre.trim())
+                    .map(m => ({
+                        pieza: m.nombre,
+                        cantidad: Number(m.cantidad) || 1,
+                        costo_estimado: m.precio ? String(m.precio) : '0'
+                    })) : [];
+
+                // Refacciones adicionales del técnico
+                const refaccionesBase = refacciones.map(r => ({
+                    pieza: r.pieza,
+                    cantidad: Number(r.cantidad) || 1,
+                    costo_estimado: r.costo_estimado ? String(r.costo_estimado) : '0'
+                }));
+
+                // Combinar todos: conceptos + materiales + refacciones
+                const refaccionesList = [...conceptosPDF, ...materialesPDF, ...refaccionesBase];
+
+
+                const selectedCategories = Array.from(new Set(
+                    activeItems.map(it => it.tipoActividad === 'Otro' ? (it.customTipoActividad || 'Otro') : it.tipoActividad).filter(Boolean)
+                ));
+                const combinedCategories = selectedCategories.length > 0
+                    ? selectedCategories.join(', ')
+                    : (activeServiceType === 'Otro' ? (customServiceType || 'Otro') : activeServiceType);
+
+                const preparedData = {
+                    id: trabajo?.id || 'SD',
+                    folio: `COT-${trabajo?.id?.toString().padStart(5, '0')}`,
+                    sucursal: trabajo?.sucursal || '---',
+                    encargado: trabajo?.encargado || '---',
+                    tecnico: user?.name || trabajo?.tecnico || 'Técnico',
+                    isVisita: !trabajo?.visitado,
+                    reporteTienda: combinedCategories,
+                    descripcion: combinedDesc,
+                    materiales: combinedMateriales,
+                    refaccionesList: refaccionesList,
+                    observaciones: '',
+                    puntosEvidencia: activeItems.map((item, index) => ({
+                        punto: index + 1,
+                        tipo: item.tipoActividad === 'Otro' ? item.customTipoActividad : item.tipoActividad,
+                        descripcion: item.descripcion,
+                        foto: item.foto
+                    })).filter(p => p.foto || p.descripcion),
+                    imagenes: {
+                        antes: activityPhotos[0] || null,
+                        durante: activityPhotos[1] || null,
+                        despues: activityPhotos[2] || null
+                    },
+                    imagenObservacion: activityPhotos[3] || null,
+                    imagenesObservacion: activityPhotos[3] ? [activityPhotos[3]] : [],
+                    firmaEmpresa: null,
+                    involucraEquipo: !!serviceMarca || !!serviceModelo,
+                    equipoInfo: (serviceMarca || serviceModelo) ? {
+                        tipo: activeServiceType,
+                        marca: serviceMarca || 'N/A',
+                        modelo: serviceModelo || 'N/A',
+                        piezas: servicePieza || 'N/A',
+                        garantia: serviceGarantia || 'N/A'
+                    } : null,
+                    fecha: new Date().toLocaleDateString('es-MX')
+                };
+
+                setActivityPDFData(preparedData);
+                setShowActivityPDFPreview(true);
+
+                try {
+                    await generateMaintenanceReportPDF(preparedData);
+                } catch (err) {
+                    console.error("Error generando PDF:", err);
+                }
+            }
+            showAlert(
+                'Actividad Registrada',
+                'La actividad ha sido guardada y sincronizada correctamente.',
+                'success'
+            );
         } catch (error: any) {
             console.error("Error added task:", error);
             showAlert(
@@ -2799,7 +2799,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
         setServicePieza("");
         setServiceGarantia("");
         setRefacciones([]);
-        
+
         // Siempre regresar a Registro para que el técnico pueda seguir agregando actividades
         setActiveTab("Registro");
     };
@@ -2882,7 +2882,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                             try {
                                 const jsonContent = parts[1].split(serviceMarker)[0].split(quoteMarker)[0].split(techMarker)[0].trim();
                                 photosList = JSON.parse(jsonContent);
-                            } catch (e) {}
+                            } catch (e) { }
                         }
 
                         const esCot = qData !== null;
@@ -2919,10 +2919,10 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
     const openEditModal = (e: React.MouseEvent, tarea: SubTarea) => {
         e.stopPropagation();
         setEditingTaskId(tarea.id);
-        
+
         // 1. Descripción limpia
         setNewTaskDescription(tarea.cleanDescripcion || tarea.descripcion);
-        
+
         // 2. Tipo de Actividad
         if (tarea.serviceData?.tipoServicio) {
             setActiveServiceType(tarea.serviceData.tipoServicio);
@@ -2935,24 +2935,24 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                 setCustomServiceType(tarea.titulo);
             }
         }
-        
+
         // 3. Marca / Modelo / Pieza / Garantía
         setServiceMarca(tarea.serviceData?.marca || "");
         setServiceModelo(tarea.serviceData?.modelo || "");
         setServicePieza(tarea.serviceData?.pieza || "");
         setServiceGarantia(tarea.serviceData?.garantia || "");
-        
+
         // 4. Llegada Confirmada
         setConfirmacionLlegada(tarea.serviceData?.llegadaConfirmada || false);
         setHoraLlegada(tarea.serviceData?.horaLlegada || "");
-        
+
         // 5. Refacciones
         setRefacciones(tarea.refacciones || []);
-        
+
         // 5. Cotización
         if (tarea.hasQuote) {
             setIsQuoteIncluded(true);
-            
+
             let currentQuoteData = tarea.quoteData;
             if (!currentQuoteData && (tarea as any).rawDescripcion) {
                 const rawDesc = (tarea as any).rawDescripcion || "";
@@ -3012,11 +3012,11 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
             setQuoteMateriales([]);
             setQuoteComentarios("");
         }
-        
+
         // 6. Fotos y tareas de la actividad
         const photosList = tarea.photos || [];
         setActivityPhotos(photosList);
-        
+
         const cleanDescText = tarea.cleanDescripcion || tarea.descripcion || '';
         const descParts = cleanDescText.split('\n\n');
         const items = [];
@@ -3031,7 +3031,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
             });
         }
         setTaskItems(items.length > 0 ? items : [{ id: '1', descripcion: cleanDescText, foto: '' }]);
-        
+
         setIsAddModalOpen(true);
     };
 
@@ -3091,7 +3091,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                 negocio_id: trabajo?.negocio_id,
                                 admin_autonomo_id: trabajo?.admin_autonomo_id
                             });
-                            
+
                             // Notificar al admin autonomo (subgerente) específico de la sucursal
                             if (config.notificarEcosistema && trabajo.admin_autonomo_id) {
                                 await createNotificacion({
@@ -3101,7 +3101,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                     enlace: `/autonomo/trabajo-detalle/${trabajo.id}`
                                 });
                             }
-                            
+
                             // Notificar a todos los encargados de la sucursal (ej. Diego Basulto)
                             if (trabajo.negocio_id) {
                                 await createNotificacionNegocio({
@@ -3254,7 +3254,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
             const newState = action === 'accept_and_assign' ? "Cotización Aceptada" : "Cotización Enviada";
             await updateEstadoTrabajo(trabajo.id, { estado: newState });
             setTrabajo((prev: any) => prev ? { ...prev, estado: newState } : prev);
-            
+
             const formData = new FormData();
             formData.append('trabajo_id', trabajo.id.toString());
             formData.append('monto', costo);
@@ -3267,12 +3267,12 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                 try {
                     const dynamicFolio = `COT-${trabajo.id.toString().padStart(5, '0')}`;
                     if (reporteFinal) {
-                        const widgetMateriales = reporteFinal.refaccionesList?.length > 0 
+                        const widgetMateriales = reporteFinal.refaccionesList?.length > 0
                             ? reporteFinal.refaccionesList.map((r: any) => `- ${r.cantidad || 1}x ${r.pieza} ${r.costo_estimado ? `($${r.costo_estimado})` : ''}`).join('\n')
                             : '';
                         const combinedMateriales = [widgetMateriales, reporteFinal.materiales].filter(Boolean).join('\n\n');
                         const techName = reporteFinal.tecnicoNombre || trabajo.tecnico || trabajo.trabajador?.nombre || 'Técnico';
-                        
+
                         pdfFile = await generateMaintenanceReportPDF({
                             id: trabajo.id,
                             folio: dynamicFolio,
@@ -3534,7 +3534,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
             if (!currentTrabajadorId && isTechRole) {
                 try {
                     const allTrabs = await getTrabajadores();
-                    const found = allTrabs.find((t: any) => 
+                    const found = allTrabs.find((t: any) =>
                         (user?.id && (t.user_id === user.id || t.userId === user.id)) ||
                         (user?.email && t.correo && t.correo.toLowerCase() === user.email.toLowerCase()) ||
                         (user?.name && t.nombre && t.nombre.toLowerCase().trim() === user.name.toLowerCase().trim())
@@ -3566,7 +3566,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                     mensaje: `El técnico ha propuesto $${montoNum.toLocaleString('es-MX')} para atender la emergencia en "${trabajo.sucursal || 'la sucursal'}".`,
                     enlace: `/autonomo/trabajo-detalle/${trabajo.id}?tab=cotizacion`
                 });
-            } catch (e) {}
+            } catch (e) { }
 
             if (trabajo.admin_autonomo_id) {
                 try {
@@ -3576,7 +3576,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                         mensaje: `El técnico ha propuesto $${montoNum.toLocaleString('es-MX')} para atender la emergencia en "${trabajo.sucursal || 'la sucursal'}".`,
                         tipo: 'Alerta'
                     });
-                } catch(e) {}
+                } catch (e) { }
             }
 
             setSosQuoteMonto('');
@@ -3630,7 +3630,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                 // Si no tenemos el user_id directamente, buscarlo a través de getTrabajadores
                 if (!targetUserId && (trabajo.trabajador_id || trabajo.tecnico || trabajo.admin_autonomo_id)) {
                     const allTrabs = await getTrabajadores();
-                    const found = allTrabs.find((t: any) => 
+                    const found = allTrabs.find((t: any) =>
                         (trabajo.trabajador_id && t.id === trabajo.trabajador_id) ||
                         (trabajo.tecnico && t.nombre?.toLowerCase().trim() === trabajo.tecnico.toLowerCase().trim()) ||
                         (trabajo.admin_autonomo_id && t.admin_autonomo_id === trabajo.admin_autonomo_id)
@@ -3646,7 +3646,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                 }
 
                 if (targetUserId) {
-                    const techUrl = trabajo.admin_autonomo_id 
+                    const techUrl = trabajo.admin_autonomo_id
                         ? `/tecnico-autonomo/trabajo-detalle/${trabajo.id}?tab=trabajo`
                         : `/tecnico/trabajo-detalle/${trabajo.id}?tab=trabajo`;
                     await createNotificacion({
@@ -3675,7 +3675,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                     mensaje: `La cotización de emergencia para "${sucursalName}" fue autorizada. El técnico ya se encuentra en ejecución.`,
                     enlace: `/menu/trabajo-detalle/${trabajo.id}?tab=trabajo`
                 });
-            } catch (e) {}
+            } catch (e) { }
 
             showAlert('Cotización Aprobada', 'La cotización de emergencia fue aprobada. El trabajo ha comenzado para el técnico asignado.', 'success');
         } catch (error: any) {
@@ -3764,8 +3764,8 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                     enlace: `/tecnico/trabajo-detalle/${trabajo.id}`
                 });
 
-                const targetTechUserAccept = (trabajo as any).tecnicoUserId 
-                    || (trabajo as any).trabajador?.user_id 
+                const targetTechUserAccept = (trabajo as any).tecnicoUserId
+                    || (trabajo as any).trabajador?.user_id
                     || tecnicosData.find((t: any) => t.id === trabajo.trabajador_id)?.user_id;
 
                 if (targetTechUserAccept) {
@@ -3812,14 +3812,14 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                     motivo_reasignacion: rejectionReason
                 });
 
-                await updateEstadoTrabajo(trabajo.id, { 
-                    estado: "Reasignación Solicitada", 
+                await updateEstadoTrabajo(trabajo.id, {
+                    estado: "Reasignación Solicitada",
                     motivo_rechazo: rejectionReason,
                     rechazado_por_nombre: user?.name || "Técnico Autónomo"
                 });
 
                 localStorage.setItem(`reassign_reason_${trabajo.id}`, rejectionReason);
-                
+
                 try {
                     await createNotificacionByRole({
                         role: 'admin',
@@ -3827,7 +3827,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                         mensaje: `El técnico ${user?.name || 'asignado'} ha rechazado el trabajo en "${trabajo.sucursal || 'Servicio'}". Motivo: ${rejectionReason}`,
                         enlace: `/autonomo/trabajo-detalle/${trabajo.id}`
                     });
-                } catch(e) {}
+                } catch (e) { }
 
                 if (trabajo.negocio_id) {
                     try {
@@ -3841,7 +3841,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                 tipo: 'Alerta'
                             });
                         }
-                    } catch(e) {}
+                    } catch (e) { }
                 }
 
                 if ((trabajo as any).clienteUserId) {
@@ -3852,7 +3852,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                             mensaje: `El técnico asignado no podrá atender la solicitud por el momento. Se asignará uno nuevo pronto.`,
                             enlace: `/encargado/trabajo-detalle/${trabajo.id}`
                         });
-                    } catch(e) {}
+                    } catch (e) { }
                 }
 
                 // Enviar al chat
@@ -3932,7 +3932,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                 setShowRejectionModal(false);
                 setRejectionReason("");
                 setQuoteToReject(null);
-                
+
                 showAlert('Enviado', 'Se ha notificado al administrador sobre el rechazo general y tu motivo.', 'info');
                 return;
             }
@@ -3946,7 +3946,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
             localStorage.setItem('cotiz_rejection_reasons', JSON.stringify(newReasons));
 
             await updateEstadoTrabajo(trabajo.id, { estado: "Cotización Rechazada" });
-            
+
             // 2. Notificar al administrador con el motivo
             await createNotificacionByRole({
                 role: 'admin',
@@ -3964,7 +3964,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                         mensaje: `El cliente ha rechazado una opción de presupuesto para "${trabajo.sucursal || 'Servicio'}". Motivo: ${rejectionReason}`,
                         enlace: `/tecnico-autonomo/trabajo-detalle/${trabajo.id}?tab=cotizacion`
                     });
-                } catch (e) {}
+                } catch (e) { }
             }
 
             if (trabajo.admin_autonomo_id) {
@@ -3975,7 +3975,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                         mensaje: `El cliente ha rechazado una opción de presupuesto para "${trabajo.sucursal || 'Servicio'}". Motivo: ${rejectionReason}`,
                         enlace: `/autonomo/trabajo-detalle/${trabajo.id}?tab=cotizacion`
                     });
-                } catch (e) {}
+                } catch (e) { }
             }
 
             // 2.5 Enviar el motivo de rechazo al chat automáticamente
@@ -3996,11 +3996,11 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
 
             // 3. Actualizar estado local
             setCotizaciones(prev => prev.map(c => c.id === quoteToReject ? { ...c, estado: "Rechazada" as const } : c));
-            
+
             setShowRejectionModal(false);
             setRejectionReason("");
             setQuoteToReject(null);
-            
+
             showAlert('Enviado', 'Se ha notificado al administrador sobre el rechazo y tu motivo.', 'info');
         } catch (error: any) {
             showAlert('Error', error.response?.data?.message || error.message, 'error');
@@ -4248,8 +4248,8 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
 
             // 5. Notificar al técnico autónomo
             try {
-                let targetTechUserId = (trabajo as any).tecnicoUserId 
-                    || (trabajo as any).trabajador?.user_id 
+                let targetTechUserId = (trabajo as any).tecnicoUserId
+                    || (trabajo as any).trabajador?.user_id
                     || tecnicosData.find((t: any) => t.id === trabajo.trabajador_id)?.user_id;
 
                 if (!targetTechUserId && trabajo.trabajador_id) {
@@ -4259,7 +4259,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                         if (foundTrab?.user_id) {
                             targetTechUserId = foundTrab.user_id;
                         }
-                    } catch (_) {}
+                    } catch (_) { }
                 }
 
                 if (targetTechUserId) {
@@ -4405,7 +4405,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
             combinedMats.push(...parsed.materials);
             combinedManoObra += parsed.manoObra || 0;
             combinedTotal += parseFloat(cotiz.monto as any) || 0;
-            
+
             const proposalTitle = getQuoteTitle(cotiz.descripcion || "", `Propuesta #${idx + 1}`);
             const cleanedNotes = cleanQuoteDescription(parsed.notes || "");
             combinedNotes += `[${proposalTitle}]: ${cleanedNotes}\n\n`;
@@ -4483,7 +4483,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                     if (parsed && (parsed.isReportFinalizado || parsed.imagenes || parsed.descripcion || parsed.reporteTienda)) {
                         return true;
                     }
-                } catch (_) {}
+                } catch (_) { }
             }
         }
 
@@ -4500,7 +4500,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                 if (!pIdx && (!t.totalPoints || t.totalPoints <= 1) && (parsedSol.isReportFinalizado || parsedSol.isExecutionReport)) {
                     return true;
                 }
-            } catch (_) {}
+            } catch (_) { }
         }
 
         return false;
@@ -4532,7 +4532,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                 try {
                     taskReport = JSON.parse(raw);
                     if (taskReport && (taskReport.imagenes || taskReport.observacionesList || taskReport.descripcion || taskReport.reporteTienda)) break;
-                } catch (_) {}
+                } catch (_) { }
             }
         }
 
@@ -4571,7 +4571,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
 
         const handleOpenPDFPreview = (e: React.MouseEvent) => {
             e.stopPropagation();
-            
+
             // 1. Refacciones y materiales
             const refaccionesList = (tarea.refacciones || []).map(r => ({
                 pieza: r.pieza,
@@ -4905,10 +4905,10 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                         const items = parseWorkItems(mainDesc);
                         if (items.length > 1) {
                             return (
-                                <div style={{ 
-                                    background: '#f8fafc', 
-                                    padding: '12px 14px', 
-                                    borderRadius: '12px', 
+                                <div style={{
+                                    background: '#f8fafc',
+                                    padding: '12px 14px',
+                                    borderRadius: '12px',
                                     border: '1px solid #e2e8f0'
                                 }}>
                                     <div style={{
@@ -4970,10 +4970,10 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                             );
                         }
                         return (
-                            <div style={{ 
-                                background: '#f8fafc', 
-                                padding: '10px 14px', 
-                                borderRadius: '12px', 
+                            <div style={{
+                                background: '#f8fafc',
+                                padding: '10px 14px',
+                                borderRadius: '12px',
                                 border: '1px solid #f1f5f9',
                                 fontSize: '13.5px',
                                 lineHeight: '1.5',
@@ -5028,7 +5028,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
 
                 {/* THREE COLUMNS (SCROLLABLE VERTICALLY ON DESKTOP, SWIPEABLE HORICONTALLY ON MOBILE) */}
                 <div className={`task-columns-container-${tarea.id}`} style={{ display: 'flex', gap: '16px', width: '100%' }}>
-                    
+
                     {/* COLUMN 1: EVIDENCIA FOTOGRÁFICA */}
                     <div className={`task-sub-card-${tarea.id}`} style={{
                         background: '#f8fafc',
@@ -5045,36 +5045,36 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                         {photosListToRender.length > 0 ? (
                             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '4px' }}>
                                 {photosListToRender.map((photo, idx) => (
-                                    <div 
-                                        key={idx} 
+                                    <div
+                                        key={idx}
                                         onClick={(e) => { e.stopPropagation(); setSelectedZoomImage(photo.url); }}
-                                        style={{ 
-                                            position: 'relative', 
-                                            width: '64px', 
-                                            height: '64px', 
-                                            borderRadius: '8px', 
-                                            overflow: 'hidden', 
-                                            border: '1px solid #cbd5e1', 
+                                        style={{
+                                            position: 'relative',
+                                            width: '64px',
+                                            height: '64px',
+                                            borderRadius: '8px',
+                                            overflow: 'hidden',
+                                            border: '1px solid #cbd5e1',
                                             cursor: 'pointer',
                                             boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
                                             flexShrink: 0
                                         }}
                                     >
-                                        <img 
-                                            src={photo.url} 
-                                            alt={photo.label} 
-                                            style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                                        <img
+                                            src={photo.url}
+                                            alt={photo.label}
+                                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                         />
-                                        <div style={{ 
-                                            position: 'absolute', 
-                                            bottom: 0, 
-                                            left: 0, 
-                                            right: 0, 
-                                            background: 'rgba(15, 23, 42, 0.7)', 
-                                            color: '#ffffff', 
-                                            fontSize: '7.5px', 
-                                            fontWeight: '800', 
-                                            textAlign: 'center', 
+                                        <div style={{
+                                            position: 'absolute',
+                                            bottom: 0,
+                                            left: 0,
+                                            right: 0,
+                                            background: 'rgba(15, 23, 42, 0.7)',
+                                            color: '#ffffff',
+                                            fontSize: '7.5px',
+                                            fontWeight: '800',
+                                            textAlign: 'center',
                                             padding: '2px 0'
                                         }}>
                                             {photo.label}
@@ -5103,13 +5103,13 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                         {tarea.quoteData?.conceptos && tarea.quoteData.conceptos.length > 0 ? (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px' }}>
                                 {tarea.quoteData.conceptos.map((concept: any, idx: number) => (
-                                    <div key={idx} style={{ 
-                                        background: '#eff6ff', 
-                                        border: '1px solid #bfdbfe', 
-                                        color: '#1e40af', 
-                                        padding: '4px 8px', 
-                                        borderRadius: '6px', 
-                                        fontSize: '11px', 
+                                    <div key={idx} style={{
+                                        background: '#eff6ff',
+                                        border: '1px solid #bfdbfe',
+                                        color: '#1e40af',
+                                        padding: '4px 8px',
+                                        borderRadius: '6px',
+                                        fontSize: '11px',
                                         fontWeight: '700',
                                         display: 'flex',
                                         alignItems: 'center',
@@ -5148,13 +5148,13 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                         {((tarea.refacciones && tarea.refacciones.length > 0) || parsedItems.length > 0 || (tarea.quoteData?.materiales && tarea.quoteData.materiales.length > 0)) ? (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px' }}>
                                 {(tarea.refacciones || []).map((ref, idx) => (
-                                    <div key={idx} style={{ 
-                                        background: '#f0fdf4', 
-                                        border: '1px solid #bbf7d0', 
-                                        color: '#166534', 
-                                        padding: '4px 8px', 
-                                        borderRadius: '6px', 
-                                        fontSize: '11px', 
+                                    <div key={idx} style={{
+                                        background: '#f0fdf4',
+                                        border: '1px solid #bbf7d0',
+                                        color: '#166534',
+                                        padding: '4px 8px',
+                                        borderRadius: '6px',
+                                        fontSize: '11px',
                                         fontWeight: '700',
                                         display: 'flex',
                                         alignItems: 'center',
@@ -5172,13 +5172,13 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                     </div>
                                 ))}
                                 {(tarea.quoteData?.materiales || []).map((ref: any, idx: number) => (
-                                    <div key={`quote-mat-${idx}`} style={{ 
-                                        background: '#f0fdf4', 
-                                        border: '1px solid #bbf7d0', 
-                                        color: '#166534', 
-                                        padding: '4px 8px', 
-                                        borderRadius: '6px', 
-                                        fontSize: '11px', 
+                                    <div key={`quote-mat-${idx}`} style={{
+                                        background: '#f0fdf4',
+                                        border: '1px solid #bbf7d0',
+                                        color: '#166534',
+                                        padding: '4px 8px',
+                                        borderRadius: '6px',
+                                        fontSize: '11px',
                                         fontWeight: '700',
                                         display: 'flex',
                                         alignItems: 'center',
@@ -5195,27 +5195,28 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                         )}
                                     </div>
                                 ))}
-                                {(!tarea.quoteData?.conceptos?.length && !tarea.quoteData?.materiales?.length) && parsedItems.map((ref, idx) => ( <div key={`parsed-${idx}`} style={{ background: '#f0fdf4', 
-                                        border: '1px solid #bbf7d0', 
-                                        color: '#166534', 
-                                        padding: '4px 8px', 
-                                        borderRadius: '6px', 
-                                        fontSize: '11px', 
-                                        fontWeight: '700',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'space-between',
-                                        gap: '6px'
-                                    }}>
-                                        <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                            {ref.cantidad}x {ref.material}
+                                {(!tarea.quoteData?.conceptos?.length && !tarea.quoteData?.materiales?.length) && parsedItems.map((ref, idx) => (<div key={`parsed-${idx}`} style={{
+                                    background: '#f0fdf4',
+                                    border: '1px solid #bbf7d0',
+                                    color: '#166534',
+                                    padding: '4px 8px',
+                                    borderRadius: '6px',
+                                    fontSize: '11px',
+                                    fontWeight: '700',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    gap: '6px'
+                                }}>
+                                    <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        {ref.cantidad}x {ref.material}
+                                    </span>
+                                    {ref.precio && (
+                                        <span style={{ fontWeight: '800', flexShrink: 0 }}>
+                                            {ref.precio}
                                         </span>
-                                        {ref.precio && (
-                                            <span style={{ fontWeight: '800', flexShrink: 0 }}>
-                                                {ref.precio}
-                                            </span>
-                                        )}
-                                    </div>
+                                    )}
+                                </div>
                                 ))}
                             </div>
                         ) : (
@@ -5225,34 +5226,34 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                 </div>
 
                 {/* BOTTOM FOOTER BAR */}
-                <div style={{ 
-                    marginTop: '0px', 
-                    paddingTop: '10px', 
-                    borderTop: '1px solid #f1f5f9', 
-                    display: 'flex', 
-                    alignItems: 'center', 
+                <div style={{
+                    marginTop: '0px',
+                    paddingTop: '10px',
+                    borderTop: '1px solid #f1f5f9',
+                    display: 'flex',
+                    alignItems: 'center',
                     justifyContent: 'space-between',
                     flexWrap: 'wrap',
                     gap: '10px'
                 }}>
                     {/* Left: Technician profile */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <div style={{ 
-                            width: '26px', 
-                            height: '26px', 
-                            borderRadius: '50%', 
-                            overflow: 'hidden', 
-                            background: '#f8fafc', 
+                        <div style={{
+                            width: '26px',
+                            height: '26px',
+                            borderRadius: '50%',
+                            overflow: 'hidden',
+                            background: '#f8fafc',
                             border: '1px solid #cbd5e1',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center'
                         }}>
                             {getAvatarForTech(tarea.tecnicoNombre || '') ? (
-                                <img 
-                                    src={getAvatarForTech(tarea.tecnicoNombre || '') || undefined} 
-                                    alt="Tech" 
-                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                                <img
+                                    src={getAvatarForTech(tarea.tecnicoNombre || '') || undefined}
+                                    alt="Tech"
+                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                 />
                             ) : (
                                 <HiOutlineUser size={12} color="#64748b" />
@@ -5269,14 +5270,14 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                             <>
                                 <button
                                     onClick={(e) => { e.stopPropagation(); openEditModal(e, tarea); }}
-                                    style={{ 
-                                        background: '#f1f5f9', 
-                                        border: '1px solid #cbd5e1', 
-                                        borderRadius: '10px', 
-                                        padding: '7px 12px', 
-                                        fontSize: '11px', 
-                                        cursor: 'pointer', 
-                                        color: '#475569', 
+                                    style={{
+                                        background: '#f1f5f9',
+                                        border: '1px solid #cbd5e1',
+                                        borderRadius: '10px',
+                                        padding: '7px 12px',
+                                        fontSize: '11px',
+                                        cursor: 'pointer',
+                                        color: '#475569',
                                         fontWeight: '800',
                                         display: 'flex',
                                         alignItems: 'center',
@@ -5290,14 +5291,14 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                 </button>
                                 <button
                                     onClick={(e) => { e.stopPropagation(); handleDeleteTask(e, tarea.id); }}
-                                    style={{ 
-                                        background: '#fef2f2', 
-                                        border: '1px solid #fecaca', 
-                                        borderRadius: '10px', 
-                                        padding: '7px 12px', 
-                                        fontSize: '11px', 
-                                        cursor: 'pointer', 
-                                        color: '#dc2626', 
+                                    style={{
+                                        background: '#fef2f2',
+                                        border: '1px solid #fecaca',
+                                        borderRadius: '10px',
+                                        padding: '7px 12px',
+                                        fontSize: '11px',
+                                        cursor: 'pointer',
+                                        color: '#dc2626',
                                         fontWeight: '800',
                                         display: 'flex',
                                         alignItems: 'center',
@@ -5339,7 +5340,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                 await updateTrabajo(trabajo.id, { estado: 'En Ejecución' });
                                                 setTrabajo(prev => prev ? { ...prev, estado: 'En Ejecución' } : prev);
                                                 localStorage.setItem(`trabajo_updated_${trabajo.id}`, Date.now().toString());
-                                            } catch (_) {}
+                                            } catch (_) { }
                                         }
                                         handleAbrirReporteTarea(tarea.id);
                                     }}
@@ -5412,297 +5413,275 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                 <div className={styles.scrollableContent}>
                     <div className={styles.contentWrapper}>
 
-                    <div className={styles.headerContainer}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                            <div 
-                                onClick={() => navigate(-1)} 
-                                style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '5px' }}
-                                title="Volver atrás"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="#1e293b" strokeWidth={2.5}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
-                                </svg>
+                        <div className={styles.headerContainer}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                                <div
+                                    onClick={() => navigate(-1)}
+                                    style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '5px' }}
+                                    title="Volver atrás"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="#1e293b" strokeWidth={2.5}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+                                    </svg>
+                                </div>
+                                <h1 className={styles.pageTitle}>
+                                    {activeTab === 'Trabajo' ? 'tareas por realizar' :
+                                        (activeTab === 'Registro' ? 'Registro de Actividad' :
+                                            (activeTab === 'Cotización' ? 'Generar Cotización' : 'Datos de la Empresa'))}
+                                </h1>
                             </div>
-                            <h1 className={styles.pageTitle}>
-                                {activeTab === 'Trabajo' ? 'tareas por realizar' :
-                                    (activeTab === 'Registro' ? 'Registro de Actividad' :
-                                        (activeTab === 'Cotización' ? 'Generar Cotización' : 'Datos de la Empresa'))}
-                            </h1>
                         </div>
-                    </div>
 
-                    {/* STEPS LOGIC */}
-                    {(() => {
-                        const getStepIndex = (estado: string) => {
-                            if (estado === "Finalizado" || estado === "Completado") return 5;
-                            // Si el estado explícito dice que está en cotización o se acaba de rechazar
-                            if (estado.includes("Cotización") || estado === "Pendiente de Cotizar" || estado === "Rechazada") {
-                                if (estado === 'Cotización Aceptada' || estado === 'Cotización Aprobada') return 4;
-                                return 3;
-                            }
-                            
-                            // Si el trabajo es Visita o SOS, verificamos si ya se aprobó la cotización PERO solo si el estado global no es explícitamente anterior
-                            if (trabajo.tipo === "Visita" || isSOS) {
-                                // Si globalmente está Asignado, En Proceso, En Espera y la visita no ha terminado (o se mandó a revisión)
-                                if (["En Proceso", "En Espera", "Asignado"].includes(estado)) {
+                        {/* STEPS LOGIC */}
+                        {(() => {
+                            const getStepIndex = (estado: string) => {
+                                if (estado === "Finalizado" || estado === "Completado") return 5;
+                                // Si el estado explícito dice que está en cotización o se acaba de rechazar
+                                if (estado.includes("Cotización") || estado === "Pendiente de Cotizar" || estado === "Rechazada") {
+                                    if (estado === 'Cotización Aceptada' || estado === 'Cotización Aprobada') return 4;
+                                    return 3;
+                                }
+
+                                // Si el trabajo es Visita o SOS, verificamos si ya se aprobó la cotización PERO solo si el estado global no es explícitamente anterior
+                                if (trabajo.tipo === "Visita" || isSOS) {
+                                    // Si globalmente está Asignado, En Proceso, En Espera y la visita no ha terminado (o se mandó a revisión)
+                                    if (["En Proceso", "En Espera", "Asignado"].includes(estado)) {
+                                        const hasApprovedQuote = subTareas.some(t => t.cotizacionEstado === 'Aprobada') || cotizaciones.some(c => c.estado === 'Aprobada');
+                                        if (hasApprovedQuote) return 4;
+                                        if (trabajo.visitado && estado === "En Espera") return 3;
+                                        return 2;
+                                    }
+                                    if (estado === "En Ejecución") return 4;
+
                                     const hasApprovedQuote = subTareas.some(t => t.cotizacionEstado === 'Aprobada') || cotizaciones.some(c => c.estado === 'Aprobada');
                                     if (hasApprovedQuote) return 4;
-                                    if (trabajo.visitado && estado === "En Espera") return 3;
-                                    return 2;
+
+                                    return 1;
                                 }
-                                if (estado === "En Ejecución") return 4;
-                                
-                                const hasApprovedQuote = subTareas.some(t => t.cotizacionEstado === 'Aprobada') || cotizaciones.some(c => c.estado === 'Aprobada');
-                                if (hasApprovedQuote) return 4;
-                                
+
+                                // Si es Trabajo directo
+                                if (["En Proceso", "En Espera", "Asignado", "En Ejecución"].includes(estado)) {
+                                    return 4;
+                                }
                                 return 1;
-                            }
-                            
-                            // Si es Trabajo directo
-                            if (["En Proceso", "En Espera", "Asignado", "En Ejecución"].includes(estado)) {
-                                return 4;
-                            }
-                            return 1;
-                        };
-                        const currentStep = getStepIndex(trabajo.estado);
-                        const steps = [
-                            { id: 1, label: "Solicitud", icon: "📋" },
-                            { id: 2, label: "Visita", icon: "📍" },
-                            { id: 3, label: "Cotización", icon: "💲" },
-                            { id: 4, label: "En Ejecución", icon: "🛠️" },
-                            { id: 5, label: "Finalizado", icon: "✅" }
-                        ];
+                            };
+                            const currentStep = getStepIndex(trabajo.estado);
+                            const steps = [
+                                { id: 1, label: "Solicitud", icon: "📋" },
+                                { id: 2, label: "Visita", icon: "📍" },
+                                { id: 3, label: "Cotización", icon: "💲" },
+                                { id: 4, label: "En Ejecución", icon: "🛠️" },
+                                { id: 5, label: "Finalizado", icon: "✅" }
+                            ];
 
-                        return (
-                            <div style={{ 
-                                padding: '12px 15px', 
-                                background: '#fff', 
-                                borderRadius: '12px', 
-                                marginBottom: '10px', 
-                                boxShadow: '0 2px 8px rgba(0,0,0,0.02)', 
-                                display: 'flex', 
-                                alignItems: 'center', 
-                                justifyContent: 'space-between', 
-                                border: '1px solid #f0f0f0',
-                                overflowX: 'auto',
-                                WebkitOverflowScrolling: 'touch',
-                                gap: '8px',
-                                width: '100%',
-                                boxSizing: 'border-box'
-                            }}>
-                                {steps.map((step, index, arr) => {
-                                    const isActive = currentStep === step.id;
-                                    const isCompleted = currentStep > step.id;
+                            return (
+                                <div style={{
+                                    padding: '12px 15px',
+                                    background: '#fff',
+                                    borderRadius: '12px',
+                                    marginBottom: '10px',
+                                    boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    border: '1px solid #f0f0f0',
+                                    overflowX: 'auto',
+                                    WebkitOverflowScrolling: 'touch',
+                                    gap: '8px',
+                                    width: '100%',
+                                    boxSizing: 'border-box'
+                                }}>
+                                    {steps.map((step, index, arr) => {
+                                        const isActive = currentStep === step.id;
+                                        const isCompleted = currentStep > step.id;
 
-                                    return (
-                                        <React.Fragment key={step.id}>
-                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', zIndex: 1, width: '80px', flexShrink: 0 }}>
-                                                <div style={{
-                                                    width: '28px',
-                                                    height: '28px',
-                                                    borderRadius: '50%',
-                                                    background: isCompleted ? '#1e293b' : (isActive ? '#f26522' : '#f8fafc'),
-                                                    color: isCompleted || isActive ? '#fff' : '#94a3b8',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    fontSize: '12px',
-                                                    transition: 'all 0.5s ease',
-                                                    animation: isActive ? 'pulseTracker 2s infinite' : 'none',
-                                                    transform: isActive ? 'scale(1.1)' : 'scale(1)',
-                                                    boxShadow: isCompleted ? '0 2px 6px rgba(30, 41, 59, 0.3)' : (isActive ? '0 4px 12px rgba(242, 101, 34, 0.3)' : 'none'),
-                                                    border: !isCompleted && !isActive ? '1.5px solid #cbd5e1' : 'none'
-                                                }}>
-                                                    {isCompleted ? '✓' : step.id}
-                                                </div>
-                                                <span style={{
-                                                    marginTop: '6px',
-                                                    fontSize: '11px',
-                                                    fontWeight: isCompleted || isActive ? '700' : '500',
-                                                    color: isCompleted ? '#1e293b' : (isActive ? '#f26522' : '#94a3b8'),
-                                                    textAlign: 'center',
-                                                    transition: 'all 0.3s ease'
-                                                }}>
-                                                    {step.label}
-                                                </span>
-                                            </div>
-
-                                            {index < arr.length - 1 && (
-                                                <div style={{ flex: '1 0 20px', minWidth: '15px', height: '4px', background: '#e2e8f0', borderRadius: '2px', position: 'relative', margin: '0 8px', bottom: '8px', overflow: 'hidden' }}>
+                                        return (
+                                            <React.Fragment key={step.id}>
+                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', zIndex: 1, width: '80px', flexShrink: 0 }}>
                                                     <div style={{
-                                                        position: 'absolute',
-                                                        top: 0,
-                                                        left: 0,
-                                                        height: '100%',
-                                                        background: '#1e293b',
-                                                        borderRadius: '2px',
-                                                        width: isCompleted ? '100%' : '0%',
-                                                        transition: 'width 1s cubic-bezier(0.4, 0, 0.2, 1)'
-                                                    }} />
+                                                        width: '28px',
+                                                        height: '28px',
+                                                        borderRadius: '50%',
+                                                        background: isCompleted ? '#1e293b' : (isActive ? '#f26522' : '#f8fafc'),
+                                                        color: isCompleted || isActive ? '#fff' : '#94a3b8',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        fontSize: '12px',
+                                                        transition: 'all 0.5s ease',
+                                                        animation: isActive ? 'pulseTracker 2s infinite' : 'none',
+                                                        transform: isActive ? 'scale(1.1)' : 'scale(1)',
+                                                        boxShadow: isCompleted ? '0 2px 6px rgba(30, 41, 59, 0.3)' : (isActive ? '0 4px 12px rgba(242, 101, 34, 0.3)' : 'none'),
+                                                        border: !isCompleted && !isActive ? '1.5px solid #cbd5e1' : 'none'
+                                                    }}>
+                                                        {isCompleted ? '✓' : step.id}
+                                                    </div>
+                                                    <span style={{
+                                                        marginTop: '6px',
+                                                        fontSize: '11px',
+                                                        fontWeight: isCompleted || isActive ? '700' : '500',
+                                                        color: isCompleted ? '#1e293b' : (isActive ? '#f26522' : '#94a3b8'),
+                                                        textAlign: 'center',
+                                                        transition: 'all 0.3s ease'
+                                                    }}>
+                                                        {step.label}
+                                                    </span>
                                                 </div>
-                                            )}
-                                        </React.Fragment>
-                                    );
-                                })}
-                            </div>
-                        );
-                    })()}
 
-                    <div className={styles.tabsContainer}>
-                        {['Datos', 'Trabajo', 'Registro', 'Historial', 'Cotización']
-                            .filter(tabName => {
-                                // Encargado never sees Registro tab
-                                if (user?.role === 'encargado' && tabName === 'Registro') return false;
+                                                {index < arr.length - 1 && (
+                                                    <div style={{ flex: '1 0 20px', minWidth: '15px', height: '4px', background: '#e2e8f0', borderRadius: '2px', position: 'relative', margin: '0 8px', bottom: '8px', overflow: 'hidden' }}>
+                                                        <div style={{
+                                                            position: 'absolute',
+                                                            top: 0,
+                                                            left: 0,
+                                                            height: '100%',
+                                                            background: '#1e293b',
+                                                            borderRadius: '2px',
+                                                            width: isCompleted ? '100%' : '0%',
+                                                            transition: 'width 1s cubic-bezier(0.4, 0, 0.2, 1)'
+                                                        }} />
+                                                    </div>
+                                                )}
+                                            </React.Fragment>
+                                        );
+                                    })}
+                                </div>
+                            );
+                        })()}
 
-                                if (user?.role === 'cliente') {
-                                    if (tabName === 'Cotización' && trabajo.estado === 'Cotización Enviada' && trabajo.cotizacion) {
-                                        return true;
-                                    }
-                                    return tabName === 'Datos' || tabName === 'Historial' || tabName === 'Cotización';
-                                }
-                                if (trabajo.estado === "Finalizado") {
-                                    if (isAutonomoAdminUser) {
+                        <div className={styles.tabsContainer}>
+                            {['Datos', 'Trabajo', 'Registro', 'Historial', 'Cotización']
+                                .filter(tabName => {
+                                    // Encargado never sees Registro tab
+                                    if (user?.role === 'encargado' && tabName === 'Registro') return false;
+
+                                    if (user?.role === 'cliente') {
+                                        if (tabName === 'Cotización' && trabajo.estado === 'Cotización Enviada' && trabajo.cotizacion) {
+                                            return true;
+                                        }
                                         return tabName === 'Datos' || tabName === 'Historial' || tabName === 'Cotización';
                                     }
-                                    return tabName === 'Datos' || tabName === 'Historial' || tabName === 'Trabajo';
-                                }
-<<<<<<< HEAD
-                                if (tabName === 'Cotización') {
-                                    if (isTechRole || user?.role === 'tecnico' || user?.role === 'tecnico-normal' || user?.role === 'tecnico-autonomo') {
-                                        return cotizaciones.length > 0 || Boolean(trabajo?.visitado) || ['Cotización Enviada', 'Cotización Rechazada', 'Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución', 'Finalizado'].includes(trabajo.estado);
+                                    if (trabajo.estado === "Finalizado") {
+                                        if (isAutonomoAdminUser) {
+                                            return tabName === 'Datos' || tabName === 'Historial' || tabName === 'Cotización';
+                                        }
+                                        return tabName === 'Datos' || tabName === 'Historial' || tabName === 'Trabajo';
                                     }
-                                    if (user?.role === 'cliente') {
-                                        return cotizaciones.length > 0 || ['Cotización Enviada', 'Cotización Aceptada', 'Cotización Aprobada'].includes(trabajo.estado);
-                                    }
-                                    if (isSOS && (user?.role === 'admin' || isAutonomoAdminUser)) {
-                                        return cotizaciones.length > 0 || Boolean(trabajo?.visitado) || ['Cotización Enviada', 'Cotización Aceptada', 'Cotización Aprobada', 'Cotización Rechazada', 'En Ejecución', 'Finalizado'].includes(trabajo.estado);
-=======
-                                // Técnico normal NUNCA ve la tab de Cotización (eso es responsabilidad del Admin), a menos que sea SOS
-                                if (tabName === 'Cotización' && !isSOS && isTechRole) return false;
-
-                                // EN SOS:
-                                // El Administrador NO elabora cotizaciones de emergencia (las elabora el técnico asignado).
-                                // Por lo tanto, el admin SOLO ve la pestaña cuando el técnico ya envió una propuesta para revisar/autorizar.
-                                if (tabName === 'Cotización' && isSOS) {
-                                    if (user?.role === 'admin' || isAutonomoAdminUser) {
-                                        return cotizaciones.length > 0 || ['Cotización Enviada', 'Cotización Aceptada', 'Cotización Aprobada', 'Cotización Rechazada', 'En Ejecución', 'Finalizado'].includes(trabajo.estado);
-                                    }
-                                    if (isTechRole) {
-                                        return ['Asignado', 'En Espera', 'Cotización Enviada', 'Cotización Rechazada', 'Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución', 'Finalizado'].includes(trabajo.estado);
-                                    }
-                                }
-
-                                if (tabName === 'Cotización') {
-                                    // En flujo normal (no SOS): admin/autonomo-admin ve cotización cuando el técnico ya envió una (por estado O por cotizaciones cargadas)
-                                    if (user?.role === 'admin' || isAutonomoAdminUser) {
-                                        return cotizaciones.length > 0 || ['Cotización Enviada', 'Cotización Aceptada', 'Cotización Aprobada', 'Cotización Rechazada', 'En Ejecución', 'Finalizado', 'Completado'].includes(trabajo.estado);
->>>>>>> 6a36d66d1b0c6ead90a4d1059a974ef85614ba13
-                                    }
-                                    return true;
-                                }
-                                if (tabName === 'Registro') {
-                                    // Admin general y autonomo-admin NUNCA ven Registro (es exclusivo del técnico)
-                                    if (user?.role === 'admin' || isAutonomoAdminUser) return false;
-                                    // NO MOSTRAR SI RECHAZADA
-                                    if (trabajo.estado === 'Rechazada') return false;
-                                    
-                                    // Tab Registro solo aparece mientras el técnico NO haya enviado al admin (visitado: false)
-                                    if (trabajo?.visitado) return false;
-                                    return (trabajo.tipo === 'Visita' || isSOS);
-                                }
-                                if (tabName === 'Trabajo') {
-                                    // El Administrador General nunca ve la pestaña de Trabajo (él no hace el trabajo, sino los técnicos autónomos)
-                                    if (isAutonomoAdminUser) {
-                                        return false;
-                                    }
-                                    if (trabajo.estado === 'Rechazada') return false;
-                                    if (isSOS) {
-                                        return ['Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución', 'Finalizado'].includes(trabajo.estado);
-                                    }
-                                    const hasApprovedQuote = ['Cotización Aceptada', 'Cotización Aprobada', 'Aceptada', 'En Ejecución'].includes(trabajo.estado) || cotizaciones.some(c => c.estado === 'Aprobada');
-                                    if (hasApprovedQuote) return true;
-                                    if (trabajo.tipo === 'Trabajo') {
-                                        const pendingQuoteStates = ['Cotización Enviada', 'Cotización Rechazada', 'Pendiente de Cotización'];
-                                        if (pendingQuoteStates.includes(trabajo.estado) && !hasApprovedQuote) return false;
+                                    if (tabName === 'Cotización') {
+                                        if (isTechRole || user?.role === 'tecnico' || user?.role === 'tecnico-normal' || user?.role === 'tecnico-autonomo') {
+                                            return cotizaciones.length > 0 || Boolean(trabajo?.visitado) || ['Cotización Enviada', 'Cotización Rechazada', 'Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución', 'Finalizado'].includes(trabajo.estado);
+                                        }
+                                        if (user?.role === 'cliente') {
+                                            return cotizaciones.length > 0 || ['Cotización Enviada', 'Cotización Aceptada', 'Cotización Aprobada'].includes(trabajo.estado);
+                                        }
+                                        if (isSOS && (user?.role === 'admin' || isAutonomoAdminUser)) {
+                                            return cotizaciones.length > 0 || Boolean(trabajo?.visitado) || ['Cotización Enviada', 'Cotización Aceptada', 'Cotización Aprobada', 'Cotización Rechazada', 'En Ejecución', 'Finalizado'].includes(trabajo.estado);
+                                        }
                                         return true;
                                     }
-                                    if (trabajo.tipo === 'Visita') {
-                                        return hasApprovedQuote;
+                                    if (tabName === 'Registro') {
+                                        // Admin general y autonomo-admin NUNCA ven Registro (es exclusivo del técnico)
+                                        if (user?.role === 'admin' || isAutonomoAdminUser) return false;
+                                        // NO MOSTRAR SI RECHAZADA
+                                        if (trabajo.estado === 'Rechazada') return false;
+
+                                        // Tab Registro solo aparece mientras el técnico NO haya enviado al admin (visitado: false)
+                                        if (trabajo?.visitado) return false;
+                                        return (trabajo.tipo === 'Visita' || isSOS);
                                     }
-                                    return false;
-                                }
-                                return true;
-                            })
-                            .map((tabName) => (
+                                    if (tabName === 'Trabajo') {
+                                        // El Administrador General nunca ve la pestaña de Trabajo (él no hace el trabajo, sino los técnicos autónomos)
+                                        if (isAutonomoAdminUser) {
+                                            return false;
+                                        }
+                                        if (trabajo.estado === 'Rechazada') return false;
+                                        if (isSOS) {
+                                            return ['Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución', 'Finalizado'].includes(trabajo.estado);
+                                        }
+                                        const hasApprovedQuote = ['Cotización Aceptada', 'Cotización Aprobada', 'Aceptada', 'En Ejecución'].includes(trabajo.estado) || cotizaciones.some(c => c.estado === 'Aprobada');
+                                        if (hasApprovedQuote) return true;
+                                        if (trabajo.tipo === 'Trabajo') {
+                                            const pendingQuoteStates = ['Cotización Enviada', 'Cotización Rechazada', 'Pendiente de Cotización'];
+                                            if (pendingQuoteStates.includes(trabajo.estado) && !hasApprovedQuote) return false;
+                                            return true;
+                                        }
+                                        if (trabajo.tipo === 'Visita') {
+                                            return hasApprovedQuote;
+                                        }
+                                        return false;
+                                    }
+                                    return true;
+                                })
+                                .map((tabName) => (
+                                    <button
+                                        key={tabName}
+                                        className={`${styles.tabButton} ${activeTab === tabName ? styles.activeTab : styles.inactiveTab}`}
+                                        onClick={() => setActiveTab(tabName as any)}
+                                        title={tabName}
+                                        style={{
+                                            position: 'relative',
+                                            ...(tabName === 'Cotización' && activeTab !== 'Cotización' && [
+                                                'Cotización Enviada',
+                                                'Cotización Aceptada',
+                                            ].includes(trabajo?.estado) ? {
+                                                background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                                                color: '#fff',
+                                                border: '2px solid #d97706',
+                                                boxShadow: '0 4px 14px rgba(245,158,11,0.4)',
+                                                fontWeight: '800',
+                                            } : {})
+                                        }}
+                                    >
+                                        <span className={styles.tabIcon}>
+                                            {tabName === 'Datos' ? <HiOutlineBuildingOffice2 size={22} /> :
+                                                tabName === 'Trabajo' ? <HiOutlineWrench size={22} /> :
+                                                    tabName === 'Registro' ? <HiOutlineClipboardDocumentList size={22} /> :
+                                                        tabName === 'Historial' ? <HiOutlineClock size={22} /> :
+                                                            tabName === 'Cotización' ? <HiOutlineCurrencyDollar size={22} /> : <HiOutlineInformationCircle size={22} />}
+                                        </span>
+                                        <span className={styles.tabText}>{tabName === 'Datos' ? 'Datos' : tabName}</span>
+
+                                        {/* INDICADOR DE NOTIFICACIÓN (ROJO) PARA COTIZACIÓN PENDIENTE */}
+                                        {tabName === 'Cotización' && (
+                                            (trabajo?.visitado && cotizaciones.length === 0 && user?.role === 'admin') ||
+                                            (user?.role === 'cliente' && cotizaciones.some(c => c.estado === 'Pendiente')) ||
+                                            ((user?.role === 'tecnico' || user?.role === 'tecnico-normal' || user?.role === 'tecnico-autonomo') && (trabajo?.estado === 'Cotización Rechazada' || cotizaciones.some(c => c.estado === 'Rechazada') || (latestChatQuote && trabajo?.estado !== 'Trabajo' && trabajo?.estado !== 'Finalizado'))) ||
+                                            (user?.role !== 'tecnico' && user?.role !== 'cliente' && trabajo?.estado === 'Cotización Enviada')
+                                        ) && (
+                                                <span style={{
+                                                    position: 'absolute',
+                                                    top: '2px',
+                                                    right: '2px',
+                                                    width: '10px',
+                                                    height: '10px',
+                                                    background: '#ef4444',
+                                                    borderRadius: '50%',
+                                                    border: '2px solid #fff',
+                                                    boxShadow: '0 0 0 2px rgba(239, 68, 68, 0.2)',
+                                                    animation: 'pulse 2s infinite'
+                                                }} />
+                                            )}
+                                    </button>
+                                ))}
+                            {(trabajo as any).businessId && user?.role === 'admin' && (
                                 <button
-                                    key={tabName}
-                                    className={`${styles.tabButton} ${activeTab === tabName ? styles.activeTab : styles.inactiveTab}`}
-                                    onClick={() => setActiveTab(tabName as any)}
-                                    title={tabName}
-                                    style={{
-                                        position: 'relative',
-                                        ...(tabName === 'Cotización' && activeTab !== 'Cotización' && [
-                                            'Cotización Enviada',
-                                            'Cotización Aceptada',
-                                        ].includes(trabajo?.estado) ? {
-                                            background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-                                            color: '#fff',
-                                            border: '2px solid #d97706',
-                                            boxShadow: '0 4px 14px rgba(245,158,11,0.4)',
-                                            fontWeight: '800',
-                                        } : {})
-                                    }}
+                                    className={`${styles.tabButton} ${styles.inactiveTab}`}
+                                    onClick={handleOpenEquipos}
+                                    title="Ver Equipos"
                                 >
                                     <span className={styles.tabIcon}>
-                                        {tabName === 'Datos' ? <HiOutlineBuildingOffice2 size={22} /> :
-                                            tabName === 'Trabajo' ? <HiOutlineWrench size={22} /> :
-                                                tabName === 'Registro' ? <HiOutlineClipboardDocumentList size={22} /> :
-                                                    tabName === 'Historial' ? <HiOutlineClock size={22} /> :
-                                                        tabName === 'Cotización' ? <HiOutlineCurrencyDollar size={22} /> : <HiOutlineInformationCircle size={22} />}
+                                        <HiOutlineClipboardDocumentList size={22} />
                                     </span>
-                                    <span className={styles.tabText}>{tabName === 'Datos' ? 'Datos' : tabName}</span>
-
-                                    {/* INDICADOR DE NOTIFICACIÓN (ROJO) PARA COTIZACIÓN PENDIENTE */}
-                                    {tabName === 'Cotización' && (
-                                        (trabajo?.visitado && cotizaciones.length === 0 && user?.role === 'admin') ||
-                                        (user?.role === 'cliente' && cotizaciones.some(c => c.estado === 'Pendiente')) ||
-                                        ((user?.role === 'tecnico' || user?.role === 'tecnico-normal' || user?.role === 'tecnico-autonomo') && (trabajo?.estado === 'Cotización Rechazada' || cotizaciones.some(c => c.estado === 'Rechazada') || (latestChatQuote && trabajo?.estado !== 'Trabajo' && trabajo?.estado !== 'Finalizado'))) ||
-                                        (user?.role !== 'tecnico' && user?.role !== 'cliente' && trabajo?.estado === 'Cotización Enviada')
-                                    ) && (
-                                        <span style={{
-                                            position: 'absolute',
-                                            top: '2px',
-                                            right: '2px',
-                                            width: '10px',
-                                            height: '10px',
-                                            background: '#ef4444',
-                                            borderRadius: '50%',
-                                            border: '2px solid #fff',
-                                            boxShadow: '0 0 0 2px rgba(239, 68, 68, 0.2)',
-                                            animation: 'pulse 2s infinite'
-                                        }} />
-                                    )}
+                                    <span className={styles.tabText}>Ver Equipos</span>
                                 </button>
-                            ))}
-                        {(trabajo as any).businessId && user?.role === 'admin' && (
-                            <button
-                                className={`${styles.tabButton} ${styles.inactiveTab}`}
-                                onClick={handleOpenEquipos}
-                                title="Ver Equipos"
-                            >
-                                <span className={styles.tabIcon}>
-                                    <HiOutlineClipboardDocumentList size={22} />
-                                </span>
-                                <span className={styles.tabText}>Ver Equipos</span>
-                            </button>
-                        )}
+                            )}
+                        </div>
                     </div>
-                </div>
                     {activeTab === 'Datos' && (
                         <div className={styles.bentoGrid}>
                             {/* BANNER 1: CONFIRMACIÓN DE FECHA Y HORA DE EJECUCIÓN (COTIZACIÓN ACEPTADA) */}
                             {['Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución', 'En Proceso'].includes(trabajo.estado) && (
-                                <div 
+                                <div
                                     className={`${styles.bentoCard} ${styles.colSpan12}`}
                                     style={{
                                         background: 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)',
@@ -5876,7 +5855,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
 
                             {/* BANNER SOS: ASIGNACIÓN DE TÉCNICO URGENTE */}
                             {isSOS && isAdminUser && (trabajo.estado === 'Solicitud' || trabajo.estado === 'Pendiente' || !trabajo.trabajador_id) && (
-                                <div 
+                                <div
                                     className={`${styles.bentoCard} ${styles.colSpan12}`}
                                     style={{
                                         background: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)',
@@ -5945,7 +5924,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
 
                             {/* BANNER 2: REASIGNACIÓN DE TÉCNICO SOLICITADA */}
                             {(trabajo.estado === 'Reasignación Solicitada' || trabajo.motivo_reasignacion || localStorage.getItem(`reassign_reason_${trabajo.id}`)) && (
-                                <div 
+                                <div
                                     className={`${styles.bentoCard} ${styles.colSpan12}`}
                                     style={{
                                         background: 'linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%)',
@@ -6008,9 +5987,9 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
 
                             {/* Card 1: Información General (8/12) */}
                             <div className={`${styles.bentoCard} ${styles.colSpan8} ${styles.sucursalCard}`}>
-                                <div 
-                                    className={styles.cardHeader} 
-                                    onClick={() => setIsSucursalModalOpen(true)} 
+                                <div
+                                    className={styles.cardHeader}
+                                    onClick={() => setIsSucursalModalOpen(true)}
                                     style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
                                     title="Ver detalles de contacto y ubicación"
                                 >
@@ -6027,11 +6006,11 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                             <span className={styles.badge} style={{ marginTop: '5px' }}>{trabajo.tipo || "Trabajo"}</span>
                                         </div>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-start', justifyContent: 'center', flexShrink: 0 }}>
-                                             <span style={{ fontSize: '13px', color: '#059669', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
-                                                 📅 Cita solicitada: {trabajo.fecha_programada ? (trabajo.fecha_programada.includes('-') ? trabajo.fecha_programada.split('-').reverse().join('/') : trabajo.fecha_programada) : trabajo.fecha}
-                                             </span>
-                                             {trabajo.latitud_llegada && !['Finalizado', 'Completado'].includes(trabajo.estado) && (
-                                                <button 
+                                            <span style={{ fontSize: '13px', color: '#059669', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+                                                📅 Cita solicitada: {trabajo.fecha_programada ? (trabajo.fecha_programada.includes('-') ? trabajo.fecha_programada.split('-').reverse().join('/') : trabajo.fecha_programada) : trabajo.fecha}
+                                            </span>
+                                            {trabajo.latitud_llegada && !['Finalizado', 'Completado'].includes(trabajo.estado) && (
+                                                <button
                                                     onClick={(e) => { e.stopPropagation(); setShowMapModal(true); }}
                                                     style={{ padding: '6px 12px', background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0', borderRadius: '8px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', transition: 'all 0.2s' }}
                                                     onMouseEnter={e => { e.currentTarget.style.background = '#d1fae5'; }}
@@ -6039,12 +6018,12 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                 >
                                                     📍 Ver Llegada
                                                 </button>
-                                             )}
+                                            )}
                                         </div>
                                     </div>
 
                                     {(trabajo.descripcion || parseFotoUrls(trabajo.foto_url).length > 0) && (
-                                        <div 
+                                        <div
                                             className={styles.descriptionBox}
                                             style={{ cursor: 'pointer', transition: 'all 0.2s ease', position: 'relative' }}
                                             title="Haz clic para ver más detalles"
@@ -6054,7 +6033,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                         >
                                             <div style={{ position: 'absolute', top: '10px', right: '10px', opacity: 0.5 }}>
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
                                                 </svg>
                                             </div>
                                             {groupedJobs.length > 0 ? (
@@ -6115,12 +6094,12 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                             <span className={styles.bentoLabel} style={{ marginBottom: '6px', color: '#334155', display: 'block' }}>Fotos Adjuntas ({parseFotoUrls(trabajo.foto_url).length}):</span>
                                                             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', width: '100%', boxSizing: 'border-box' }}>
                                                                 {parseFotoUrls(trabajo.foto_url).map((url, idx) => (
-                                                                    <img 
+                                                                    <img
                                                                         key={idx}
-                                                                        src={url} 
-                                                                        alt={`Evidencia ${idx + 1}`} 
+                                                                        src={url}
+                                                                        alt={`Evidencia ${idx + 1}`}
                                                                         onClick={(e) => { e.stopPropagation(); setSelectedZoomImage(url); }}
-                                                                        style={{ width: '64px', height: '64px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', cursor: 'pointer', transition: 'transform 0.15s ease', flexShrink: 0 }} 
+                                                                        style={{ width: '64px', height: '64px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', cursor: 'pointer', transition: 'transform 0.15s ease', flexShrink: 0 }}
                                                                         onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
                                                                         onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
                                                                     />
@@ -6146,9 +6125,9 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                     </div>
                                     <div className={styles.bentoContent} style={{ display: 'flex', gap: '15px', alignItems: 'center', flexWrap: 'wrap' }}>
                                         {((trabajo as any).mantenimiento_solicitud_visita?.levantamiento_equipo?.foto_url || (trabajo as any).mantenimiento_solicitud_reparacion?.levantamiento_equipo?.foto_url) && (
-                                            <img 
-                                                src={((trabajo as any).mantenimiento_solicitud_visita?.levantamiento_equipo?.foto_url || (trabajo as any).mantenimiento_solicitud_reparacion?.levantamiento_equipo?.foto_url)} 
-                                                alt="Equipo" 
+                                            <img
+                                                src={((trabajo as any).mantenimiento_solicitud_visita?.levantamiento_equipo?.foto_url || (trabajo as any).mantenimiento_solicitud_reparacion?.levantamiento_equipo?.foto_url)}
+                                                alt="Equipo"
                                                 style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '10px', border: '1px solid #cbd5e1', cursor: 'pointer' }}
                                                 onClick={(e) => { e.stopPropagation(); setSelectedZoomImage(((trabajo as any).mantenimiento_solicitud_visita?.levantamiento_equipo?.foto_url || (trabajo as any).mantenimiento_solicitud_reparacion?.levantamiento_equipo?.foto_url)); setShowZoomModal(true); }}
                                             />
@@ -6158,7 +6137,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                 {((trabajo as any).mantenimiento_solicitud_visita?.levantamiento_equipo?.nombre || (trabajo as any).mantenimiento_solicitud_reparacion?.levantamiento_equipo?.nombre)}
                                             </span>
                                             <span style={{ fontSize: '13px', color: '#475569' }}>
-                                                <strong>Marca:</strong> {((trabajo as any).mantenimiento_solicitud_visita?.levantamiento_equipo?.marca || (trabajo as any).mantenimiento_solicitud_reparacion?.levantamiento_equipo?.marca || 'N/A')} | 
+                                                <strong>Marca:</strong> {((trabajo as any).mantenimiento_solicitud_visita?.levantamiento_equipo?.marca || (trabajo as any).mantenimiento_solicitud_reparacion?.levantamiento_equipo?.marca || 'N/A')} |
                                                 <strong> Modelo:</strong> {((trabajo as any).mantenimiento_solicitud_visita?.levantamiento_equipo?.modelo || (trabajo as any).mantenimiento_solicitud_reparacion?.levantamiento_equipo?.modelo || 'N/A')}
                                             </span>
                                             {((trabajo as any).mantenimiento_solicitud_visita?.levantamiento_equipo?.serie || (trabajo as any).mantenimiento_solicitud_reparacion?.levantamiento_equipo?.serie) && (
@@ -6181,8 +6160,8 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                 </div>
                                 <div className={styles.bentoContent} style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100%', gap: '12px' }}>
                                     <span className={styles.bentoValue} style={{ color: trabajo.estado === 'En Espera' ? '#2563eb' : '#d97706', fontSize: '16px', textAlign: 'center' }}>
-                                        {trabajo.estado === 'Asignado' && trabajo.tecnico && trabajo.tecnico !== "Sin asignar" 
-                                            ? `Asignado a: ${trabajo.tecnico}` 
+                                        {trabajo.estado === 'Asignado' && trabajo.tecnico && trabajo.tecnico !== "Sin asignar"
+                                            ? `Asignado a: ${trabajo.tecnico}`
                                             : trabajo.estado === 'En Espera' && trabajo.tecnico && trabajo.tecnico !== "Sin asignar"
                                                 ? `Aceptado por: ${trabajo.tecnico}`
                                                 : trabajo.estado}
@@ -6200,7 +6179,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                             {(() => {
                                                 const quoteTask = subTareas.find(t => t.quoteData) || subTareas[subTareas.length - 1];
                                                 return quoteTask ? (
-                                                    <button 
+                                                    <button
                                                         onClick={(e) => { e.stopPropagation(); openEditModal(e, quoteTask); }}
                                                         style={{ width: '100%', padding: '12px', background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: 'white', border: 'none', borderRadius: '10px', fontSize: '13px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', boxShadow: '0 4px 12px rgba(245, 158, 11, 0.2)' }}
                                                         onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
@@ -6222,123 +6201,123 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                             // 3. Cotización Enviada -> Admin revisa para aceptar o mandar a recotizar
                                             // 4. En Ejecución -> Ver ejecución del trabajo
                                             (trabajo.estado === 'Solicitud' || trabajo.estado === 'Pendiente' || !trabajo.trabajador_id) ? null :
-                                            (trabajo.estado === 'Reasignación Solicitada') ? (
-                                                <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
-                                                    <div style={{ background: '#fff1f2', border: '1.5px solid #fecdd3', borderRadius: '10px', padding: '10px 12px', textAlign: 'center' }}>
-                                                        <p style={{ margin: 0, fontSize: '12px', fontWeight: '800', color: '#e11d48' }}>
-                                                            🚨 Reasignación Solicitada
-                                                        </p>
-                                                        <p style={{ margin: '3px 0 0', fontSize: '10px', color: '#9f1239' }}>
-                                                            {trabajo.motivo_reasignacion ? `Motivo: ${trabajo.motivo_reasignacion}` : 'El técnico anterior rechazó la asignación'}
-                                                        </p>
+                                                (trabajo.estado === 'Reasignación Solicitada') ? (
+                                                    <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
+                                                        <div style={{ background: '#fff1f2', border: '1.5px solid #fecdd3', borderRadius: '10px', padding: '10px 12px', textAlign: 'center' }}>
+                                                            <p style={{ margin: 0, fontSize: '12px', fontWeight: '800', color: '#e11d48' }}>
+                                                                🚨 Reasignación Solicitada
+                                                            </p>
+                                                            <p style={{ margin: '3px 0 0', fontSize: '10px', color: '#9f1239' }}>
+                                                                {trabajo.motivo_reasignacion ? `Motivo: ${trabajo.motivo_reasignacion}` : 'El técnico anterior rechazó la asignación'}
+                                                            </p>
+                                                        </div>
+                                                        <button
+                                                            onClick={handleOpenAssignModal}
+                                                            style={{
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                gap: '8px',
+                                                                background: 'linear-gradient(135deg, #e11d48 0%, #be123c 100%)',
+                                                                color: 'white',
+                                                                border: 'none',
+                                                                padding: '10px 16px',
+                                                                borderRadius: '20px',
+                                                                fontSize: '12px',
+                                                                fontWeight: '700',
+                                                                cursor: 'pointer',
+                                                                transition: 'all 0.2s ease',
+                                                                width: '100%',
+                                                                justifyContent: 'center',
+                                                                boxShadow: '0 3px 10px rgba(225, 29, 72, 0.25)'
+                                                            }}
+                                                        >
+                                                            🔁 Reasignar Técnico Ahora
+                                                        </button>
                                                     </div>
+                                                ) : (trabajo.estado === 'Asignado' || trabajo.estado === 'En Espera') ? (
+                                                    <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
+                                                        <div style={{ background: '#fef2f2', border: '1.5px solid #fecaca', borderRadius: '10px', padding: '10px 12px', textAlign: 'center' }}>
+                                                            <p style={{ margin: 0, fontSize: '12px', fontWeight: '800', color: '#dc2626' }}>
+                                                                🚨 Técnico: {trabajo.tecnico}
+                                                            </p>
+                                                            <p style={{ margin: '3px 0 0', fontSize: '10px', color: '#991b1b' }}>
+                                                                Esperando propuesta de cotización del técnico
+                                                            </p>
+                                                        </div>
+                                                        <button
+                                                            onClick={handleOpenAssignModal}
+                                                            style={{
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                gap: '8px',
+                                                                background: '#fff',
+                                                                color: '#dc2626',
+                                                                border: '1.5px solid #dc2626',
+                                                                padding: '8px 16px',
+                                                                borderRadius: '20px',
+                                                                fontSize: '12px',
+                                                                fontWeight: '700',
+                                                                cursor: 'pointer',
+                                                                transition: 'all 0.2s ease',
+                                                                width: '100%',
+                                                                justifyContent: 'center'
+                                                            }}
+                                                            onMouseEnter={e => (e.currentTarget.style.background = '#fef2f2')}
+                                                            onMouseLeave={e => (e.currentTarget.style.background = '#fff')}
+                                                        >
+                                                            🔁 Reasignar Técnico
+                                                        </button>
+                                                    </div>
+                                                ) : trabajo.estado === 'Cotización Enviada' ? (
                                                     <button
-                                                        onClick={handleOpenAssignModal}
+                                                        onClick={() => setActiveTab('Cotización')}
                                                         style={{
+                                                            marginTop: '8px',
                                                             display: 'inline-flex',
                                                             alignItems: 'center',
                                                             gap: '8px',
-                                                            background: 'linear-gradient(135deg, #e11d48 0%, #be123c 100%)',
+                                                            background: 'linear-gradient(135deg, #d14d13 0%, #f26522 100%)',
                                                             color: 'white',
                                                             border: 'none',
-                                                            padding: '10px 16px',
-                                                            borderRadius: '20px',
-                                                            fontSize: '12px',
-                                                            fontWeight: '700',
+                                                            padding: '12px 20px',
+                                                            borderRadius: '25px',
+                                                            fontSize: '13px',
+                                                            fontWeight: '800',
                                                             cursor: 'pointer',
                                                             transition: 'all 0.2s ease',
-                                                            width: '100%',
-                                                            justifyContent: 'center',
-                                                            boxShadow: '0 3px 10px rgba(225, 29, 72, 0.25)'
-                                                        }}
-                                                    >
-                                                        🔁 Reasignar Técnico Ahora
-                                                    </button>
-                                                </div>
-                                            ) : (trabajo.estado === 'Asignado' || trabajo.estado === 'En Espera') ? (
-                                                <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
-                                                    <div style={{ background: '#fef2f2', border: '1.5px solid #fecaca', borderRadius: '10px', padding: '10px 12px', textAlign: 'center' }}>
-                                                        <p style={{ margin: 0, fontSize: '12px', fontWeight: '800', color: '#dc2626' }}>
-                                                            🚨 Técnico: {trabajo.tecnico}
-                                                        </p>
-                                                        <p style={{ margin: '3px 0 0', fontSize: '10px', color: '#991b1b' }}>
-                                                            Esperando propuesta de cotización del técnico
-                                                        </p>
-                                                    </div>
-                                                    <button
-                                                        onClick={handleOpenAssignModal}
-                                                        style={{
-                                                            display: 'inline-flex',
-                                                            alignItems: 'center',
-                                                            gap: '8px',
-                                                            background: '#fff',
-                                                            color: '#dc2626',
-                                                            border: '1.5px solid #dc2626',
-                                                            padding: '8px 16px',
-                                                            borderRadius: '20px',
-                                                            fontSize: '12px',
-                                                            fontWeight: '700',
-                                                            cursor: 'pointer',
-                                                            transition: 'all 0.2s ease',
+                                                            boxShadow: '0 4px 12px rgba(217, 119, 6, 0.35)',
+                                                            whiteSpace: 'nowrap',
                                                             width: '100%',
                                                             justifyContent: 'center'
                                                         }}
-                                                        onMouseEnter={e => (e.currentTarget.style.background = '#fef2f2')}
-                                                        onMouseLeave={e => (e.currentTarget.style.background = '#fff')}
+                                                        onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-1px)')}
+                                                        onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}
                                                     >
-                                                        🔁 Reasignar Técnico
+                                                        📄 Revisar Cotización (SOS)
                                                     </button>
-                                                </div>
-                                            ) : trabajo.estado === 'Cotización Enviada' ? (
-                                                <button
-                                                    onClick={() => setActiveTab('Cotización')}
-                                                    style={{
-                                                        marginTop: '8px',
-                                                        display: 'inline-flex',
-                                                        alignItems: 'center',
-                                                        gap: '8px',
-                                                        background: 'linear-gradient(135deg, #d14d13 0%, #f26522 100%)',
-                                                        color: 'white',
-                                                        border: 'none',
-                                                        padding: '12px 20px',
-                                                        borderRadius: '25px',
-                                                        fontSize: '13px',
-                                                        fontWeight: '800',
-                                                        cursor: 'pointer',
-                                                        transition: 'all 0.2s ease',
-                                                        boxShadow: '0 4px 12px rgba(217, 119, 6, 0.35)',
-                                                        whiteSpace: 'nowrap',
-                                                        width: '100%',
-                                                        justifyContent: 'center'
-                                                    }}
-                                                    onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-1px)')}
-                                                    onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}
-                                                >
-                                                    📄 Revisar Cotización (SOS)
-                                                </button>
-                                            ) : (['Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución', 'En Proceso'].includes(trabajo.estado)) ? (
-                                                <div
-                                                    style={{
-                                                        marginTop: '8px',
-                                                        display: 'inline-flex',
-                                                        alignItems: 'center',
-                                                        gap: '8px',
-                                                        background: 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)',
-                                                        color: '#065f46',
-                                                        border: '1.5px solid #a7f3d0',
-                                                        padding: '10px 20px',
-                                                        borderRadius: '25px',
-                                                        fontSize: '13px',
-                                                        fontWeight: '800',
-                                                        boxShadow: '0 4px 12px rgba(16, 185, 129, 0.15)',
-                                                        whiteSpace: 'nowrap',
-                                                        width: '100%',
-                                                        justifyContent: 'center'
-                                                    }}
-                                                >
-                                                    ⚡ Emergencia SOS en Ejecución por: {trabajo.tecnico || 'Técnico'}
-                                                </div>
-                                            ) : null
+                                                ) : (['Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución', 'En Proceso'].includes(trabajo.estado)) ? (
+                                                    <div
+                                                        style={{
+                                                            marginTop: '8px',
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center',
+                                                            gap: '8px',
+                                                            background: 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)',
+                                                            color: '#065f46',
+                                                            border: '1.5px solid #a7f3d0',
+                                                            padding: '10px 20px',
+                                                            borderRadius: '25px',
+                                                            fontSize: '13px',
+                                                            fontWeight: '800',
+                                                            boxShadow: '0 4px 12px rgba(16, 185, 129, 0.15)',
+                                                            whiteSpace: 'nowrap',
+                                                            width: '100%',
+                                                            justifyContent: 'center'
+                                                        }}
+                                                    >
+                                                        ⚡ Emergencia SOS en Ejecución por: {trabajo.tecnico || 'Técnico'}
+                                                    </div>
+                                                ) : null
                                         ) : (
                                             // FLUJO NORMAL: solo mostrar botón asignar si aún no hay técnico asignado/aceptado
                                             (!trabajo.tecnico || trabajo.tecnico === 'Sin asignar' || trabajo.tecnico === 'Sin Asignar') && !['En Espera', 'En Proceso', 'En Ejecución', 'Cotización Enviada', 'Cotización Aceptada', 'Cotización Aprobada', 'Finalizado', 'Completado'].includes(trabajo.estado) ? (
@@ -6592,604 +6571,602 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                         </div>
                                                     </div>
 
-                                                {/* SubTareas / Puntos de Revisión */}
-                                                {!flattenedSosPoints || flattenedSosPoints.length === 0 ? (
-                                                    <div style={{ background: '#fff', borderRadius: '24px', padding: '60px 40px', textAlign: 'center', border: '1.5px solid #f1f5f9', boxShadow: '0 4px 20px rgba(0,0,0,0.02)' }}>
-                                                        <div style={{ fontSize: '48px', marginBottom: '16px' }}>⏳</div>
-                                                        <p style={{ margin: 0, color: '#94a3b8', fontWeight: '700', fontSize: '16px' }}>El técnico aún no ha enviado los puntos de revisión.</p>
-                                                        <p style={{ margin: '8px 0 0 0', color: '#cbd5e1', fontSize: '14px' }}>En cuanto termine su evaluación en la sucursal, los conceptos aparecerán aquí para tu autorización.</p>
-                                                    </div>
-                                                ) : (
-                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                                        {flattenedSosPoints.map((point, idx) => {
-                                                            if (!point) return null;
-                                                            const isSelected = selectedSosPoints[point.id] !== false;
-                                                            const pointTotal = Number(point.subtotal) || 0;
-                                                            const isJobRunning = ['Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución', 'Finalizado'].includes(trabajo?.estado || '');
+                                                    {/* SubTareas / Puntos de Revisión */}
+                                                    {!flattenedSosPoints || flattenedSosPoints.length === 0 ? (
+                                                        <div style={{ background: '#fff', borderRadius: '24px', padding: '60px 40px', textAlign: 'center', border: '1.5px solid #f1f5f9', boxShadow: '0 4px 20px rgba(0,0,0,0.02)' }}>
+                                                            <div style={{ fontSize: '48px', marginBottom: '16px' }}>⏳</div>
+                                                            <p style={{ margin: 0, color: '#94a3b8', fontWeight: '700', fontSize: '16px' }}>El técnico aún no ha enviado los puntos de revisión.</p>
+                                                            <p style={{ margin: '8px 0 0 0', color: '#cbd5e1', fontSize: '14px' }}>En cuanto termine su evaluación en la sucursal, los conceptos aparecerán aquí para tu autorización.</p>
+                                                        </div>
+                                                    ) : (
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                                            {flattenedSosPoints.map((point, idx) => {
+                                                                if (!point) return null;
+                                                                const isSelected = selectedSosPoints[point.id] !== false;
+                                                                const pointTotal = Number(point.subtotal) || 0;
+                                                                const isJobRunning = ['Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución', 'Finalizado'].includes(trabajo?.estado || '');
 
-                                                            return (
-                                                                <div key={point.id || idx} style={{
-                                                                    background: '#fff',
-                                                                    borderRadius: '20px',
-                                                                    border: isSelected ? '2px solid #fdba74' : '1.5px solid #e2e8f0',
-                                                                    boxShadow: isSelected ? '0 8px 24px rgba(249, 115, 22, 0.12)' : '0 2px 8px rgba(0,0,0,0.03)',
-                                                                    overflow: 'hidden',
-                                                                    transition: 'all 0.2s ease',
-                                                                    opacity: isSelected ? 1 : 0.65
-                                                                }}>
-                                                                    {/* Point Header */}
-                                                                    <div style={{
-                                                                        padding: '16px 20px',
-                                                                        background: isSelected ? '#fff7ed' : '#f8fafc',
-                                                                        borderBottom: '1px solid #fed7aa',
-                                                                        display: 'flex',
-                                                                        alignItems: 'center',
-                                                                        justifyContent: 'space-between',
-                                                                        flexWrap: 'wrap',
-                                                                        gap: '12px'
+                                                                return (
+                                                                    <div key={point.id || idx} style={{
+                                                                        background: '#fff',
+                                                                        borderRadius: '20px',
+                                                                        border: isSelected ? '2px solid #fdba74' : '1.5px solid #e2e8f0',
+                                                                        boxShadow: isSelected ? '0 8px 24px rgba(249, 115, 22, 0.12)' : '0 2px 8px rgba(0,0,0,0.03)',
+                                                                        overflow: 'hidden',
+                                                                        transition: 'all 0.2s ease',
+                                                                        opacity: isSelected ? 1 : 0.65
                                                                     }}>
-                                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                                            {!isJobRunning && (
-                                                                                <input
-                                                                                    type="checkbox"
-                                                                                    checked={isSelected}
-                                                                                    onChange={() => toggleSosPoint(point.id)}
-                                                                                    style={{ width: '20px', height: '20px', accentColor: '#ea580c', cursor: 'pointer' }}
-                                                                                />
-                                                                            )}
-                                                                            <div>
-                                                                                <span style={{ fontSize: '11px', fontWeight: '800', color: '#ea580c', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
-                                                                                    Punto #{point.pointNumber || idx + 1}
-                                                                                </span>
-                                                                                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#1e293b' }}>
-                                                                                    {point.titulo || 'Punto de Revisión'}
-                                                                                </h3>
-                                                                            </div>
-                                                                        </div>
-                                                                        <div style={{ textAlign: 'right' }}>
-                                                                            <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748b' }}>Subtotal Punto</span>
-                                                                            <p style={{ margin: 0, fontSize: '18px', fontWeight: '900', color: isSelected ? '#ea580c' : '#94a3b8' }}>
-                                                                                ${pointTotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
-                                                                            </p>
-                                                                        </div>
-                                                                    </div>
-
-                                                                    {/* Point Body */}
-                                                                    <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                                                        {/* Descripción */}
-                                                                        {Boolean(point.descripcion) && (
-                                                                            <div>
-                                                                                <p style={{ margin: '0 0 6px', fontSize: '12px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase' }}>
-                                                                                    📝 Hallazgo / Diagnóstico
-                                                                                </p>
-                                                                                <p style={{ margin: 0, fontSize: '14px', color: '#334155', lineHeight: '1.5', background: '#f8fafc', padding: '12px 16px', borderRadius: '12px', border: '1px solid #f1f5f9' }}>
-                                                                                    {point.descripcion}
-                                                                                </p>
-                                                                            </div>
-                                                                        )}
-
-                                                                        {/* Fotos si hay */}
-                                                                        {Array.isArray(point.photos) && point.photos.length > 0 && (
-                                                                            <div>
-                                                                                <p style={{ margin: '0 0 8px', fontSize: '12px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase' }}>
-                                                                                    📷 Evidencia Fotográfica ({point.photos.length})
-                                                                                </p>
-                                                                                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                                                                                    {point.photos.map((pUrl: string, pIdx: number) => {
-                                                                                        if (!pUrl || typeof pUrl !== 'string') return null;
-                                                                                        return (
-                                                                                            <a key={pIdx} href={pUrl} target="_blank" rel="noreferrer" style={{ display: 'block', width: '80px', height: '80px', borderRadius: '12px', overflow: 'hidden', border: '1.5px solid #e2e8f0', boxShadow: '0 2px 6px rgba(0,0,0,0.08)' }}>
-                                                                                                <img src={pUrl} alt={`Foto ${pIdx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                                                                            </a>
-                                                                                        );
-                                                                                    })}
+                                                                        {/* Point Header */}
+                                                                        <div style={{
+                                                                            padding: '16px 20px',
+                                                                            background: isSelected ? '#fff7ed' : '#f8fafc',
+                                                                            borderBottom: '1px solid #fed7aa',
+                                                                            display: 'flex',
+                                                                            alignItems: 'center',
+                                                                            justifyContent: 'space-between',
+                                                                            flexWrap: 'wrap',
+                                                                            gap: '12px'
+                                                                        }}>
+                                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                                                {!isJobRunning && (
+                                                                                    <input
+                                                                                        type="checkbox"
+                                                                                        checked={isSelected}
+                                                                                        onChange={() => toggleSosPoint(point.id)}
+                                                                                        style={{ width: '20px', height: '20px', accentColor: '#ea580c', cursor: 'pointer' }}
+                                                                                    />
+                                                                                )}
+                                                                                <div>
+                                                                                    <span style={{ fontSize: '11px', fontWeight: '800', color: '#ea580c', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
+                                                                                        Punto #{point.pointNumber || idx + 1}
+                                                                                    </span>
+                                                                                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#1e293b' }}>
+                                                                                        {point.titulo || 'Punto de Revisión'}
+                                                                                    </h3>
                                                                                 </div>
                                                                             </div>
-                                                                        )}
-
-                                                                        {/* Conceptos de Mano de Obra y Refacciones */}
-                                                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px' }}>
-                                                                            {/* Conceptos */}
-                                                                            <div style={{ background: '#f8fafc', borderRadius: '14px', padding: '14px', border: '1px solid #e2e8f0' }}>
-                                                                                <p style={{ margin: '0 0 10px', fontSize: '12px', fontWeight: '800', color: '#0369a1', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                                                    <span>🔧</span> Conceptos de Servicio / Mano de Obra
+                                                                            <div style={{ textAlign: 'right' }}>
+                                                                                <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748b' }}>Subtotal Punto</span>
+                                                                                <p style={{ margin: 0, fontSize: '18px', fontWeight: '900', color: isSelected ? '#ea580c' : '#94a3b8' }}>
+                                                                                    ${pointTotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                                                                                 </p>
-                                                                                {Array.isArray(point.conceptos) && point.conceptos.length > 0 ? (
-                                                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                                                                        {point.conceptos.map((c: any, cIdx: number) => {
-                                                                                            if (!c) return null;
-                                                                                            const lineTotal = (Number(c.cantidad) || 1) * (Number(c.precio) || 0);
-                                                                                            return (
-                                                                                                <div key={cIdx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', background: '#fff', padding: '8px 12px', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
-                                                                                                    <span style={{ fontWeight: '700', color: '#334155' }}>
-                                                                                                        <strong style={{ color: '#0284c7' }}>{c.cantidad || 1}x</strong> {c.descripcion || ''}
-                                                                                                    </span>
-                                                                                                    <span style={{ fontWeight: '800', color: '#0f172a' }}>
-                                                                                                        ${(Number(lineTotal) || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
-                                                                                                    </span>
-                                                                                                </div>
-                                                                                            );
-                                                                                        })}
-                                                                                    </div>
-                                                                                ) : (
-                                                                                    <p style={{ margin: 0, fontSize: '12px', color: '#94a3b8', fontStyle: 'italic' }}>Sin conceptos adicionales</p>
-                                                                                )}
-                                                                            </div>
-
-                                                                            {/* Materiales */}
-                                                                            <div style={{ background: '#f8fafc', borderRadius: '14px', padding: '14px', border: '1px solid #e2e8f0' }}>
-                                                                                <p style={{ margin: '0 0 10px', fontSize: '12px', fontWeight: '800', color: '#b45309', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                                                    <span>🪛</span> Refacciones y Materiales
-                                                                                </p>
-                                                                                {Array.isArray(point.materiales) && point.materiales.length > 0 ? (
-                                                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                                                                        {point.materiales.map((m: any, mIdx: number) => {
-                                                                                            if (!m) return null;
-                                                                                            const lineTotal = (Number(m.cantidad) || 1) * (Number(m.precio) || 0);
-                                                                                            return (
-                                                                                                <div key={mIdx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', background: '#fff', padding: '8px 12px', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
-                                                                                                    <span style={{ fontWeight: '700', color: '#334155' }}>
-                                                                                                        <strong style={{ color: '#d97706' }}>{m.cantidad || 1}x</strong> {m.nombre || ''}
-                                                                                                    </span>
-                                                                                                    <span style={{ fontWeight: '800', color: '#0f172a' }}>
-                                                                                                        ${(Number(lineTotal) || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
-                                                                                                    </span>
-                                                                                                </div>
-                                                                                            );
-                                                                                        })}
-                                                                                    </div>
-                                                                                ) : (
-                                                                                    <p style={{ margin: 0, fontSize: '12px', color: '#94a3b8', fontStyle: 'italic' }}>Sin refacciones requeridas</p>
-                                                                                )}
                                                                             </div>
                                                                         </div>
 
-                                                                        {/* Toggle selection footer per point */}
-                                                                        {!isJobRunning && (
-                                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '10px', borderTop: '1px solid #f1f5f9', flexWrap: 'wrap', gap: '8px' }}>
-                                                                                <button
-                                                                                    type="button"
-                                                                                    onClick={() => toggleSosPoint(point.id)}
-                                                                                    style={{
-                                                                                        padding: '8px 14px',
-                                                                                        borderRadius: '10px',
-                                                                                        border: isSelected ? '1.5px solid #86efac' : '1.5px solid #cbd5e1',
-                                                                                        background: isSelected ? '#f0fdf4' : '#f8fafc',
-                                                                                        color: isSelected ? '#166534' : '#64748b',
-                                                                                        fontWeight: '800',
-                                                                                        fontSize: '12px',
-                                                                                        cursor: 'pointer',
-                                                                                        display: 'flex',
-                                                                                        alignItems: 'center',
-                                                                                        gap: '6px'
-                                                                                    }}
-                                                                                >
-                                                                                    {isSelected ? '✓ Incluido en la cotización' : '+ Incluir este punto'}
+                                                                        {/* Point Body */}
+                                                                        <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                                                            {/* Descripción */}
+                                                                            {Boolean(point.descripcion) && (
+                                                                                <div>
+                                                                                    <p style={{ margin: '0 0 6px', fontSize: '12px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase' }}>
+                                                                                        📝 Hallazgo / Diagnóstico
+                                                                                    </p>
+                                                                                    <p style={{ margin: 0, fontSize: '14px', color: '#334155', lineHeight: '1.5', background: '#f8fafc', padding: '12px 16px', borderRadius: '12px', border: '1px solid #f1f5f9' }}>
+                                                                                        {point.descripcion}
+                                                                                    </p>
+                                                                                </div>
+                                                                            )}
+
+                                                                            {/* Fotos si hay */}
+                                                                            {Array.isArray(point.photos) && point.photos.length > 0 && (
+                                                                                <div>
+                                                                                    <p style={{ margin: '0 0 8px', fontSize: '12px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase' }}>
+                                                                                        📷 Evidencia Fotográfica ({point.photos.length})
+                                                                                    </p>
+                                                                                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                                                                                        {point.photos.map((pUrl: string, pIdx: number) => {
+                                                                                            if (!pUrl || typeof pUrl !== 'string') return null;
+                                                                                            return (
+                                                                                                <a key={pIdx} href={pUrl} target="_blank" rel="noreferrer" style={{ display: 'block', width: '80px', height: '80px', borderRadius: '12px', overflow: 'hidden', border: '1.5px solid #e2e8f0', boxShadow: '0 2px 6px rgba(0,0,0,0.08)' }}>
+                                                                                                    <img src={pUrl} alt={`Foto ${pIdx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                                                                </a>
+                                                                                            );
+                                                                                        })}
+                                                                                    </div>
+                                                                                </div>
+                                                                            )}
+
+                                                                            {/* Conceptos de Mano de Obra y Refacciones */}
+                                                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px' }}>
+                                                                                {/* Conceptos */}
+                                                                                <div style={{ background: '#f8fafc', borderRadius: '14px', padding: '14px', border: '1px solid #e2e8f0' }}>
+                                                                                    <p style={{ margin: '0 0 10px', fontSize: '12px', fontWeight: '800', color: '#0369a1', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                                        <span>🔧</span> Conceptos de Servicio / Mano de Obra
+                                                                                    </p>
+                                                                                    {Array.isArray(point.conceptos) && point.conceptos.length > 0 ? (
+                                                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                                                                            {point.conceptos.map((c: any, cIdx: number) => {
+                                                                                                if (!c) return null;
+                                                                                                const lineTotal = (Number(c.cantidad) || 1) * (Number(c.precio) || 0);
+                                                                                                return (
+                                                                                                    <div key={cIdx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', background: '#fff', padding: '8px 12px', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
+                                                                                                        <span style={{ fontWeight: '700', color: '#334155' }}>
+                                                                                                            <strong style={{ color: '#0284c7' }}>{c.cantidad || 1}x</strong> {c.descripcion || ''}
+                                                                                                        </span>
+                                                                                                        <span style={{ fontWeight: '800', color: '#0f172a' }}>
+                                                                                                            ${(Number(lineTotal) || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                                                                                                        </span>
+                                                                                                    </div>
+                                                                                                );
+                                                                                            })}
+                                                                                        </div>
+                                                                                    ) : (
+                                                                                        <p style={{ margin: 0, fontSize: '12px', color: '#94a3b8', fontStyle: 'italic' }}>Sin conceptos adicionales</p>
+                                                                                    )}
+                                                                                </div>
+
+                                                                                {/* Materiales */}
+                                                                                <div style={{ background: '#f8fafc', borderRadius: '14px', padding: '14px', border: '1px solid #e2e8f0' }}>
+                                                                                    <p style={{ margin: '0 0 10px', fontSize: '12px', fontWeight: '800', color: '#b45309', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                                        <span>🪛</span> Refacciones y Materiales
+                                                                                    </p>
+                                                                                    {Array.isArray(point.materiales) && point.materiales.length > 0 ? (
+                                                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                                                                            {point.materiales.map((m: any, mIdx: number) => {
+                                                                                                if (!m) return null;
+                                                                                                const lineTotal = (Number(m.cantidad) || 1) * (Number(m.precio) || 0);
+                                                                                                return (
+                                                                                                    <div key={mIdx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', background: '#fff', padding: '8px 12px', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
+                                                                                                        <span style={{ fontWeight: '700', color: '#334155' }}>
+                                                                                                            <strong style={{ color: '#d97706' }}>{m.cantidad || 1}x</strong> {m.nombre || ''}
+                                                                                                        </span>
+                                                                                                        <span style={{ fontWeight: '800', color: '#0f172a' }}>
+                                                                                                            ${(Number(lineTotal) || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                                                                                                        </span>
+                                                                                                    </div>
+                                                                                                );
+                                                                                            })}
+                                                                                        </div>
+                                                                                    ) : (
+                                                                                        <p style={{ margin: 0, fontSize: '12px', color: '#94a3b8', fontStyle: 'italic' }}>Sin refacciones requeridas</p>
+                                                                                    )}
+                                                                                </div>
+                                                                            </div>
+
+                                                                            {/* Toggle selection footer per point */}
+                                                                            {!isJobRunning && (
+                                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '10px', borderTop: '1px solid #f1f5f9', flexWrap: 'wrap', gap: '8px' }}>
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={() => toggleSosPoint(point.id)}
+                                                                                        style={{
+                                                                                            padding: '8px 14px',
+                                                                                            borderRadius: '10px',
+                                                                                            border: isSelected ? '1.5px solid #86efac' : '1.5px solid #cbd5e1',
+                                                                                            background: isSelected ? '#f0fdf4' : '#f8fafc',
+                                                                                            color: isSelected ? '#166534' : '#64748b',
+                                                                                            fontWeight: '800',
+                                                                                            fontSize: '12px',
+                                                                                            cursor: 'pointer',
+                                                                                            display: 'flex',
+                                                                                            alignItems: 'center',
+                                                                                            gap: '6px'
+                                                                                        }}
+                                                                                    >
+                                                                                        {isSelected ? '✓ Incluido en la cotización' : '+ Incluir este punto'}
+                                                                                    </button>
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={() => {
+                                                                                            setCotizParaRecotizar(point.subTareaId);
+                                                                                            setShowRecotizModal(true);
+                                                                                        }}
+                                                                                        style={{
+                                                                                            padding: '8px 14px',
+                                                                                            borderRadius: '10px',
+                                                                                            border: '1.5px solid #fed7aa',
+                                                                                            background: '#fff7ed',
+                                                                                            color: '#ea580c',
+                                                                                            fontWeight: '800',
+                                                                                            fontSize: '12px',
+                                                                                            cursor: 'pointer'
+                                                                                        }}
+                                                                                    >
+                                                                                        🔁 Solicitar ajuste a este punto
+                                                                                    </button>
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    )}
+
+                                                    {/* Sticky / Bottom Summary & Actions for Client */}
+                                                    {Array.isArray(flattenedSosPoints) && flattenedSosPoints.length > 0 && (
+                                                        <div style={{
+                                                            background: '#fff',
+                                                            borderRadius: '24px',
+                                                            padding: '24px',
+                                                            border: '2px solid #fed7aa',
+                                                            boxShadow: '0 8px 30px rgba(0,0,0,0.08)',
+                                                            display: 'flex',
+                                                            flexDirection: 'column',
+                                                            gap: '16px'
+                                                        }}>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                                                                <div>
+                                                                    <span style={{ fontSize: '13px', fontWeight: '800', color: '#64748b' }}>RESUMEN DE AUTORIZACIÓN</span>
+                                                                    <p style={{ margin: '2px 0 0', fontSize: '15px', fontWeight: '700', color: '#1e293b' }}>
+                                                                        {flattenedSosPoints.filter(p => p && selectedSosPoints[p.id] !== false).length} de {flattenedSosPoints.length} puntos seleccionados
+                                                                    </p>
+                                                                </div>
+                                                                <div style={{ textAlign: 'right' }}>
+                                                                    <span style={{ fontSize: '13px', fontWeight: '800', color: '#64748b' }}>MONTO TOTAL</span>
+                                                                    <p style={{ margin: '2px 0 0', fontSize: '28px', fontWeight: '900', color: '#ea580c' }}>
+                                                                        ${(Number(selectedSosTotal) || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+
+                                                            {['Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución', 'Finalizado'].includes(trabajo?.estado || '') ? (
+                                                                <div style={{ background: '#f0fdf4', border: '1.5px solid #86efac', borderRadius: '14px', padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '12px', color: '#166534', fontWeight: '800', fontSize: '15px' }}>
+                                                                    <span style={{ fontSize: '24px' }}>✓</span>
+                                                                    <div>
+                                                                        <p style={{ margin: 0 }}>Cotización Aprobada y Autorizada</p>
+                                                                        <p style={{ margin: '2px 0 0', fontSize: '13px', fontWeight: '600', color: '#15803d' }}>El técnico ya está en ejecución de los trabajos autorizados.</p>
+                                                                    </div>
+                                                                </div>
+                                                            ) : (
+                                                                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={handleClientAceptarCotizacionSOS}
+                                                                        style={{
+                                                                            flex: 2,
+                                                                            minWidth: '220px',
+                                                                            padding: '16px 24px',
+                                                                            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                                                            color: '#fff',
+                                                                            border: 'none',
+                                                                            borderRadius: '16px',
+                                                                            fontSize: '16px',
+                                                                            fontWeight: '800',
+                                                                            cursor: 'pointer',
+                                                                            boxShadow: '0 6px 20px rgba(16, 185, 129, 0.35)',
+                                                                            display: 'flex',
+                                                                            alignItems: 'center',
+                                                                            justifyContent: 'center',
+                                                                            gap: '10px'
+                                                                        }}
+                                                                    >
+                                                                        <HiOutlineCheckCircle size={22} />
+                                                                        Aceptar y Autorizar (${(Number(selectedSosTotal) || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })})
+                                                                    </button>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            setCotizParaRecotizar(subTareas[0]?.id || 0);
+                                                                            setShowRecotizModal(true);
+                                                                        }}
+                                                                        style={{
+                                                                            flex: 1,
+                                                                            minWidth: '160px',
+                                                                            padding: '16px 20px',
+                                                                            background: '#fff',
+                                                                            color: '#d97706',
+                                                                            border: '2px solid #fed7aa',
+                                                                            borderRadius: '16px',
+                                                                            fontSize: '14px',
+                                                                            fontWeight: '800',
+                                                                            cursor: 'pointer'
+                                                                        }}
+                                                                    >
+                                                                        🔁 Solicitar Re-Cotización
+                                                                    </button>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                /* NON-SOS STANDARD FLOW */
+                                                <>
+                                                    {/* Header con botón de Chat */}
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+                                                        <div className={styles.clientCotizHeader} style={{ margin: 0 }}>
+                                                            <div className={styles.clientCotizHeaderIcon}>
+                                                                <HiOutlineCurrencyDollar size={22} color="white" />
+                                                            </div>
+                                                            <div>
+                                                                <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '800', color: '#1e293b' }}>Cotizaciones Recibidas</h2>
+                                                                <p style={{ margin: 0, fontSize: '13px', color: '#94a3b8', fontWeight: '600' }}>{cotizaciones.length} opción{cotizaciones.length !== 1 ? 'es' : ''} disponible{cotizaciones.length !== 1 ? 's' : ''}</p>
+                                                            </div>
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setIsTechDrawerOpen(true)}
+                                                            className={styles.techDrawerDesktopTrigger}
+                                                            style={{ margin: 0 }}
+                                                        >
+                                                            <HiOutlineChatBubbleLeftRight size={17} color="#f26522" />
+                                                            <span>💬 Chat con Administrador</span>
+                                                            <HiOutlineChevronLeft size={16} style={{ strokeWidth: 3 }} />
+                                                        </button>
+                                                    </div>
+
+                                                    {cotizaciones.length === 0 ? (
+                                                        <div style={{ background: '#fff', borderRadius: '24px', padding: '60px 40px', textAlign: 'center', border: '1.5px solid #f1f5f9', boxShadow: '0 4px 20px rgba(0,0,0,0.02)' }}>
+                                                            <div style={{ fontSize: '48px', marginBottom: '16px' }}>📭</div>
+                                                            <p style={{ margin: 0, color: '#94a3b8', fontWeight: '700', fontSize: '16px' }}>Aún no hay cotizaciones disponibles.</p>
+                                                            <p style={{ margin: '8px 0 0 0', color: '#cbd5e1', fontSize: '14px' }}>Te notificaremos en cuanto el administrador envíe una propuesta.</p>
+                                                        </div>
+                                                    ) : (
+                                                        cotizaciones.map((cotiz, idx) => {
+                                                            const THREE_HOURS = 3 * 60 * 60 * 1000;
+                                                            const isApproved = cotiz.estado === 'Aprobada';
+                                                            const isRejected = cotiz.estado === 'Rechazada';
+                                                            const isPending = cotiz.estado === 'Pendiente';
+                                                            const isRecotizRequested = isRejected && !!(cotiz.id && recotizacionReasons[cotiz.id]);
+                                                            const recotizReason = cotiz.id ? (recotizacionReasons[cotiz.id] ?? '') : '';
+
+                                                            const rejectedAt = cotiz.id ? (rejectionTimestamps[cotiz.id] ?? null) : null;
+                                                            const msLeft = rejectedAt ? (rejectedAt + THREE_HOURS) - nowMs : 0;
+                                                            const withinWindow = isRejected && !isRecotizRequested && rejectedAt && msLeft > 0;
+                                                            const windowExpired = isRejected && !isRecotizRequested && rejectedAt && msLeft <= 0;
+                                                            const rejectionReason = cotiz.id ? (rejectionReasons[cotiz.id] ?? '') : '';
+
+                                                            const rawDesc = cotiz.descripcion || '';
+                                                            const cotizTitle = getQuoteTitle(rawDesc, `Propuesta #${idx + 1}`);
+                                                            const cleanDesc = cleanQuoteDescription(rawDesc);
+
+                                                            const conceptLines: { name: string; qty: string; price: string }[] = [];
+                                                            const materialLines: { name: string; qty: string; price: string }[] = [];
+                                                            let descriptionText = '';
+
+                                                            cleanDesc.split('\n').forEach(line => {
+                                                                const trimmed = line.trim();
+                                                                if (!trimmed) return;
+                                                                const serviceMatch = trimmed.match(/^[\-\*]?\s*(.+?)\s*\/\s*Servicio Técnico\s*-\s*(.+)$/);
+                                                                if (serviceMatch) {
+                                                                    const pricePart = serviceMatch[2].trim();
+                                                                    const namePart = serviceMatch[1].trim();
+                                                                    const qtyMatch = namePart.match(/^(.+?)\s*\((\d+)\)$/);
+                                                                    conceptLines.push({
+                                                                        name: qtyMatch ? qtyMatch[1].trim() : namePart,
+                                                                        qty: qtyMatch ? `${qtyMatch[2]}x` : '1x',
+                                                                        price: pricePart.startsWith('$') ? pricePart : `$${pricePart}`
+                                                                    });
+                                                                    return;
+                                                                }
+                                                                const parsedMats = parseMaterials(trimmed);
+                                                                if (parsedMats.length > 0 && parsedMats[0].precio) {
+                                                                    parsedMats.forEach(m => materialLines.push({ name: m.material, qty: m.cantidad ? `${m.cantidad}x` : '1x', price: m.precio.startsWith('$') ? m.precio : `$${m.precio}` }));
+                                                                } else {
+                                                                    descriptionText += (descriptionText ? '\n' : '') + trimmed;
+                                                                }
+                                                            });
+
+                                                            const cardClass = `${styles.clientCotizCard}${isApproved ? ' ' + styles.approved :
+                                                                    isRecotizRequested ? ' ' + styles.recotizacion :
+                                                                        isRejected ? ' ' + styles.rejected : ''
+                                                                }`;
+
+                                                            return (
+                                                                <div key={cotiz.id} className={cardClass}>
+                                                                    <div className={styles.clientCotizStripe} />
+                                                                    <div className={styles.clientCotizCardInner}>
+                                                                        <div className={styles.clientCotizCardHeader}>
+                                                                            <div>
+                                                                                <p className={styles.clientCotizCardTitle}>{cotizTitle}</p>
+                                                                                <p className={styles.clientCotizCardSubtitle}>Registro #{idx + 1} · Bitácora de Cotización</p>
+                                                                            </div>
+                                                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                                                                                <p className={styles.clientCotizPriceLabel}>MONTO TOTAL</p>
+                                                                                <p className={styles.clientCotizPrice}>${Number(cotiz.monto).toLocaleString('es-MX')}</p>
+                                                                            </div>
+                                                                        </div>
+
+                                                                        <div style={{ marginBottom: '16px' }}>
+                                                                            <span className={`${styles.clientCotizBadge} ${isApproved ? styles.approved :
+                                                                                    isRecotizRequested ? styles.recotizacion :
+                                                                                        isRejected ? styles.rejected : styles.pending
+                                                                                }`}>
+                                                                                {isApproved ? '✓ Aprobada' : isRecotizRequested ? '🔁 Re-Cotización Solicitada' : isRejected ? '✕ Rechazada' : '⏳ Pendiente de Revisión'}
+                                                                            </span>
+                                                                        </div>
+
+                                                                        {descriptionText && (
+                                                                            <div className={styles.clientCotizSectionFull}>
+                                                                                <p className={styles.clientCotizSectionLabel}><span>📝</span> Descripción y Alcance</p>
+                                                                                <p style={{ margin: 0, fontSize: '13px', color: '#475569', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>{descriptionText}</p>
+                                                                            </div>
+                                                                        )}
+
+                                                                        <div className={styles.clientCotizSections}>
+                                                                            <div className={styles.clientCotizSection}>
+                                                                                <p className={styles.clientCotizSectionLabel}><span>🔧</span> Conceptos de Servicio</p>
+                                                                                {conceptLines.length === 0 ? (
+                                                                                    <p className={styles.clientCotizEmpty}>Sin conceptos registrados</p>
+                                                                                ) : conceptLines.map((c, i) => (
+                                                                                    <div key={i} className={styles.clientCotizItem}>
+                                                                                        <span className={styles.clientCotizItemQty}>{c.qty}</span>
+                                                                                        <span className={styles.clientCotizItemName}>{c.name}</span>
+                                                                                        <span className={styles.clientCotizItemPrice}>{c.price}</span>
+                                                                                    </div>
+                                                                                ))}
+                                                                            </div>
+                                                                            <div className={styles.clientCotizSection}>
+                                                                                <p className={styles.clientCotizSectionLabel}><span>🪛</span> Materiales</p>
+                                                                                {materialLines.length === 0 ? (
+                                                                                    <p className={styles.clientCotizEmpty}>Sin materiales</p>
+                                                                                ) : materialLines.map((m, i) => (
+                                                                                    <div key={i} className={styles.clientCotizItem}>
+                                                                                        <span className={styles.clientCotizItemQty}>{m.qty}</span>
+                                                                                        <span className={styles.clientCotizItemName}>{m.name}</span>
+                                                                                        <span className={styles.clientCotizItemPrice}>{m.price}</span>
+                                                                                    </div>
+                                                                                ))}
+                                                                            </div>
+                                                                        </div>
+
+                                                                        <div className={styles.clientCotizTotalRow}>
+                                                                            <span className={styles.clientCotizTotalLabel}>⚡ Monto Total</span>
+                                                                            <span className={styles.clientCotizTotalValue}>${Number(cotiz.monto).toLocaleString('es-MX')}</span>
+                                                                        </div>
+
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => setPreviewQuote(cotiz)}
+                                                                            className={styles.clientCotizPdfBtn}
+                                                                            style={{
+                                                                                display: 'flex',
+                                                                                alignItems: 'center',
+                                                                                justifyContent: 'center',
+                                                                                gap: '8px',
+                                                                                width: '100%',
+                                                                                padding: '13px 18px',
+                                                                                background: '#eff6ff',
+                                                                                color: '#1d4ed8',
+                                                                                border: '1.5px solid #bfdbfe',
+                                                                                borderRadius: '12px',
+                                                                                fontSize: '14px',
+                                                                                fontWeight: '800',
+                                                                                cursor: 'pointer',
+                                                                                boxSizing: 'border-box',
+                                                                                marginBottom: '16px',
+                                                                                boxShadow: '0 2px 8px rgba(37, 99, 235, 0.08)',
+                                                                                transition: 'all 0.2s ease'
+                                                                            }}
+                                                                        >
+                                                                            <HiOutlineDocumentText size={20} color="#2563eb" />
+                                                                            <span>Ver Presupuesto PDF (Descargar)</span>
+                                                                        </button>
+
+                                                                        {isRecotizRequested ? (
+                                                                            <div style={{
+                                                                                background: '#fff7ed',
+                                                                                border: '1.5px solid #fed7aa',
+                                                                                borderRadius: '14px',
+                                                                                padding: '16px',
+                                                                                marginBottom: '16px'
+                                                                            }}>
+                                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                                                                                    <span style={{ fontSize: '18px' }}>🔁</span>
+                                                                                    <p style={{ margin: 0, fontSize: '13.5px', fontWeight: '800', color: '#9a3412' }}>
+                                                                                        Solicitud de Re-Cotización enviada al Administrador
+                                                                                    </p>
+                                                                                </div>
+                                                                                {recotizReason && (
+                                                                                    <p style={{ margin: '0 0 10px 0', fontSize: '13px', color: '#7c2d12', fontStyle: 'italic', background: '#ffedd5', padding: '10px 14px', borderRadius: '10px', border: '1px solid #fdba74' }}>
+                                                                                        "{recotizReason}"
+                                                                                    </p>
+                                                                                )}
+                                                                                <p style={{ margin: '0 0 14px 0', fontSize: '12.5px', color: '#9a3412', lineHeight: '1.4' }}>
+                                                                                    El administrador ha sido notificado para ajustar esta propuesta. Puedes comunicarte con él a través del chat o cancelar la solicitud si decides aceptar la propuesta actual.
+                                                                                </p>
+                                                                                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={() => setIsTechDrawerOpen(true)}
+                                                                                        style={{
+                                                                                            padding: '11px 18px',
+                                                                                            borderRadius: '10px',
+                                                                                            background: 'linear-gradient(135deg, #f26522, #ea580c)',
+                                                                                            color: '#fff',
+                                                                                            border: 'none',
+                                                                                            fontWeight: '750',
+                                                                                            fontSize: '13px',
+                                                                                            cursor: 'pointer',
+                                                                                            display: 'flex',
+                                                                                            alignItems: 'center',
+                                                                                            gap: '6px',
+                                                                                            boxShadow: '0 4px 10px rgba(242, 101, 34, 0.25)'
+                                                                                        }}
+                                                                                    >
+                                                                                        <HiOutlineChatBubbleLeftRight size={17} /> Abrir Chat con Administrador
+                                                                                    </button>
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={() => handleCancelarRechazo(cotiz.id!)}
+                                                                                        style={{
+                                                                                            padding: '11px 16px',
+                                                                                            borderRadius: '10px',
+                                                                                            background: '#ffffff',
+                                                                                            color: '#64748b',
+                                                                                            border: '1.5px solid #cbd5e1',
+                                                                                            fontWeight: '700',
+                                                                                            fontSize: '13px',
+                                                                                            cursor: 'pointer'
+                                                                                        }}
+                                                                                    >
+                                                                                        ↩️ Cancelar y Aceptar Propuesta
+                                                                                    </button>
+                                                                                </div>
+                                                                            </div>
+                                                                        ) : isRejected && rejectionReason ? (
+                                                                            <div className={styles.clientCotizRejectionBox}>
+                                                                                <p className={styles.clientCotizRejectionTitle}>✕ Motivo de Rechazo</p>
+                                                                                <p className={styles.clientCotizRejectionText}>{rejectionReason}</p>
+                                                                            </div>
+                                                                        ) : null}
+
+                                                                        {withinWindow && (
+                                                                            <div className={styles.clientCotizCountdownBox}>
+                                                                                <p className={styles.clientCotizCountdownText}>⏱ Puedes cancelar el rechazo en:</p>
+                                                                                <span className={styles.clientCotizCountdownTimer}>{formatCountdown(msLeft)}</span>
+                                                                            </div>
+                                                                        )}
+
+                                                                        {isPending && (
+                                                                            <div className={styles.clientCotizActions}>
+                                                                                <button className={styles.clientCotizBtnAccept} onClick={() => handleClienteAceptarCotizacion(cotiz.id!)}>
+                                                                                    <HiOutlineCheckCircle size={20} /> Aceptar Propuesta
                                                                                 </button>
-                                                                                <button
-                                                                                    type="button"
-                                                                                    onClick={() => {
-                                                                                        setCotizParaRecotizar(point.subTareaId);
-                                                                                        setShowRecotizModal(true);
-                                                                                    }}
-                                                                                    style={{
-                                                                                        padding: '8px 14px',
-                                                                                        borderRadius: '10px',
-                                                                                        border: '1.5px solid #fed7aa',
-                                                                                        background: '#fff7ed',
-                                                                                        color: '#ea580c',
-                                                                                        fontWeight: '800',
-                                                                                        fontSize: '12px',
-                                                                                        cursor: 'pointer'
-                                                                                    }}
-                                                                                >
-                                                                                    🔁 Solicitar ajuste a este punto
+                                                                                <button className={styles.clientCotizBtnRecotizar} onClick={() => { setCotizParaRecotizar(cotiz.id!); setShowRecotizModal(true); }}>
+                                                                                    🔁 Re-Cotizar
                                                                                 </button>
+                                                                                <button className={styles.clientCotizBtnReject} onClick={() => handleClienteRechazarCotizacion(cotiz.id!)}>
+                                                                                    <HiOutlineXCircle size={18} /> Rechazar
+                                                                                </button>
+                                                                            </div>
+                                                                        )}
+
+                                                                        {withinWindow && (
+                                                                            <button className={styles.clientCotizBtnCancelReject} onClick={() => handleCancelarRechazo(cotiz.id!)}>
+                                                                                ↩️ Cancelar Rechazo y Aceptar esta Cotización
+                                                                            </button>
+                                                                        )}
+
+                                                                        {windowExpired && (
+                                                                            <button className={styles.clientCotizBtnReactivate} onClick={() => handleSolicitarReactivacion(cotiz.id!)}>
+                                                                                🔄 Solicitar Reactivación de Cotización
+                                                                            </button>
+                                                                        )}
+
+                                                                        {isApproved && (
+                                                                            <div className={styles.clientCotizApprovedMsg}>
+                                                                                <HiOutlineCheckCircle size={22} />
+                                                                                <span><strong>Propuesta Aceptada.</strong> El administrador ha sido notificado y procederá con la asignación del técnico.</span>
                                                                             </div>
                                                                         )}
                                                                     </div>
                                                                 </div>
                                                             );
-                                                        })}
-                                                    </div>
-                                                )}
-
-                                                {/* Sticky / Bottom Summary & Actions for Client */}
-                                                {Array.isArray(flattenedSosPoints) && flattenedSosPoints.length > 0 && (
-                                                    <div style={{
-                                                        background: '#fff',
-                                                        borderRadius: '24px',
-                                                        padding: '24px',
-                                                        border: '2px solid #fed7aa',
-                                                        boxShadow: '0 8px 30px rgba(0,0,0,0.08)',
-                                                        display: 'flex',
-                                                        flexDirection: 'column',
-                                                        gap: '16px'
-                                                    }}>
-                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-                                                            <div>
-                                                                <span style={{ fontSize: '13px', fontWeight: '800', color: '#64748b' }}>RESUMEN DE AUTORIZACIÓN</span>
-                                                                <p style={{ margin: '2px 0 0', fontSize: '15px', fontWeight: '700', color: '#1e293b' }}>
-                                                                    {flattenedSosPoints.filter(p => p && selectedSosPoints[p.id] !== false).length} de {flattenedSosPoints.length} puntos seleccionados
-                                                                </p>
-                                                            </div>
-                                                            <div style={{ textAlign: 'right' }}>
-                                                                <span style={{ fontSize: '13px', fontWeight: '800', color: '#64748b' }}>MONTO TOTAL</span>
-                                                                <p style={{ margin: '2px 0 0', fontSize: '28px', fontWeight: '900', color: '#ea580c' }}>
-                                                                    ${(Number(selectedSosTotal) || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
-                                                                </p>
-                                                            </div>
-                                                        </div>
-
-                                                        {['Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución', 'Finalizado'].includes(trabajo?.estado || '') ? (
-                                                            <div style={{ background: '#f0fdf4', border: '1.5px solid #86efac', borderRadius: '14px', padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '12px', color: '#166534', fontWeight: '800', fontSize: '15px' }}>
-                                                                <span style={{ fontSize: '24px' }}>✓</span>
-                                                                <div>
-                                                                    <p style={{ margin: 0 }}>Cotización Aprobada y Autorizada</p>
-                                                                    <p style={{ margin: '2px 0 0', fontSize: '13px', fontWeight: '600', color: '#15803d' }}>El técnico ya está en ejecución de los trabajos autorizados.</p>
-                                                                </div>
-                                                            </div>
-                                                        ) : (
-                                                            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={handleClientAceptarCotizacionSOS}
-                                                                    style={{
-                                                                        flex: 2,
-                                                                        minWidth: '220px',
-                                                                        padding: '16px 24px',
-                                                                        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                                                                        color: '#fff',
-                                                                        border: 'none',
-                                                                        borderRadius: '16px',
-                                                                        fontSize: '16px',
-                                                                        fontWeight: '800',
-                                                                        cursor: 'pointer',
-                                                                        boxShadow: '0 6px 20px rgba(16, 185, 129, 0.35)',
-                                                                        display: 'flex',
-                                                                        alignItems: 'center',
-                                                                        justifyContent: 'center',
-                                                                        gap: '10px'
-                                                                    }}
-                                                                >
-                                                                    <HiOutlineCheckCircle size={22} />
-                                                                    Aceptar y Autorizar (${(Number(selectedSosTotal) || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })})
-                                                                </button>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => {
-                                                                        setCotizParaRecotizar(subTareas[0]?.id || 0);
-                                                                        setShowRecotizModal(true);
-                                                                    }}
-                                                                    style={{
-                                                                        flex: 1,
-                                                                        minWidth: '160px',
-                                                                        padding: '16px 20px',
-                                                                        background: '#fff',
-                                                                        color: '#d97706',
-                                                                        border: '2px solid #fed7aa',
-                                                                        borderRadius: '16px',
-                                                                        fontSize: '14px',
-                                                                        fontWeight: '800',
-                                                                        cursor: 'pointer'
-                                                                    }}
-                                                                >
-                                                                    🔁 Solicitar Re-Cotización
-                                                                </button>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        ) : (
-                                            /* NON-SOS STANDARD FLOW */
-                                            <>
-                                                {/* Header con botón de Chat */}
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
-                                                    <div className={styles.clientCotizHeader} style={{ margin: 0 }}>
-                                                        <div className={styles.clientCotizHeaderIcon}>
-                                                            <HiOutlineCurrencyDollar size={22} color="white" />
-                                                        </div>
-                                                        <div>
-                                                            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '800', color: '#1e293b' }}>Cotizaciones Recibidas</h2>
-                                                            <p style={{ margin: 0, fontSize: '13px', color: '#94a3b8', fontWeight: '600' }}>{cotizaciones.length} opción{cotizaciones.length !== 1 ? 'es' : ''} disponible{cotizaciones.length !== 1 ? 's' : ''}</p>
-                                                        </div>
-                                                    </div>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setIsTechDrawerOpen(true)}
-                                                        className={styles.techDrawerDesktopTrigger}
-                                                        style={{ margin: 0 }}
-                                                    >
-                                                        <HiOutlineChatBubbleLeftRight size={17} color="#f26522" />
-                                                        <span>💬 Chat con Administrador</span>
-                                                        <HiOutlineChevronLeft size={16} style={{ strokeWidth: 3 }} />
-                                                    </button>
-                                                </div>
-
-                                                {cotizaciones.length === 0 ? (
-                                                    <div style={{ background: '#fff', borderRadius: '24px', padding: '60px 40px', textAlign: 'center', border: '1.5px solid #f1f5f9', boxShadow: '0 4px 20px rgba(0,0,0,0.02)' }}>
-                                                        <div style={{ fontSize: '48px', marginBottom: '16px' }}>📭</div>
-                                                        <p style={{ margin: 0, color: '#94a3b8', fontWeight: '700', fontSize: '16px' }}>Aún no hay cotizaciones disponibles.</p>
-                                                        <p style={{ margin: '8px 0 0 0', color: '#cbd5e1', fontSize: '14px' }}>Te notificaremos en cuanto el administrador envíe una propuesta.</p>
-                                                    </div>
-                                                ) : (
-                                                    cotizaciones.map((cotiz, idx) => {
-                                                        const THREE_HOURS = 3 * 60 * 60 * 1000;
-                                                        const isApproved = cotiz.estado === 'Aprobada';
-                                                        const isRejected = cotiz.estado === 'Rechazada';
-                                                        const isPending = cotiz.estado === 'Pendiente';
-                                                        const isRecotizRequested = isRejected && !!(cotiz.id && recotizacionReasons[cotiz.id]);
-                                                        const recotizReason = cotiz.id ? (recotizacionReasons[cotiz.id] ?? '') : '';
-
-                                                        const rejectedAt = cotiz.id ? (rejectionTimestamps[cotiz.id] ?? null) : null;
-                                                        const msLeft = rejectedAt ? (rejectedAt + THREE_HOURS) - nowMs : 0;
-                                                        const withinWindow = isRejected && !isRecotizRequested && rejectedAt && msLeft > 0;
-                                                        const windowExpired = isRejected && !isRecotizRequested && rejectedAt && msLeft <= 0;
-                                                        const rejectionReason = cotiz.id ? (rejectionReasons[cotiz.id] ?? '') : '';
-
-                                                        const rawDesc = cotiz.descripcion || '';
-                                                        const cotizTitle = getQuoteTitle(rawDesc, `Propuesta #${idx + 1}`);
-                                                        const cleanDesc = cleanQuoteDescription(rawDesc);
-
-                                                        const conceptLines: { name: string; qty: string; price: string }[] = [];
-                                                        const materialLines: { name: string; qty: string; price: string }[] = [];
-                                                        let descriptionText = '';
-
-                                                        cleanDesc.split('\n').forEach(line => {
-                                                            const trimmed = line.trim();
-                                                            if (!trimmed) return;
-                                                            const serviceMatch = trimmed.match(/^[\-\*]?\s*(.+?)\s*\/\s*Servicio Técnico\s*-\s*(.+)$/);
-                                                            if (serviceMatch) {
-                                                                const pricePart = serviceMatch[2].trim();
-                                                                const namePart = serviceMatch[1].trim();
-                                                                const qtyMatch = namePart.match(/^(.+?)\s*\((\d+)\)$/);
-                                                                conceptLines.push({
-                                                                    name: qtyMatch ? qtyMatch[1].trim() : namePart,
-                                                                    qty: qtyMatch ? `${qtyMatch[2]}x` : '1x',
-                                                                    price: pricePart.startsWith('$') ? pricePart : `$${pricePart}`
-                                                                });
-                                                                return;
-                                                            }
-                                                            const parsedMats = parseMaterials(trimmed);
-                                                            if (parsedMats.length > 0 && parsedMats[0].precio) {
-                                                                parsedMats.forEach(m => materialLines.push({ name: m.material, qty: m.cantidad ? `${m.cantidad}x` : '1x', price: m.precio.startsWith('$') ? m.precio : `$${m.precio}` }));
-                                                            } else {
-                                                                descriptionText += (descriptionText ? '\n' : '') + trimmed;
-                                                            }
-                                                        });
-
-                                                        const cardClass = `${styles.clientCotizCard}${
-                                                            isApproved ? ' ' + styles.approved :
-                                                            isRecotizRequested ? ' ' + styles.recotizacion :
-                                                            isRejected ? ' ' + styles.rejected : ''
-                                                        }`;
-
-                                                        return (
-                                                            <div key={cotiz.id} className={cardClass}>
-                                                                <div className={styles.clientCotizStripe} />
-                                                                <div className={styles.clientCotizCardInner}>
-                                                                    <div className={styles.clientCotizCardHeader}>
-                                                                        <div>
-                                                                            <p className={styles.clientCotizCardTitle}>{cotizTitle}</p>
-                                                                            <p className={styles.clientCotizCardSubtitle}>Registro #{idx + 1} · Bitácora de Cotización</p>
-                                                                        </div>
-                                                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
-                                                                            <p className={styles.clientCotizPriceLabel}>MONTO TOTAL</p>
-                                                                            <p className={styles.clientCotizPrice}>${Number(cotiz.monto).toLocaleString('es-MX')}</p>
-                                                                        </div>
-                                                                    </div>
-
-                                                                    <div style={{ marginBottom: '16px' }}>
-                                                                        <span className={`${styles.clientCotizBadge} ${
-                                                                            isApproved ? styles.approved : 
-                                                                            isRecotizRequested ? styles.recotizacion :
-                                                                            isRejected ? styles.rejected : styles.pending
-                                                                        }`}>
-                                                                            {isApproved ? '✓ Aprobada' : isRecotizRequested ? '🔁 Re-Cotización Solicitada' : isRejected ? '✕ Rechazada' : '⏳ Pendiente de Revisión'}
-                                                                        </span>
-                                                                    </div>
-
-                                                                    {descriptionText && (
-                                                                        <div className={styles.clientCotizSectionFull}>
-                                                                            <p className={styles.clientCotizSectionLabel}><span>📝</span> Descripción y Alcance</p>
-                                                                            <p style={{ margin: 0, fontSize: '13px', color: '#475569', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>{descriptionText}</p>
-                                                                        </div>
-                                                                    )}
-
-                                                                    <div className={styles.clientCotizSections}>
-                                                                        <div className={styles.clientCotizSection}>
-                                                                            <p className={styles.clientCotizSectionLabel}><span>🔧</span> Conceptos de Servicio</p>
-                                                                            {conceptLines.length === 0 ? (
-                                                                                <p className={styles.clientCotizEmpty}>Sin conceptos registrados</p>
-                                                                            ) : conceptLines.map((c, i) => (
-                                                                                <div key={i} className={styles.clientCotizItem}>
-                                                                                    <span className={styles.clientCotizItemQty}>{c.qty}</span>
-                                                                                    <span className={styles.clientCotizItemName}>{c.name}</span>
-                                                                                    <span className={styles.clientCotizItemPrice}>{c.price}</span>
-                                                                                </div>
-                                                                            ))}
-                                                                        </div>
-                                                                        <div className={styles.clientCotizSection}>
-                                                                            <p className={styles.clientCotizSectionLabel}><span>🪛</span> Materiales</p>
-                                                                            {materialLines.length === 0 ? (
-                                                                                <p className={styles.clientCotizEmpty}>Sin materiales</p>
-                                                                            ) : materialLines.map((m, i) => (
-                                                                                <div key={i} className={styles.clientCotizItem}>
-                                                                                    <span className={styles.clientCotizItemQty}>{m.qty}</span>
-                                                                                    <span className={styles.clientCotizItemName}>{m.name}</span>
-                                                                                    <span className={styles.clientCotizItemPrice}>{m.price}</span>
-                                                                                </div>
-                                                                            ))}
-                                                                        </div>
-                                                                    </div>
-
-                                                                    <div className={styles.clientCotizTotalRow}>
-                                                                        <span className={styles.clientCotizTotalLabel}>⚡ Monto Total</span>
-                                                                        <span className={styles.clientCotizTotalValue}>${Number(cotiz.monto).toLocaleString('es-MX')}</span>
-                                                                    </div>
-
-                                                                    <button 
-                                                                        type="button"
-                                                                        onClick={() => setPreviewQuote(cotiz)} 
-                                                                        className={styles.clientCotizPdfBtn}
-                                                                        style={{
-                                                                            display: 'flex',
-                                                                            alignItems: 'center',
-                                                                            justifyContent: 'center',
-                                                                            gap: '8px',
-                                                                            width: '100%',
-                                                                            padding: '13px 18px',
-                                                                            background: '#eff6ff',
-                                                                            color: '#1d4ed8',
-                                                                            border: '1.5px solid #bfdbfe',
-                                                                            borderRadius: '12px',
-                                                                            fontSize: '14px',
-                                                                            fontWeight: '800',
-                                                                            cursor: 'pointer',
-                                                                            boxSizing: 'border-box',
-                                                                            marginBottom: '16px',
-                                                                            boxShadow: '0 2px 8px rgba(37, 99, 235, 0.08)',
-                                                                            transition: 'all 0.2s ease'
-                                                                        }}
-                                                                    >
-                                                                        <HiOutlineDocumentText size={20} color="#2563eb" /> 
-                                                                        <span>Ver Presupuesto PDF (Descargar)</span>
-                                                                    </button>
-
-                                                                    {isRecotizRequested ? (
-                                                                        <div style={{
-                                                                            background: '#fff7ed',
-                                                                            border: '1.5px solid #fed7aa',
-                                                                            borderRadius: '14px',
-                                                                            padding: '16px',
-                                                                            marginBottom: '16px'
-                                                                        }}>
-                                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                                                                                <span style={{ fontSize: '18px' }}>🔁</span>
-                                                                                <p style={{ margin: 0, fontSize: '13.5px', fontWeight: '800', color: '#9a3412' }}>
-                                                                                    Solicitud de Re-Cotización enviada al Administrador
-                                                                                </p>
-                                                                            </div>
-                                                                            {recotizReason && (
-                                                                                <p style={{ margin: '0 0 10px 0', fontSize: '13px', color: '#7c2d12', fontStyle: 'italic', background: '#ffedd5', padding: '10px 14px', borderRadius: '10px', border: '1px solid #fdba74' }}>
-                                                                                    "{recotizReason}"
-                                                                                </p>
-                                                                            )}
-                                                                            <p style={{ margin: '0 0 14px 0', fontSize: '12.5px', color: '#9a3412', lineHeight: '1.4' }}>
-                                                                                El administrador ha sido notificado para ajustar esta propuesta. Puedes comunicarte con él a través del chat o cancelar la solicitud si decides aceptar la propuesta actual.
-                                                                            </p>
-                                                                            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                                                                                <button
-                                                                                    type="button"
-                                                                                    onClick={() => setIsTechDrawerOpen(true)}
-                                                                                    style={{
-                                                                                        padding: '11px 18px',
-                                                                                        borderRadius: '10px',
-                                                                                        background: 'linear-gradient(135deg, #f26522, #ea580c)',
-                                                                                        color: '#fff',
-                                                                                        border: 'none',
-                                                                                        fontWeight: '750',
-                                                                                        fontSize: '13px',
-                                                                                        cursor: 'pointer',
-                                                                                        display: 'flex',
-                                                                                        alignItems: 'center',
-                                                                                        gap: '6px',
-                                                                                        boxShadow: '0 4px 10px rgba(242, 101, 34, 0.25)'
-                                                                                    }}
-                                                                                >
-                                                                                    <HiOutlineChatBubbleLeftRight size={17} /> Abrir Chat con Administrador
-                                                                                </button>
-                                                                                <button
-                                                                                    type="button"
-                                                                                    onClick={() => handleCancelarRechazo(cotiz.id!)}
-                                                                                    style={{
-                                                                                        padding: '11px 16px',
-                                                                                        borderRadius: '10px',
-                                                                                        background: '#ffffff',
-                                                                                        color: '#64748b',
-                                                                                        border: '1.5px solid #cbd5e1',
-                                                                                        fontWeight: '700',
-                                                                                        fontSize: '13px',
-                                                                                        cursor: 'pointer'
-                                                                                    }}
-                                                                                >
-                                                                                    ↩️ Cancelar y Aceptar Propuesta
-                                                                                </button>
-                                                                            </div>
-                                                                        </div>
-                                                                    ) : isRejected && rejectionReason ? (
-                                                                        <div className={styles.clientCotizRejectionBox}>
-                                                                            <p className={styles.clientCotizRejectionTitle}>✕ Motivo de Rechazo</p>
-                                                                            <p className={styles.clientCotizRejectionText}>{rejectionReason}</p>
-                                                                        </div>
-                                                                    ) : null}
-
-                                                                    {withinWindow && (
-                                                                        <div className={styles.clientCotizCountdownBox}>
-                                                                            <p className={styles.clientCotizCountdownText}>⏱ Puedes cancelar el rechazo en:</p>
-                                                                            <span className={styles.clientCotizCountdownTimer}>{formatCountdown(msLeft)}</span>
-                                                                        </div>
-                                                                    )}
-
-                                                                    {isPending && (
-                                                                        <div className={styles.clientCotizActions}>
-                                                                            <button className={styles.clientCotizBtnAccept} onClick={() => handleClienteAceptarCotizacion(cotiz.id!)}>
-                                                                                <HiOutlineCheckCircle size={20} /> Aceptar Propuesta
-                                                                            </button>
-                                                                            <button className={styles.clientCotizBtnRecotizar} onClick={() => { setCotizParaRecotizar(cotiz.id!); setShowRecotizModal(true); }}>
-                                                                                🔁 Re-Cotizar
-                                                                            </button>
-                                                                            <button className={styles.clientCotizBtnReject} onClick={() => handleClienteRechazarCotizacion(cotiz.id!)}>
-                                                                                <HiOutlineXCircle size={18} /> Rechazar
-                                                                            </button>
-                                                                        </div>
-                                                                    )}
-
-                                                                    {withinWindow && (
-                                                                        <button className={styles.clientCotizBtnCancelReject} onClick={() => handleCancelarRechazo(cotiz.id!)}>
-                                                                            ↩️ Cancelar Rechazo y Aceptar esta Cotización
-                                                                        </button>
-                                                                    )}
-
-                                                                    {windowExpired && (
-                                                                        <button className={styles.clientCotizBtnReactivate} onClick={() => handleSolicitarReactivacion(cotiz.id!)}>
-                                                                            🔄 Solicitar Reactivación de Cotización
-                                                                        </button>
-                                                                    )}
-
-                                                                    {isApproved && (
-                                                                        <div className={styles.clientCotizApprovedMsg}>
-                                                                            <HiOutlineCheckCircle size={22} />
-                                                                            <span><strong>Propuesta Aceptada.</strong> El administrador ha sido notificado y procederá con la asignación del técnico.</span>
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                        );
-                                                    })
-                                                )}
-                                            </>
-                                        )}
-                                    </div>
-                                )}
-
-                                {/* VISTA ADMIN: columna izquierda (gestión de cotizaciones), columna derecha (actividades del técnico) */}
-                                {!['cliente', 'encargado', 'gerente-sucursal'].includes(user?.role || '') && !isTechRole && (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%', maxWidth: '100%', position: 'relative' }}>
-                                        
-                                        {/* BOTÓN SUPERIOR DE ACCESO RÁPIDO A COTIZACIÓN DEL TÉCNICO Y CHAT (PC / DESKTOP) */}
-                                        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginBottom: '-6px' }}>
-                                            <button
-                                                type="button"
-                                                onClick={() => setIsTechDrawerOpen(true)}
-                                                className={styles.techDrawerDesktopTrigger}
-                                            >
-                                                <HiOutlineDocumentText size={17} color="#f26522" />
-                                                <span>{isSOS && isTechRole ? '💬 Chat con el Cliente & Cotización' : 'Ver Cotización del Técnico & Chat'}</span>
-                                                <HiOutlineChevronLeft size={16} style={{ strokeWidth: 3 }} />
-                                            </button>
+                                                        })
+                                                    )}
+                                                </>
+                                            )}
                                         </div>
+                                    )}
+
+                                    {/* VISTA ADMIN: columna izquierda (gestión de cotizaciones), columna derecha (actividades del técnico) */}
+                                    {!['cliente', 'encargado', 'gerente-sucursal'].includes(user?.role || '') && !isTechRole && (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%', maxWidth: '100%', position: 'relative' }}>
+
+                                            {/* BOTÓN SUPERIOR DE ACCESO RÁPIDO A COTIZACIÓN DEL TÉCNICO Y CHAT (PC / DESKTOP) */}
+                                            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginBottom: '-6px' }}>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setIsTechDrawerOpen(true)}
+                                                    className={styles.techDrawerDesktopTrigger}
+                                                >
+                                                    <HiOutlineDocumentText size={17} color="#f26522" />
+                                                    <span>{isSOS && isTechRole ? '💬 Chat con el Cliente & Cotización' : 'Ver Cotización del Técnico & Chat'}</span>
+                                                    <HiOutlineChevronLeft size={16} style={{ strokeWidth: 3 }} />
+                                                </button>
+                                            </div>
 
                                             {/* COLUMNA PRINCIPAL (ANCHO COMPLETO): lista de cotizaciones y formulario */}
                                             {showLeftColumn && (
@@ -7341,344 +7318,327 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                         )
                                                     )}
 
-                                                {cotizaciones.length > 0 && (
-                                                    <div style={{ background: '#fff', borderRadius: '24px', padding: '22px 18px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9', boxSizing: 'border-box', width: '100%', maxWidth: '100%' }}>
-                                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '20px', paddingBottom: '16px', borderBottom: '2px solid #f8fafc', flexWrap: 'wrap' }}>
-                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                                                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }} />
-                                                                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#1e293b' }}>Cotizaciones Enviadas</h3>
-                                                                <span style={{ background: '#ecfdf5', color: '#065f46', fontSize: '12px', fontWeight: '800', padding: '3px 10px', borderRadius: '20px', border: '1px solid #a7f3d0' }}>
-                                                                    {cotizaciones.length} cotizacion{cotizaciones.length !== 1 ? 'es' : ''}
-                                                                </span>
+                                                    {cotizaciones.length > 0 && (
+                                                        <div style={{ background: '#fff', borderRadius: '24px', padding: '22px 18px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9', boxSizing: 'border-box', width: '100%', maxWidth: '100%' }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '20px', paddingBottom: '16px', borderBottom: '2px solid #f8fafc', flexWrap: 'wrap' }}>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                                                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }} />
+                                                                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#1e293b' }}>Cotizaciones Enviadas</h3>
+                                                                    <span style={{ background: '#ecfdf5', color: '#065f46', fontSize: '12px', fontWeight: '800', padding: '3px 10px', borderRadius: '20px', border: '1px solid #a7f3d0' }}>
+                                                                        {cotizaciones.length} cotizacion{cotizaciones.length !== 1 ? 'es' : ''}
+                                                                    </span>
+                                                                </div>
+                                                                {canEditCotizacion && (
+                                                                    <button
+                                                                        onClick={() => { setShowAddQuoteForm(true); setCosto(''); setNotas(''); }}
+                                                                        style={{ padding: '7px 14px', background: 'linear-gradient(135deg, #f26522, #d14d13)', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '12px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', boxShadow: '0 4px 12px rgba(242,101,34,0.3)', whiteSpace: 'nowrap' }}
+                                                                    >
+                                                                        <HiOutlineCurrencyDollar size={14} /> + Agregar otra
+                                                                    </button>
+                                                                )}
                                                             </div>
-                                                            {canEditCotizacion && (
-                                                                <button
-                                                                    onClick={() => { setShowAddQuoteForm(true); setCosto(''); setNotas(''); }}
-                                                                    style={{ padding: '7px 14px', background: 'linear-gradient(135deg, #f26522, #d14d13)', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '12px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', boxShadow: '0 4px 12px rgba(242,101,34,0.3)', whiteSpace: 'nowrap' }}
-                                                                >
-                                                                    <HiOutlineCurrencyDollar size={14} /> + Agregar otra
-                                                                </button>
-                                                            )}
-                                                        </div>
 
-                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
-                                                            {cotizaciones.map((cotiz, idx) => {
-                                                                const isEditing = editingCotizacion?.id === cotiz.id;
-                                                                const estadoBadge: Record<string, string> = { Pendiente: '#fffbeb', Aprobada: '#ecfdf5', Rechazada: '#fef2f2' };
-                                                                const estadoText: Record<string, string> = { Pendiente: '#92400e', Aprobada: '#065f46', Rechazada: '#7f1d1d' };
-                                                                const displayEstado = (trabajo?.estado === 'Cotización Aceptada') ? 'Aprobada' : (cotiz.estado || 'Pendiente');
-                                                                const displayEstadoText = (trabajo?.estado === 'Cotización Aceptada') ? 'Aceptada' : (cotiz.estado || 'Pendiente');
-                                                                return (
-                                                                    <div key={cotiz.id} style={{
-                                                                        background: cotiz.estado === 'Rechazada' ? '#fff5f5' : '#fafafa',
-                                                                        border: cotiz.estado === 'Rechazada' ? '2px solid #fca5a5' : '1.5px solid #f1f5f9',
-                                                                        borderRadius: '18px',
-                                                                        padding: '16px',
-                                                                        boxSizing: 'border-box',
-                                                                        width: '100%'
-                                                                    }}>
-                                                                        {cotiz.estado === 'Rechazada' && (
-                                                                            <div style={{
-                                                                                background: '#fee2e2',
-                                                                                border: '1px solid #fecaca',
-                                                                                borderRadius: '10px',
-                                                                                padding: '8px 12px',
-                                                                                marginBottom: '10px',
-                                                                                display: 'flex',
-                                                                                alignItems: 'center',
-                                                                                justifyContent: 'space-between',
-                                                                                gap: '8px',
-                                                                                flexWrap: 'wrap'
-                                                                            }}>
-                                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                                                    <span style={{ fontSize: '14px' }}>🔁</span>
-                                                                                    <span style={{ fontSize: '12px', fontWeight: '800', color: '#991b1b' }}>
-                                                                                        El cliente solicitó re-cotizar esta propuesta
-                                                                                    </span>
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
+                                                                {cotizaciones.map((cotiz, idx) => {
+                                                                    const isEditing = editingCotizacion?.id === cotiz.id;
+                                                                    const estadoBadge: Record<string, string> = { Pendiente: '#fffbeb', Aprobada: '#ecfdf5', Rechazada: '#fef2f2' };
+                                                                    const estadoText: Record<string, string> = { Pendiente: '#92400e', Aprobada: '#065f46', Rechazada: '#7f1d1d' };
+                                                                    const displayEstado = (trabajo?.estado === 'Cotización Aceptada') ? 'Aprobada' : (cotiz.estado || 'Pendiente');
+                                                                    const displayEstadoText = (trabajo?.estado === 'Cotización Aceptada') ? 'Aceptada' : (cotiz.estado || 'Pendiente');
+                                                                    return (
+                                                                        <div key={cotiz.id} style={{
+                                                                            background: cotiz.estado === 'Rechazada' ? '#fff5f5' : '#fafafa',
+                                                                            border: cotiz.estado === 'Rechazada' ? '2px solid #fca5a5' : '1.5px solid #f1f5f9',
+                                                                            borderRadius: '18px',
+                                                                            padding: '16px',
+                                                                            boxSizing: 'border-box',
+                                                                            width: '100%'
+                                                                        }}>
+                                                                            {cotiz.estado === 'Rechazada' && (
+                                                                                <div style={{
+                                                                                    background: '#fee2e2',
+                                                                                    border: '1px solid #fecaca',
+                                                                                    borderRadius: '10px',
+                                                                                    padding: '8px 12px',
+                                                                                    marginBottom: '10px',
+                                                                                    display: 'flex',
+                                                                                    alignItems: 'center',
+                                                                                    justifyContent: 'space-between',
+                                                                                    gap: '8px',
+                                                                                    flexWrap: 'wrap'
+                                                                                }}>
+                                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                                        <span style={{ fontSize: '14px' }}>🔁</span>
+                                                                                        <span style={{ fontSize: '12px', fontWeight: '800', color: '#991b1b' }}>
+                                                                                            El cliente solicitó re-cotizar esta propuesta
+                                                                                        </span>
+                                                                                    </div>
+                                                                                    {canEditCotizacion && (
+                                                                                        <button
+                                                                                            onClick={() => handleEditarCotizacion(cotiz)}
+                                                                                            style={{
+                                                                                                background: 'linear-gradient(135deg, #f26522, #d14d13)',
+                                                                                                color: 'white',
+                                                                                                border: 'none',
+                                                                                                borderRadius: '8px',
+                                                                                                padding: '5px 12px',
+                                                                                                fontSize: '11px',
+                                                                                                fontWeight: '800',
+                                                                                                cursor: 'pointer',
+                                                                                                boxShadow: '0 2px 6px rgba(242, 101, 34, 0.3)'
+                                                                                            }}
+                                                                                        >
+                                                                                            ✏️ Ajustar y Reenviar
+                                                                                        </button>
+                                                                                    )}
                                                                                 </div>
-                                                                                {canEditCotizacion && (
-                                                                                    <button
-                                                                                        onClick={() => handleEditarCotizacion(cotiz)}
-                                                                                        style={{
-                                                                                            background: 'linear-gradient(135deg, #f26522, #d14d13)',
-                                                                                            color: 'white',
-                                                                                            border: 'none',
-                                                                                            borderRadius: '8px',
-                                                                                            padding: '5px 12px',
-                                                                                            fontSize: '11px',
-                                                                                            fontWeight: '800',
-                                                                                            cursor: 'pointer',
-                                                                                            boxShadow: '0 2px 6px rgba(242, 101, 34, 0.3)'
-                                                                                        }}
-                                                                                    >
-                                                                                        ✏️ Ajustar y Reenviar
+                                                                            )}
+                                                                            {isEditing ? (
+                                                                                /* FORMULARIO INLINE DE EDICIÓN */
+                                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%', boxSizing: 'border-box' }}>
+                                                                                    <p style={{ margin: '0 0 4px 0', fontSize: '12px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase' }}>Editando Opción {idx + 1}</p>
+                                                                                    <div style={{ position: 'relative' }}>
+                                                                                        <span style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', fontWeight: '900', color: '#f26522', fontSize: '16px' }}>$</span>
+                                                                                        <input type="number" value={editCosto} onChange={e => setEditCosto(e.target.value)}
+                                                                                            style={{ width: '100%', padding: '12px 14px 12px 30px', borderRadius: '12px', border: '2px solid #e2e8f0', fontSize: '16px', fontWeight: '700', boxSizing: 'border-box' }} />
+                                                                                    </div>
+                                                                                    <textarea value={editNotas} onChange={e => setEditNotas(e.target.value)} placeholder="Notas..."
+                                                                                        style={{ width: '100%', padding: '12px 14px', borderRadius: '12px', border: '2px solid #e2e8f0', fontSize: '14px', resize: 'vertical', minHeight: '80px', boxSizing: 'border-box', fontFamily: 'inherit' }} />
+                                                                                    <input ref={editFileInputRef} type="file" accept="image/*,.pdf" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) { setEditArchivoFile(f); setEditNombreArchivo(f.name); } }} />
+                                                                                    <button onClick={() => editFileInputRef.current?.click()} style={{ padding: '10px', borderRadius: '10px', border: '2px dashed #e2e8f0', background: editArchivoFile ? '#f0fdf4' : '#f8fafc', color: editArchivoFile ? '#059669' : '#64748b', fontWeight: '700', fontSize: '13px', cursor: 'pointer' }}>
+                                                                                        {editArchivoFile ? `✓ ${editNombreArchivo}` : '📎 Cambiar documento (opcional)'}
                                                                                     </button>
-                                                                                )}
-                                                                            </div>
-                                                                        )}
-                                                                        {isEditing ? (
-                                                                            /* FORMULARIO INLINE DE EDICIÓN */
-                                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%', boxSizing: 'border-box' }}>
-                                                                                <p style={{ margin: '0 0 4px 0', fontSize: '12px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase' }}>Editando Opción {idx + 1}</p>
-                                                                                <div style={{ position: 'relative' }}>
-                                                                                    <span style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', fontWeight: '900', color: '#f26522', fontSize: '16px' }}>$</span>
-                                                                                    <input type="number" value={editCosto} onChange={e => setEditCosto(e.target.value)}
-                                                                                        style={{ width: '100%', padding: '12px 14px 12px 30px', borderRadius: '12px', border: '2px solid #e2e8f0', fontSize: '16px', fontWeight: '700', boxSizing: 'border-box' }} />
-                                                                                </div>
-                                                                                <textarea value={editNotas} onChange={e => setEditNotas(e.target.value)} placeholder="Notas..."
-                                                                                    style={{ width: '100%', padding: '12px 14px', borderRadius: '12px', border: '2px solid #e2e8f0', fontSize: '14px', resize: 'vertical', minHeight: '80px', boxSizing: 'border-box', fontFamily: 'inherit' }} />
-                                                                                <input ref={editFileInputRef} type="file" accept="image/*,.pdf" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) { setEditArchivoFile(f); setEditNombreArchivo(f.name); } }} />
-                                                                                <button onClick={() => editFileInputRef.current?.click()} style={{ padding: '10px', borderRadius: '10px', border: '2px dashed #e2e8f0', background: editArchivoFile ? '#f0fdf4' : '#f8fafc', color: editArchivoFile ? '#059669' : '#64748b', fontWeight: '700', fontSize: '13px', cursor: 'pointer' }}>
-                                                                                    {editArchivoFile ? `✓ ${editNombreArchivo}` : '📎 Cambiar documento (opcional)'}
-                                                                                </button>
-                                                                                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                                                                                    <button onClick={handleUpdateCotizacion} style={{ flex: 1, padding: '12px', background: 'linear-gradient(135deg, #f26522, #d14d13)', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: '800', cursor: 'pointer', fontSize: '14px' }}>💾 Guardar cambios y Reenviar</button>
-                                                                                    <button onClick={() => setEditingCotizacion(null)} style={{ padding: '12px 16px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', fontWeight: '700', cursor: 'pointer', fontSize: '14px', color: '#475569' }}>Cancelar</button>
-                                                                                </div>
-                                                                            </div>
-                                                                        ) : (
-                                                                            /* VISTA DE LA COTIZACIÓN */
-                                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%', boxSizing: 'border-box' }}>
-                                                                                {/* Fila 1: Título y Estado */}
-                                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', flexWrap: 'wrap', width: '100%', boxSizing: 'border-box' }}>
-                                                                                    <p style={{ margin: 0, fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.8px', wordBreak: 'break-word', flex: '1 1 auto', minWidth: '120px' }}>
-                                                                                        {getQuoteTitle(cotiz.descripcion || "", `Opción ${idx + 1}`)}
-                                                                                    </p>
-                                                                                    <span style={{ padding: '4px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: '800', background: estadoBadge[displayEstado], color: estadoText[displayEstado], flexShrink: 0 }}>
-                                                                                        {cotiz.estado === 'Rechazada' ? 'Re-Cotizar / Rechazada' : displayEstadoText}
-                                                                                    </span>
-                                                                                </div>
-
-                                                                                {/* Fila 2: Monto y Acciones */}
-                                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap', width: '100%', boxSizing: 'border-box' }}>
-                                                                                    <p style={{ margin: 0, fontSize: '22px', fontWeight: '900', color: '#1e293b' }}>${Number(cotiz.monto).toLocaleString('es-MX')}</p>
-                                                                                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center', maxWidth: '100%' }}>
-                                                                                        <button onClick={() => { setCosto(cotiz.monto?.toString() || ''); setNotas(cotiz.descripcion || ''); setShowPDFPreview(true); }} style={{ padding: '7px 11px', borderRadius: '10px', background: '#fef2f2', border: '1px solid #fecaca', cursor: 'pointer', fontSize: '12px', fontWeight: '700', color: '#ef4444', display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}><HiOutlineDocumentText size={15} /> Preview PDF</button>
-                                                                                        {canEditCotizacion && (
-                                                                                            <>
-                                                                                                <button onClick={() => handleEditarCotizacion(cotiz)} style={{ padding: '7px 11px', borderRadius: '10px', background: cotiz.estado === 'Rechazada' ? 'linear-gradient(135deg, #f26522, #d14d13)' : '#f1f5f9', color: cotiz.estado === 'Rechazada' ? '#fff' : '#475569', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: '700', whiteSpace: 'nowrap' }}>
-                                                                                                    {cotiz.estado === 'Rechazada' ? '✏️ Ajustar' : '✏️ Editar'}
-                                                                                                </button>
-                                                                                                <button onClick={() => handleEliminarCotizacion(cotiz.id!)} style={{ padding: '7px 11px', borderRadius: '10px', background: '#fef2f2', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: '700', color: '#ef4444' }}>🗑️</button>
-                                                                                            </>
-                                                                                        )}
+                                                                                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                                                                        <button onClick={handleUpdateCotizacion} style={{ flex: 1, padding: '12px', background: 'linear-gradient(135deg, #f26522, #d14d13)', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: '800', cursor: 'pointer', fontSize: '14px' }}>💾 Guardar cambios y Reenviar</button>
+                                                                                        <button onClick={() => setEditingCotizacion(null)} style={{ padding: '12px 16px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', fontWeight: '700', cursor: 'pointer', fontSize: '14px', color: '#475569' }}>Cancelar</button>
                                                                                     </div>
                                                                                 </div>
+                                                                            ) : (
+                                                                                /* VISTA DE LA COTIZACIÓN */
+                                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%', boxSizing: 'border-box' }}>
+                                                                                    {/* Fila 1: Título y Estado */}
+                                                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', flexWrap: 'wrap', width: '100%', boxSizing: 'border-box' }}>
+                                                                                        <p style={{ margin: 0, fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.8px', wordBreak: 'break-word', flex: '1 1 auto', minWidth: '120px' }}>
+                                                                                            {getQuoteTitle(cotiz.descripcion || "", `Opción ${idx + 1}`)}
+                                                                                        </p>
+                                                                                        <span style={{ padding: '4px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: '800', background: estadoBadge[displayEstado], color: estadoText[displayEstado], flexShrink: 0 }}>
+                                                                                            {cotiz.estado === 'Rechazada' ? 'Re-Cotizar / Rechazada' : displayEstadoText}
+                                                                                        </span>
+                                                                                    </div>
 
-                                                                                {/* Fila 3: Descripción */}
-                                                                                {cotiz.descripcion && <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#64748b', maxWidth: '100%', wordBreak: 'break-word' }}>{cleanQuoteDescription(cotiz.descripcion)}</p>}
-                                                                            </div>
-                                                                        )}
+                                                                                    {/* Fila 2: Monto y Acciones */}
+                                                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap', width: '100%', boxSizing: 'border-box' }}>
+                                                                                        <p style={{ margin: 0, fontSize: '22px', fontWeight: '900', color: '#1e293b' }}>${Number(cotiz.monto).toLocaleString('es-MX')}</p>
+                                                                                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center', maxWidth: '100%' }}>
+                                                                                            <button onClick={() => { setCosto(cotiz.monto?.toString() || ''); setNotas(cotiz.descripcion || ''); setShowPDFPreview(true); }} style={{ padding: '7px 11px', borderRadius: '10px', background: '#fef2f2', border: '1px solid #fecaca', cursor: 'pointer', fontSize: '12px', fontWeight: '700', color: '#ef4444', display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}><HiOutlineDocumentText size={15} /> Preview PDF</button>
+                                                                                            {canEditCotizacion && (
+                                                                                                <>
+                                                                                                    <button onClick={() => handleEditarCotizacion(cotiz)} style={{ padding: '7px 11px', borderRadius: '10px', background: cotiz.estado === 'Rechazada' ? 'linear-gradient(135deg, #f26522, #d14d13)' : '#f1f5f9', color: cotiz.estado === 'Rechazada' ? '#fff' : '#475569', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: '700', whiteSpace: 'nowrap' }}>
+                                                                                                        {cotiz.estado === 'Rechazada' ? '✏️ Ajustar' : '✏️ Editar'}
+                                                                                                    </button>
+                                                                                                    <button onClick={() => handleEliminarCotizacion(cotiz.id!)} style={{ padding: '7px 11px', borderRadius: '10px', background: '#fef2f2', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: '700', color: '#ef4444' }}>🗑️</button>
+                                                                                                </>
+                                                                                            )}
+                                                                                        </div>
+                                                                                    </div>
 
-                                                                        {/* ACCIONES DE CLIENTE O ADMIN EN SOS PARA APROBAR O RECOTIZAR LA PROPUESTA DEL TÉCNICO */}
-                                                                        {isSOS && cotiz.estado === 'Pendiente' && (isAdminUser || user?.role === 'cliente' || user?.role === 'encargado' || isAutonomoAdmin(user?.role)) && (
-                                                                            <div style={{ marginTop: '14px', paddingTop: '12px', borderTop: '1.5px dashed #fed7aa', display: 'flex', gap: '10px' }}>
-                                                                                <button
-                                                                                    onClick={() => handleAdminAceptarCotizacionSOS(cotiz.id!)}
-                                                                                    style={{
-                                                                                        flex: 1.5,
-                                                                                        padding: '12px 18px',
-                                                                                        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                                                                                        color: 'white',
-                                                                                        border: 'none',
-                                                                                        borderRadius: '12px',
-                                                                                        fontSize: '13px',
-                                                                                        fontWeight: '800',
-                                                                                        cursor: 'pointer',
-                                                                                        display: 'inline-flex',
-                                                                                        alignItems: 'center',
-                                                                                        justifyContent: 'center',
-                                                                                        gap: '8px',
-                                                                                        boxShadow: '0 4px 12px rgba(16, 185, 129, 0.25)'
-                                                                                    }}
-                                                                                >
-                                                                                    <HiOutlineCheckCircle size={18} />
-                                                                                    Aceptar Cotización y Comenzar Ejecución
-                                                                                </button>
-                                                                                <button
-                                                                                    onClick={() => {
-                                                                                        setCotizParaRecotizar(cotiz.id!);
-                                                                                        setShowRecotizModal(true);
-                                                                                    }}
-                                                                                    style={{
-                                                                                        flex: 1,
-                                                                                        padding: '12px 18px',
-                                                                                        background: '#fff',
-                                                                                        color: '#d97706',
-                                                                                        border: '1.5px solid #d97706',
-                                                                                        borderRadius: '12px',
-                                                                                        fontSize: '13px',
-                                                                                        fontWeight: '800',
-                                                                                        cursor: 'pointer',
-                                                                                        display: 'inline-flex',
-                                                                                        alignItems: 'center',
-                                                                                        justifyContent: 'center',
-                                                                                        gap: '8px'
-                                                                                    }}
-                                                                                >
-                                                                                    🔁 Solicitar Re-Cotización
-                                                                                </button>
-                                                                            </div>
-                                                                        )}
-                                                                    </div>
-                                                                );
-                                                            })}
-                                                        </div>
-                                                    </div>
-                                                )}
+                                                                                    {/* Fila 3: Descripción */}
+                                                                                    {cotiz.descripcion && <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#64748b', maxWidth: '100%', wordBreak: 'break-word' }}>{cleanQuoteDescription(cotiz.descripcion)}</p>}
+                                                                                </div>
+                                                                            )}
 
-                                                {/* BOTÓN DE ASIGNACIÓN CUANDO SE ACEPTA LA COTIZACIÓN (SOLO FLUJO NORMAL, NO SOS) */}
-                                                {!isSOS && (trabajo?.estado === 'Cotización Aceptada' || trabajo?.estado === 'Cotización Aprobada') && (user?.role === 'admin' || isAutonomoAdmin(user?.role)) && (
-                                                    <button onClick={handleOpenAssignModal}
-                                                        style={{ width: '100%', padding: '16px', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', borderRadius: '15px', fontSize: '15px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 8px 20px rgba(16,185,129,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', marginTop: '10px' }}>
-                                                        <span style={{ fontSize: '18px' }}>✅</span> Asignar Trabajo al Técnico
-                                                    </button>
-                                                )}
-
-                                                        {/* BOTÓN PARA NUEVA COTIZACIÓN */}
-                                                {!showAddQuoteForm ? (
-                                                    canEditCotizacion && (
-                                                        <button
-                                                            onClick={() => setShowAddQuoteForm(true)}
-                                                            style={{ width: '100%', padding: '20px', background: '#fff', border: '2px dashed #cbd5e1', borderRadius: '20px', color: '#64748b', fontSize: '16px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', transition: 'all 0.2s' }}
-                                                            onMouseEnter={(e) => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.borderColor = '#94a3b8'; e.currentTarget.style.color = '#1e293b'; }}
-                                                            onMouseLeave={(e) => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = '#cbd5e1'; e.currentTarget.style.color = '#64748b'; }}
-                                                        >
-                                                            <HiOutlineDocumentPlus size={24} color="#f26522" />
-                                                            Elaborar Propuesta
-                                                        </button>
-                                                    )
-                                                ) : (
-                                                    /* FORMULARIO NUEVA COTIZACIÓN MÚLTIPLE */
-                                                    <div style={{ background: '#fff', borderRadius: '24px', padding: '24px 18px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9', boxSizing: 'border-box', width: '100%', maxWidth: '100%' }}>
-                                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '22px', paddingBottom: '16px', borderBottom: '2px solid #f8fafc', flexWrap: 'wrap', gap: '10px' }}>
-                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                                <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'linear-gradient(135deg, #f26522, #d14d13)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                                                    <HiOutlineCurrencyDollar size={20} color="white" />
-                                                                </div>
-                                                                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#1e293b' }}>
-                                                                    Elaboración de Propuestas ({cotizacionesFormItems.length})
-                                                                </h3>
+                                                                            {/* ACCIONES DE CLIENTE O ADMIN EN SOS PARA APROBAR O RECOTIZAR LA PROPUESTA DEL TÉCNICO */}
+                                                                            {isSOS && cotiz.estado === 'Pendiente' && (isAdminUser || user?.role === 'cliente' || user?.role === 'encargado' || isAutonomoAdmin(user?.role)) && (
+                                                                                <div style={{ marginTop: '14px', paddingTop: '12px', borderTop: '1.5px dashed #fed7aa', display: 'flex', gap: '10px' }}>
+                                                                                    <button
+                                                                                        onClick={() => handleAdminAceptarCotizacionSOS(cotiz.id!)}
+                                                                                        style={{
+                                                                                            flex: 1.5,
+                                                                                            padding: '12px 18px',
+                                                                                            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                                                                            color: 'white',
+                                                                                            border: 'none',
+                                                                                            borderRadius: '12px',
+                                                                                            fontSize: '13px',
+                                                                                            fontWeight: '800',
+                                                                                            cursor: 'pointer',
+                                                                                            display: 'inline-flex',
+                                                                                            alignItems: 'center',
+                                                                                            justifyContent: 'center',
+                                                                                            gap: '8px',
+                                                                                            boxShadow: '0 4px 12px rgba(16, 185, 129, 0.25)'
+                                                                                        }}
+                                                                                    >
+                                                                                        <HiOutlineCheckCircle size={18} />
+                                                                                        Aceptar Cotización y Comenzar Ejecución
+                                                                                    </button>
+                                                                                    <button
+                                                                                        onClick={() => {
+                                                                                            setCotizParaRecotizar(cotiz.id!);
+                                                                                            setShowRecotizModal(true);
+                                                                                        }}
+                                                                                        style={{
+                                                                                            flex: 1,
+                                                                                            padding: '12px 18px',
+                                                                                            background: '#fff',
+                                                                                            color: '#d97706',
+                                                                                            border: '1.5px solid #d97706',
+                                                                                            borderRadius: '12px',
+                                                                                            fontSize: '13px',
+                                                                                            fontWeight: '800',
+                                                                                            cursor: 'pointer',
+                                                                                            display: 'inline-flex',
+                                                                                            alignItems: 'center',
+                                                                                            justifyContent: 'center',
+                                                                                            gap: '8px'
+                                                                                        }}
+                                                                                    >
+                                                                                        🔁 Solicitar Re-Cotización
+                                                                                    </button>
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                    );
+                                                                })}
                                                             </div>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => {
-                                                                    setCotizacionesFormItems([
-                                                                        ...cotizacionesFormItems,
-                                                                        { id: `item_${Date.now()}`, manoObra: '0', materials: [{ material: '', piezas: '', precio: '' }], notas: '', minimized: false }
-                                                                    ]);
-                                                                }}
-                                                                style={{ background: '#fff7ed', color: '#f26522', border: '1px solid #fed7aa', padding: '8px 16px', borderRadius: '10px', fontSize: '13px', fontWeight: '800', cursor: 'pointer', transition: 'all 0.2s' }}
-                                                            >
-                                                                + Nueva Propuesta
-                                                            </button>
                                                         </div>
+                                                    )}
 
-                                                        <div className={styles.cardTransparentScroll} style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '20px', maxHeight: '520px', width: '100%', boxSizing: 'border-box' }}>
-                                                            {cotizacionesFormItems.map((item, idx) => {
-                                                                const itemMatsTotal = item.materials.reduce((acc, m) => acc + ((parseFloat(m.precio) || 0) * (parseFloat(m.piezas) || 1)), 0);
-                                                                const itemTotal = (parseFloat(item.manoObra) || 0) + itemMatsTotal;
+                                                    {/* BOTÓN DE ASIGNACIÓN CUANDO SE ACEPTA LA COTIZACIÓN (SOLO FLUJO NORMAL, NO SOS) */}
+                                                    {!isSOS && (trabajo?.estado === 'Cotización Aceptada' || trabajo?.estado === 'Cotización Aprobada') && (user?.role === 'admin' || isAutonomoAdmin(user?.role)) && (
+                                                        <button onClick={handleOpenAssignModal}
+                                                            style={{ width: '100%', padding: '16px', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', borderRadius: '15px', fontSize: '15px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 8px 20px rgba(16,185,129,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', marginTop: '10px' }}>
+                                                            <span style={{ fontSize: '18px' }}>✅</span> Asignar Trabajo al Técnico
+                                                        </button>
+                                                    )}
 
-                                                                return (
-                                                                    <div key={item.id} style={{ background: '#fafafa', border: '1.5px solid #e2e8f0', borderRadius: '16px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', width: '100%', boxSizing: 'border-box' }}>
-                                                                        {/* Cabecera del item */}
-                                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
-                                                                            <span style={{ fontSize: '14px', fontWeight: '800', color: '#1e293b' }}>
-                                                                                Propuesta #{idx + 1}{item.titulo ? ` - ${item.titulo}` : ''}
-                                                                            </span>
-                                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                                                <button
-                                                                                    type="button"
-                                                                                    onClick={() => {
-                                                                                        setCotizacionesFormItems(cotizacionesFormItems.map(c => c.id === item.id ? { ...c, minimized: !c.minimized } : c));
-                                                                                    }}
-                                                                                    style={{ background: '#f1f5f9', border: 'none', borderRadius: '6px', padding: '4px 10px', fontSize: '11px', color: '#64748b', cursor: 'pointer', fontWeight: '700' }}
-                                                                                >
-                                                                                    {item.minimized ? 'Expandir ▼' : 'Minimizar ▲'}
-                                                                                </button>
-                                                                                {cotizacionesFormItems.length > 1 && (
+                                                    {/* BOTÓN PARA NUEVA COTIZACIÓN */}
+                                                    {!showAddQuoteForm ? (
+                                                        canEditCotizacion && (
+                                                            <button
+                                                                onClick={() => setShowAddQuoteForm(true)}
+                                                                style={{ width: '100%', padding: '20px', background: '#fff', border: '2px dashed #cbd5e1', borderRadius: '20px', color: '#64748b', fontSize: '16px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', transition: 'all 0.2s' }}
+                                                                onMouseEnter={(e) => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.borderColor = '#94a3b8'; e.currentTarget.style.color = '#1e293b'; }}
+                                                                onMouseLeave={(e) => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = '#cbd5e1'; e.currentTarget.style.color = '#64748b'; }}
+                                                            >
+                                                                <HiOutlineDocumentPlus size={24} color="#f26522" />
+                                                                Elaborar Propuesta
+                                                            </button>
+                                                        )
+                                                    ) : (
+                                                        /* FORMULARIO NUEVA COTIZACIÓN MÚLTIPLE */
+                                                        <div style={{ background: '#fff', borderRadius: '24px', padding: '24px 18px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9', boxSizing: 'border-box', width: '100%', maxWidth: '100%' }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '22px', paddingBottom: '16px', borderBottom: '2px solid #f8fafc', flexWrap: 'wrap', gap: '10px' }}>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                                    <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'linear-gradient(135deg, #f26522, #d14d13)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                                        <HiOutlineCurrencyDollar size={20} color="white" />
+                                                                    </div>
+                                                                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#1e293b' }}>
+                                                                        Elaboración de Propuestas ({cotizacionesFormItems.length})
+                                                                    </h3>
+                                                                </div>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        setCotizacionesFormItems([
+                                                                            ...cotizacionesFormItems,
+                                                                            { id: `item_${Date.now()}`, manoObra: '0', materials: [{ material: '', piezas: '', precio: '' }], notas: '', minimized: false }
+                                                                        ]);
+                                                                    }}
+                                                                    style={{ background: '#fff7ed', color: '#f26522', border: '1px solid #fed7aa', padding: '8px 16px', borderRadius: '10px', fontSize: '13px', fontWeight: '800', cursor: 'pointer', transition: 'all 0.2s' }}
+                                                                >
+                                                                    + Nueva Propuesta
+                                                                </button>
+                                                            </div>
+
+                                                            <div className={styles.cardTransparentScroll} style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '20px', maxHeight: '520px', width: '100%', boxSizing: 'border-box' }}>
+                                                                {cotizacionesFormItems.map((item, idx) => {
+                                                                    const itemMatsTotal = item.materials.reduce((acc, m) => acc + ((parseFloat(m.precio) || 0) * (parseFloat(m.piezas) || 1)), 0);
+                                                                    const itemTotal = (parseFloat(item.manoObra) || 0) + itemMatsTotal;
+
+                                                                    return (
+                                                                        <div key={item.id} style={{ background: '#fafafa', border: '1.5px solid #e2e8f0', borderRadius: '16px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', width: '100%', boxSizing: 'border-box' }}>
+                                                                            {/* Cabecera del item */}
+                                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
+                                                                                <span style={{ fontSize: '14px', fontWeight: '800', color: '#1e293b' }}>
+                                                                                    Propuesta #{idx + 1}{item.titulo ? ` - ${item.titulo}` : ''}
+                                                                                </span>
+                                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                                                     <button
                                                                                         type="button"
                                                                                         onClick={() => {
-                                                                                        setCotizacionesFormItems(cotizacionesFormItems.filter(c => c.id !== item.id));
-                                                                                    }}
-                                                                                        style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '6px', padding: '4px 8px', fontSize: '11px', color: '#ef4444', cursor: 'pointer', fontWeight: '700' }}
-                                                                                    >
-                                                                                        ✕ Eliminar
-                                                                                    </button>
-                                                                                )}
-                                                                            </div>
-                                                                        </div>
-
-                                                                        {item.minimized ? (
-                                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '13px', color: '#475569' }}>
-                                                                                {item.titulo && <span style={{ fontWeight: 'bold' }}>Título: {item.titulo}</span>}
-                                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                                                    <span>Notas: {item.notas ? (item.notas.length > 30 ? `${item.notas.substring(0, 30)}...` : item.notas) : 'Sin notas'}</span>
-                                                                                    <strong style={{ color: '#f26522', fontSize: '15px' }}>${itemTotal.toLocaleString('es-MX')}</strong>
-                                                                                </div>
-                                                                            </div>
-                                                                        ) : (
-                                                                            <>
-                                                                                {/* Detalle del item */}
-                                                                                <div style={{ marginBottom: '8px', width: '100%', boxSizing: 'border-box' }}>
-                                                                                    <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Título de la Propuesta / Problema</label>
-                                                                                    <input
-                                                                                        type="text"
-                                                                                        placeholder="Ej: Cambio de compresor, reparación de fuga, etc."
-                                                                                        value={item.titulo || ""}
-                                                                                        onChange={(e) => {
-                                                                                            setCotizacionesFormItems(cotizacionesFormItems.map(c => c.id === item.id ? { ...c, titulo: e.target.value } : c));
+                                                                                            setCotizacionesFormItems(cotizacionesFormItems.map(c => c.id === item.id ? { ...c, minimized: !c.minimized } : c));
                                                                                         }}
-                                                                                        style={{ width: '100%', minWidth: 0, padding: '8px 12px', borderRadius: '10px', border: '1.5px solid #cbd5e1', fontSize: '14px', boxSizing: 'border-box' }}
-                                                                                    />
-                                                                                </div>
-                                                                                <div style={{ width: '100%', boxSizing: 'border-box' }}>
-                                                                                    <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Mano de Obra ($)</label>
-                                                                                    <div style={{ position: 'relative', width: '100%', boxSizing: 'border-box' }}>
-                                                                                        <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '16px', fontWeight: '900', color: '#f26522' }}>$</span>
-                                                                                        <input
-                                                                                            type="number"
-                                                                                            placeholder="Mano de obra..."
-                                                                                            value={item.manoObra || ""}
-                                                                                            onChange={(e) => {
-                                                                                                setCotizacionesFormItems(cotizacionesFormItems.map(c => c.id === item.id ? { ...c, manoObra: e.target.value } : c));
+                                                                                        style={{ background: '#f1f5f9', border: 'none', borderRadius: '6px', padding: '4px 10px', fontSize: '11px', color: '#64748b', cursor: 'pointer', fontWeight: '700' }}
+                                                                                    >
+                                                                                        {item.minimized ? 'Expandir ▼' : 'Minimizar ▲'}
+                                                                                    </button>
+                                                                                    {cotizacionesFormItems.length > 1 && (
+                                                                                        <button
+                                                                                            type="button"
+                                                                                            onClick={() => {
+                                                                                                setCotizacionesFormItems(cotizacionesFormItems.filter(c => c.id !== item.id));
                                                                                             }}
-                                                                                            style={{ width: '100%', minWidth: 0, padding: '8px 12px 8px 28px', borderRadius: '10px', border: '1.5px solid #cbd5e1', fontSize: '14px', boxSizing: 'border-box' }}
-                                                                                        />
+                                                                                            style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '6px', padding: '4px 8px', fontSize: '11px', color: '#ef4444', cursor: 'pointer', fontWeight: '700' }}
+                                                                                        >
+                                                                                            ✕ Eliminar
+                                                                                        </button>
+                                                                                    )}
+                                                                                </div>
+                                                                            </div>
+
+                                                                            {item.minimized ? (
+                                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '13px', color: '#475569' }}>
+                                                                                    {item.titulo && <span style={{ fontWeight: 'bold' }}>Título: {item.titulo}</span>}
+                                                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                                                        <span>Notas: {item.notas ? (item.notas.length > 30 ? `${item.notas.substring(0, 30)}...` : item.notas) : 'Sin notas'}</span>
+                                                                                        <strong style={{ color: '#f26522', fontSize: '15px' }}>${itemTotal.toLocaleString('es-MX')}</strong>
                                                                                     </div>
                                                                                 </div>
+                                                                            ) : (
+                                                                                <>
+                                                                                    {/* Detalle del item */}
+                                                                                    <div style={{ marginBottom: '8px', width: '100%', boxSizing: 'border-box' }}>
+                                                                                        <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Título de la Propuesta / Problema</label>
+                                                                                        <input
+                                                                                            type="text"
+                                                                                            placeholder="Ej: Cambio de compresor, reparación de fuga, etc."
+                                                                                            value={item.titulo || ""}
+                                                                                            onChange={(e) => {
+                                                                                                setCotizacionesFormItems(cotizacionesFormItems.map(c => c.id === item.id ? { ...c, titulo: e.target.value } : c));
+                                                                                            }}
+                                                                                            style={{ width: '100%', minWidth: 0, padding: '8px 12px', borderRadius: '10px', border: '1.5px solid #cbd5e1', fontSize: '14px', boxSizing: 'border-box' }}
+                                                                                        />
+                                                                                    </div>
+                                                                                    <div style={{ width: '100%', boxSizing: 'border-box' }}>
+                                                                                        <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Mano de Obra ($)</label>
+                                                                                        <div style={{ position: 'relative', width: '100%', boxSizing: 'border-box' }}>
+                                                                                            <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '16px', fontWeight: '900', color: '#f26522' }}>$</span>
+                                                                                            <input
+                                                                                                type="number"
+                                                                                                placeholder="Mano de obra..."
+                                                                                                value={item.manoObra || ""}
+                                                                                                onChange={(e) => {
+                                                                                                    setCotizacionesFormItems(cotizacionesFormItems.map(c => c.id === item.id ? { ...c, manoObra: e.target.value } : c));
+                                                                                                }}
+                                                                                                style={{ width: '100%', minWidth: 0, padding: '8px 12px 8px 28px', borderRadius: '10px', border: '1.5px solid #cbd5e1', fontSize: '14px', boxSizing: 'border-box' }}
+                                                                                            />
+                                                                                        </div>
+                                                                                    </div>
 
-                                                                                <div style={{ width: '100%', boxSizing: 'border-box' }}>
-                                                                                    <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Materiales y Piezas</label>
-                                                                                    <div style={{ background: '#f8fafc', padding: '10px', borderRadius: '10px', border: '1px solid #cbd5e1', width: '100%', boxSizing: 'border-box' }}>
-                                                                                        {item.materials.map((mat, mIdx) => (
-                                                                                            <div key={mIdx} style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '10px', paddingBottom: '10px', borderBottom: mIdx < item.materials.length - 1 ? '1px solid #e2e8f0' : 'none', width: '100%', boxSizing: 'border-box' }}>
-                                                                                                <input
-                                                                                                    placeholder="Material / Refacción"
-                                                                                                    value={mat.material}
-                                                                                                    onChange={(e) => {
-                                                                                                        setCotizacionesFormItems(cotizacionesFormItems.map(c => {
-                                                                                                            if (c.id === item.id) {
-                                                                                                                const newM = [...c.materials];
-                                                                                                                newM[mIdx].material = e.target.value;
-                                                                                                                return { ...c, materials: newM };
-                                                                                                            }
-                                                                                                            return c;
-                                                                                                        }));
-                                                                                                    }}
-                                                                                                    style={{ width: '100%', minWidth: 0, padding: '7px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', boxSizing: 'border-box' }}
-                                                                                                />
-                                                                                                <div style={{ display: 'grid', gridTemplateColumns: item.materials.length > 1 ? 'minmax(0, 1fr) minmax(0, 1.4fr) auto' : 'minmax(0, 1fr) minmax(0, 1.4fr)', gap: '8px', alignItems: 'center', width: '100%', boxSizing: 'border-box' }}>
+                                                                                    <div style={{ width: '100%', boxSizing: 'border-box' }}>
+                                                                                        <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Materiales y Piezas</label>
+                                                                                        <div style={{ background: '#f8fafc', padding: '10px', borderRadius: '10px', border: '1px solid #cbd5e1', width: '100%', boxSizing: 'border-box' }}>
+                                                                                            {item.materials.map((mat, mIdx) => (
+                                                                                                <div key={mIdx} style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '10px', paddingBottom: '10px', borderBottom: mIdx < item.materials.length - 1 ? '1px solid #e2e8f0' : 'none', width: '100%', boxSizing: 'border-box' }}>
                                                                                                     <input
-                                                                                                        type="number"
-                                                                                                        placeholder="Cant"
-                                                                                                        value={mat.piezas}
+                                                                                                        placeholder="Material / Refacción"
+                                                                                                        value={mat.material}
                                                                                                         onChange={(e) => {
                                                                                                             setCotizacionesFormItems(cotizacionesFormItems.map(c => {
                                                                                                                 if (c.id === item.id) {
                                                                                                                     const newM = [...c.materials];
-                                                                                                                    newM[mIdx].piezas = e.target.value;
+                                                                                                                    newM[mIdx].material = e.target.value;
                                                                                                                     return { ...c, materials: newM };
                                                                                                                 }
                                                                                                                 return c;
@@ -7686,141 +7646,158 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                                                                         }}
                                                                                                         style={{ width: '100%', minWidth: 0, padding: '7px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', boxSizing: 'border-box' }}
                                                                                                     />
-                                                                                                    <input
-                                                                                                        type="number"
-                                                                                                        placeholder="Precio ($)"
-                                                                                                        value={mat.precio}
-                                                                                                        onChange={(e) => {
-                                                                                                            setCotizacionesFormItems(cotizacionesFormItems.map(c => {
-                                                                                                                if (c.id === item.id) {
-                                                                                                                    const newM = [...c.materials];
-                                                                                                                    newM[mIdx].precio = e.target.value;
-                                                                                                                    return { ...c, materials: newM };
-                                                                                                                }
-                                                                                                                return c;
-                                                                                                            }));
-                                                                                                        }}
-                                                                                                        style={{ width: '100%', minWidth: 0, padding: '7px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', boxSizing: 'border-box' }}
-                                                                                                    />
-                                                                                                    {item.materials.length > 1 && (
-                                                                                                        <button
-                                                                                                            type="button"
-                                                                                                            onClick={() => {
+                                                                                                    <div style={{ display: 'grid', gridTemplateColumns: item.materials.length > 1 ? 'minmax(0, 1fr) minmax(0, 1.4fr) auto' : 'minmax(0, 1fr) minmax(0, 1.4fr)', gap: '8px', alignItems: 'center', width: '100%', boxSizing: 'border-box' }}>
+                                                                                                        <input
+                                                                                                            type="number"
+                                                                                                            placeholder="Cant"
+                                                                                                            value={mat.piezas}
+                                                                                                            onChange={(e) => {
                                                                                                                 setCotizacionesFormItems(cotizacionesFormItems.map(c => {
                                                                                                                     if (c.id === item.id) {
-                                                                                                                        return { ...c, materials: c.materials.filter((_, idx) => idx !== mIdx) };
+                                                                                                                        const newM = [...c.materials];
+                                                                                                                        newM[mIdx].piezas = e.target.value;
+                                                                                                                        return { ...c, materials: newM };
                                                                                                                     }
                                                                                                                     return c;
                                                                                                                 }));
                                                                                                             }}
-                                                                                                            style={{ background: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca', padding: '7px 10px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', flexShrink: 0, boxSizing: 'border-box' }}
-                                                                                                        >
-                                                                                                            ✕
-                                                                                                        </button>
-                                                                                                    )}
+                                                                                                            style={{ width: '100%', minWidth: 0, padding: '7px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', boxSizing: 'border-box' }}
+                                                                                                        />
+                                                                                                        <input
+                                                                                                            type="number"
+                                                                                                            placeholder="Precio ($)"
+                                                                                                            value={mat.precio}
+                                                                                                            onChange={(e) => {
+                                                                                                                setCotizacionesFormItems(cotizacionesFormItems.map(c => {
+                                                                                                                    if (c.id === item.id) {
+                                                                                                                        const newM = [...c.materials];
+                                                                                                                        newM[mIdx].precio = e.target.value;
+                                                                                                                        return { ...c, materials: newM };
+                                                                                                                    }
+                                                                                                                    return c;
+                                                                                                                }));
+                                                                                                            }}
+                                                                                                            style={{ width: '100%', minWidth: 0, padding: '7px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', boxSizing: 'border-box' }}
+                                                                                                        />
+                                                                                                        {item.materials.length > 1 && (
+                                                                                                            <button
+                                                                                                                type="button"
+                                                                                                                onClick={() => {
+                                                                                                                    setCotizacionesFormItems(cotizacionesFormItems.map(c => {
+                                                                                                                        if (c.id === item.id) {
+                                                                                                                            return { ...c, materials: c.materials.filter((_, idx) => idx !== mIdx) };
+                                                                                                                        }
+                                                                                                                        return c;
+                                                                                                                    }));
+                                                                                                                }}
+                                                                                                                style={{ background: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca', padding: '7px 10px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', flexShrink: 0, boxSizing: 'border-box' }}
+                                                                                                            >
+                                                                                                                ✕
+                                                                                                            </button>
+                                                                                                        )}
+                                                                                                    </div>
                                                                                                 </div>
-                                                                                            </div>
-                                                                                        ))}
-                                                                                        <button
-                                                                                            type="button"
-                                                                                            onClick={() => {
-                                                                                                setCotizacionesFormItems(cotizacionesFormItems.map(c => {
-                                                                                                    if (c.id === item.id) {
-                                                                                                        return { ...c, materials: [...c.materials, { material: '', piezas: '', precio: '' }] };
-                                                                                                    }
-                                                                                                    return c;
-                                                                                                }));
-                                                                                            }}
-                                                                                            style={{ background: 'transparent', color: '#f26522', border: '1px dashed #f26522', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', width: '100%', boxSizing: 'border-box' }}
-                                                                                        >
-                                                                                            + Añadir material o refacción
-                                                                                        </button>
+                                                                                            ))}
+                                                                                            <button
+                                                                                                type="button"
+                                                                                                onClick={() => {
+                                                                                                    setCotizacionesFormItems(cotizacionesFormItems.map(c => {
+                                                                                                        if (c.id === item.id) {
+                                                                                                            return { ...c, materials: [...c.materials, { material: '', piezas: '', precio: '' }] };
+                                                                                                        }
+                                                                                                        return c;
+                                                                                                    }));
+                                                                                                }}
+                                                                                                style={{ background: 'transparent', color: '#f26522', border: '1px dashed #f26522', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', width: '100%', boxSizing: 'border-box' }}
+                                                                                            >
+                                                                                                + Añadir material o refacción
+                                                                                            </button>
+                                                                                        </div>
                                                                                     </div>
-                                                                                </div>
 
-                                                                                <div>
-                                                                                    <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Notas para el cliente</label>
-                                                                                    <textarea
-                                                                                        placeholder="Ej: Incluye mano de obra..."
-                                                                                        value={item.notas}
-                                                                                        onChange={(e) => {
-                                                                                            setCotizacionesFormItems(cotizacionesFormItems.map(c => c.id === item.id ? { ...c, notas: e.target.value } : c));
+                                                                                    <div>
+                                                                                        <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Notas para el cliente</label>
+                                                                                        <textarea
+                                                                                            placeholder="Ej: Incluye mano de obra..."
+                                                                                            value={item.notas}
+                                                                                            onChange={(e) => {
+                                                                                                setCotizacionesFormItems(cotizacionesFormItems.map(c => c.id === item.id ? { ...c, notas: e.target.value } : c));
+                                                                                            }}
+                                                                                            style={{ width: '100%', padding: '8px 12px', borderRadius: '10px', border: '1.5px solid #cbd5e1', fontSize: '13px', boxSizing: 'border-box', fontFamily: 'inherit', resize: 'vertical', minHeight: '60px' }}
+                                                                                        />
+                                                                                    </div>
+
+                                                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff7ed', padding: '10px 12px', borderRadius: '8px', border: '1px solid #fed7aa' }}>
+                                                                                        <span style={{ fontSize: '12px', fontWeight: '800', color: '#92400e' }}>Importe Propuesta</span>
+                                                                                        <strong style={{ fontSize: '16px', color: '#f26522' }}>${itemTotal.toLocaleString('es-MX')}</strong>
+                                                                                    </div>
+
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={() => {
+                                                                                            setAdminManoObra(item.manoObra);
+                                                                                            setAdminQuoteMaterials(item.materials);
+                                                                                            setNotas(item.notas);
+                                                                                            setCosto(String(itemTotal));
+                                                                                            setShowPDFPreview(true);
                                                                                         }}
-                                                                                        style={{ width: '100%', padding: '8px 12px', borderRadius: '10px', border: '1.5px solid #cbd5e1', fontSize: '13px', boxSizing: 'border-box', fontFamily: 'inherit', resize: 'vertical', minHeight: '60px' }}
-                                                                                    />
-                                                                                </div>
+                                                                                        style={{ width: '100%', padding: '8px 12px', background: '#f8fafc', border: '1px solid #cbd5e1', color: '#1e293b', borderRadius: '8px', fontSize: '12px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                                                                                    >
+                                                                                        <HiOutlineDocumentText size={16} color="#ef4444" /> Previsualizar PDF Propuesta #{idx + 1}
+                                                                                    </button>
+                                                                                </>
+                                                                            )}
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
 
-                                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff7ed', padding: '10px 12px', borderRadius: '8px', border: '1px solid #fed7aa' }}>
-                                                                                    <span style={{ fontSize: '12px', fontWeight: '800', color: '#92400e' }}>Importe Propuesta</span>
-                                                                                    <strong style={{ fontSize: '16px', color: '#f26522' }}>${itemTotal.toLocaleString('es-MX')}</strong>
-                                                                                </div>
+                                                            {/* Preview Combinado global */}
+                                                            {cotizacionesFormItems.length > 1 && (
+                                                                <div style={{ marginBottom: '16px' }}>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            const combinedMats = cotizacionesFormItems.flatMap(item => item.materials.filter(m => m.material.trim()));
+                                                                            const combinedManoObra = cotizacionesFormItems.reduce((sum, item) => sum + (parseFloat(item.manoObra) || 0), 0);
+                                                                            const combinedNotes = cotizacionesFormItems.map((item, idx) => item.notas ? `[Propuesta #${idx + 1}]: ${item.notas}` : '').filter(Boolean).join('\n\n');
+                                                                            const combinedTotal = cotizacionesFormItems.reduce((sum, item) => {
+                                                                                const itemMatsTotal = item.materials.reduce((acc, m) => acc + ((parseFloat(m.precio) || 0) * (parseFloat(m.piezas) || 1)), 0);
+                                                                                return sum + (parseFloat(item.manoObra) || 0) + itemMatsTotal;
+                                                                            }, 0);
 
-                                                                                <button
-                                                                                    type="button"
-                                                                                    onClick={() => {
-                                                                                        setAdminManoObra(item.manoObra);
-                                                                                        setAdminQuoteMaterials(item.materials);
-                                                                                        setNotas(item.notas);
-                                                                                        setCosto(String(itemTotal));
-                                                                                        setShowPDFPreview(true);
-                                                                                    }}
-                                                                                    style={{ width: '100%', padding: '8px 12px', background: '#f8fafc', border: '1px solid #cbd5e1', color: '#1e293b', borderRadius: '8px', fontSize: '12px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-                                                                                >
-                                                                                    <HiOutlineDocumentText size={16} color="#ef4444" /> Previsualizar PDF Propuesta #{idx + 1}
-                                                                                </button>
-                                                                            </>
-                                                                        )}
-                                                                    </div>
-                                                                );
-                                                            })}
-                                                        </div>
-
-                                                        {/* Preview Combinado global */}
-                                                        {cotizacionesFormItems.length > 1 && (
-                                                            <div style={{ marginBottom: '16px' }}>
+                                                                            setAdminManoObra(String(combinedManoObra));
+                                                                            setAdminQuoteMaterials(combinedMats);
+                                                                            setNotas(combinedNotes);
+                                                                            setCosto(String(combinedTotal));
+                                                                            setShowPDFPreview(true);
+                                                                        }}
+                                                                        style={{ width: '100%', padding: '12px', background: '#eff6ff', border: '1.5px solid #bfdbfe', color: '#1e3a8a', borderRadius: '12px', fontSize: '13px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'all 0.2s' }}
+                                                                    >
+                                                                        <HiOutlineDocumentText size={18} color="#3b82f6" /> Ver PDF Combinado (Todas las Propuestas)
+                                                                    </button>
+                                                                </div>
+                                                            )}
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                                                 <button
                                                                     type="button"
-                                                                    onClick={() => {
-                                                                        const combinedMats = cotizacionesFormItems.flatMap(item => item.materials.filter(m => m.material.trim()));
-                                                                        const combinedManoObra = cotizacionesFormItems.reduce((sum, item) => sum + (parseFloat(item.manoObra) || 0), 0);
-                                                                        const combinedNotes = cotizacionesFormItems.map((item, idx) => item.notas ? `[Propuesta #${idx + 1}]: ${item.notas}` : '').filter(Boolean).join('\n\n');
-                                                                        const combinedTotal = cotizacionesFormItems.reduce((sum, item) => {
-                                                                            const itemMatsTotal = item.materials.reduce((acc, m) => acc + ((parseFloat(m.precio) || 0) * (parseFloat(m.piezas) || 1)), 0);
-                                                                            return sum + (parseFloat(item.manoObra) || 0) + itemMatsTotal;
-                                                                        }, 0);
-                                                                        
-                                                                        setAdminManoObra(String(combinedManoObra));
-                                                                        setAdminQuoteMaterials(combinedMats);
-                                                                        setNotas(combinedNotes);
-                                                                        setCosto(String(combinedTotal));
-                                                                        setShowPDFPreview(true);
-                                                                    }}
-                                                                    style={{ width: '100%', padding: '12px', background: '#eff6ff', border: '1.5px solid #bfdbfe', color: '#1e3a8a', borderRadius: '12px', fontSize: '13px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'all 0.2s' }}
+                                                                    onClick={handleEnviarCotizacionesMasivas}
+                                                                    style={{ width: '100%', padding: '15.5px', background: 'linear-gradient(135deg, #f26522, #d14d13)', color: '#fff', border: 'none', borderRadius: '15px', fontSize: '14px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 8px 20px rgba(242,101,34,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                                                                 >
-                                                                    <HiOutlineDocumentText size={18} color="#3b82f6" /> Ver PDF Combinado (Todas las Propuestas)
+                                                                    <span>Enviar Cotización al Cliente</span>
+                                                                </button>
+
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setShowAddQuoteForm(false)}
+                                                                    style={{ width: '100%', padding: '15px', background: '#f8fafc', border: '2px solid #e2e8f0', color: '#64748b', borderRadius: '15px', fontSize: '14px', fontWeight: '700', cursor: 'pointer' }}
+                                                                >
+                                                                    Cancelar
                                                                 </button>
                                                             </div>
-                                                        )}
-                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                                            <button 
-                                                                type="button"
-                                                                onClick={handleEnviarCotizacionesMasivas}
-                                                                style={{ width: '100%', padding: '15.5px', background: 'linear-gradient(135deg, #f26522, #d14d13)', color: '#fff', border: 'none', borderRadius: '15px', fontSize: '14px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 8px 20px rgba(242,101,34,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-                                                            >
-                                                                <span>Enviar Cotización al Cliente</span>
-                                                            </button>
-
-                                                            <button 
-                                                                type="button"
-                                                                onClick={() => setShowAddQuoteForm(false)}
-                                                                style={{ width: '100%', padding: '15px', background: '#f8fafc', border: '2px solid #e2e8f0', color: '#64748b', borderRadius: '15px', fontSize: '14px', fontWeight: '700', cursor: 'pointer' }}
-                                                            >
-                                                                Cancelar
-                                                            </button>
                                                         </div>
-                                                    </div>
-                                                )}
-                                            </div>
+                                                    )}
+                                                </div>
                                             )}
                                         </div>
                                     )}
@@ -7855,874 +7832,875 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
 
                                     {/* SLIDE-OVER DRAWER LATERAL: Reporte, sugerencias, PDF del técnico y Chat */}
                                     {isTechDrawerOpen && (
-                                        <div 
-                                            className={styles.techDrawerOverlay} 
+                                        <div
+                                            className={styles.techDrawerOverlay}
                                             onClick={() => setIsTechDrawerOpen(false)}
                                         />
                                     )}
 
-                                    <div 
+                                    <div
                                         className={styles.techDrawerPanel}
                                         style={{
                                             transform: isTechDrawerOpen ? 'translateX(0)' : 'translateX(105%)'
                                         }}
                                     >
-                                                {/* CABECERA DEL DRAWER */}
-                                                <div className={styles.techDrawerHeader}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                        <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'linear-gradient(135deg, #f26522, #d14d13)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
-                                                            {(user?.role === 'cliente' || user?.role === 'encargado' || (isSOS && isTechRole)) ? <HiOutlineChatBubbleLeftRight size={20} /> : <HiOutlineDocumentText size={20} />}
-                                                        </div>
-                                                        <div>
-                                                            <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#1e293b' }}>
-                                                                {(user?.role === 'cliente' || user?.role === 'encargado') 
-                                                                    ? (isSOS ? '💬 Chat con el Técnico (SOS)' : '💬 Chat con Administrador') 
-                                                                    : (isSOS && isTechRole ? '💬 Chat con el Cliente (SOS)' : 'Cotización del Técnico & Chat')}
-                                                            </h3>
-                                                            <span style={{ fontSize: '11px', color: '#64748b' }}>
-                                                                {(user?.role === 'cliente' || user?.role === 'encargado') 
-                                                                    ? (isSOS ? 'Comunicación directa de emergencia' : 'Negociación y consultas directas') 
-                                                                    : (isSOS && isTechRole ? 'Comunicación directa con la sucursal' : 'Sugerencias, evidencias y negociación')}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setIsTechDrawerOpen(false)}
-                                                        style={{
-                                                            display: 'inline-flex',
-                                                            alignItems: 'center',
-                                                            gap: '4px',
-                                                            padding: '7px 12px',
-                                                            background: '#f1f5f9',
-                                                            border: 'none',
-                                                            borderRadius: '8px',
-                                                            color: '#475569',
-                                                            fontSize: '12px',
-                                                            fontWeight: '800',
-                                                            cursor: 'pointer',
-                                                            transition: 'all 0.2s'
-                                                        }}
-                                                    >
-                                                        <span>Cerrar</span>
-                                                        <HiOutlineChevronRight size={16} />
-                                                    </button>
+                                        {/* CABECERA DEL DRAWER */}
+                                        <div className={styles.techDrawerHeader}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'linear-gradient(135deg, #f26522, #d14d13)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
+                                                    {(user?.role === 'cliente' || user?.role === 'encargado' || (isSOS && isTechRole)) ? <HiOutlineChatBubbleLeftRight size={20} /> : <HiOutlineDocumentText size={20} />}
                                                 </div>
+                                                <div>
+                                                    <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#1e293b' }}>
+                                                        {(user?.role === 'cliente' || user?.role === 'encargado')
+                                                            ? (isSOS ? '💬 Chat con el Técnico (SOS)' : '💬 Chat con Administrador')
+                                                            : (isSOS && isTechRole ? '💬 Chat con el Cliente (SOS)' : 'Cotización del Técnico & Chat')}
+                                                    </h3>
+                                                    <span style={{ fontSize: '11px', color: '#64748b' }}>
+                                                        {(user?.role === 'cliente' || user?.role === 'encargado')
+                                                            ? (isSOS ? 'Comunicación directa de emergencia' : 'Negociación y consultas directas')
+                                                            : (isSOS && isTechRole ? 'Comunicación directa con la sucursal' : 'Sugerencias, evidencias y negociación')}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => setIsTechDrawerOpen(false)}
+                                                style={{
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: '4px',
+                                                    padding: '7px 12px',
+                                                    background: '#f1f5f9',
+                                                    border: 'none',
+                                                    borderRadius: '8px',
+                                                    color: '#475569',
+                                                    fontSize: '12px',
+                                                    fontWeight: '800',
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.2s'
+                                                }}
+                                            >
+                                                <span>Cerrar</span>
+                                                <HiOutlineChevronRight size={16} />
+                                            </button>
+                                        </div>
 
-                                                {/* CONTENIDO DEL DRAWER CON SCROLL TRANSPARENTE */}
-                                                <div className={`${styles.techDrawerContent} ${styles.cardTransparentScroll}`}>
-                                                    {(user?.role === 'cliente' || user?.role === 'encargado') ? (
-                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                                            <div style={{
-                                                                background: isSOS ? 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)' : 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
-                                                                border: isSOS ? '1.5px solid #fed7aa' : '1.5px solid #bfdbfe',
-                                                                borderRadius: '16px',
-                                                                padding: '16px 18px',
-                                                                display: 'flex',
-                                                                alignItems: 'center',
-                                                                gap: '12px'
-                                                            }}>
-                                                                <div style={{ fontSize: '24px' }}>💬</div>
-                                                                <div>
-                                                                    <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '850', color: isSOS ? '#c2410c' : '#1e40af' }}>
-                                                                        {isSOS ? 'Chat Directo con el Técnico (Emergencia SOS)' : 'Chat de Negociación con Administrador'}
-                                                                    </h4>
-                                                                    <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: isSOS ? '#ea580c' : '#3b82f6' }}>
-                                                                        {isSOS 
-                                                                            ? 'Conversa en tiempo real con el técnico en sitio para coordinar la reparación o aclarar dudas.'
-                                                                            : 'Conversa en tiempo real para consultar dudas o acordar ajustes a la cotización.'}
-                                                                    </p>
-                                                                </div>
-                                                            </div>
-
-                                                            {isTechDrawerOpen && trabajo && (
-                                                                <NegotiationChatWidget 
-                                                                    trabajoId={trabajo.id} 
-                                                                    currentUser={user} 
-                                                                    inlineMode={true}
-                                                                />
-                                                            )}
-                                                        </div>
-                                                    ) : (
-                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                                            {/* Banner para Técnico en SOS */}
-                                                            {isSOS && isTechRole && (
-                                                                <div style={{
-                                                                    background: 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)',
-                                                                    border: '1.5px solid #fed7aa',
-                                                                    borderRadius: '16px',
-                                                                    padding: '16px 18px',
-                                                                    display: 'flex',
-                                                                    alignItems: 'center',
-                                                                    gap: '12px'
-                                                                }}>
-                                                                    <div style={{ fontSize: '24px' }}>💬</div>
-                                                                    <div>
-                                                                        <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '850', color: '#c2410c' }}>
-                                                                            Chat Directo con el Cliente (Emergencia SOS)
-                                                                        </h4>
-                                                                        <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#ea580c' }}>
-                                                                            Comunícate en tiempo real con la sucursal para coordinar la atención inmediata.
-                                                                        </p>
-                                                                    </div>
-                                                                </div>
-                                                            )}
-                                                    {/* Card 2: Evidencia Fotográfica */}
-                                                {actualReporte && (actualReporte.imagenes?.antes || actualReporte.imagenes?.durante || actualReporte.imagenes?.despues || actualReporte.imagenObservacion || (actualReporte.imagenesObservacion && actualReporte.imagenesObservacion.length > 0)) && (
-                                                    <div style={{ background: '#fff', borderRadius: '24px', padding: '24px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)', border: '1px solid #e2e8f0' }}>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-                                                            <span style={{ fontSize: '18px' }}>📷</span>
-                                                            <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#1e293b' }}>Evidencia Fotográfica</h3>
-                                                        </div>
-                                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '12px' }}>
-                                                            {actualReporte.imagenes?.antes && (
-                                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
-                                                                    <img src={actualReporte.imagenes.antes} alt="Antes" onClick={() => setSelectedZoomImage(actualReporte.imagenes.antes)} style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: '12px', border: '1px solid #f1f5f9', cursor: 'pointer', transition: 'transform 0.2s' }} onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'} onMouseLeave={e => e.currentTarget.style.transform = 'none'} />
-                                                                    <span style={{ fontSize: '11px', fontWeight: '800', color: '#64748b' }}>Antes</span>
-                                                                </div>
-                                                            )}
-                                                            {actualReporte.imagenes?.durante && (
-                                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
-                                                                    <img src={actualReporte.imagenes.durante} alt="Durante" onClick={() => setSelectedZoomImage(actualReporte.imagenes.durante)} style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: '12px', border: '1px solid #f1f5f9', cursor: 'pointer', transition: 'transform 0.2s' }} onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'} onMouseLeave={e => e.currentTarget.style.transform = 'none'} />
-                                                                    <span style={{ fontSize: '11px', fontWeight: '800', color: '#64748b' }}>Durante</span>
-                                                                </div>
-                                                            )}
-                                                            {actualReporte.imagenes?.despues && (
-                                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
-                                                                    <img src={actualReporte.imagenes.despues} alt="Después" onClick={() => setSelectedZoomImage(actualReporte.imagenes.despues)} style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: '12px', border: '1px solid #f1f5f9', cursor: 'pointer', transition: 'transform 0.2s' }} onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'} onMouseLeave={e => e.currentTarget.style.transform = 'none'} />
-                                                                    <span style={{ fontSize: '11px', fontWeight: '800', color: '#64748b' }}>Después</span>
-                                                                </div>
-                                                            )}
-                                                            {actualReporte.imagenesObservacion && actualReporte.imagenesObservacion.length > 0 ? (
-                                                                actualReporte.imagenesObservacion.map((img: string, idx: number) => (
-                                                                    <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
-                                                                        <img src={img} alt={`Extra ${idx + 1}`} onClick={() => setSelectedZoomImage(img)} style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: '12px', border: '1px solid #f1f5f9', cursor: 'pointer', transition: 'transform 0.2s' }} onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'} onMouseLeave={e => e.currentTarget.style.transform = 'none'} />
-                                                                        <span style={{ fontSize: '11px', fontWeight: '800', color: '#64748b' }}>Extra {idx + 1}</span>
-                                                                    </div>
-                                                                ))
-                                                            ) : (
-                                                                actualReporte.imagenObservacion && (
-                                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
-                                                                        <img src={actualReporte.imagenObservacion} alt="Extra" onClick={() => setSelectedZoomImage(actualReporte.imagenObservacion)} style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: '12px', border: '1px solid #f1f5f9', cursor: 'pointer', transition: 'transform 0.2s' }} onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'} onMouseLeave={e => e.currentTarget.style.transform = 'none'} />
-                                                                        <span style={{ fontSize: '11px', fontWeight: '800', color: '#64748b' }}>Extra</span>
-                                                                    </div>
-                                                                )
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                )}
-
-                                                {/* Card 3: Sugerencias de Monto y Descargar PDF */}
-                                                {(subTareas.some(t => t.esCotizacion) || actualReporte) && (
-                                                    <div style={{ background: '#fff', borderRadius: '24px', padding: '24px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)', border: '1px solid #fde68a' }}>
-                                                        {subTareas.some(t => t.esCotizacion) && (
-                                                            <div style={{ marginBottom: actualReporte ? '20px' : '0' }}>
-                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
-                                                                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#f26522' }} />
-                                                                    <span style={{ fontSize: '13px', fontWeight: '800', color: '#1e293b' }}>Sugerencias de monto del técnico</span>
-                                                                </div>
-                                                                <div className={styles.cardTransparentScroll} style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '520px' }}>
-                                                                    {subTareas.filter(t => t.esCotizacion).map(tarea => {
-                                                                        let refaccionesSource = tarea.refacciones;
-                                                                        if (!refaccionesSource || refaccionesSource.length === 0) {
-                                                                            const trRaw = localStorage.getItem(`report_data_${tarea.id}`);
-                                                                            if (trRaw) {
-                                                                                try {
-                                                                                    const tr = JSON.parse(trRaw);
-                                                                                    if (tr && tr.refaccionesList) {
-                                                                                        refaccionesSource = tr.refaccionesList;
-                                                                                    }
-                                                                                } catch (e) {}
-                                                                            }
-                                                                        }
-                                                                        const hasRefacciones = refaccionesSource && refaccionesSource.length > 0;
-                                                                        const totalMontoRefacciones = hasRefacciones ? refaccionesSource!.reduce((sum: any, r: any) => sum + (Number(r.costo_estimado) || 0), 0) : 0;
-                                                                        
-                                                                        let calculatedTotal = 0;
-                                                                        let hasCalculatedTotal = false;
-
-                                                                        if (tarea.quoteData?.conceptos || tarea.quoteData?.materiales) {
-                                                                            if (tarea.quoteData.conceptos) {
-                                                                                calculatedTotal += tarea.quoteData.conceptos.reduce((sum: number, c: any) => sum + (Number(c.cantidad || 1) * Number(c.precio || 0)), 0);
-                                                                                hasCalculatedTotal = true;
-                                                                            }
-                                                                            if (tarea.quoteData.materiales) {
-                                                                                calculatedTotal += tarea.quoteData.materiales.reduce((sum: number, m: any) => sum + (Number(m.cantidad || 1) * Number(m.precio || 0)), 0);
-                                                                                hasCalculatedTotal = true;
-                                                                            }
-                                                                        } else if (hasRefacciones) {
-                                                                            calculatedTotal = totalMontoRefacciones;
-                                                                            hasCalculatedTotal = true;
-                                                                        }
-
-                                                                        const showMonto = hasCalculatedTotal ? calculatedTotal.toLocaleString('es-MX') : (tarea.cotizacionMonto === 'Por Evaluar' ? 'Sin monto' : tarea.cotizacionMonto);
-                                                                        const isMinimized = !!minimizedTechQuotes[tarea.id];
-                                                                         const isAcceptedState = tarea.cotizacionEstado === 'Aprobada' || ['Cotización Aceptada', 'Cotización Aprobada', 'Aceptada', 'Finalizado', 'Completado'].includes(trabajo?.estado || '');
-                                                                         const isRejectedState = tarea.cotizacionEstado === 'Rechazada' || ['Cotización Rechazada'].includes(trabajo?.estado || '') || cotizaciones.some(c => c.estado === 'Rechazada');
-                                                                         const isReactivatedState = tarea.cotizacionEstado === 'Reactivada' || trabajo?.estado === 'Cotización Reactivada';
-                                                                         const isAdminGeneral = (user?.role === 'admin' || user?.role === 'autonomo' || user?.role === 'admin-autonomo' || isAutonomoAdmin(user?.role) || user?.role === 'administrador-general' || user?.role === 'gerente-general') && user?.role !== 'tecnico-autonomo' && user?.role !== 'tecnico' && user?.role !== 'cliente';
-
-                                                                        return (
-                                                                        <div key={tarea.id} style={{ background: '#fafafa', border: '1.5px solid #f1f5f9', borderRadius: '14px', padding: '14px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
-                                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                                                    <div style={{ width: '34px', height: '34px', borderRadius: '10px', overflow: 'hidden', background: '#f8fafc', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                                                                        {getAvatarForTech(tarea.tecnicoNombre || '') ? (
-                                                                                            <img src={getAvatarForTech(tarea.tecnicoNombre || '') || undefined} alt="Tech" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                                                                        ) : (
-                                                                                            <HiOutlineUser size={15} color="#64748b" />
-                                                                                        )}
-                                                                                    </div>
-                                                                                    <div>
-                                                                                        <p style={{ margin: 0, fontSize: '13px', fontWeight: '800', color: '#1e293b' }}>{tarea.tecnicoNombre || 'Técnico'}</p>
-                                                                                        <span style={{ display: 'inline-block', fontSize: '10px', background: '#e0f2fe', color: '#0369a1', padding: '2px 8px', borderRadius: '20px', fontWeight: '700', marginTop: '2px' }}>{tarea.titulo}</span>
-                                                                                    </div>
-                                                                                </div>
-                                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                                                                                    {isMinimized && showMonto !== 'Sin monto' && (
-                                                                                        <span style={{ background: '#ffedd5', color: '#ea580c', fontSize: '12px', fontWeight: '900', padding: '4px 10px', borderRadius: '10px', border: '1px solid #fed7aa' }}>
-                                                                                            ${showMonto}
-                                                                                        </span>
-                                                                                    )}
-                                                                                    <button
-                                                                                        type="button"
-                                                                                        onClick={() => toggleMinimizeQuote(tarea.id)}
-                                                                                        style={{ background: '#f1f5f9', border: 'none', borderRadius: '6px', padding: '6px 12px', fontSize: '11px', color: '#475569', cursor: 'pointer', fontWeight: '800', transition: 'all 0.2s' }}
-                                                                                    >
-                                                                                        {isMinimized ? 'Mostrar detalle ▼' : 'Minimizar ▲'}
-                                                                                    </button>
-                                                                                </div>
-                                                                            </div>
-                                                                            
-                                                                            {!isMinimized && (
-                                                                                <>
-                                                                            {tarea.quoteData?.conceptos && tarea.quoteData.conceptos.length > 0 && (
-                                                                                <div style={{ marginTop: '15px' }}>
-                                                                                    <h4 style={{ color: '#d97706', fontSize: '15px', fontWeight: '800', borderBottom: '1px solid #d97706', paddingBottom: '5px', marginBottom: '15px', textTransform: 'uppercase' }}>1. Conceptos de Servicio</h4>
-                                                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                                                                        {tarea.quoteData.conceptos.map((c: any, idx: number) => (
-                                                                                            <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: 'linear-gradient(to right, #f8fafc, #ffffff)', padding: '16px', borderRadius: '12px', border: '1px solid #cbd5e1' }}>
-                                                                                                <div style={{ fontSize: '14px', fontWeight: '800', color: '#1e293b' }}>
-                                                                                                    {c.descripcion}
-                                                                                                </div>
-                                                                                                <div style={{ display: 'flex', gap: '15px', fontSize: '13px', color: '#475569' }}>
-                                                                                                    <div><strong>Cant:</strong> <span style={{ color: '#0f172a', fontWeight: '600' }}>{c.cantidad || 1}</span></div>
-                                                                                                    <div><strong>Precio:</strong> <span style={{ color: '#0f172a', fontWeight: '600' }}>{c.precio ? `$${Number(c.precio).toLocaleString('es-MX')}` : '---'}</span></div>
-                                                                                                    <div style={{ marginLeft: 'auto', fontWeight: '900', color: '#d97706', fontSize: '14px' }}>
-                                                                                                        Importe: ${(Number(c.cantidad || 1) * Number(c.precio || 0)).toLocaleString('es-MX')}
-                                                                                                    </div>
-                                                                                                </div>
-                                                                                            </div>
-                                                                                        ))}
-                                                                                    </div>
-                                                                                </div>
-                                                                            )}
-
-                                                                            {tarea.quoteData?.materiales && tarea.quoteData.materiales.length > 0 && (
-                                                                                <div style={{ marginTop: '15px' }}>
-                                                                                    <h4 style={{ color: '#d97706', fontSize: '15px', fontWeight: '800', borderBottom: '1px solid #d97706', paddingBottom: '5px', marginBottom: '15px', textTransform: 'uppercase' }}>2. Materiales</h4>
-                                                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                                                                        {tarea.quoteData.materiales.map((m: any, idx: number) => (
-                                                                                            <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: '#fff', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                                                                                                <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#1e293b' }}>
-                                                                                                    {m.nombre}
-                                                                                                </div>
-                                                                                                <div style={{ display: 'flex', gap: '15px', fontSize: '13px', color: '#475569' }}>
-                                                                                                    <div><strong>Cant:</strong> {m.cantidad || 1}</div>
-                                                                                                    <div><strong>Precio:</strong> {m.precio ? `$${Number(m.precio).toLocaleString('es-MX')}` : '---'}</div>
-                                                                                                    <div style={{ marginLeft: 'auto', fontWeight: 'bold', color: '#0f172a' }}>
-                                                                                                        Importe: ${(Number(m.cantidad || 1) * Number(m.precio || 0)).toLocaleString('es-MX')}
-                                                                                                    </div>
-                                                                                                </div>
-                                                                                            </div>
-                                                                                        ))}
-                                                                                    </div>
-                                                                                </div>
-                                                                            )}
-
-                                                                            {/* Mostrar refacciones SOLO si NO es una cotización (para evitar 2 veces, ya que Cotización usa Materiales y Conceptos) */}
-                                                                            {hasRefacciones && (!tarea.quoteData?.materiales || tarea.quoteData.materiales.length === 0) && (
-                                                                                <div style={{ marginTop: '15px' }}>
-                                                                                    <h4 style={{ color: '#64748b', fontSize: '14px', fontWeight: '800', borderBottom: '1px solid #cbd5e1', paddingBottom: '5px', marginBottom: '15px', textTransform: 'uppercase' }}>Detalle de Refacciones</h4>
-                                                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                                                                        {refaccionesSource!.map((ref: any, idx: number) => (
-                                                                                            <div key={idx} style={{ display: 'flex', gap: '10px', alignItems: 'center', background: '#fff', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                                                                                                <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#334155', flex: 1 }}>{ref.pieza}</div>
-                                                                                                <div style={{ fontSize: '12px', color: '#64748b' }}>Cant: {ref.cantidad || 1}</div>
-                                                                                                <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#0f172a' }}>{ref.costo_estimado ? `$${Number(ref.costo_estimado).toLocaleString('es-MX')}` : '---'}</div>
-                                                                                            </div>
-                                                                                        ))}
-                                                                                    </div>
-                                                                                </div>
-                                                                            )}
-
-                                                                            {/* Comentarios del técnico */}
-                                                                            {tarea.quoteData?.comentarios && (
-                                                                                <div style={{ background: '#fffbeb', borderRadius: '10px', padding: '10px 12px', border: '1px solid #fde68a', marginTop: '4px' }}>
-                                                                                    <span style={{ fontSize: '11px', fontWeight: '800', color: '#92400e', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Comentarios del Técnico</span>
-                                                                                    <p style={{ margin: 0, fontSize: '13px', color: '#78350f' }}>{tarea.quoteData.comentarios}</p>
-                                                                                </div>
-                                                                            )}
-
-                                                                            {/* MONTO TOTAL */}
-                                                                            {showMonto !== 'Sin monto' && (
-                                                                                <div style={{ background: 'linear-gradient(135deg, #fff7ed 0%, #fef3c7 100%)', border: '2px solid #f59e0b', borderRadius: '14px', padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                                                    <span style={{ fontSize: '13px', fontWeight: '800', color: '#92400e', textTransform: 'uppercase', letterSpacing: '0.5px' }}>💰 Monto Total</span>
-                                                                                    <span style={{ fontSize: '22px', fontWeight: '900', color: '#f26522' }}>${showMonto}</span>
-                                                                                </div>
-                                                                            )}
-
-                                                                            {/* Action buttons: PDF + Accept/Reject */}
-                                                                            <div style={{ display: 'flex', gap: '8px', marginTop: '8px', flexWrap: 'wrap' }}>
-                                                                                {/* Evidencias del Técnico */}
-                                                                                {actualReporte?.imagenesObservacion && actualReporte.imagenesObservacion.length > 0 && (
-                                                                                    <div style={{ marginTop: '15px' }}>
-                                                                                        <h4 style={{ color: '#64748b', fontSize: '14px', fontWeight: '800', borderBottom: '1px solid #cbd5e1', paddingBottom: '5px', marginBottom: '15px', textTransform: 'uppercase' }}>Evidencias del Técnico</h4>
-                                                                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '10px' }}>
-                                                                                            {actualReporte.imagenesObservacion.map((img, imgIdx) => (
-                                                                                                <div key={imgIdx} style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'center' }}>
-                                                                                                    <img 
-                                                                                                        src={img} 
-                                                                                                        alt={`Evidencia ${imgIdx + 1}`} 
-                                                                                                        onClick={() => setSelectedZoomImage(img)} 
-                                                                                                        style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: '10px', border: '1px solid #e2e8f0', cursor: 'pointer', transition: 'transform 0.2s' }} 
-                                                                                                        onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'} 
-                                                                                                        onMouseLeave={e => e.currentTarget.style.transform = 'none'} 
-                                                                                                    />
-                                                                                                    <span style={{ fontSize: '10px', fontWeight: '800', color: '#64748b' }}>Foto ${imgIdx + 1}</span>
-                                                                                                </div>
-                                                                                            ))}
-                                                                                        </div>
-                                                                                    </div>
-                                                                                )}
-
-                                                                                {/* Download PDF */}
-                                                                                <button
-                                                                                    onClick={() => {
-                                                                                        setCotizacionPreviewData({
-                                                                                            id: trabajo?.id || 'N/A',
-                                                                                            fecha: new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' }),
-                                                                                            sucursal: trabajo?.sucursal || 'N/A',
-                                                                                            encargado: trabajo?.encargado || 'N/A',
-                                                                                            tecnicoNombre: tarea.tecnicoNombre || trabajo?.tecnico || 'N/A',
-                                                                                            tecnicoAvatar: getAvatarForTech(tarea.tecnicoNombre || trabajo?.tecnico || ''),
-                                                                                            reporteTienda: tarea.descripcion || 'N/A',
-                                                                                            descripcion: tarea.descripcion || 'N/A',
-                                                                                            materiales: getMergedRefacciones(tarea, refaccionesSource || []).map((r: any) => `${r.cantidad || 1}x ${r.pieza}`).join(', ') || 'N/A',
-                                                                                            observaciones: tarea.quoteData?.comentarios || 'Sin observaciones',
-                                                                                            imagenes: {},
-                                                                                            refaccionesList: getMergedRefacciones(tarea, refaccionesSource || []),
-                                                                                            isVisita: true,
-                                                                                            involucraEquipo: false,
-                                                                                            equipoInfo: null,
-                                                                                            firmaEmpresa: null,
-                                                                                        });
-                                                                                        setShowCotizacionPreview(true);
-                                                                                    }}
-                                                                                    style={{ flex: 1, padding: '10px 14px', background: 'linear-gradient(135deg, #3b82f6, #2563eb)', color: 'white', border: 'none', borderRadius: '10px', fontSize: '12px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', transition: 'all 0.2s' }}
-                                                                                    onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
-                                                                                    onMouseLeave={e => e.currentTarget.style.transform = 'none'}
-                                                                                >
-                                                                                    <HiOutlineDocumentText size={14} /> Ver PDF
-                                                                                </button>
-
-                                                                                {/* Botón Reactivar Cotización (exclusivo para Administrador General cuando fue rechazada) */}
-                                                                                {isRejectedState && isAdminGeneral && (
-                                                                                    <button
-                                                                                        onClick={handleReactivarCotizacionSugerida}
-                                                                                        style={{ flex: 1, padding: '10px 14px', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', border: 'none', borderRadius: '10px', fontSize: '12px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', transition: 'all 0.2s', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.25)' }}
-                                                                                        onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
-                                                                                        onMouseLeave={e => e.currentTarget.style.transform = 'none'}
-                                                                                    >
-                                                                                        <HiOutlineArrowPath size={14} /> Reactivar cotización
-                                                                                    </button>
-                                                                                )}
-
-                                                                                {tarea.quoteData && (user?.role === 'tecnico' || user?.role === 'autonomo') && trabajo?.estado !== 'Cotización Enviada' && cotizaciones.length === 0 && (
-                                                                                    <button
-                                                                                        onClick={() => {
-                                                                                            setQuoteToSend(tarea);
-                                                                                            setShowSendQuoteConfirmModal(true);
-                                                                                        }}
-                                                                                        style={{ flex: 1, padding: '10px 14px', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', border: 'none', borderRadius: '10px', fontSize: '12px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', transition: 'all 0.2s', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)' }}
-                                                                                        onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
-                                                                                        onMouseLeave={e => e.currentTarget.style.transform = 'none'}
-                                                                                    >
-                                                                                        <HiOutlinePaperAirplane size={14} style={{ transform: 'rotate(45deg)' }} /> Enviar Cotización
-                                                                                    </button>
-                                                                                )}
-
-                                                                                {/* Accept/Reject only for autonomo/cliente/admin-autonomo/admin */}
-                                                                                {(() => {
-                                                                                    const isAlreadyActioned = ['Cotización Aceptada', 'Cotización Aprobada', 'Aceptada', 'Finalizado', 'Completado', 'Cotización Rechazada'].includes(trabajo?.estado || '');
-                                                                                    const canActionQuote = !isAlreadyActioned && tarea.cotizacionEstado !== 'Aprobada' && tarea.cotizacionEstado !== 'Rechazada';
-                                                                                    // El que puede aprobar es: admin general, admin-autonomo (dueño del sistema), autonomo o cliente
-                                                                                    const canApprove = user?.role === 'autonomo' || user?.role === 'cliente' || user?.role === 'admin-autonomo' || user?.role === 'admin' || user?.role === 'administrador-general' || user?.role === 'gerente-general';
-                                                                                    return canApprove && canActionQuote;
-                                                                                })() && (
-                                                                                    <>
-                                                                                        <button
-                                                                                            onClick={async () => {
-                                                                                                try {
-                                                                                                    const targetTechName = tarea.tecnicoNombre || trabajo?.tecnico || subTareas[0]?.tecnicoNombre || 'Jesus Escalante';
-                                                                                                    const targetTrabajadorId = tarea.trabajadorId || tarea.trabajador_id || trabajo?.trabajador_id || (trabajo as any)?.trabajador?.id || 1;
-                                                                                                    
-                                                                                                    await updateTrabajo(trabajo!.id, {
-                                                                                                        estado: 'Cotización Aceptada',
-                                                                                                        tecnico: targetTechName,
-                                                                                                        trabajador_id: targetTrabajadorId
-                                                                                                    });
-                                                                                                    await updateEstadoTrabajo(trabajo!.id, { estado: 'Cotización Aceptada' });
-
-                                                                                                    // Actualizar cotizaciones en backend a Aprobada
-                                                                                                    if (cotizaciones.length > 0) {
-                                                                                                        for (const c of cotizaciones) {
-                                                                                                            if (c.id) {
-                                                                                                                try {
-                                                                                                                    await updateCotizacionStatus(c.id, 'Aprobada');
-                                                                                                                } catch (_) {}
-                                                                                                            }
-                                                                                                        }
-                                                                                                        setCotizaciones(prev => prev.map(c => ({ ...c, estado: 'Aprobada' as const })));
-                                                                                                    }
-
-                                                                                                    // Notificar al técnico autónomo con enlace directo a la pestaña de Trabajo
-                                                                                                    try {
-                                                                                                        const targetTechUserId = (trabajo as any)?.tecnicoUserId || (trabajo as any)?.trabajador?.user_id || tecnicosData.find((t: any) => t.id === targetTrabajadorId)?.user_id;
-                                                                                                        if (targetTechUserId) {
-                                                                                                            await createNotificacion({
-                                                                                                                user_id: targetTechUserId,
-                                                                                                                titulo: '🎉 Cotización Aceptada',
-                                                                                                                mensaje: `El administrador general aceptó tu cotización para "${trabajo?.sucursal || ''}". Ingresa a la pestaña Trabajo para definir tu día y hora de ejecución.`,
-                                                                                                                enlace: `/tecnico-autonomo/trabajo-detalle/${trabajo!.id}?tab=trabajo`
-                                                                                                            });
-                                                                                                        } else {
-                                                                                                            await createNotificacionByRole({
-                                                                                                                role: 'tecnico',
-                                                                                                                titulo: '🎉 Cotización Aceptada',
-                                                                                                                mensaje: `El administrador general aceptó la cotización para "${trabajo?.sucursal || ''}". Ingresa a la pestaña Trabajo para definir día y hora de ejecución.`,
-                                                                                                                enlace: `/tecnico-autonomo/trabajo-detalle/${trabajo!.id}?tab=trabajo`
-                                                                                                            });
-                                                                                                        }
-                                                                                                    } catch (notiErr) {
-                                                                                                        console.error("Error enviando notificación al técnico:", notiErr);
-                                                                                                    }
-
-                                                                                                    setSubTareas(prev => prev.map(t => t.id === tarea.id ? { ...t, cotizacionEstado: 'Aprobada' as any } : t));
-                                                                                                    setTrabajo(prev => prev ? {
-                                                                                                        ...prev,
-                                                                                                        estado: 'Cotización Aceptada',
-                                                                                                        tecnico: targetTechName,
-                                                                                                        trabajador_id: targetTrabajadorId
-                                                                                                    } : prev);
-
-                                                                                                    if (activeTab === 'Registro') {
-                                                                                                        setActiveTab('Datos');
-                                                                                                    }
-
-                                                                                                    showAlert('Cotización Aceptada', `Has aceptado la cotización de ${targetTechName} por $${showMonto}. Se le asignó el trabajo y se le solicitó definir su día y hora de ejecución.`, 'success');
-                                                                                                } catch (error) {
-                                                                                                    showAlert('Error', 'Hubo un problema al actualizar el estado del trabajo.', 'error');
-                                                                                                }
-                                                                                            }}
-                                                                                            style={{ flex: 1, padding: '10px 14px', background: 'linear-gradient(135deg, #22c55e, #16a34a)', color: 'white', border: 'none', borderRadius: '10px', fontSize: '12px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', transition: 'all 0.2s' }}
-                                                                                            onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
-                                                                                            onMouseLeave={e => e.currentTarget.style.transform = 'none'}
-                                                                                        >
-                                                                                            ✓ Aceptar
-                                                                                        </button>
-                                                                                        <button
-                                                                                            onClick={async () => {
-                                                                                                try {
-                                                                                                    const currentEvidence = {
-                                                                                                        id: Date.now(),
-                                                                                                        version: quoteHistory.length + 1,
-                                                                                                        fecha: new Date().toLocaleString('es-MX'),
-                                                                                                        tecnicoNombre: tarea.tecnicoNombre || trabajo?.tecnico || 'Técnico',
-                                                                                                        quoteData: tarea.quoteData || null,
-                                                                                                        refacciones: tarea.refacciones || null,
-                                                                                                        comentarios: tarea.cotizacionNotas || '',
-                                                                                                        monto: showMonto
-                                                                                                    };
-                                                                                                    const updatedHistory = [currentEvidence, ...quoteHistory];
-                                                                                                    setQuoteHistory(updatedHistory);
-                                                                                                    if (trabajo?.id) {
-                                                                                                        // Guardar en localStorage como caché local
-                                                                                                        localStorage.setItem(`quote_history_${trabajo.id}`, JSON.stringify(updatedHistory));
-                                                                                                        // Guardar en backend (en el campo descripcion de la cotización más reciente)
-                                                                                                        const HISTORY_MARKER = '|||QUOTE_HISTORY|||';
-                                                                                                        const historyPayload = JSON.stringify(updatedHistory);
-                                                                                                        const cotizacionActual = cotizaciones.length > 0 ? cotizaciones[0] : null;
-                                                                                                        if (cotizacionActual?.id) {
-                                                                                                            try {
-                                                                                                                // Limpiar descripcion anterior de marcadores de historial y agregar el nuevo
-                                                                                                                const baseDesc = (cotizacionActual.descripcion || '').split(HISTORY_MARKER)[0].trimEnd();
-                                                                                                                await updateCotizacion(cotizacionActual.id, {
-                                                                                                                    descripcion: `${baseDesc}\n${HISTORY_MARKER} ${historyPayload}`,
-                                                                                                                    monto: cotizacionActual.monto
-                                                                                                                });
-                                                                                                            } catch (saveErr) {
-                                                                                                                console.warn('No se pudo guardar historial en backend, solo en localStorage', saveErr);
-                                                                                                            }
-                                                                                                        }
-                                                                                                    }
-
-                                                                                                    await updateEstadoTrabajo(trabajo!.id, { estado: 'Cotización Rechazada' });
-                                                                                                    setSubTareas(prev => prev.map(t => t.id === tarea.id ? { ...t, cotizacionEstado: 'Rechazada' as any } : t));
-                                                                                                    setTrabajo(prev => prev ? { ...prev, estado: 'Cotización Rechazada' } : prev);
-                                                                                                    showAlert('Re-Cotización Solicitada', `Has devuelto la cotización a ${tarea.tecnicoNombre || 'el técnico'} para que la modifique.`, 'warning');
-                                                                                                } catch (error) {
-                                                                                                    showAlert('Error', 'Hubo un problema al actualizar el estado.', 'error');
-                                                                                                }
-                                                                                            }}
-                                                                                            style={{ padding: '10px 14px', background: '#fff', color: '#f59e0b', border: '1.5px solid #fcd34d', borderRadius: '10px', fontSize: '12px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', transition: 'all 0.2s' }}
-                                                                                            onMouseEnter={e => { e.currentTarget.style.background = '#fef3c7'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-                                                                                            onMouseLeave={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.transform = 'none'; }}
-                                                                                        >
-                                                                                            🔁 Re Cotizar
-                                                                                        </button>
-                                                                                    </>
-                                                                                )}
-                                                                            </div>
-
-                                                                            {/* Status badge if already accepted/rejected */}
-                                                                            {(() => {
-                                                                                if (isAcceptedState || isRejectedState) {
-                                                                                    return (
-                                                                                        <div style={{ display: 'flex', justifyContent: 'center', marginTop: '4px' }}>
-                                                                                            <span style={{
-                                                                                                padding: '6px 16px',
-                                                                                                borderRadius: '20px',
-                                                                                                fontSize: '12px',
-                                                                                                fontWeight: '800',
-                                                                                                background: isAcceptedState ? '#dcfce7' : '#fef2f2',
-                                                                                                color: isAcceptedState ? '#166534' : '#991b1b',
-                                                                                                border: `1px solid ${isAcceptedState ? '#86efac' : '#fca5a5'}`
-                                                                                            }}>
-                                                                                                {isAcceptedState ? '✓ Cotización Aceptada' : '✕ Cotización Rechazada'}
-                                                                                            </span>
-                                                                                        </div>
-                                                                                    );
-                                                                                }
-                                                                                if (isReactivatedState) {
-                                                                                    return (
-                                                                                        <div style={{ display: 'flex', justifyContent: 'center', marginTop: '4px' }}>
-                                                                                            <span style={{
-                                                                                                padding: '6px 16px',
-                                                                                                borderRadius: '20px',
-                                                                                                fontSize: '12px',
-                                                                                                fontWeight: '800',
-                                                                                                background: '#eff6ff',
-                                                                                                color: '#1d4ed8',
-                                                                                                border: '1px solid #bfdbfe'
-                                                                                            }}>
-                                                                                                ↺ Cotización Reactivada
-                                                                                            </span>
-                                                                                        </div>
-                                                                                    );
-                                                                                }
-                                                                                return null;
-                                                                            })()}
-                                                                                </>
-                                                                            )}
-                                                                        </div>
-                                                                    )})}
-                                                                </div>
-
-                                                                {/* PESTAÑA DESPLEGABLE DE EVIDENCIA DE COTIZACIONES ANTERIORES */}
-                                                                {quoteHistory.length > 0 && (
-                                                                    <div style={{ marginTop: '20px', borderTop: '2px dashed #e2e8f0', paddingTop: '16px' }}>
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() => setShowHistoryDropdown(prev => !prev)}
-                                                                            style={{
-                                                                                width: '100%',
-                                                                                padding: '12px 18px',
-                                                                                background: 'linear-gradient(135deg, #fff8f0 0%, #fef3c7 100%)',
-                                                                                border: '1.5px solid #fcd34d',
-                                                                                borderRadius: '14px',
-                                                                                display: 'flex',
-                                                                                alignItems: 'center',
-                                                                                justifyContent: 'space-between',
-                                                                                cursor: 'pointer',
-                                                                                transition: 'all 0.2s ease',
-                                                                                boxShadow: '0 2px 8px rgba(245, 158, 11, 0.12)'
-                                                                            }}
-                                                                            onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
-                                                                            onMouseLeave={e => e.currentTarget.style.transform = 'none'}
-                                                                        >
-                                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                                                <span style={{ fontSize: '18px' }}>📜</span>
-                                                                                <div style={{ textAlign: 'left' }}>
-                                                                                    <span style={{ fontSize: '13px', fontWeight: '800', color: '#92400e', display: 'block' }}>
-                                                                                        Evidencia de Cotizaciones Anteriores (Historial)
-                                                                                    </span>
-                                                                                    <span style={{ fontSize: '11px', color: '#b45309', fontWeight: '600' }}>
-                                                                                        {quoteHistory.length} {quoteHistory.length === 1 ? 'versión previa guardada' : 'versiones previas guardadas'}
-                                                                                    </span>
-                                                                                </div>
-                                                                            </div>
-                                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                                                <span style={{ background: '#d97706', color: '#fff', fontSize: '11px', fontWeight: '800', padding: '3px 10px', borderRadius: '20px' }}>
-                                                                                    {showHistoryDropdown ? '▲ Ocultar' : '▼ Ver Evidencia'}
-                                                                                </span>
-                                                                            </div>
-                                                                        </button>
-
-                                                                        {showHistoryDropdown && (
-                                                                            <div style={{ marginTop: '14px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                                                                                {quoteHistory.map((item: any, idx: number) => (
-                                                                                    <div 
-                                                                                        key={item.id || idx} 
-                                                                                        style={{ 
-                                                                                            background: '#fafafa', 
-                                                                                            border: '1.5px solid #fde68a', 
-                                                                                            borderRadius: '14px', 
-                                                                                            padding: '16px', 
-                                                                                            boxShadow: '0 4px 12px rgba(245, 158, 11, 0.08)'
-                                                                                        }}
-                                                                                    >
-                                                                                        {/* Header of evidence card */}
-                                                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #fef3c7', paddingBottom: '10px', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
-                                                                                            <div>
-                                                                                                <span style={{ background: '#fef3c7', color: '#b45309', fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '20px', display: 'inline-block', marginBottom: '4px' }}>
-                                                                                                    📋 Cotización Versión {item.version || (quoteHistory.length - idx)} (Evidencia)
-                                                                                                </span>
-                                                                                                <p style={{ margin: 0, fontSize: '12px', fontWeight: '700', color: '#475569' }}>
-                                                                                                    Técnico: {item.tecnicoNombre} • <span style={{ color: '#94a3b8' }}>{item.fecha}</span>
-                                                                                                </p>
-                                                                                            </div>
-                                                                                            <span style={{ fontSize: '11px', fontWeight: '800', color: '#dc2626', background: '#fef2f2', border: '1px solid #fca5a5', padding: '4px 12px', borderRadius: '12px' }}>
-                                                                                                🚫 Re-cotización Solicitada
-                                                                                            </span>
-                                                                                        </div>
-
-                                                                                        {/* Conceptos */}
-                                                                                        {item.quoteData?.conceptos && item.quoteData.conceptos.length > 0 && (
-                                                                                            <div style={{ marginBottom: '12px' }}>
-                                                                                                <h4 style={{ color: '#d97706', fontSize: '13px', fontWeight: '800', borderBottom: '1px solid #fde68a', paddingBottom: '4px', marginBottom: '8px', textTransform: 'uppercase' }}>1. Conceptos de Servicio</h4>
-                                                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                                                                                    {item.quoteData.conceptos.map((c: any, cIdx: number) => (
-                                                                                                        <div key={cIdx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', background: '#fff', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', color: '#334155' }}>
-                                                                                                            <span>{c.descripcion} (x{c.cantidad || 1})</span>
-                                                                                                            <strong style={{ color: '#0f172a' }}>${(Number(c.cantidad || 1) * Number(c.precio || 0)).toLocaleString('es-MX')}</strong>
-                                                                                                        </div>
-                                                                                                    ))}
-                                                                                                </div>
-                                                                                            </div>
-                                                                                        )}
-
-                                                                                        {/* Materiales */}
-                                                                                        {item.quoteData?.materiales && item.quoteData.materiales.length > 0 && (
-                                                                                            <div style={{ marginBottom: '12px' }}>
-                                                                                                <h4 style={{ color: '#d97706', fontSize: '13px', fontWeight: '800', borderBottom: '1px solid #fde68a', paddingBottom: '4px', marginBottom: '8px', textTransform: 'uppercase' }}>2. Materiales</h4>
-                                                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                                                                                    {item.quoteData.materiales.map((m: any, mIdx: number) => (
-                                                                                                        <div key={mIdx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', background: '#fff', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', color: '#334155' }}>
-                                                                                                            <span>{m.nombre} (x{m.cantidad || 1})</span>
-                                                                                                            <strong style={{ color: '#0f172a' }}>${(Number(m.cantidad || 1) * Number(m.precio || 0)).toLocaleString('es-MX')}</strong>
-                                                                                                        </div>
-                                                                                                    ))}
-                                                                                                </div>
-                                                                                            </div>
-                                                                                        )}
-
-                                                                                        {/* Refacciones if present */}
-                                                                                        {item.refacciones && item.refacciones.length > 0 && (!item.quoteData?.materiales || item.quoteData.materiales.length === 0) && (
-                                                                                            <div style={{ marginBottom: '12px' }}>
-                                                                                                <h4 style={{ color: '#64748b', fontSize: '13px', fontWeight: '800', borderBottom: '1px solid #cbd5e1', paddingBottom: '4px', marginBottom: '8px', textTransform: 'uppercase' }}>Detalle de Refacciones</h4>
-                                                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                                                                                    {item.refacciones.map((r: any, rIdx: number) => (
-                                                                                                        <div key={rIdx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', background: '#fff', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', color: '#334155' }}>
-                                                                                                            <span>{r.pieza} (x{r.cantidad || 1})</span>
-                                                                                                            <strong style={{ color: '#0f172a' }}>{r.costo_estimado ? `$${Number(r.costo_estimado).toLocaleString('es-MX')}` : '---'}</strong>
-                                                                                                        </div>
-                                                                                                    ))}
-                                                                                                </div>
-                                                                                            </div>
-                                                                                        )}
-
-                                                                                        {/* Comentarios */}
-                                                                                        {item.comentarios && (
-                                                                                            <div style={{ background: '#fffbeb', borderRadius: '8px', padding: '8px 12px', border: '1px solid #fde68a', marginBottom: '10px' }}>
-                                                                                                <span style={{ fontSize: '10px', fontWeight: '800', color: '#92400e', textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>Comentarios del Técnico</span>
-                                                                                                <p style={{ margin: 0, fontSize: '12px', color: '#78350f' }}>{item.comentarios}</p>
-                                                                                            </div>
-                                                                                        )}
-
-                                                                                        {/* Monto Total Evidencia */}
-                                                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'linear-gradient(135deg, #fff7ed 0%, #fef3c7 100%)', padding: '12px 16px', borderRadius: '12px', border: '1.5px solid #f59e0b' }}>
-                                                                                            <span style={{ fontSize: '12px', fontWeight: '800', color: '#92400e', textTransform: 'uppercase' }}>💰 Monto Total (Evidencia)</span>
-                                                                                            <span style={{ fontSize: '18px', fontWeight: '900', color: '#f26522' }}>${item.monto}</span>
-                                                                                        </div>
-                                                                                    </div>
-                                                                                ))}
-                                                                            </div>
-                                                                        )}
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        )}
-
-                                                        {/* Botones Aceptar/Re Cotizar para cotizaciones del BD (tecnico autonomo) */}
-                                                        {cotizaciones.length > 0 && trabajo?.estado === 'Cotización Enviada' && !subTareas.some(t => t.esCotizacion) && (() => {
-                                                            const canApprove = user?.role === 'autonomo' || user?.role === 'cliente' || user?.role === 'admin-autonomo' || user?.role === 'admin' || user?.role === 'administrador-general' || user?.role === 'gerente-general';
-                                                            if (!canApprove) return null;
-                                                            const cotizActual = cotizaciones[0];
-                                                            const totalMonto = cotizActual?.monto ? Number(cotizActual.monto).toLocaleString('es-MX') : '---';
-                                                            return (
-                                                                <div style={{ background: '#fafafa', border: '1.5px solid #f1f5f9', borderRadius: '14px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' }}>
-                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#f26522' }} />
-                                                                        <span style={{ fontSize: '13px', fontWeight: '800', color: '#1e293b' }}>Cotización del Técnico — Pendiente de Aprobación</span>
-                                                                    </div>
-                                                                    <div style={{ background: 'linear-gradient(135deg, #fff7ed 0%, #fef3c7 100%)', border: '2px solid #f59e0b', borderRadius: '14px', padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                                        <span style={{ fontSize: '13px', fontWeight: '800', color: '#92400e', textTransform: 'uppercase' }}>Monto Total</span>
-                                                                        <span style={{ fontSize: '22px', fontWeight: '900', color: '#f26522' }}>${totalMonto}</span>
-                                                                    </div>
-                                                                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                                                                        <button
-                                                                            onClick={async () => {
-                                                                                try {
-                                                                                    const targetTechName = trabajo?.tecnico || 'Jesus Escalante';
-                                                                                    const targetTrabajadorId = trabajo?.trabajador_id || (trabajo as any)?.trabajador?.id || 1;
-                                                                                    await updateTrabajo(trabajo!.id, {
-                                                                                        estado: 'Cotización Aceptada',
-                                                                                        tecnico: targetTechName,
-                                                                                        trabajador_id: targetTrabajadorId
-                                                                                    });
-                                                                                    await updateEstadoTrabajo(trabajo!.id, { estado: 'Cotización Aceptada' });
-                                                                                    if (cotizActual?.id) { try { await updateCotizacion(cotizActual.id, { estado: 'Aprobada', monto: cotizActual.monto }); } catch (e) {} }
-                                                                                    const targetTechUserAccept3 = (trabajo as any)?.tecnicoUserId || (trabajo as any)?.trabajador?.user_id || tecnicosData.find((t: any) => t.id === targetTrabajadorId)?.user_id;
-                                                                                    if (targetTechUserAccept3) {
-                                                                                        try {
-                                                                                            await createNotificacion({
-                                                                                                user_id: targetTechUserAccept3,
-                                                                                                titulo: '🎉 Cotización Aceptada',
-                                                                                                mensaje: `El administrador general aceptó tu cotización para "${trabajo?.sucursal || ''}". Ingresa a la pestaña Trabajo para definir tu día y hora de ejecución.`,
-                                                                                                enlace: `/tecnico-autonomo/trabajo-detalle/${trabajo!.id}?tab=trabajo`
-                                                                                            });
-                                                                                        } catch (e) {}
-                                                                                    }
-                                                                                    setTrabajo(prev => prev ? { ...prev, estado: 'Cotización Aceptada', tecnico: targetTechName, trabajador_id: targetTrabajadorId } : prev);
-                                                                                    showAlert('Cotización Aceptada', `Has aceptado la cotización por $${totalMonto}.`, 'success');
-                                                                                } catch (error) { showAlert('Error', 'Hubo un problema al actualizar el estado.', 'error'); }
-                                                                            }}
-                                                                            style={{ flex: 1, padding: '10px 14px', background: 'linear-gradient(135deg, #22c55e, #16a34a)', color: 'white', border: 'none', borderRadius: '10px', fontSize: '13px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-                                                                        >
-                                                                            ✓ Aceptar Cotización
-                                                                        </button>
-                                                                        <button
-                                                                            onClick={async () => {
-                                                                                try {
-                                                                                    await updateEstadoTrabajo(trabajo!.id, { estado: 'Cotización Rechazada' });
-                                                                                    if (cotizActual?.id) { try { await updateCotizacion(cotizActual.id, { estado: 'Rechazada', monto: cotizActual.monto }); } catch (e) {} }
-                                                                                    setTrabajo(prev => prev ? { ...prev, estado: 'Cotización Rechazada' } : prev);
-                                                                                    showAlert('Re-Cotización Solicitada', 'Se rechazó la cotización.', 'warning');
-                                                                                } catch (error) { showAlert('Error', 'Hubo un problema al actualizar el estado.', 'error'); }
-                                                                            }}
-                                                                            style={{ padding: '10px 14px', background: '#fff', color: '#f59e0b', border: '1.5px solid #fcd34d', borderRadius: '10px', fontSize: '13px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-                                                                        >
-                                                                            🔁 Re Cotizar
-                                                                        </button>
-                                                                    </div>
-                                                                </div>
-                                                            );
-                                                        })()}
-                                                        {actualReporte && (
-                                                            <button
-                                                                onClick={async () => {
-                                                                    try {
-                                                                        let updatedRefacciones: any[] = [];
-                                                                        subTareas.forEach((st: any) => {
-                                                                            if (st.quoteData?.conceptos && st.quoteData.conceptos.length > 0) {
-                                                                                st.quoteData.conceptos.forEach((c: any) => {
-                                                                                    updatedRefacciones.push({
-                                                                                        pieza: c.descripcion,
-                                                                                        cantidad: Number(c.cantidad || 1),
-                                                                                        costo_estimado: Number(c.precio || 0).toString()
-                                                                                    });
-                                                                                });
-                                                                            }
-                                                                            if (st.quoteData?.materiales && st.quoteData.materiales.length > 0) {
-                                                                                st.quoteData.materiales.forEach((m: any) => {
-                                                                                    updatedRefacciones.push({
-                                                                                        pieza: m.nombre,
-                                                                                        cantidad: Number(m.cantidad || 1),
-                                                                                        costo_estimado: Number(m.precio || 0).toString()
-                                                                                    });
-                                                                                });
-                                                                            }
-                                                                            if (updatedRefacciones.length === 0 && st.refacciones && st.refacciones.length > 0) {
-                                                                                st.refacciones.forEach((r: any) => {
-                                                                                    updatedRefacciones.push({
-                                                                                        pieza: r.pieza,
-                                                                                        cantidad: r.cantidad || 1,
-                                                                                        costo_estimado: r.costo_estimado
-                                                                                    });
-                                                                                });
-                                                                            }
-                                                                        });
-                                                                        if (updatedRefacciones.length === 0 && actualReporte?.refaccionesList) {
-                                                                            updatedRefacciones = actualReporte.refaccionesList;
-                                                                        }
-
-                                                                        await generateMaintenanceReportPDF({
-                                                                            id: actualReporte.dbId || actualReporte.id || trabajo?.id || 'SD',
-                                                                            fecha: actualReporte.fecha || new Date().toLocaleDateString(),
-                                                                            sucursal: trabajo?.sucursal || 'N/A',
-                                                                            encargado: trabajo?.encargado || 'N/A',
-                                                                            tecnico: actualReporte.tecnicoNombre || trabajo?.tecnico || subTareas[0]?.tecnicoNombre || 'N/A',
-                                                                            tecnicoAvatar: actualReporte.tecnicoAvatar || getAvatarForTech(actualReporte.tecnicoNombre || trabajo?.tecnico || subTareas[0]?.tecnicoNombre || ''),
-                                                                            fechaInicio: actualReporte.fechaInicio || null,
-                                                                            diagnostico: actualReporte.reporteTienda || 'N/A',
-                                                                            descripcion: actualReporte.descripcion || 'N/A',
-                                                                            materiales: actualReporte.materiales || 'N/A',
-                                                                            observaciones: actualReporte.observaciones || 'N/A',
-                                                                            observacionesList: actualReporte.observacionesList,
-                                                                            imagenes: {
-                                                                                antes: actualReporte.imagenes?.antes,
-                                                                                durante: actualReporte.imagenes?.durante,
-                                                                                despues: actualReporte.imagenes?.despues,
-                                                                                extra: (actualReporte.imagenesObservacion && actualReporte.imagenesObservacion.length > 0)
-                                                                                    ? actualReporte.imagenesObservacion
-                                                                                    : actualReporte.imagenObservacion
-                                                                            },
-                                                                            firmaEmpresa: actualReporte.firmaEmpresa,
-                                                                            equipo: actualReporte.involucraEquipo ? actualReporte.equipoInfo : (trabajo?.cotizacion ? {
-                                                                                tipo: 'Servicio',
-                                                                                marca: 'N/A',
-                                                                                modelo: 'N/A'
-                                                                            } : null),
-                                                                            refaccionesList: updatedRefacciones,
-                                                                            isVisita: true
-                                                                        });
-                                                                    } catch (err) {
-                                                                        console.error("Error al descargar PDF del técnico:", err);
-                                                                    }
-                                                                }}
-                                                                style={{ width: '100%', padding: '14px', background: 'linear-gradient(135deg, #ef4444, #dc2626)', color: 'white', border: 'none', borderRadius: '16px', fontSize: '14px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', boxShadow: '0 4px 12px rgba(239, 68, 68, 0.2)' }}
-                                                            >
-                                                                <HiOutlineDocumentText size={18} /> Descargar PDF del Técnico
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                )}
-
-                                                {/* CHAT DE NEGOCIACIÓN / CHAT DIRECTO SIEMPRE VISIBLE */}
-                                                {isTechDrawerOpen && trabajo && (
+                                        {/* CONTENIDO DEL DRAWER CON SCROLL TRANSPARENTE */}
+                                        <div className={`${styles.techDrawerContent} ${styles.cardTransparentScroll}`}>
+                                            {(user?.role === 'cliente' || user?.role === 'encargado') ? (
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                                                     <div style={{
-                                                        marginTop: '8px',
-                                                        paddingTop: '16px',
-                                                        borderTop: (subTareas.some(t => t.esCotizacion) || actualReporte || (quoteHistory && quoteHistory.length > 0)) ? '2px dashed #e2e8f0' : 'none'
+                                                        background: isSOS ? 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)' : 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
+                                                        border: isSOS ? '1.5px solid #fed7aa' : '1.5px solid #bfdbfe',
+                                                        borderRadius: '16px',
+                                                        padding: '16px 18px',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '12px'
                                                     }}>
-                                                        <NegotiationChatWidget 
-                                                            trabajoId={trabajo.id} 
-                                                            currentUser={user} 
+                                                        <div style={{ fontSize: '24px' }}>💬</div>
+                                                        <div>
+                                                            <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '850', color: isSOS ? '#c2410c' : '#1e40af' }}>
+                                                                {isSOS ? 'Chat Directo con el Técnico (Emergencia SOS)' : 'Chat de Negociación con Administrador'}
+                                                            </h4>
+                                                            <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: isSOS ? '#ea580c' : '#3b82f6' }}>
+                                                                {isSOS
+                                                                    ? 'Conversa en tiempo real con el técnico en sitio para coordinar la reparación o aclarar dudas.'
+                                                                    : 'Conversa en tiempo real para consultar dudas o acordar ajustes a la cotización.'}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+
+                                                    {isTechDrawerOpen && trabajo && (
+                                                        <NegotiationChatWidget
+                                                            trabajoId={trabajo.id}
+                                                            currentUser={user}
                                                             inlineMode={true}
                                                         />
-                                                    </div>
-                                                )}
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                                    {/* Banner para Técnico en SOS */}
+                                                    {isSOS && isTechRole && (
+                                                        <div style={{
+                                                            background: 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)',
+                                                            border: '1.5px solid #fed7aa',
+                                                            borderRadius: '16px',
+                                                            padding: '16px 18px',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: '12px'
+                                                        }}>
+                                                            <div style={{ fontSize: '24px' }}>💬</div>
+                                                            <div>
+                                                                <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '850', color: '#c2410c' }}>
+                                                                    Chat Directo con el Cliente (Emergencia SOS)
+                                                                </h4>
+                                                                <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#ea580c' }}>
+                                                                    Comunícate en tiempo real con la sucursal para coordinar la atención inmediata.
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    {/* Card 2: Evidencia Fotográfica */}
+                                                    {actualReporte && (actualReporte.imagenes?.antes || actualReporte.imagenes?.durante || actualReporte.imagenes?.despues || actualReporte.imagenObservacion || (actualReporte.imagenesObservacion && actualReporte.imagenesObservacion.length > 0)) && (
+                                                        <div style={{ background: '#fff', borderRadius: '24px', padding: '24px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)', border: '1px solid #e2e8f0' }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                                                                <span style={{ fontSize: '18px' }}>📷</span>
+                                                                <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#1e293b' }}>Evidencia Fotográfica</h3>
+                                                            </div>
+                                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '12px' }}>
+                                                                {actualReporte.imagenes?.antes && (
+                                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                                                                        <img src={actualReporte.imagenes.antes} alt="Antes" onClick={() => setSelectedZoomImage(actualReporte.imagenes.antes)} style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: '12px', border: '1px solid #f1f5f9', cursor: 'pointer', transition: 'transform 0.2s' }} onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'} onMouseLeave={e => e.currentTarget.style.transform = 'none'} />
+                                                                        <span style={{ fontSize: '11px', fontWeight: '800', color: '#64748b' }}>Antes</span>
+                                                                    </div>
+                                                                )}
+                                                                {actualReporte.imagenes?.durante && (
+                                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                                                                        <img src={actualReporte.imagenes.durante} alt="Durante" onClick={() => setSelectedZoomImage(actualReporte.imagenes.durante)} style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: '12px', border: '1px solid #f1f5f9', cursor: 'pointer', transition: 'transform 0.2s' }} onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'} onMouseLeave={e => e.currentTarget.style.transform = 'none'} />
+                                                                        <span style={{ fontSize: '11px', fontWeight: '800', color: '#64748b' }}>Durante</span>
+                                                                    </div>
+                                                                )}
+                                                                {actualReporte.imagenes?.despues && (
+                                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                                                                        <img src={actualReporte.imagenes.despues} alt="Después" onClick={() => setSelectedZoomImage(actualReporte.imagenes.despues)} style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: '12px', border: '1px solid #f1f5f9', cursor: 'pointer', transition: 'transform 0.2s' }} onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'} onMouseLeave={e => e.currentTarget.style.transform = 'none'} />
+                                                                        <span style={{ fontSize: '11px', fontWeight: '800', color: '#64748b' }}>Después</span>
+                                                                    </div>
+                                                                )}
+                                                                {actualReporte.imagenesObservacion && actualReporte.imagenesObservacion.length > 0 ? (
+                                                                    actualReporte.imagenesObservacion.map((img: string, idx: number) => (
+                                                                        <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                                                                            <img src={img} alt={`Extra ${idx + 1}`} onClick={() => setSelectedZoomImage(img)} style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: '12px', border: '1px solid #f1f5f9', cursor: 'pointer', transition: 'transform 0.2s' }} onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'} onMouseLeave={e => e.currentTarget.style.transform = 'none'} />
+                                                                            <span style={{ fontSize: '11px', fontWeight: '800', color: '#64748b' }}>Extra {idx + 1}</span>
+                                                                        </div>
+                                                                    ))
+                                                                ) : (
+                                                                    actualReporte.imagenObservacion && (
+                                                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                                                                            <img src={actualReporte.imagenObservacion} alt="Extra" onClick={() => setSelectedZoomImage(actualReporte.imagenObservacion)} style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: '12px', border: '1px solid #f1f5f9', cursor: 'pointer', transition: 'transform 0.2s' }} onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'} onMouseLeave={e => e.currentTarget.style.transform = 'none'} />
+                                                                            <span style={{ fontSize: '11px', fontWeight: '800', color: '#64748b' }}>Extra</span>
+                                                                        </div>
+                                                                    )
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Card 3: Sugerencias de Monto y Descargar PDF */}
+                                                    {(subTareas.some(t => t.esCotizacion) || actualReporte) && (
+                                                        <div style={{ background: '#fff', borderRadius: '24px', padding: '24px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)', border: '1px solid #fde68a' }}>
+                                                            {subTareas.some(t => t.esCotizacion) && (
+                                                                <div style={{ marginBottom: actualReporte ? '20px' : '0' }}>
+                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                                                                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#f26522' }} />
+                                                                        <span style={{ fontSize: '13px', fontWeight: '800', color: '#1e293b' }}>Sugerencias de monto del técnico</span>
+                                                                    </div>
+                                                                    <div className={styles.cardTransparentScroll} style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '520px' }}>
+                                                                        {subTareas.filter(t => t.esCotizacion).map(tarea => {
+                                                                            let refaccionesSource = tarea.refacciones;
+                                                                            if (!refaccionesSource || refaccionesSource.length === 0) {
+                                                                                const trRaw = localStorage.getItem(`report_data_${tarea.id}`);
+                                                                                if (trRaw) {
+                                                                                    try {
+                                                                                        const tr = JSON.parse(trRaw);
+                                                                                        if (tr && tr.refaccionesList) {
+                                                                                            refaccionesSource = tr.refaccionesList;
+                                                                                        }
+                                                                                    } catch (e) { }
+                                                                                }
+                                                                            }
+                                                                            const hasRefacciones = refaccionesSource && refaccionesSource.length > 0;
+                                                                            const totalMontoRefacciones = hasRefacciones ? refaccionesSource!.reduce((sum: any, r: any) => sum + (Number(r.costo_estimado) || 0), 0) : 0;
+
+                                                                            let calculatedTotal = 0;
+                                                                            let hasCalculatedTotal = false;
+
+                                                                            if (tarea.quoteData?.conceptos || tarea.quoteData?.materiales) {
+                                                                                if (tarea.quoteData.conceptos) {
+                                                                                    calculatedTotal += tarea.quoteData.conceptos.reduce((sum: number, c: any) => sum + (Number(c.cantidad || 1) * Number(c.precio || 0)), 0);
+                                                                                    hasCalculatedTotal = true;
+                                                                                }
+                                                                                if (tarea.quoteData.materiales) {
+                                                                                    calculatedTotal += tarea.quoteData.materiales.reduce((sum: number, m: any) => sum + (Number(m.cantidad || 1) * Number(m.precio || 0)), 0);
+                                                                                    hasCalculatedTotal = true;
+                                                                                }
+                                                                            } else if (hasRefacciones) {
+                                                                                calculatedTotal = totalMontoRefacciones;
+                                                                                hasCalculatedTotal = true;
+                                                                            }
+
+                                                                            const showMonto = hasCalculatedTotal ? calculatedTotal.toLocaleString('es-MX') : (tarea.cotizacionMonto === 'Por Evaluar' ? 'Sin monto' : tarea.cotizacionMonto);
+                                                                            const isMinimized = !!minimizedTechQuotes[tarea.id];
+                                                                            const isAcceptedState = tarea.cotizacionEstado === 'Aprobada' || ['Cotización Aceptada', 'Cotización Aprobada', 'Aceptada', 'Finalizado', 'Completado'].includes(trabajo?.estado || '');
+                                                                            const isRejectedState = tarea.cotizacionEstado === 'Rechazada' || ['Cotización Rechazada'].includes(trabajo?.estado || '') || cotizaciones.some(c => c.estado === 'Rechazada');
+                                                                            const isReactivatedState = tarea.cotizacionEstado === 'Reactivada' || trabajo?.estado === 'Cotización Reactivada';
+                                                                            const isAdminGeneral = (user?.role === 'admin' || user?.role === 'autonomo' || user?.role === 'admin-autonomo' || isAutonomoAdmin(user?.role) || user?.role === 'administrador-general' || user?.role === 'gerente-general') && user?.role !== 'tecnico-autonomo' && user?.role !== 'tecnico' && user?.role !== 'cliente';
+
+                                                                            return (
+                                                                                <div key={tarea.id} style={{ background: '#fafafa', border: '1.5px solid #f1f5f9', borderRadius: '14px', padding: '14px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+                                                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                                                            <div style={{ width: '34px', height: '34px', borderRadius: '10px', overflow: 'hidden', background: '#f8fafc', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                                                                {getAvatarForTech(tarea.tecnicoNombre || '') ? (
+                                                                                                    <img src={getAvatarForTech(tarea.tecnicoNombre || '') || undefined} alt="Tech" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                                                                ) : (
+                                                                                                    <HiOutlineUser size={15} color="#64748b" />
+                                                                                                )}
+                                                                                            </div>
+                                                                                            <div>
+                                                                                                <p style={{ margin: 0, fontSize: '13px', fontWeight: '800', color: '#1e293b' }}>{tarea.tecnicoNombre || 'Técnico'}</p>
+                                                                                                <span style={{ display: 'inline-block', fontSize: '10px', background: '#e0f2fe', color: '#0369a1', padding: '2px 8px', borderRadius: '20px', fontWeight: '700', marginTop: '2px' }}>{tarea.titulo}</span>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                                                                                            {isMinimized && showMonto !== 'Sin monto' && (
+                                                                                                <span style={{ background: '#ffedd5', color: '#ea580c', fontSize: '12px', fontWeight: '900', padding: '4px 10px', borderRadius: '10px', border: '1px solid #fed7aa' }}>
+                                                                                                    ${showMonto}
+                                                                                                </span>
+                                                                                            )}
+                                                                                            <button
+                                                                                                type="button"
+                                                                                                onClick={() => toggleMinimizeQuote(tarea.id)}
+                                                                                                style={{ background: '#f1f5f9', border: 'none', borderRadius: '6px', padding: '6px 12px', fontSize: '11px', color: '#475569', cursor: 'pointer', fontWeight: '800', transition: 'all 0.2s' }}
+                                                                                            >
+                                                                                                {isMinimized ? 'Mostrar detalle ▼' : 'Minimizar ▲'}
+                                                                                            </button>
+                                                                                        </div>
+                                                                                    </div>
+
+                                                                                    {!isMinimized && (
+                                                                                        <>
+                                                                                            {tarea.quoteData?.conceptos && tarea.quoteData.conceptos.length > 0 && (
+                                                                                                <div style={{ marginTop: '15px' }}>
+                                                                                                    <h4 style={{ color: '#d97706', fontSize: '15px', fontWeight: '800', borderBottom: '1px solid #d97706', paddingBottom: '5px', marginBottom: '15px', textTransform: 'uppercase' }}>1. Conceptos de Servicio</h4>
+                                                                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                                                                                        {tarea.quoteData.conceptos.map((c: any, idx: number) => (
+                                                                                                            <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: 'linear-gradient(to right, #f8fafc, #ffffff)', padding: '16px', borderRadius: '12px', border: '1px solid #cbd5e1' }}>
+                                                                                                                <div style={{ fontSize: '14px', fontWeight: '800', color: '#1e293b' }}>
+                                                                                                                    {c.descripcion}
+                                                                                                                </div>
+                                                                                                                <div style={{ display: 'flex', gap: '15px', fontSize: '13px', color: '#475569' }}>
+                                                                                                                    <div><strong>Cant:</strong> <span style={{ color: '#0f172a', fontWeight: '600' }}>{c.cantidad || 1}</span></div>
+                                                                                                                    <div><strong>Precio:</strong> <span style={{ color: '#0f172a', fontWeight: '600' }}>{c.precio ? `$${Number(c.precio).toLocaleString('es-MX')}` : '---'}</span></div>
+                                                                                                                    <div style={{ marginLeft: 'auto', fontWeight: '900', color: '#d97706', fontSize: '14px' }}>
+                                                                                                                        Importe: ${(Number(c.cantidad || 1) * Number(c.precio || 0)).toLocaleString('es-MX')}
+                                                                                                                    </div>
+                                                                                                                </div>
+                                                                                                            </div>
+                                                                                                        ))}
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                            )}
+
+                                                                                            {tarea.quoteData?.materiales && tarea.quoteData.materiales.length > 0 && (
+                                                                                                <div style={{ marginTop: '15px' }}>
+                                                                                                    <h4 style={{ color: '#d97706', fontSize: '15px', fontWeight: '800', borderBottom: '1px solid #d97706', paddingBottom: '5px', marginBottom: '15px', textTransform: 'uppercase' }}>2. Materiales</h4>
+                                                                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                                                                                        {tarea.quoteData.materiales.map((m: any, idx: number) => (
+                                                                                                            <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: '#fff', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                                                                                                                <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#1e293b' }}>
+                                                                                                                    {m.nombre}
+                                                                                                                </div>
+                                                                                                                <div style={{ display: 'flex', gap: '15px', fontSize: '13px', color: '#475569' }}>
+                                                                                                                    <div><strong>Cant:</strong> {m.cantidad || 1}</div>
+                                                                                                                    <div><strong>Precio:</strong> {m.precio ? `$${Number(m.precio).toLocaleString('es-MX')}` : '---'}</div>
+                                                                                                                    <div style={{ marginLeft: 'auto', fontWeight: 'bold', color: '#0f172a' }}>
+                                                                                                                        Importe: ${(Number(m.cantidad || 1) * Number(m.precio || 0)).toLocaleString('es-MX')}
+                                                                                                                    </div>
+                                                                                                                </div>
+                                                                                                            </div>
+                                                                                                        ))}
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                            )}
+
+                                                                                            {/* Mostrar refacciones SOLO si NO es una cotización (para evitar 2 veces, ya que Cotización usa Materiales y Conceptos) */}
+                                                                                            {hasRefacciones && (!tarea.quoteData?.materiales || tarea.quoteData.materiales.length === 0) && (
+                                                                                                <div style={{ marginTop: '15px' }}>
+                                                                                                    <h4 style={{ color: '#64748b', fontSize: '14px', fontWeight: '800', borderBottom: '1px solid #cbd5e1', paddingBottom: '5px', marginBottom: '15px', textTransform: 'uppercase' }}>Detalle de Refacciones</h4>
+                                                                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                                                                                        {refaccionesSource!.map((ref: any, idx: number) => (
+                                                                                                            <div key={idx} style={{ display: 'flex', gap: '10px', alignItems: 'center', background: '#fff', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                                                                                                                <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#334155', flex: 1 }}>{ref.pieza}</div>
+                                                                                                                <div style={{ fontSize: '12px', color: '#64748b' }}>Cant: {ref.cantidad || 1}</div>
+                                                                                                                <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#0f172a' }}>{ref.costo_estimado ? `$${Number(ref.costo_estimado).toLocaleString('es-MX')}` : '---'}</div>
+                                                                                                            </div>
+                                                                                                        ))}
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                            )}
+
+                                                                                            {/* Comentarios del técnico */}
+                                                                                            {tarea.quoteData?.comentarios && (
+                                                                                                <div style={{ background: '#fffbeb', borderRadius: '10px', padding: '10px 12px', border: '1px solid #fde68a', marginTop: '4px' }}>
+                                                                                                    <span style={{ fontSize: '11px', fontWeight: '800', color: '#92400e', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Comentarios del Técnico</span>
+                                                                                                    <p style={{ margin: 0, fontSize: '13px', color: '#78350f' }}>{tarea.quoteData.comentarios}</p>
+                                                                                                </div>
+                                                                                            )}
+
+                                                                                            {/* MONTO TOTAL */}
+                                                                                            {showMonto !== 'Sin monto' && (
+                                                                                                <div style={{ background: 'linear-gradient(135deg, #fff7ed 0%, #fef3c7 100%)', border: '2px solid #f59e0b', borderRadius: '14px', padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                                                                    <span style={{ fontSize: '13px', fontWeight: '800', color: '#92400e', textTransform: 'uppercase', letterSpacing: '0.5px' }}>💰 Monto Total</span>
+                                                                                                    <span style={{ fontSize: '22px', fontWeight: '900', color: '#f26522' }}>${showMonto}</span>
+                                                                                                </div>
+                                                                                            )}
+
+                                                                                            {/* Action buttons: PDF + Accept/Reject */}
+                                                                                            <div style={{ display: 'flex', gap: '8px', marginTop: '8px', flexWrap: 'wrap' }}>
+                                                                                                {/* Evidencias del Técnico */}
+                                                                                                {actualReporte?.imagenesObservacion && actualReporte.imagenesObservacion.length > 0 && (
+                                                                                                    <div style={{ marginTop: '15px' }}>
+                                                                                                        <h4 style={{ color: '#64748b', fontSize: '14px', fontWeight: '800', borderBottom: '1px solid #cbd5e1', paddingBottom: '5px', marginBottom: '15px', textTransform: 'uppercase' }}>Evidencias del Técnico</h4>
+                                                                                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '10px' }}>
+                                                                                                            {actualReporte.imagenesObservacion.map((img, imgIdx) => (
+                                                                                                                <div key={imgIdx} style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'center' }}>
+                                                                                                                    <img
+                                                                                                                        src={img}
+                                                                                                                        alt={`Evidencia ${imgIdx + 1}`}
+                                                                                                                        onClick={() => setSelectedZoomImage(img)}
+                                                                                                                        style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: '10px', border: '1px solid #e2e8f0', cursor: 'pointer', transition: 'transform 0.2s' }}
+                                                                                                                        onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'}
+                                                                                                                        onMouseLeave={e => e.currentTarget.style.transform = 'none'}
+                                                                                                                    />
+                                                                                                                    <span style={{ fontSize: '10px', fontWeight: '800', color: '#64748b' }}>Foto ${imgIdx + 1}</span>
+                                                                                                                </div>
+                                                                                                            ))}
+                                                                                                        </div>
+                                                                                                    </div>
+                                                                                                )}
+
+                                                                                                {/* Download PDF */}
+                                                                                                <button
+                                                                                                    onClick={() => {
+                                                                                                        setCotizacionPreviewData({
+                                                                                                            id: trabajo?.id || 'N/A',
+                                                                                                            fecha: new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' }),
+                                                                                                            sucursal: trabajo?.sucursal || 'N/A',
+                                                                                                            encargado: trabajo?.encargado || 'N/A',
+                                                                                                            tecnicoNombre: tarea.tecnicoNombre || trabajo?.tecnico || 'N/A',
+                                                                                                            tecnicoAvatar: getAvatarForTech(tarea.tecnicoNombre || trabajo?.tecnico || ''),
+                                                                                                            reporteTienda: tarea.descripcion || 'N/A',
+                                                                                                            descripcion: tarea.descripcion || 'N/A',
+                                                                                                            materiales: getMergedRefacciones(tarea, refaccionesSource || []).map((r: any) => `${r.cantidad || 1}x ${r.pieza}`).join(', ') || 'N/A',
+                                                                                                            observaciones: tarea.quoteData?.comentarios || 'Sin observaciones',
+                                                                                                            imagenes: {},
+                                                                                                            refaccionesList: getMergedRefacciones(tarea, refaccionesSource || []),
+                                                                                                            isVisita: true,
+                                                                                                            involucraEquipo: false,
+                                                                                                            equipoInfo: null,
+                                                                                                            firmaEmpresa: null,
+                                                                                                        });
+                                                                                                        setShowCotizacionPreview(true);
+                                                                                                    }}
+                                                                                                    style={{ flex: 1, padding: '10px 14px', background: 'linear-gradient(135deg, #3b82f6, #2563eb)', color: 'white', border: 'none', borderRadius: '10px', fontSize: '12px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', transition: 'all 0.2s' }}
+                                                                                                    onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
+                                                                                                    onMouseLeave={e => e.currentTarget.style.transform = 'none'}
+                                                                                                >
+                                                                                                    <HiOutlineDocumentText size={14} /> Ver PDF
+                                                                                                </button>
+
+                                                                                                {/* Botón Reactivar Cotización (exclusivo para Administrador General cuando fue rechazada) */}
+                                                                                                {isRejectedState && isAdminGeneral && (
+                                                                                                    <button
+                                                                                                        onClick={handleReactivarCotizacionSugerida}
+                                                                                                        style={{ flex: 1, padding: '10px 14px', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', border: 'none', borderRadius: '10px', fontSize: '12px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', transition: 'all 0.2s', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.25)' }}
+                                                                                                        onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
+                                                                                                        onMouseLeave={e => e.currentTarget.style.transform = 'none'}
+                                                                                                    >
+                                                                                                        <HiOutlineArrowPath size={14} /> Reactivar cotización
+                                                                                                    </button>
+                                                                                                )}
+
+                                                                                                {tarea.quoteData && (user?.role === 'tecnico' || user?.role === 'autonomo') && trabajo?.estado !== 'Cotización Enviada' && cotizaciones.length === 0 && (
+                                                                                                    <button
+                                                                                                        onClick={() => {
+                                                                                                            setQuoteToSend(tarea);
+                                                                                                            setShowSendQuoteConfirmModal(true);
+                                                                                                        }}
+                                                                                                        style={{ flex: 1, padding: '10px 14px', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', border: 'none', borderRadius: '10px', fontSize: '12px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', transition: 'all 0.2s', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)' }}
+                                                                                                        onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
+                                                                                                        onMouseLeave={e => e.currentTarget.style.transform = 'none'}
+                                                                                                    >
+                                                                                                        <HiOutlinePaperAirplane size={14} style={{ transform: 'rotate(45deg)' }} /> Enviar Cotización
+                                                                                                    </button>
+                                                                                                )}
+
+                                                                                                {/* Accept/Reject only for autonomo/cliente/admin-autonomo/admin */}
+                                                                                                {(() => {
+                                                                                                    const isAlreadyActioned = ['Cotización Aceptada', 'Cotización Aprobada', 'Aceptada', 'Finalizado', 'Completado', 'Cotización Rechazada'].includes(trabajo?.estado || '');
+                                                                                                    const canActionQuote = !isAlreadyActioned && tarea.cotizacionEstado !== 'Aprobada' && tarea.cotizacionEstado !== 'Rechazada';
+                                                                                                    // El que puede aprobar es: admin general, admin-autonomo (dueño del sistema), autonomo o cliente
+                                                                                                    const canApprove = user?.role === 'autonomo' || user?.role === 'cliente' || user?.role === 'admin-autonomo' || user?.role === 'admin' || user?.role === 'administrador-general' || user?.role === 'gerente-general';
+                                                                                                    return canApprove && canActionQuote;
+                                                                                                })() && (
+                                                                                                        <>
+                                                                                                            <button
+                                                                                                                onClick={async () => {
+                                                                                                                    try {
+                                                                                                                        const targetTechName = tarea.tecnicoNombre || trabajo?.tecnico || subTareas[0]?.tecnicoNombre || 'Jesus Escalante';
+                                                                                                                        const targetTrabajadorId = tarea.trabajadorId || tarea.trabajador_id || trabajo?.trabajador_id || (trabajo as any)?.trabajador?.id || 1;
+
+                                                                                                                        await updateTrabajo(trabajo!.id, {
+                                                                                                                            estado: 'Cotización Aceptada',
+                                                                                                                            tecnico: targetTechName,
+                                                                                                                            trabajador_id: targetTrabajadorId
+                                                                                                                        });
+                                                                                                                        await updateEstadoTrabajo(trabajo!.id, { estado: 'Cotización Aceptada' });
+
+                                                                                                                        // Actualizar cotizaciones en backend a Aprobada
+                                                                                                                        if (cotizaciones.length > 0) {
+                                                                                                                            for (const c of cotizaciones) {
+                                                                                                                                if (c.id) {
+                                                                                                                                    try {
+                                                                                                                                        await updateCotizacionStatus(c.id, 'Aprobada');
+                                                                                                                                    } catch (_) { }
+                                                                                                                                }
+                                                                                                                            }
+                                                                                                                            setCotizaciones(prev => prev.map(c => ({ ...c, estado: 'Aprobada' as const })));
+                                                                                                                        }
+
+                                                                                                                        // Notificar al técnico autónomo con enlace directo a la pestaña de Trabajo
+                                                                                                                        try {
+                                                                                                                            const targetTechUserId = (trabajo as any)?.tecnicoUserId || (trabajo as any)?.trabajador?.user_id || tecnicosData.find((t: any) => t.id === targetTrabajadorId)?.user_id;
+                                                                                                                            if (targetTechUserId) {
+                                                                                                                                await createNotificacion({
+                                                                                                                                    user_id: targetTechUserId,
+                                                                                                                                    titulo: '🎉 Cotización Aceptada',
+                                                                                                                                    mensaje: `El administrador general aceptó tu cotización para "${trabajo?.sucursal || ''}". Ingresa a la pestaña Trabajo para definir tu día y hora de ejecución.`,
+                                                                                                                                    enlace: `/tecnico-autonomo/trabajo-detalle/${trabajo!.id}?tab=trabajo`
+                                                                                                                                });
+                                                                                                                            } else {
+                                                                                                                                await createNotificacionByRole({
+                                                                                                                                    role: 'tecnico',
+                                                                                                                                    titulo: '🎉 Cotización Aceptada',
+                                                                                                                                    mensaje: `El administrador general aceptó la cotización para "${trabajo?.sucursal || ''}". Ingresa a la pestaña Trabajo para definir día y hora de ejecución.`,
+                                                                                                                                    enlace: `/tecnico-autonomo/trabajo-detalle/${trabajo!.id}?tab=trabajo`
+                                                                                                                                });
+                                                                                                                            }
+                                                                                                                        } catch (notiErr) {
+                                                                                                                            console.error("Error enviando notificación al técnico:", notiErr);
+                                                                                                                        }
+
+                                                                                                                        setSubTareas(prev => prev.map(t => t.id === tarea.id ? { ...t, cotizacionEstado: 'Aprobada' as any } : t));
+                                                                                                                        setTrabajo(prev => prev ? {
+                                                                                                                            ...prev,
+                                                                                                                            estado: 'Cotización Aceptada',
+                                                                                                                            tecnico: targetTechName,
+                                                                                                                            trabajador_id: targetTrabajadorId
+                                                                                                                        } : prev);
+
+                                                                                                                        if (activeTab === 'Registro') {
+                                                                                                                            setActiveTab('Datos');
+                                                                                                                        }
+
+                                                                                                                        showAlert('Cotización Aceptada', `Has aceptado la cotización de ${targetTechName} por $${showMonto}. Se le asignó el trabajo y se le solicitó definir su día y hora de ejecución.`, 'success');
+                                                                                                                    } catch (error) {
+                                                                                                                        showAlert('Error', 'Hubo un problema al actualizar el estado del trabajo.', 'error');
+                                                                                                                    }
+                                                                                                                }}
+                                                                                                                style={{ flex: 1, padding: '10px 14px', background: 'linear-gradient(135deg, #22c55e, #16a34a)', color: 'white', border: 'none', borderRadius: '10px', fontSize: '12px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', transition: 'all 0.2s' }}
+                                                                                                                onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
+                                                                                                                onMouseLeave={e => e.currentTarget.style.transform = 'none'}
+                                                                                                            >
+                                                                                                                ✓ Aceptar
+                                                                                                            </button>
+                                                                                                            <button
+                                                                                                                onClick={async () => {
+                                                                                                                    try {
+                                                                                                                        const currentEvidence = {
+                                                                                                                            id: Date.now(),
+                                                                                                                            version: quoteHistory.length + 1,
+                                                                                                                            fecha: new Date().toLocaleString('es-MX'),
+                                                                                                                            tecnicoNombre: tarea.tecnicoNombre || trabajo?.tecnico || 'Técnico',
+                                                                                                                            quoteData: tarea.quoteData || null,
+                                                                                                                            refacciones: tarea.refacciones || null,
+                                                                                                                            comentarios: tarea.cotizacionNotas || '',
+                                                                                                                            monto: showMonto
+                                                                                                                        };
+                                                                                                                        const updatedHistory = [currentEvidence, ...quoteHistory];
+                                                                                                                        setQuoteHistory(updatedHistory);
+                                                                                                                        if (trabajo?.id) {
+                                                                                                                            // Guardar en localStorage como caché local
+                                                                                                                            localStorage.setItem(`quote_history_${trabajo.id}`, JSON.stringify(updatedHistory));
+                                                                                                                            // Guardar en backend (en el campo descripcion de la cotización más reciente)
+                                                                                                                            const HISTORY_MARKER = '|||QUOTE_HISTORY|||';
+                                                                                                                            const historyPayload = JSON.stringify(updatedHistory);
+                                                                                                                            const cotizacionActual = cotizaciones.length > 0 ? cotizaciones[0] : null;
+                                                                                                                            if (cotizacionActual?.id) {
+                                                                                                                                try {
+                                                                                                                                    // Limpiar descripcion anterior de marcadores de historial y agregar el nuevo
+                                                                                                                                    const baseDesc = (cotizacionActual.descripcion || '').split(HISTORY_MARKER)[0].trimEnd();
+                                                                                                                                    await updateCotizacion(cotizacionActual.id, {
+                                                                                                                                        descripcion: `${baseDesc}\n${HISTORY_MARKER} ${historyPayload}`,
+                                                                                                                                        monto: cotizacionActual.monto
+                                                                                                                                    });
+                                                                                                                                } catch (saveErr) {
+                                                                                                                                    console.warn('No se pudo guardar historial en backend, solo en localStorage', saveErr);
+                                                                                                                                }
+                                                                                                                            }
+                                                                                                                        }
+
+                                                                                                                        await updateEstadoTrabajo(trabajo!.id, { estado: 'Cotización Rechazada' });
+                                                                                                                        setSubTareas(prev => prev.map(t => t.id === tarea.id ? { ...t, cotizacionEstado: 'Rechazada' as any } : t));
+                                                                                                                        setTrabajo(prev => prev ? { ...prev, estado: 'Cotización Rechazada' } : prev);
+                                                                                                                        showAlert('Re-Cotización Solicitada', `Has devuelto la cotización a ${tarea.tecnicoNombre || 'el técnico'} para que la modifique.`, 'warning');
+                                                                                                                    } catch (error) {
+                                                                                                                        showAlert('Error', 'Hubo un problema al actualizar el estado.', 'error');
+                                                                                                                    }
+                                                                                                                }}
+                                                                                                                style={{ padding: '10px 14px', background: '#fff', color: '#f59e0b', border: '1.5px solid #fcd34d', borderRadius: '10px', fontSize: '12px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', transition: 'all 0.2s' }}
+                                                                                                                onMouseEnter={e => { e.currentTarget.style.background = '#fef3c7'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                                                                                                                onMouseLeave={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.transform = 'none'; }}
+                                                                                                            >
+                                                                                                                🔁 Re Cotizar
+                                                                                                            </button>
+                                                                                                        </>
+                                                                                                    )}
+                                                                                            </div>
+
+                                                                                            {/* Status badge if already accepted/rejected */}
+                                                                                            {(() => {
+                                                                                                if (isAcceptedState || isRejectedState) {
+                                                                                                    return (
+                                                                                                        <div style={{ display: 'flex', justifyContent: 'center', marginTop: '4px' }}>
+                                                                                                            <span style={{
+                                                                                                                padding: '6px 16px',
+                                                                                                                borderRadius: '20px',
+                                                                                                                fontSize: '12px',
+                                                                                                                fontWeight: '800',
+                                                                                                                background: isAcceptedState ? '#dcfce7' : '#fef2f2',
+                                                                                                                color: isAcceptedState ? '#166534' : '#991b1b',
+                                                                                                                border: `1px solid ${isAcceptedState ? '#86efac' : '#fca5a5'}`
+                                                                                                            }}>
+                                                                                                                {isAcceptedState ? '✓ Cotización Aceptada' : '✕ Cotización Rechazada'}
+                                                                                                            </span>
+                                                                                                        </div>
+                                                                                                    );
+                                                                                                }
+                                                                                                if (isReactivatedState) {
+                                                                                                    return (
+                                                                                                        <div style={{ display: 'flex', justifyContent: 'center', marginTop: '4px' }}>
+                                                                                                            <span style={{
+                                                                                                                padding: '6px 16px',
+                                                                                                                borderRadius: '20px',
+                                                                                                                fontSize: '12px',
+                                                                                                                fontWeight: '800',
+                                                                                                                background: '#eff6ff',
+                                                                                                                color: '#1d4ed8',
+                                                                                                                border: '1px solid #bfdbfe'
+                                                                                                            }}>
+                                                                                                                ↺ Cotización Reactivada
+                                                                                                            </span>
+                                                                                                        </div>
+                                                                                                    );
+                                                                                                }
+                                                                                                return null;
+                                                                                            })()}
+                                                                                        </>
+                                                                                    )}
+                                                                                </div>
+                                                                            )
+                                                                        })}
+                                                                    </div>
+
+                                                                    {/* PESTAÑA DESPLEGABLE DE EVIDENCIA DE COTIZACIONES ANTERIORES */}
+                                                                    {quoteHistory.length > 0 && (
+                                                                        <div style={{ marginTop: '20px', borderTop: '2px dashed #e2e8f0', paddingTop: '16px' }}>
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => setShowHistoryDropdown(prev => !prev)}
+                                                                                style={{
+                                                                                    width: '100%',
+                                                                                    padding: '12px 18px',
+                                                                                    background: 'linear-gradient(135deg, #fff8f0 0%, #fef3c7 100%)',
+                                                                                    border: '1.5px solid #fcd34d',
+                                                                                    borderRadius: '14px',
+                                                                                    display: 'flex',
+                                                                                    alignItems: 'center',
+                                                                                    justifyContent: 'space-between',
+                                                                                    cursor: 'pointer',
+                                                                                    transition: 'all 0.2s ease',
+                                                                                    boxShadow: '0 2px 8px rgba(245, 158, 11, 0.12)'
+                                                                                }}
+                                                                                onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
+                                                                                onMouseLeave={e => e.currentTarget.style.transform = 'none'}
+                                                                            >
+                                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                                                    <span style={{ fontSize: '18px' }}>📜</span>
+                                                                                    <div style={{ textAlign: 'left' }}>
+                                                                                        <span style={{ fontSize: '13px', fontWeight: '800', color: '#92400e', display: 'block' }}>
+                                                                                            Evidencia de Cotizaciones Anteriores (Historial)
+                                                                                        </span>
+                                                                                        <span style={{ fontSize: '11px', color: '#b45309', fontWeight: '600' }}>
+                                                                                            {quoteHistory.length} {quoteHistory.length === 1 ? 'versión previa guardada' : 'versiones previas guardadas'}
+                                                                                        </span>
+                                                                                    </div>
+                                                                                </div>
+                                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                                    <span style={{ background: '#d97706', color: '#fff', fontSize: '11px', fontWeight: '800', padding: '3px 10px', borderRadius: '20px' }}>
+                                                                                        {showHistoryDropdown ? '▲ Ocultar' : '▼ Ver Evidencia'}
+                                                                                    </span>
+                                                                                </div>
+                                                                            </button>
+
+                                                                            {showHistoryDropdown && (
+                                                                                <div style={{ marginTop: '14px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                                                                                    {quoteHistory.map((item: any, idx: number) => (
+                                                                                        <div
+                                                                                            key={item.id || idx}
+                                                                                            style={{
+                                                                                                background: '#fafafa',
+                                                                                                border: '1.5px solid #fde68a',
+                                                                                                borderRadius: '14px',
+                                                                                                padding: '16px',
+                                                                                                boxShadow: '0 4px 12px rgba(245, 158, 11, 0.08)'
+                                                                                            }}
+                                                                                        >
+                                                                                            {/* Header of evidence card */}
+                                                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #fef3c7', paddingBottom: '10px', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+                                                                                                <div>
+                                                                                                    <span style={{ background: '#fef3c7', color: '#b45309', fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '20px', display: 'inline-block', marginBottom: '4px' }}>
+                                                                                                        📋 Cotización Versión {item.version || (quoteHistory.length - idx)} (Evidencia)
+                                                                                                    </span>
+                                                                                                    <p style={{ margin: 0, fontSize: '12px', fontWeight: '700', color: '#475569' }}>
+                                                                                                        Técnico: {item.tecnicoNombre} • <span style={{ color: '#94a3b8' }}>{item.fecha}</span>
+                                                                                                    </p>
+                                                                                                </div>
+                                                                                                <span style={{ fontSize: '11px', fontWeight: '800', color: '#dc2626', background: '#fef2f2', border: '1px solid #fca5a5', padding: '4px 12px', borderRadius: '12px' }}>
+                                                                                                    🚫 Re-cotización Solicitada
+                                                                                                </span>
+                                                                                            </div>
+
+                                                                                            {/* Conceptos */}
+                                                                                            {item.quoteData?.conceptos && item.quoteData.conceptos.length > 0 && (
+                                                                                                <div style={{ marginBottom: '12px' }}>
+                                                                                                    <h4 style={{ color: '#d97706', fontSize: '13px', fontWeight: '800', borderBottom: '1px solid #fde68a', paddingBottom: '4px', marginBottom: '8px', textTransform: 'uppercase' }}>1. Conceptos de Servicio</h4>
+                                                                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                                                                                        {item.quoteData.conceptos.map((c: any, cIdx: number) => (
+                                                                                                            <div key={cIdx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', background: '#fff', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', color: '#334155' }}>
+                                                                                                                <span>{c.descripcion} (x{c.cantidad || 1})</span>
+                                                                                                                <strong style={{ color: '#0f172a' }}>${(Number(c.cantidad || 1) * Number(c.precio || 0)).toLocaleString('es-MX')}</strong>
+                                                                                                            </div>
+                                                                                                        ))}
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                            )}
+
+                                                                                            {/* Materiales */}
+                                                                                            {item.quoteData?.materiales && item.quoteData.materiales.length > 0 && (
+                                                                                                <div style={{ marginBottom: '12px' }}>
+                                                                                                    <h4 style={{ color: '#d97706', fontSize: '13px', fontWeight: '800', borderBottom: '1px solid #fde68a', paddingBottom: '4px', marginBottom: '8px', textTransform: 'uppercase' }}>2. Materiales</h4>
+                                                                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                                                                                        {item.quoteData.materiales.map((m: any, mIdx: number) => (
+                                                                                                            <div key={mIdx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', background: '#fff', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', color: '#334155' }}>
+                                                                                                                <span>{m.nombre} (x{m.cantidad || 1})</span>
+                                                                                                                <strong style={{ color: '#0f172a' }}>${(Number(m.cantidad || 1) * Number(m.precio || 0)).toLocaleString('es-MX')}</strong>
+                                                                                                            </div>
+                                                                                                        ))}
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                            )}
+
+                                                                                            {/* Refacciones if present */}
+                                                                                            {item.refacciones && item.refacciones.length > 0 && (!item.quoteData?.materiales || item.quoteData.materiales.length === 0) && (
+                                                                                                <div style={{ marginBottom: '12px' }}>
+                                                                                                    <h4 style={{ color: '#64748b', fontSize: '13px', fontWeight: '800', borderBottom: '1px solid #cbd5e1', paddingBottom: '4px', marginBottom: '8px', textTransform: 'uppercase' }}>Detalle de Refacciones</h4>
+                                                                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                                                                                        {item.refacciones.map((r: any, rIdx: number) => (
+                                                                                                            <div key={rIdx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', background: '#fff', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', color: '#334155' }}>
+                                                                                                                <span>{r.pieza} (x{r.cantidad || 1})</span>
+                                                                                                                <strong style={{ color: '#0f172a' }}>{r.costo_estimado ? `$${Number(r.costo_estimado).toLocaleString('es-MX')}` : '---'}</strong>
+                                                                                                            </div>
+                                                                                                        ))}
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                            )}
+
+                                                                                            {/* Comentarios */}
+                                                                                            {item.comentarios && (
+                                                                                                <div style={{ background: '#fffbeb', borderRadius: '8px', padding: '8px 12px', border: '1px solid #fde68a', marginBottom: '10px' }}>
+                                                                                                    <span style={{ fontSize: '10px', fontWeight: '800', color: '#92400e', textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>Comentarios del Técnico</span>
+                                                                                                    <p style={{ margin: 0, fontSize: '12px', color: '#78350f' }}>{item.comentarios}</p>
+                                                                                                </div>
+                                                                                            )}
+
+                                                                                            {/* Monto Total Evidencia */}
+                                                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'linear-gradient(135deg, #fff7ed 0%, #fef3c7 100%)', padding: '12px 16px', borderRadius: '12px', border: '1.5px solid #f59e0b' }}>
+                                                                                                <span style={{ fontSize: '12px', fontWeight: '800', color: '#92400e', textTransform: 'uppercase' }}>💰 Monto Total (Evidencia)</span>
+                                                                                                <span style={{ fontSize: '18px', fontWeight: '900', color: '#f26522' }}>${item.monto}</span>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    ))}
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            )}
+
+                                                            {/* Botones Aceptar/Re Cotizar para cotizaciones del BD (tecnico autonomo) */}
+                                                            {cotizaciones.length > 0 && trabajo?.estado === 'Cotización Enviada' && !subTareas.some(t => t.esCotizacion) && (() => {
+                                                                const canApprove = user?.role === 'autonomo' || user?.role === 'cliente' || user?.role === 'admin-autonomo' || user?.role === 'admin' || user?.role === 'administrador-general' || user?.role === 'gerente-general';
+                                                                if (!canApprove) return null;
+                                                                const cotizActual = cotizaciones[0];
+                                                                const totalMonto = cotizActual?.monto ? Number(cotizActual.monto).toLocaleString('es-MX') : '---';
+                                                                return (
+                                                                    <div style={{ background: '#fafafa', border: '1.5px solid #f1f5f9', borderRadius: '14px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' }}>
+                                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#f26522' }} />
+                                                                            <span style={{ fontSize: '13px', fontWeight: '800', color: '#1e293b' }}>Cotización del Técnico — Pendiente de Aprobación</span>
+                                                                        </div>
+                                                                        <div style={{ background: 'linear-gradient(135deg, #fff7ed 0%, #fef3c7 100%)', border: '2px solid #f59e0b', borderRadius: '14px', padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                                            <span style={{ fontSize: '13px', fontWeight: '800', color: '#92400e', textTransform: 'uppercase' }}>Monto Total</span>
+                                                                            <span style={{ fontSize: '22px', fontWeight: '900', color: '#f26522' }}>${totalMonto}</span>
+                                                                        </div>
+                                                                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                                                            <button
+                                                                                onClick={async () => {
+                                                                                    try {
+                                                                                        const targetTechName = trabajo?.tecnico || 'Jesus Escalante';
+                                                                                        const targetTrabajadorId = trabajo?.trabajador_id || (trabajo as any)?.trabajador?.id || 1;
+                                                                                        await updateTrabajo(trabajo!.id, {
+                                                                                            estado: 'Cotización Aceptada',
+                                                                                            tecnico: targetTechName,
+                                                                                            trabajador_id: targetTrabajadorId
+                                                                                        });
+                                                                                        await updateEstadoTrabajo(trabajo!.id, { estado: 'Cotización Aceptada' });
+                                                                                        if (cotizActual?.id) { try { await updateCotizacion(cotizActual.id, { estado: 'Aprobada', monto: cotizActual.monto }); } catch (e) { } }
+                                                                                        const targetTechUserAccept3 = (trabajo as any)?.tecnicoUserId || (trabajo as any)?.trabajador?.user_id || tecnicosData.find((t: any) => t.id === targetTrabajadorId)?.user_id;
+                                                                                        if (targetTechUserAccept3) {
+                                                                                            try {
+                                                                                                await createNotificacion({
+                                                                                                    user_id: targetTechUserAccept3,
+                                                                                                    titulo: '🎉 Cotización Aceptada',
+                                                                                                    mensaje: `El administrador general aceptó tu cotización para "${trabajo?.sucursal || ''}". Ingresa a la pestaña Trabajo para definir tu día y hora de ejecución.`,
+                                                                                                    enlace: `/tecnico-autonomo/trabajo-detalle/${trabajo!.id}?tab=trabajo`
+                                                                                                });
+                                                                                            } catch (e) { }
+                                                                                        }
+                                                                                        setTrabajo(prev => prev ? { ...prev, estado: 'Cotización Aceptada', tecnico: targetTechName, trabajador_id: targetTrabajadorId } : prev);
+                                                                                        showAlert('Cotización Aceptada', `Has aceptado la cotización por $${totalMonto}.`, 'success');
+                                                                                    } catch (error) { showAlert('Error', 'Hubo un problema al actualizar el estado.', 'error'); }
+                                                                                }}
+                                                                                style={{ flex: 1, padding: '10px 14px', background: 'linear-gradient(135deg, #22c55e, #16a34a)', color: 'white', border: 'none', borderRadius: '10px', fontSize: '13px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                                                                            >
+                                                                                ✓ Aceptar Cotización
+                                                                            </button>
+                                                                            <button
+                                                                                onClick={async () => {
+                                                                                    try {
+                                                                                        await updateEstadoTrabajo(trabajo!.id, { estado: 'Cotización Rechazada' });
+                                                                                        if (cotizActual?.id) { try { await updateCotizacion(cotizActual.id, { estado: 'Rechazada', monto: cotizActual.monto }); } catch (e) { } }
+                                                                                        setTrabajo(prev => prev ? { ...prev, estado: 'Cotización Rechazada' } : prev);
+                                                                                        showAlert('Re-Cotización Solicitada', 'Se rechazó la cotización.', 'warning');
+                                                                                    } catch (error) { showAlert('Error', 'Hubo un problema al actualizar el estado.', 'error'); }
+                                                                                }}
+                                                                                style={{ padding: '10px 14px', background: '#fff', color: '#f59e0b', border: '1.5px solid #fcd34d', borderRadius: '10px', fontSize: '13px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                                                                            >
+                                                                                🔁 Re Cotizar
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })()}
+                                                            {actualReporte && (
+                                                                <button
+                                                                    onClick={async () => {
+                                                                        try {
+                                                                            let updatedRefacciones: any[] = [];
+                                                                            subTareas.forEach((st: any) => {
+                                                                                if (st.quoteData?.conceptos && st.quoteData.conceptos.length > 0) {
+                                                                                    st.quoteData.conceptos.forEach((c: any) => {
+                                                                                        updatedRefacciones.push({
+                                                                                            pieza: c.descripcion,
+                                                                                            cantidad: Number(c.cantidad || 1),
+                                                                                            costo_estimado: Number(c.precio || 0).toString()
+                                                                                        });
+                                                                                    });
+                                                                                }
+                                                                                if (st.quoteData?.materiales && st.quoteData.materiales.length > 0) {
+                                                                                    st.quoteData.materiales.forEach((m: any) => {
+                                                                                        updatedRefacciones.push({
+                                                                                            pieza: m.nombre,
+                                                                                            cantidad: Number(m.cantidad || 1),
+                                                                                            costo_estimado: Number(m.precio || 0).toString()
+                                                                                        });
+                                                                                    });
+                                                                                }
+                                                                                if (updatedRefacciones.length === 0 && st.refacciones && st.refacciones.length > 0) {
+                                                                                    st.refacciones.forEach((r: any) => {
+                                                                                        updatedRefacciones.push({
+                                                                                            pieza: r.pieza,
+                                                                                            cantidad: r.cantidad || 1,
+                                                                                            costo_estimado: r.costo_estimado
+                                                                                        });
+                                                                                    });
+                                                                                }
+                                                                            });
+                                                                            if (updatedRefacciones.length === 0 && actualReporte?.refaccionesList) {
+                                                                                updatedRefacciones = actualReporte.refaccionesList;
+                                                                            }
+
+                                                                            await generateMaintenanceReportPDF({
+                                                                                id: actualReporte.dbId || actualReporte.id || trabajo?.id || 'SD',
+                                                                                fecha: actualReporte.fecha || new Date().toLocaleDateString(),
+                                                                                sucursal: trabajo?.sucursal || 'N/A',
+                                                                                encargado: trabajo?.encargado || 'N/A',
+                                                                                tecnico: actualReporte.tecnicoNombre || trabajo?.tecnico || subTareas[0]?.tecnicoNombre || 'N/A',
+                                                                                tecnicoAvatar: actualReporte.tecnicoAvatar || getAvatarForTech(actualReporte.tecnicoNombre || trabajo?.tecnico || subTareas[0]?.tecnicoNombre || ''),
+                                                                                fechaInicio: actualReporte.fechaInicio || null,
+                                                                                diagnostico: actualReporte.reporteTienda || 'N/A',
+                                                                                descripcion: actualReporte.descripcion || 'N/A',
+                                                                                materiales: actualReporte.materiales || 'N/A',
+                                                                                observaciones: actualReporte.observaciones || 'N/A',
+                                                                                observacionesList: actualReporte.observacionesList,
+                                                                                imagenes: {
+                                                                                    antes: actualReporte.imagenes?.antes,
+                                                                                    durante: actualReporte.imagenes?.durante,
+                                                                                    despues: actualReporte.imagenes?.despues,
+                                                                                    extra: (actualReporte.imagenesObservacion && actualReporte.imagenesObservacion.length > 0)
+                                                                                        ? actualReporte.imagenesObservacion
+                                                                                        : actualReporte.imagenObservacion
+                                                                                },
+                                                                                firmaEmpresa: actualReporte.firmaEmpresa,
+                                                                                equipo: actualReporte.involucraEquipo ? actualReporte.equipoInfo : (trabajo?.cotizacion ? {
+                                                                                    tipo: 'Servicio',
+                                                                                    marca: 'N/A',
+                                                                                    modelo: 'N/A'
+                                                                                } : null),
+                                                                                refaccionesList: updatedRefacciones,
+                                                                                isVisita: true
+                                                                            });
+                                                                        } catch (err) {
+                                                                            console.error("Error al descargar PDF del técnico:", err);
+                                                                        }
+                                                                    }}
+                                                                    style={{ width: '100%', padding: '14px', background: 'linear-gradient(135deg, #ef4444, #dc2626)', color: 'white', border: 'none', borderRadius: '16px', fontSize: '14px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', boxShadow: '0 4px 12px rgba(239, 68, 68, 0.2)' }}
+                                                                >
+                                                                    <HiOutlineDocumentText size={18} /> Descargar PDF del Técnico
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    )}
+
+                                                    {/* CHAT DE NEGOCIACIÓN / CHAT DIRECTO SIEMPRE VISIBLE */}
+                                                    {isTechDrawerOpen && trabajo && (
+                                                        <div style={{
+                                                            marginTop: '8px',
+                                                            paddingTop: '16px',
+                                                            borderTop: (subTareas.some(t => t.esCotizacion) || actualReporte || (quoteHistory && quoteHistory.length > 0)) ? '2px dashed #e2e8f0' : 'none'
+                                                        }}>
+                                                            <NegotiationChatWidget
+                                                                trabajoId={trabajo.id}
+                                                                currentUser={user}
+                                                                inlineMode={true}
+                                                            />
+                                                        </div>
+                                                    )}
                                                 </div>
                                             )}
                                         </div>
@@ -8732,7 +8710,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                         })()
                     }
 
-            {/* El Chat de Negociación ha sido eliminado por solicitud */}
+                    {/* El Chat de Negociación ha sido eliminado por solicitud */}
                     {
                         activeTab === 'Trabajo' && (
                             <div>
@@ -8759,8 +8737,8 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                         Día y Hora de Ejecución del Trabajo
                                                     </h4>
                                                     <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#047857' }}>
-                                                        {(trabajo?.fecha_programada && (trabajo?.horaAsignada || trabajo?.hora_programada)) 
-                                                            ? "Horario confirmado para la realización de este trabajo." 
+                                                        {(trabajo?.fecha_programada && (trabajo?.horaAsignada || trabajo?.hora_programada))
+                                                            ? "Horario confirmado para la realización de este trabajo."
                                                             : "Por favor define el día y la hora en que realizarás este trabajo para notificar al Administrador y Cliente."}
                                                     </p>
                                                 </div>
@@ -8817,9 +8795,9 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                                 </button>
                                                             </div>
                                                         </div>
-                                                        <input 
-                                                            type="date" 
-                                                            value={execFecha} 
+                                                        <input
+                                                            type="date"
+                                                            value={execFecha}
                                                             onChange={e => setExecFecha(e.target.value)}
                                                             style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1.5px solid #cbd5e1', fontSize: '13px', outline: 'none', background: '#fff', fontWeight: '600', color: '#0f172a' }}
                                                         />
@@ -8939,8 +8917,8 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                                 onClick={handleIniciarEjecucionTrabajo}
                                                                 style={{
                                                                     padding: '8px 18px',
-                                                                    background: trabajo?.estado === 'En Ejecución' 
-                                                                        ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' 
+                                                                    background: trabajo?.estado === 'En Ejecución'
+                                                                        ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
                                                                         : 'linear-gradient(135deg, #f26522 0%, #d14d13 100%)',
                                                                     color: '#ffffff',
                                                                     border: 'none',
@@ -8948,8 +8926,8 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                                     fontSize: '12px',
                                                                     fontWeight: '850',
                                                                     cursor: 'pointer',
-                                                                    boxShadow: trabajo?.estado === 'En Ejecución' 
-                                                                        ? '0 4px 12px rgba(16, 185, 129, 0.3)' 
+                                                                    boxShadow: trabajo?.estado === 'En Ejecución'
+                                                                        ? '0 4px 12px rgba(16, 185, 129, 0.3)'
                                                                         : '0 4px 12px rgba(242, 101, 34, 0.35)',
                                                                     display: 'flex',
                                                                     alignItems: 'center',
@@ -9008,7 +8986,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                             Avance de Reportes: {completed} de {total} Completados ({percentage}%)
                                                         </h3>
                                                         <p style={{ margin: '2px 0 0 0', fontSize: '13px', color: isAllCompleted ? '#047857' : '#2563eb' }}>
-                                                            {isAllCompleted 
+                                                            {isAllCompleted
                                                                 ? "🎉 Todos los reportes han sido enviados. Puedes entregar el trabajo finalizado."
                                                                 : `Cada reporte enviado notifica individualmente al Administrador y Cliente (${completed}/${total}).`}
                                                         </p>
@@ -9093,7 +9071,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                         {getExecutableTasks(subTareas).map(tarea => renderTaskCard(tarea, true))}
                                     </div>
                                 )}
-                                
+
                                 {/* Si no hay subtareas en un trabajo normal o Visita, y el estado es En Proceso, 
                                     podemos mostrar la tarea virtual para que inicien el trabajo. */}
                                 {subTareas.length === 0 && !isSOS && trabajo.estado !== 'Finalizado' && (() => {
@@ -9106,7 +9084,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                     };
                                     return renderTaskCard(tareaVirtual, true);
                                 })()}
-                                
+
                                 {/* Botones de acción del técnico al final de la pestaña Trabajo */}
                                 {((user?.role === 'tecnico' || user?.role === 'tecnico-normal' || user?.role === 'tecnico-autonomo') || user?.role === 'admin' || user?.role === 'autonomo') && (() => {
                                     const execTasks = getExecutableTasks(subTareas, reporteFinal, trabajo?.id);
@@ -9152,8 +9130,8 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                     gap: '8px'
                                                 }}
                                             >
-                                                {isAllDone 
-                                                    ? `🚀 Confirmar y Entregar Trabajo Finalizado (${doneCount}/${totalCount})` 
+                                                {isAllDone
+                                                    ? `🚀 Confirmar y Entregar Trabajo Finalizado (${doneCount}/${totalCount})`
                                                     : `📩 Notificar Avance de Reportes al Admin (${doneCount}/${totalCount})`}
                                             </button>
                                         </div>
@@ -9244,11 +9222,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                 )}
 
                                 {/* CASO 2: TRABAJO EN ESTADO "EN ESPERA" (Debe comenzar registro) */}
-<<<<<<< HEAD
                                 {(isTechRole || user?.role === 'tecnico' || user?.role === 'tecnico-normal' || user?.role === 'tecnico-autonomo') && trabajo.estado === 'En Espera' && (
-=======
-                                {isTechRole && trabajo.estado === 'En Espera' && (
->>>>>>> 6a36d66d1b0c6ead90a4d1059a974ef85614ba13
                                     <div style={{
                                         width: '100%',
                                         maxWidth: '480px',
@@ -9298,11 +9272,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                 {Boolean(trabajo.estado === 'En Proceso' || trabajo.estado === 'Cotización Enviada' || trabajo.visitado) && (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%' }}>
                                         {/* Botón de Agregar (Solo visible si está en proceso y no se ha finalizado/enviado) */}
-<<<<<<< HEAD
                                         {((isTechRole || user?.role === 'tecnico' || user?.role === 'tecnico-normal' || user?.role === 'tecnico-autonomo') || user?.role === 'admin' || isAutonomoAdminUser) && (trabajo.tipo === 'Visita' || isSOS) && !trabajo.visitado && trabajo.estado === 'En Proceso' && (
-=======
-                                        {(isTechRole || user?.role === 'admin') && (trabajo.tipo === 'Visita' || isSOS) && !trabajo.visitado && trabajo.estado === 'En Proceso' && (
->>>>>>> 6a36d66d1b0c6ead90a4d1059a974ef85614ba13
                                             <div style={{ width: '100%' }}>
                                                 <button
                                                     onClick={openNewTaskModal}
@@ -9329,11 +9299,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                         )}
 
                                         {/* BOTÓN DE CONFIRMAR DATOS Y ENVIAR AL ADMIN / CLIENTE */}
-<<<<<<< HEAD
                                         {(isTechRole || user?.role === 'tecnico' || user?.role === 'tecnico-normal' || user?.role === 'tecnico-autonomo') && subTareas.length > 0 && (
-=======
-                                        {isTechRole && subTareas.length > 0 && (
->>>>>>> 6a36d66d1b0c6ead90a4d1059a974ef85614ba13
                                             <div style={{ marginTop: '10px', display: 'flex', justifyContent: 'center', width: '100%' }}>
                                                 {trabajo?.visitado ? (
                                                     <div style={{ background: '#f0fdf4', border: '1.5px solid #86efac', borderRadius: '16px', padding: '16px 24px', display: 'flex', alignItems: 'center', gap: '10px', color: '#166534', fontWeight: '800', fontSize: '14px', boxShadow: '0 4px 12px rgba(34, 197, 94, 0.15)' }}>
@@ -9381,13 +9347,13 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                 <div className={styles.taskList}>
                                     {(() => {
                                         const execTasks = getExecutableTasks(subTareas, reporteFinal, trabajo?.id);
-                                        const tasksToShow = [...execTasks.filter(t => 
-                                            t.estado === 'Completa' || 
-                                            !!localStorage.getItem(`report_data_${t.id}`) || 
-                                            !!localStorage.getItem(`report_data_temporal_${t.id}`) || 
+                                        const tasksToShow = [...execTasks.filter(t =>
+                                            t.estado === 'Completa' ||
+                                            !!localStorage.getItem(`report_data_${t.id}`) ||
+                                            !!localStorage.getItem(`report_data_temporal_${t.id}`) ||
                                             (trabajo.estado === 'Finalizado')
                                         )];
-                                        
+
                                         // Si el trabajo está finalizado y no hay subtareas, crear tarea virtual
                                         if (trabajo.estado === 'Finalizado' && tasksToShow.length === 0) {
                                             tasksToShow.push({
@@ -9417,7 +9383,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                 const finalDate = isInvalid ? new Date() : dateObj;
                                                 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
                                                 const monthYear = capitalize(finalDate.toLocaleString('es-MX', { month: 'long', year: 'numeric' }));
-                                                
+
                                                 if (!acc[monthYear]) acc[monthYear] = [];
                                                 acc[monthYear].push(tarea);
                                                 return acc;
@@ -9506,7 +9472,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                                                             descText = parts[0].trim();
                                                                                             notasText = parts.slice(1).join('Notas de cotización:').trim();
                                                                                         }
-                                                                                        
+
                                                                                         return (
                                                                                             <div style={{ marginTop: '4px' }}>
                                                                                                 {descText && <p className={historialStyles.descripcion} style={{ margin: 0, color: '#64748b' }}>{descText}</p>}
@@ -9585,7 +9551,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
 
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
                                 <span style={{ fontWeight: 'bold', color: '#1e293b', fontSize: '14px' }}>Técnicos Disponibles</span>
-                                <span 
+                                <span
                                     style={{ color: '#f26522', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold' }}
                                     onClick={() => setIsTechRequestModalOpen(true)}
                                 >
@@ -9786,7 +9752,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                     <div className={styles.modalContent} style={{ maxWidth: '400px', background: 'white', borderRadius: '12px', padding: '20px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
                             <h2 style={{ fontSize: '18px', fontWeight: 'bold', margin: 0, color: '#0f172a' }}>Solicitar Técnico</h2>
-                            <button 
+                            <button
                                 onClick={() => setIsTechRequestModalOpen(false)}
                                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}
                             >
@@ -9796,10 +9762,10 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                         <p style={{ fontSize: '14px', color: '#475569', marginBottom: '20px' }}>
                             ¿Qué tipo de técnico necesitas? Enviaremos tu solicitud al administrador general.
                         </p>
-                        
+
                         <div style={{ marginBottom: '20px' }}>
                             <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 'bold', color: '#334155' }}>Tipo de Técnico</label>
-                            <input 
+                            <input
                                 type="text"
                                 placeholder="Ej: Plomero, Electricista..."
                                 value={requestRole}
@@ -9809,13 +9775,13 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                         </div>
 
                         <div className={styles.formActions} style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-                            <button 
+                            <button
                                 onClick={() => setIsTechRequestModalOpen(false)}
                                 style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #cbd5e1', background: 'white', color: '#64748b', cursor: 'pointer' }}
                             >
                                 Cancelar
                             </button>
-                            <button 
+                            <button
                                 onClick={handleTechRequest}
                                 style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', background: '#f26522', color: 'white', cursor: 'pointer', fontWeight: 'bold' }}
                             >
@@ -9897,7 +9863,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                 </div>
                                             )}
                                         </div>
-                                        
+
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                             <div>
                                                 <span style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '2px', letterSpacing: '0.4px' }}>Servicio solicitado</span>
@@ -9920,12 +9886,12 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                     </span>
                                                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                                                         {currentReqPhotos.map((url, idx) => (
-                                                            <img 
+                                                            <img
                                                                 key={idx}
-                                                                src={url} 
-                                                                alt={`Evidencia Solicitud ${idx + 1}`} 
+                                                                src={url}
+                                                                alt={`Evidencia Solicitud ${idx + 1}`}
                                                                 onClick={() => setSelectedZoomImage(url)}
-                                                                style={{ width: '56px', height: '56px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #cbd5e1', cursor: 'pointer', transition: 'transform 0.15s ease' }} 
+                                                                style={{ width: '56px', height: '56px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #cbd5e1', cursor: 'pointer', transition: 'transform 0.15s ease' }}
                                                                 onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
                                                                 onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
                                                             />
@@ -9941,25 +9907,25 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                             {/* CONFIRMACIÓN DE LLEGADA AL SITIO */}
                             <div style={{ background: confirmacionLlegada ? '#ecfdf5' : '#fff', border: `1.5px solid ${confirmacionLlegada ? '#10b981' : '#e2e8f0'}`, borderRadius: '16px', padding: '16px 20px', marginBottom: '20px', transition: 'all 0.3s ease', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: confirmacionLlegada ? '0 4px 12px rgba(16, 185, 129, 0.08)' : 'none' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                                    <div 
+                                    <div
                                         onClick={async () => {
                                             if (!confirmacionLlegada && !isLocating) {
                                                 setIsLocating(true);
-                                                
+
                                                 const onSuccess = async (position: GeolocationPosition) => {
                                                     const lat = position.coords.latitude.toString();
                                                     const lng = position.coords.longitude.toString();
-                                                    
+
                                                     setLatitudLlegada(lat);
                                                     setLongitudLlegada(lng);
-                                                    
+
                                                     setConfirmacionLlegada(true);
                                                     setIsLocating(false);
-                                                    
+
                                                     const now = new Date();
                                                     const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' ' + now.toLocaleDateString();
                                                     setHoraLlegada(timeString);
-                                                    
+
                                                     try {
                                                         // Guardar de inmediato en la base de datos la ubicación
                                                         if (trabajo) {
@@ -9968,7 +9934,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                                 at: now.toISOString()
                                                             }));
 
-                                                            await updateEstadoTrabajo(trabajo.id, { 
+                                                            await updateEstadoTrabajo(trabajo.id, {
                                                                 estado: 'En Proceso', // Cambiado de 'En Espera' a 'En Proceso' porque el técnico ya llegó
                                                                 hora_llegada: timeString,
                                                                 latitud_llegada: lat,
@@ -9984,7 +9950,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                             mensaje: `El técnico ${user?.name || 'Sistema'} ha confirmado su llegada a ${trabajo?.negocio?.nombre || 'la sucursal'} a las ${timeString}.`,
                                                             enlace: `/menu/trabajo-detalle/${trabajo?.id}`
                                                         });
-                                                        
+
                                                         // Notificar al encargado y admin autonomo
                                                         if (trabajo?.negocio_id) {
                                                             const negocioRes = await getNegocio(trabajo.negocio_id);
@@ -9997,7 +9963,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                                         mensaje: `El técnico ${user?.name || 'Sistema'} ha llegado a su sucursal a las ${timeString}.`,
                                                                     });
                                                                 } catch (e) { console.error("Error notificando encargado:", e); }
-                                                                
+
                                                                 if (config.notificarEcosistema && negocioData.admin_autonomo_id) {
                                                                     try {
                                                                         await createNotificacionEcosistema({
@@ -10049,625 +10015,625 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                             </div>
 
                             <div style={{ border: '1.5px solid #e2e8f0', borderRadius: '18px', padding: '20px', background: '#ffffff', opacity: confirmacionLlegada ? 1 : 0.5, pointerEvents: confirmacionLlegada ? 'auto' : 'none', transition: 'opacity 0.3s ease' }}>
-                                 {/* DETALLES DE LA ACTIVIDAD Y EVIDENCIAS (HASTA 10 BLOQUES) */}
-                                 <div style={{ marginBottom: '20px' }}>
-                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
-                                         <div>
-                                             <label style={{ fontSize: '15px', fontWeight: '800', color: '#1e293b', display: 'block' }}>
-                                                 Puntos de Revisión y Evidencias
-                                             </label>
-                                             <span style={{ fontSize: '12px', color: '#64748b' }}>
-                                                 Selecciona el tipo de actividad y describe el trabajo realizado por cada punto
-                                             </span>
-                                         </div>
-                                         {taskItems.length < 10 && (
-                                             <button
-                                                 type="button"
-                                                 onClick={() => setTaskItems([...taskItems, { id: String(Date.now()), descripcion: '', foto: '', tipoActividad: 'Mantenimiento', customTipoActividad: '', marca: '', modelo: '', pieza: '', garantia: '', isQuoteIncluded: isSOS, quoteConceptos: isSOS ? [{ descripcion: '', cantidad: '1', precio: '' }] : [], quoteMateriales: [], quoteComentarios: '' }])}
-                                                 style={{
-                                                     background: '#fff3ed',
-                                                     color: '#f26522',
-                                                     border: '1.5px solid #ffcca8',
-                                                     padding: '8px 16px',
-                                                     borderRadius: '10px',
-                                                     fontSize: '12px',
-                                                     fontWeight: '800',
-                                                     cursor: 'pointer',
-                                                     display: 'inline-flex',
-                                                     alignItems: 'center',
-                                                     gap: '6px',
-                                                     whiteSpace: 'nowrap',
-                                                     boxShadow: '0 2px 5px rgba(242, 101, 34, 0.1)',
-                                                     transition: 'all 0.2s ease'
-                                                 }}
-                                             >
-                                                 + Añadir otro punto ({taskItems.length}/10)
-                                             </button>
-                                         )}
-                                     </div>
+                                {/* DETALLES DE LA ACTIVIDAD Y EVIDENCIAS (HASTA 10 BLOQUES) */}
+                                <div style={{ marginBottom: '20px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
+                                        <div>
+                                            <label style={{ fontSize: '15px', fontWeight: '800', color: '#1e293b', display: 'block' }}>
+                                                Puntos de Revisión y Evidencias
+                                            </label>
+                                            <span style={{ fontSize: '12px', color: '#64748b' }}>
+                                                Selecciona el tipo de actividad y describe el trabajo realizado por cada punto
+                                            </span>
+                                        </div>
+                                        {taskItems.length < 10 && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setTaskItems([...taskItems, { id: String(Date.now()), descripcion: '', foto: '', tipoActividad: 'Mantenimiento', customTipoActividad: '', marca: '', modelo: '', pieza: '', garantia: '', isQuoteIncluded: isSOS, quoteConceptos: isSOS ? [{ descripcion: '', cantidad: '1', precio: '' }] : [], quoteMateriales: [], quoteComentarios: '' }])}
+                                                style={{
+                                                    background: '#fff3ed',
+                                                    color: '#f26522',
+                                                    border: '1.5px solid #ffcca8',
+                                                    padding: '8px 16px',
+                                                    borderRadius: '10px',
+                                                    fontSize: '12px',
+                                                    fontWeight: '800',
+                                                    cursor: 'pointer',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: '6px',
+                                                    whiteSpace: 'nowrap',
+                                                    boxShadow: '0 2px 5px rgba(242, 101, 34, 0.1)',
+                                                    transition: 'all 0.2s ease'
+                                                }}
+                                            >
+                                                + Añadir otro punto ({taskItems.length}/10)
+                                            </button>
+                                        )}
+                                    </div>
 
-                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-                                         {taskItems.map((item, index) => (
-                                             <div
-                                                 key={item.id || index}
-                                                 style={{
-                                                     background: '#f8fafc',
-                                                     border: '1px solid #e2e8f0',
-                                                     borderRadius: '16px',
-                                                     padding: '18px 20px',
-                                                     position: 'relative',
-                                                     boxShadow: '0 1px 4px rgba(0,0,0,0.02)'
-                                                 }}
-                                             >
-                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                         <span style={{ 
-                                                             background: '#f26522', 
-                                                             color: 'white', 
-                                                             width: '24px', 
-                                                             height: '24px', 
-                                                             borderRadius: '50%', 
-                                                             display: 'flex', 
-                                                             alignItems: 'center', 
-                                                             justifyContent: 'center', 
-                                                             fontSize: '12px', 
-                                                             fontWeight: '900' 
-                                                         }}>
-                                                             {index + 1}
-                                                         </span>
-                                                         <span style={{ fontSize: '13px', fontWeight: '800', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
-                                                             Punto de Revisión {index + 1}
-                                                         </span>
-                                                     </div>
-                                                     {taskItems.length > 1 && (
-                                                         <button
-                                                             type="button"
-                                                             onClick={() => setTaskItems(taskItems.filter((_, i) => i !== index))}
-                                                             style={{
-                                                                 background: '#fef2f2',
-                                                                 color: '#ef4444',
-                                                                 border: '1px solid #fecaca',
-                                                                 borderRadius: '8px',
-                                                                 padding: '5px 12px',
-                                                                 fontSize: '11px',
-                                                                 fontWeight: '700',
-                                                                 cursor: 'pointer',
-                                                                 transition: 'background 0.2s'
-                                                             }}
-                                                         >
-                                                             🗑️ Eliminar
-                                                         </button>
-                                                     )}
-                                                 </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+                                        {taskItems.map((item, index) => (
+                                            <div
+                                                key={item.id || index}
+                                                style={{
+                                                    background: '#f8fafc',
+                                                    border: '1px solid #e2e8f0',
+                                                    borderRadius: '16px',
+                                                    padding: '18px 20px',
+                                                    position: 'relative',
+                                                    boxShadow: '0 1px 4px rgba(0,0,0,0.02)'
+                                                }}
+                                            >
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                        <span style={{
+                                                            background: '#f26522',
+                                                            color: 'white',
+                                                            width: '24px',
+                                                            height: '24px',
+                                                            borderRadius: '50%',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            fontSize: '12px',
+                                                            fontWeight: '900'
+                                                        }}>
+                                                            {index + 1}
+                                                        </span>
+                                                        <span style={{ fontSize: '13px', fontWeight: '800', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+                                                            Punto de Revisión {index + 1}
+                                                        </span>
+                                                    </div>
+                                                    {taskItems.length > 1 && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setTaskItems(taskItems.filter((_, i) => i !== index))}
+                                                            style={{
+                                                                background: '#fef2f2',
+                                                                color: '#ef4444',
+                                                                border: '1px solid #fecaca',
+                                                                borderRadius: '8px',
+                                                                padding: '5px 12px',
+                                                                fontSize: '11px',
+                                                                fontWeight: '700',
+                                                                cursor: 'pointer',
+                                                                transition: 'background 0.2s'
+                                                            }}
+                                                        >
+                                                            🗑️ Eliminar
+                                                        </button>
+                                                    )}
+                                                </div>
 
-                                                 {/* TIPO DE ACTIVIDAD PARA ESTE PUNTO */}
-                                                 <div style={{ marginBottom: '14px', background: '#ffffff', padding: '14px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                                                     <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.4px' }}>
-                                                         Tipo de Actividad para este punto:
-                                                     </label>
+                                                {/* TIPO DE ACTIVIDAD PARA ESTE PUNTO */}
+                                                <div style={{ marginBottom: '14px', background: '#ffffff', padding: '14px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                                                    <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.4px' }}>
+                                                        Tipo de Actividad para este punto:
+                                                    </label>
 
-                                                     {/* BOTÓN DESPLEGABLE TIPO DE ACTIVIDAD */}
-                                                     {(() => {
-                                                         const categoriasActividad = [
-                                                             { id: 'Mantenimiento', icon: <HiOutlineCog6Tooth size={18} />, label: 'Mantenimiento' },
-                                                             { id: 'Instalacion', icon: <HiOutlineBuildingOffice2 size={18} />, label: 'Instalación' },
-                                                             { id: 'Plomeria', icon: <HiOutlineWrench size={18} />, label: 'Plomería' },
-                                                             { id: 'Electricidad', icon: <HiOutlineBolt size={18} />, label: 'Electricidad' },
-                                                             { id: 'Albañileria', icon: <HiOutlineSquare3Stack3D size={18} />, label: 'Albañilería' },
-                                                             { id: 'Carpinteria', icon: <HiOutlinePencilSquare size={18} />, label: 'Carpintería' },
-                                                             { id: 'Pintura', icon: <HiOutlinePencilSquare size={18} />, label: 'Pintura' },
-                                                             { id: 'Otro', icon: <HiOutlineDocumentText size={18} />, label: 'Otro' },
-                                                         ];
-                                                         const selectedCat = categoriasActividad.find(c => c.id === (item.tipoActividad || 'Mantenimiento')) || categoriasActividad[0];
-                                                         const isDropdownOpen = openActivityDropdown === index;
-                                                         return (
-                                                             <div style={{ position: 'relative' }}>
-                                                                 <button
-                                                                     type="button"
-                                                                     onClick={() => setOpenActivityDropdown(isDropdownOpen ? null : index)}
-                                                                     style={{
-                                                                         width: '100%',
-                                                                         display: 'flex',
-                                                                         alignItems: 'center',
-                                                                         justifyContent: 'space-between',
-                                                                         padding: '10px 14px',
-                                                                         borderRadius: '10px',
-                                                                         border: isDropdownOpen ? '2px solid #f26522' : '1.5px solid #cbd5e1',
-                                                                         background: isDropdownOpen ? '#fff7ed' : '#ffffff',
-                                                                         color: '#1e293b',
-                                                                         fontSize: '13px',
-                                                                         fontWeight: '700',
-                                                                         cursor: 'pointer',
-                                                                         transition: 'all 0.2s ease',
-                                                                         boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
-                                                                     }}
-                                                                 >
-                                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                                         <span style={{ color: '#f26522', display: 'flex', alignItems: 'center' }}>
-                                                                             {selectedCat.icon}
-                                                                         </span>
-                                                                         <span style={{ color: '#1e293b', fontWeight: '800' }}>
-                                                                             {selectedCat.label}
-                                                                         </span>
-                                                                     </div>
-                                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#64748b', fontSize: '11.5px', fontWeight: '700' }}>
-                                                                         <span>{isDropdownOpen ? 'Cerrar' : 'Elegir actividad'}</span>
-                                                                         {isDropdownOpen ? <HiOutlineChevronUp size={16} /> : <HiOutlineChevronDown size={16} />}
-                                                                     </div>
-                                                                 </button>
+                                                    {/* BOTÓN DESPLEGABLE TIPO DE ACTIVIDAD */}
+                                                    {(() => {
+                                                        const categoriasActividad = [
+                                                            { id: 'Mantenimiento', icon: <HiOutlineCog6Tooth size={18} />, label: 'Mantenimiento' },
+                                                            { id: 'Instalacion', icon: <HiOutlineBuildingOffice2 size={18} />, label: 'Instalación' },
+                                                            { id: 'Plomeria', icon: <HiOutlineWrench size={18} />, label: 'Plomería' },
+                                                            { id: 'Electricidad', icon: <HiOutlineBolt size={18} />, label: 'Electricidad' },
+                                                            { id: 'Albañileria', icon: <HiOutlineSquare3Stack3D size={18} />, label: 'Albañilería' },
+                                                            { id: 'Carpinteria', icon: <HiOutlinePencilSquare size={18} />, label: 'Carpintería' },
+                                                            { id: 'Pintura', icon: <HiOutlinePencilSquare size={18} />, label: 'Pintura' },
+                                                            { id: 'Otro', icon: <HiOutlineDocumentText size={18} />, label: 'Otro' },
+                                                        ];
+                                                        const selectedCat = categoriasActividad.find(c => c.id === (item.tipoActividad || 'Mantenimiento')) || categoriasActividad[0];
+                                                        const isDropdownOpen = openActivityDropdown === index;
+                                                        return (
+                                                            <div style={{ position: 'relative' }}>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setOpenActivityDropdown(isDropdownOpen ? null : index)}
+                                                                    style={{
+                                                                        width: '100%',
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        justifyContent: 'space-between',
+                                                                        padding: '10px 14px',
+                                                                        borderRadius: '10px',
+                                                                        border: isDropdownOpen ? '2px solid #f26522' : '1.5px solid #cbd5e1',
+                                                                        background: isDropdownOpen ? '#fff7ed' : '#ffffff',
+                                                                        color: '#1e293b',
+                                                                        fontSize: '13px',
+                                                                        fontWeight: '700',
+                                                                        cursor: 'pointer',
+                                                                        transition: 'all 0.2s ease',
+                                                                        boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
+                                                                    }}
+                                                                >
+                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                        <span style={{ color: '#f26522', display: 'flex', alignItems: 'center' }}>
+                                                                            {selectedCat.icon}
+                                                                        </span>
+                                                                        <span style={{ color: '#1e293b', fontWeight: '800' }}>
+                                                                            {selectedCat.label}
+                                                                        </span>
+                                                                    </div>
+                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#64748b', fontSize: '11.5px', fontWeight: '700' }}>
+                                                                        <span>{isDropdownOpen ? 'Cerrar' : 'Elegir actividad'}</span>
+                                                                        {isDropdownOpen ? <HiOutlineChevronUp size={16} /> : <HiOutlineChevronDown size={16} />}
+                                                                    </div>
+                                                                </button>
 
-                                                                 {/* OPCIONES DESPLEGADAS */}
-                                                                 {isDropdownOpen && (
-                                                                     <div style={{
-                                                                         marginTop: '8px',
-                                                                         padding: '10px',
-                                                                         background: '#ffffff',
-                                                                         border: '1.5px solid #fed7aa',
-                                                                         borderRadius: '12px',
-                                                                         display: 'grid',
-                                                                         gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
-                                                                         gap: '8px',
-                                                                         boxShadow: '0 4px 14px rgba(242, 101, 34, 0.1)'
-                                                                     }}>
-                                                                         {categoriasActividad.map((cat) => {
-                                                                             const isSelected = (item.tipoActividad || 'Mantenimiento') === cat.id;
-                                                                             return (
-                                                                                 <button
-                                                                                     key={cat.id}
-                                                                                     type="button"
-                                                                                     onClick={() => {
-                                                                                         setTaskItems(prev => prev.map((it, i) => i === index ? { ...it, tipoActividad: cat.id } : it));
-                                                                                         setOpenActivityDropdown(null);
-                                                                                     }}
-                                                                                     style={{
-                                                                                         display: 'flex',
-                                                                                         alignItems: 'center',
-                                                                                         justifyContent: 'center',
-                                                                                         gap: '6px',
-                                                                                         padding: '9px 10px',
-                                                                                         borderRadius: '10px',
-                                                                                         border: isSelected ? '2px solid #f26522' : '1px solid #cbd5e1',
-                                                                                         background: isSelected ? '#fff7ed' : '#f8fafc',
-                                                                                         color: isSelected ? '#ea580c' : '#475569',
-                                                                                         fontWeight: isSelected ? '800' : '600',
-                                                                                         fontSize: '12px',
-                                                                                         cursor: 'pointer',
-                                                                                         transition: 'all 0.15s ease',
-                                                                                         boxShadow: isSelected ? '0 2px 6px rgba(242, 101, 34, 0.12)' : 'none'
-                                                                                     }}
-                                                                                 >
-                                                                                     <span style={{ display: 'flex', alignItems: 'center' }}>{cat.icon}</span>
-                                                                                     <span>{cat.label}</span>
-                                                                                 </button>
-                                                                             );
-                                                                         })}
-                                                                     </div>
-                                                                 )}
-                                                             </div>
-                                                         );
-                                                     })()}
+                                                                {/* OPCIONES DESPLEGADAS */}
+                                                                {isDropdownOpen && (
+                                                                    <div style={{
+                                                                        marginTop: '8px',
+                                                                        padding: '10px',
+                                                                        background: '#ffffff',
+                                                                        border: '1.5px solid #fed7aa',
+                                                                        borderRadius: '12px',
+                                                                        display: 'grid',
+                                                                        gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+                                                                        gap: '8px',
+                                                                        boxShadow: '0 4px 14px rgba(242, 101, 34, 0.1)'
+                                                                    }}>
+                                                                        {categoriasActividad.map((cat) => {
+                                                                            const isSelected = (item.tipoActividad || 'Mantenimiento') === cat.id;
+                                                                            return (
+                                                                                <button
+                                                                                    key={cat.id}
+                                                                                    type="button"
+                                                                                    onClick={() => {
+                                                                                        setTaskItems(prev => prev.map((it, i) => i === index ? { ...it, tipoActividad: cat.id } : it));
+                                                                                        setOpenActivityDropdown(null);
+                                                                                    }}
+                                                                                    style={{
+                                                                                        display: 'flex',
+                                                                                        alignItems: 'center',
+                                                                                        justifyContent: 'center',
+                                                                                        gap: '6px',
+                                                                                        padding: '9px 10px',
+                                                                                        borderRadius: '10px',
+                                                                                        border: isSelected ? '2px solid #f26522' : '1px solid #cbd5e1',
+                                                                                        background: isSelected ? '#fff7ed' : '#f8fafc',
+                                                                                        color: isSelected ? '#ea580c' : '#475569',
+                                                                                        fontWeight: isSelected ? '800' : '600',
+                                                                                        fontSize: '12px',
+                                                                                        cursor: 'pointer',
+                                                                                        transition: 'all 0.15s ease',
+                                                                                        boxShadow: isSelected ? '0 2px 6px rgba(242, 101, 34, 0.12)' : 'none'
+                                                                                    }}
+                                                                                >
+                                                                                    <span style={{ display: 'flex', alignItems: 'center' }}>{cat.icon}</span>
+                                                                                    <span>{cat.label}</span>
+                                                                                </button>
+                                                                            );
+                                                                        })}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })()}
 
-                                                     {item.tipoActividad === 'Otro' && (
-                                                         <div style={{ marginTop: '10px' }}>
-                                                             <input
-                                                                 type="text"
-                                                                 placeholder="Especificar tipo de actividad..."
-                                                                 value={item.customTipoActividad || ''}
-                                                                 onChange={(e) => {
-                                                                     const val = e.target.value;
-                                                                     setTaskItems(prev => prev.map((it, i) => i === index ? { ...it, customTipoActividad: val } : it));
-                                                                 }}
-                                                                 style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', boxSizing: 'border-box' }}
-                                                             />
-                                                         </div>
-                                                     )}
+                                                    {item.tipoActividad === 'Otro' && (
+                                                        <div style={{ marginTop: '10px' }}>
+                                                            <input
+                                                                type="text"
+                                                                placeholder="Especificar tipo de actividad..."
+                                                                value={item.customTipoActividad || ''}
+                                                                onChange={(e) => {
+                                                                    const val = e.target.value;
+                                                                    setTaskItems(prev => prev.map((it, i) => i === index ? { ...it, customTipoActividad: val } : it));
+                                                                }}
+                                                                style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', boxSizing: 'border-box' }}
+                                                            />
+                                                        </div>
+                                                    )}
 
-                                                     {(item.tipoActividad === 'Mantenimiento' || item.tipoActividad === 'Instalacion' || item.tipoActividad === 'Otro') && (
-                                                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px', marginTop: '12px', background: '#f8fafc', padding: '12px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                                                             <div>
-                                                                 <label style={{ display: 'block', fontSize: '10.5px', fontWeight: '700', color: '#64748b', marginBottom: '4px' }}>Marca / Equipo</label>
-                                                                 <input
-                                                                     placeholder="Ej. Daikin, York..."
-                                                                     value={item.marca || ''}
-                                                                     onChange={(e) => {
-                                                                         const val = e.target.value;
-                                                                         setTaskItems(prev => prev.map((it, i) => i === index ? { ...it, marca: val } : it));
-                                                                     }}
-                                                                     style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12.5px', background: '#fff', boxSizing: 'border-box' }}
-                                                                 />
-                                                             </div>
-                                                             <div>
-                                                                 <label style={{ display: 'block', fontSize: '10.5px', fontWeight: '700', color: '#64748b', marginBottom: '4px' }}>Modelo</label>
-                                                                 <input
-                                                                     placeholder="Ej. R-410A..."
-                                                                     value={item.modelo || ''}
-                                                                     onChange={(e) => {
-                                                                         const val = e.target.value;
-                                                                         setTaskItems(prev => prev.map((it, i) => i === index ? { ...it, modelo: val } : it));
-                                                                     }}
-                                                                     style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12.5px', background: '#fff', boxSizing: 'border-box' }}
-                                                                 />
-                                                             </div>
-                                                             {item.tipoActividad === 'Instalacion' && (
-                                                                 <>
-                                                                     <div>
-                                                                         <label style={{ display: 'block', fontSize: '10.5px', fontWeight: '700', color: '#64748b', marginBottom: '4px' }}>Pieza</label>
-                                                                         <input
-                                                                             placeholder="Ej. Evaporador..."
-                                                                             value={item.pieza || ''}
-                                                                             onChange={(e) => {
-                                                                                 const val = e.target.value;
-                                                                                 setTaskItems(prev => prev.map((it, i) => i === index ? { ...it, pieza: val } : it));
-                                                                             }}
-                                                                             style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12.5px', background: '#fff', boxSizing: 'border-box' }}
-                                                                         />
-                                                                     </div>
-                                                                     <div>
-                                                                         <label style={{ display: 'block', fontSize: '10.5px', fontWeight: '700', color: '#64748b', marginBottom: '4px' }}>Garantía (Meses)</label>
-                                                                         <input
-                                                                             type="number"
-                                                                             placeholder="Ej. 12"
-                                                                             value={item.garantia || ''}
-                                                                             onChange={(e) => {
-                                                                                 const val = e.target.value;
-                                                                                 setTaskItems(prev => prev.map((it, i) => i === index ? { ...it, garantia: val } : it));
-                                                                             }}
-                                                                             style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12.5px', background: '#fff', boxSizing: 'border-box' }}
-                                                                         />
-                                                                     </div>
-                                                                 </>
-                                                             )}
-                                                         </div>
-                                                     )}
-                                                 </div>
+                                                    {(item.tipoActividad === 'Mantenimiento' || item.tipoActividad === 'Instalacion' || item.tipoActividad === 'Otro') && (
+                                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px', marginTop: '12px', background: '#f8fafc', padding: '12px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                                                            <div>
+                                                                <label style={{ display: 'block', fontSize: '10.5px', fontWeight: '700', color: '#64748b', marginBottom: '4px' }}>Marca / Equipo</label>
+                                                                <input
+                                                                    placeholder="Ej. Daikin, York..."
+                                                                    value={item.marca || ''}
+                                                                    onChange={(e) => {
+                                                                        const val = e.target.value;
+                                                                        setTaskItems(prev => prev.map((it, i) => i === index ? { ...it, marca: val } : it));
+                                                                    }}
+                                                                    style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12.5px', background: '#fff', boxSizing: 'border-box' }}
+                                                                />
+                                                            </div>
+                                                            <div>
+                                                                <label style={{ display: 'block', fontSize: '10.5px', fontWeight: '700', color: '#64748b', marginBottom: '4px' }}>Modelo</label>
+                                                                <input
+                                                                    placeholder="Ej. R-410A..."
+                                                                    value={item.modelo || ''}
+                                                                    onChange={(e) => {
+                                                                        const val = e.target.value;
+                                                                        setTaskItems(prev => prev.map((it, i) => i === index ? { ...it, modelo: val } : it));
+                                                                    }}
+                                                                    style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12.5px', background: '#fff', boxSizing: 'border-box' }}
+                                                                />
+                                                            </div>
+                                                            {item.tipoActividad === 'Instalacion' && (
+                                                                <>
+                                                                    <div>
+                                                                        <label style={{ display: 'block', fontSize: '10.5px', fontWeight: '700', color: '#64748b', marginBottom: '4px' }}>Pieza</label>
+                                                                        <input
+                                                                            placeholder="Ej. Evaporador..."
+                                                                            value={item.pieza || ''}
+                                                                            onChange={(e) => {
+                                                                                const val = e.target.value;
+                                                                                setTaskItems(prev => prev.map((it, i) => i === index ? { ...it, pieza: val } : it));
+                                                                            }}
+                                                                            style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12.5px', background: '#fff', boxSizing: 'border-box' }}
+                                                                        />
+                                                                    </div>
+                                                                    <div>
+                                                                        <label style={{ display: 'block', fontSize: '10.5px', fontWeight: '700', color: '#64748b', marginBottom: '4px' }}>Garantía (Meses)</label>
+                                                                        <input
+                                                                            type="number"
+                                                                            placeholder="Ej. 12"
+                                                                            value={item.garantia || ''}
+                                                                            onChange={(e) => {
+                                                                                const val = e.target.value;
+                                                                                setTaskItems(prev => prev.map((it, i) => i === index ? { ...it, garantia: val } : it));
+                                                                            }}
+                                                                            style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12.5px', background: '#fff', boxSizing: 'border-box' }}
+                                                                        />
+                                                                    </div>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
 
-                                                 <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '6px', letterSpacing: '0.4px' }}>
-                                                     Descripción / Detalle del trabajo
-                                                 </label>
-                                                 <textarea
-                                                     placeholder={`Describe el detalle o trabajo realizado para el Punto ${index + 1}...`}
-                                                     value={item.descripcion}
-                                                     onChange={(e) => {
+                                                <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '6px', letterSpacing: '0.4px' }}>
+                                                    Descripción / Detalle del trabajo
+                                                </label>
+                                                <textarea
+                                                    placeholder={`Describe el detalle o trabajo realizado para el Punto ${index + 1}...`}
+                                                    value={item.descripcion}
+                                                    onChange={(e) => {
                                                         const val = e.target.value;
                                                         setTaskItems(prev => prev.map((it, i) => i === index ? { ...it, descripcion: val } : it));
-                                                     }}
-                                                     style={{
-                                                         width: '100%',
-                                                         height: '75px',
-                                                         padding: '10px 12px',
-                                                         borderRadius: '10px',
-                                                         border: '1px solid #cbd5e1',
-                                                         fontSize: '13.5px',
-                                                         color: '#0f172a',
-                                                         resize: 'none',
-                                                         marginBottom: '14px',
-                                                         outline: 'none',
-                                                         boxSizing: 'border-box',
-                                                         background: '#fff',
-                                                         lineHeight: '1.4'
-                                                     }}
-                                                 />
+                                                    }}
+                                                    style={{
+                                                        width: '100%',
+                                                        height: '75px',
+                                                        padding: '10px 12px',
+                                                        borderRadius: '10px',
+                                                        border: '1px solid #cbd5e1',
+                                                        fontSize: '13.5px',
+                                                        color: '#0f172a',
+                                                        resize: 'none',
+                                                        marginBottom: '14px',
+                                                        outline: 'none',
+                                                        boxSizing: 'border-box',
+                                                        background: '#fff',
+                                                        lineHeight: '1.4'
+                                                    }}
+                                                />
 
-                                                 {/* FOTO PARA ESTE PUNTO */}
-                                                 <div>
-                                                     <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#64748b', marginBottom: '6px' }}>
-                                                         Foto de evidencia (Punto {index + 1})
-                                                     </label>
-                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                         {item.foto ? (
-                                                             <div style={{ position: 'relative', width: '75px', height: '75px' }}>
-                                                                 <img
-                                                                     src={item.foto}
-                                                                     alt={`Foto Tarea ${index + 1}`}
-                                                                     style={{ width: '75px', height: '75px', objectFit: 'cover', borderRadius: '10px', border: '1.5px solid #cbd5e1' }}
-                                                                 />
-                                                                 <button
-                                                                     type="button"
-                                                                     onClick={() => setTaskItems(prev => prev.map((it, i) => i === index ? { ...it, foto: '' } : it))}
-                                                                     style={{
-                                                                         position: 'absolute',
-                                                                         top: '-6px',
-                                                                         right: '-6px',
-                                                                         background: '#ef4444',
-                                                                         color: 'white',
-                                                                         border: 'none',
-                                                                         borderRadius: '50%',
-                                                                         width: '20px',
-                                                                         height: '20px',
-                                                                         display: 'flex',
-                                                                         alignItems: 'center',
-                                                                         justifyContent: 'center',
-                                                                         fontSize: '11px',
-                                                                         fontWeight: 'bold',
-                                                                         cursor: 'pointer'
-                                                                     }}
-                                                                     title="Eliminar foto"
-                                                                 >
-                                                                     ✕
-                                                                 </button>
-                                                             </div>
-                                                         ) : (
-                                                             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                                                                 {/* OPCIÓN 1: ABRIR CÁMARA */}
-                                                                 <input
-                                                                     type="file"
-                                                                     accept="image/*"
-                                                                     capture="environment"
-                                                                     id={`task-camera-uploader-${index}`}
-                                                                     style={{ display: 'none' }}
-                                                                     onChange={(e) => {
-                                                                         if (e.target.files && e.target.files[0]) {
-                                                                             compressImage(e.target.files[0], (base64) => {
-                                                                                 setTaskItems(prev => prev.map((it, i) => i === index ? { ...it, foto: base64 } : it));
-                                                                             });
-                                                                         }
-                                                                     }}
-                                                                 />
-                                                                 <label
-                                                                     htmlFor={`task-camera-uploader-${index}`}
-                                                                     style={{
-                                                                         padding: '8px 14px',
-                                                                         borderRadius: '8px',
-                                                                         border: '1.5px solid #f26522',
-                                                                         background: '#fff3ed',
-                                                                         color: '#f26522',
-                                                                         fontSize: '12px',
-                                                                         fontWeight: '700',
-                                                                         cursor: 'pointer',
-                                                                         display: 'inline-flex',
-                                                                         alignItems: 'center',
-                                                                         gap: '6px'
-                                                                     }}
-                                                                 >
-                                                                     📸 Abrir Cámara
-                                                                 </label>
+                                                {/* FOTO PARA ESTE PUNTO */}
+                                                <div>
+                                                    <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#64748b', marginBottom: '6px' }}>
+                                                        Foto de evidencia (Punto {index + 1})
+                                                    </label>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                        {item.foto ? (
+                                                            <div style={{ position: 'relative', width: '75px', height: '75px' }}>
+                                                                <img
+                                                                    src={item.foto}
+                                                                    alt={`Foto Tarea ${index + 1}`}
+                                                                    style={{ width: '75px', height: '75px', objectFit: 'cover', borderRadius: '10px', border: '1.5px solid #cbd5e1' }}
+                                                                />
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setTaskItems(prev => prev.map((it, i) => i === index ? { ...it, foto: '' } : it))}
+                                                                    style={{
+                                                                        position: 'absolute',
+                                                                        top: '-6px',
+                                                                        right: '-6px',
+                                                                        background: '#ef4444',
+                                                                        color: 'white',
+                                                                        border: 'none',
+                                                                        borderRadius: '50%',
+                                                                        width: '20px',
+                                                                        height: '20px',
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        justifyContent: 'center',
+                                                                        fontSize: '11px',
+                                                                        fontWeight: 'bold',
+                                                                        cursor: 'pointer'
+                                                                    }}
+                                                                    title="Eliminar foto"
+                                                                >
+                                                                    ✕
+                                                                </button>
+                                                            </div>
+                                                        ) : (
+                                                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                                                {/* OPCIÓN 1: ABRIR CÁMARA */}
+                                                                <input
+                                                                    type="file"
+                                                                    accept="image/*"
+                                                                    capture="environment"
+                                                                    id={`task-camera-uploader-${index}`}
+                                                                    style={{ display: 'none' }}
+                                                                    onChange={(e) => {
+                                                                        if (e.target.files && e.target.files[0]) {
+                                                                            compressImage(e.target.files[0], (base64) => {
+                                                                                setTaskItems(prev => prev.map((it, i) => i === index ? { ...it, foto: base64 } : it));
+                                                                            });
+                                                                        }
+                                                                    }}
+                                                                />
+                                                                <label
+                                                                    htmlFor={`task-camera-uploader-${index}`}
+                                                                    style={{
+                                                                        padding: '8px 14px',
+                                                                        borderRadius: '8px',
+                                                                        border: '1.5px solid #f26522',
+                                                                        background: '#fff3ed',
+                                                                        color: '#f26522',
+                                                                        fontSize: '12px',
+                                                                        fontWeight: '700',
+                                                                        cursor: 'pointer',
+                                                                        display: 'inline-flex',
+                                                                        alignItems: 'center',
+                                                                        gap: '6px'
+                                                                    }}
+                                                                >
+                                                                    📸 Abrir Cámara
+                                                                </label>
 
-                                                                 {/* OPCIÓN 2: ELEGIR DE GALERÍA */}
-                                                                 <input
-                                                                     type="file"
-                                                                     accept="image/*"
-                                                                     id={`task-gallery-uploader-${index}`}
-                                                                     style={{ display: 'none' }}
-                                                                     onChange={(e) => {
-                                                                         if (e.target.files && e.target.files[0]) {
-                                                                             compressImage(e.target.files[0], (base64) => {
-                                                                                 setTaskItems(prev => prev.map((it, i) => i === index ? { ...it, foto: base64 } : it));
-                                                                             });
-                                                                         }
-                                                                     }}
-                                                                 />
-                                                                 <label
-                                                                     htmlFor={`task-gallery-uploader-${index}`}
-                                                                     style={{
-                                                                         padding: '8px 14px',
-                                                                         borderRadius: '8px',
-                                                                         border: '1.5px solid #cbd5e1',
-                                                                         background: '#fff',
-                                                                         color: '#475569',
-                                                                         fontSize: '12px',
-                                                                         fontWeight: '700',
-                                                                         cursor: 'pointer',
-                                                                         display: 'inline-flex',
-                                                                         alignItems: 'center',
-                                                                         gap: '6px'
-                                                                     }}
-                                                                 >
-                                                                     🖼️ Galería
-                                                                 </label>
-                                                             </div>
-                                                         )}
-                                                     </div>
-                                                 </div>
+                                                                {/* OPCIÓN 2: ELEGIR DE GALERÍA */}
+                                                                <input
+                                                                    type="file"
+                                                                    accept="image/*"
+                                                                    id={`task-gallery-uploader-${index}`}
+                                                                    style={{ display: 'none' }}
+                                                                    onChange={(e) => {
+                                                                        if (e.target.files && e.target.files[0]) {
+                                                                            compressImage(e.target.files[0], (base64) => {
+                                                                                setTaskItems(prev => prev.map((it, i) => i === index ? { ...it, foto: base64 } : it));
+                                                                            });
+                                                                        }
+                                                                    }}
+                                                                />
+                                                                <label
+                                                                    htmlFor={`task-gallery-uploader-${index}`}
+                                                                    style={{
+                                                                        padding: '8px 14px',
+                                                                        borderRadius: '8px',
+                                                                        border: '1.5px solid #cbd5e1',
+                                                                        background: '#fff',
+                                                                        color: '#475569',
+                                                                        fontSize: '12px',
+                                                                        fontWeight: '700',
+                                                                        cursor: 'pointer',
+                                                                        display: 'inline-flex',
+                                                                        alignItems: 'center',
+                                                                        gap: '6px'
+                                                                    }}
+                                                                >
+                                                                    🖼️ Galería
+                                                                </label>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
 
-                                                 {/* COTIZACIÓN POR PUNTO DE REVISIÓN EN SOS */}
-                                                 {isSOS && (
-                                                     <div style={{ marginTop: '16px', background: '#fffbeb', padding: '14px 16px', borderRadius: '12px', border: '1.5px solid #fde68a' }}>
-                                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: item.isQuoteIncluded !== false ? '12px' : '0' }}>
-                                                             <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: '800', color: '#b45309', cursor: 'pointer' }}>
-                                                                 <input
-                                                                     type="checkbox"
-                                                                     checked={item.isQuoteIncluded !== false}
-                                                                     onChange={(e) => {
-                                                                         const checked = e.target.checked;
-                                                                         setTaskItems(prev => prev.map((it, i) => i === index ? {
-                                                                             ...it,
-                                                                             isQuoteIncluded: checked,
-                                                                             quoteConceptos: checked && (!it.quoteConceptos || it.quoteConceptos.length === 0) ? [{ descripcion: it.descripcion || '', cantidad: '1', precio: '' }] : it.quoteConceptos
-                                                                         } : it));
-                                                                     }}
-                                                                     style={{ width: '16px', height: '16px', accentColor: '#d97706' }}
-                                                                 />
-                                                                 💰 Cotización para el Punto {index + 1}
-                                                             </label>
-                                                             {item.isQuoteIncluded !== false && (
-                                                                 <span style={{ fontSize: '11px', fontWeight: '800', color: '#b45309', background: '#fef3c7', padding: '2px 8px', borderRadius: '6px', border: '1px solid #fde68a' }}>
-                                                                     Total Punto: ${(
-                                                                         ((item.quoteConceptos || []).reduce((acc, c) => acc + ((Number(c.cantidad) || 1) * (parseFloat(c.precio) || 0)), 0)) +
-                                                                         ((item.quoteMateriales || []).reduce((acc, m) => acc + ((Number(m.cantidad) || 1) * (parseFloat(m.precio) || 0)), 0))
-                                                                     ).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                                 </span>
-                                                             )}
-                                                         </div>
+                                                {/* COTIZACIÓN POR PUNTO DE REVISIÓN EN SOS */}
+                                                {isSOS && (
+                                                    <div style={{ marginTop: '16px', background: '#fffbeb', padding: '14px 16px', borderRadius: '12px', border: '1.5px solid #fde68a' }}>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: item.isQuoteIncluded !== false ? '12px' : '0' }}>
+                                                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: '800', color: '#b45309', cursor: 'pointer' }}>
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={item.isQuoteIncluded !== false}
+                                                                    onChange={(e) => {
+                                                                        const checked = e.target.checked;
+                                                                        setTaskItems(prev => prev.map((it, i) => i === index ? {
+                                                                            ...it,
+                                                                            isQuoteIncluded: checked,
+                                                                            quoteConceptos: checked && (!it.quoteConceptos || it.quoteConceptos.length === 0) ? [{ descripcion: it.descripcion || '', cantidad: '1', precio: '' }] : it.quoteConceptos
+                                                                        } : it));
+                                                                    }}
+                                                                    style={{ width: '16px', height: '16px', accentColor: '#d97706' }}
+                                                                />
+                                                                💰 Cotización para el Punto {index + 1}
+                                                            </label>
+                                                            {item.isQuoteIncluded !== false && (
+                                                                <span style={{ fontSize: '11px', fontWeight: '800', color: '#b45309', background: '#fef3c7', padding: '2px 8px', borderRadius: '6px', border: '1px solid #fde68a' }}>
+                                                                    Total Punto: ${(
+                                                                        ((item.quoteConceptos || []).reduce((acc, c) => acc + ((Number(c.cantidad) || 1) * (parseFloat(c.precio) || 0)), 0)) +
+                                                                        ((item.quoteMateriales || []).reduce((acc, m) => acc + ((Number(m.cantidad) || 1) * (parseFloat(m.precio) || 0)), 0))
+                                                                    ).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                                </span>
+                                                            )}
+                                                        </div>
 
-                                                         {item.isQuoteIncluded !== false && (
-                                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '10px' }}>
-                                                                 {/* 1. CONCEPTOS DE SERVICIO PARA ESTE PUNTO */}
-                                                                 <div>
-                                                                     <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#92400e', marginBottom: '6px', textTransform: 'uppercase' }}>
-                                                                         1. Mano de Obra / Concepto de Servicio:
-                                                                     </label>
-                                                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                                                         {(item.quoteConceptos && item.quoteConceptos.length > 0 ? item.quoteConceptos : [{ descripcion: item.descripcion || '', cantidad: '1', precio: '' }]).map((concepto, cIdx) => (
-                                                                             <div key={cIdx} style={{ display: 'flex', gap: '8px', alignItems: 'center', background: '#ffffff', padding: '8px 10px', borderRadius: '8px', border: '1px solid #fed7aa' }}>
-                                                                                 <input
-                                                                                     placeholder="Descripción del concepto (ej. Reparación de fuga)..."
-                                                                                     value={concepto.descripcion}
-                                                                                     onChange={(e) => {
-                                                                                         const val = e.target.value;
-                                                                                         setTaskItems(prev => prev.map((it, i) => {
-                                                                                             if (i !== index) return it;
-                                                                                             const currConceptos = it.quoteConceptos && it.quoteConceptos.length > 0 ? [...it.quoteConceptos] : [{ descripcion: '', cantidad: '1', precio: '' }];
-                                                                                             currConceptos[cIdx] = { ...currConceptos[cIdx], descripcion: val };
-                                                                                             return { ...it, quoteConceptos: currConceptos };
-                                                                                         }));
-                                                                                     }}
-                                                                                     style={{ flex: 3, padding: '7px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px' }}
-                                                                                 />
-                                                                                 <input
-                                                                                     type="number"
-                                                                                     placeholder="Cant."
-                                                                                     value={concepto.cantidad}
-                                                                                     onChange={(e) => {
-                                                                                         const val = e.target.value;
-                                                                                         setTaskItems(prev => prev.map((it, i) => {
-                                                                                             if (i !== index) return it;
-                                                                                             const currConceptos = it.quoteConceptos && it.quoteConceptos.length > 0 ? [...it.quoteConceptos] : [{ descripcion: '', cantidad: '1', precio: '' }];
-                                                                                             currConceptos[cIdx] = { ...currConceptos[cIdx], cantidad: val };
-                                                                                             return { ...it, quoteConceptos: currConceptos };
-                                                                                         }));
-                                                                                     }}
-                                                                                     style={{ width: '55px', padding: '7px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px' }}
-                                                                                 />
-                                                                                 <input
-                                                                                     type="number"
-                                                                                     placeholder="Precio ($)"
-                                                                                     value={concepto.precio}
-                                                                                     onChange={(e) => {
-                                                                                         const val = e.target.value;
-                                                                                         setTaskItems(prev => prev.map((it, i) => {
-                                                                                             if (i !== index) return it;
-                                                                                             const currConceptos = it.quoteConceptos && it.quoteConceptos.length > 0 ? [...it.quoteConceptos] : [{ descripcion: '', cantidad: '1', precio: '' }];
-                                                                                             currConceptos[cIdx] = { ...currConceptos[cIdx], precio: val };
-                                                                                             return { ...it, quoteConceptos: currConceptos };
-                                                                                         }));
-                                                                                     }}
-                                                                                     style={{ width: '85px', padding: '7px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px' }}
-                                                                                 />
-                                                                                 {(item.quoteConceptos || []).length > 1 && (
-                                                                                     <button
-                                                                                         type="button"
-                                                                                         onClick={() => {
-                                                                                             setTaskItems(prev => prev.map((it, i) => {
-                                                                                                 if (i !== index) return it;
-                                                                                                 const currConceptos = (it.quoteConceptos || []).filter((_, idx) => idx !== cIdx);
-                                                                                                 return { ...it, quoteConceptos: currConceptos };
-                                                                                             }));
-                                                                                         }}
-                                                                                         style={{ background: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca', borderRadius: '6px', padding: '5px 8px', cursor: 'pointer', fontSize: '11px' }}
-                                                                                     >
-                                                                                         ✕
-                                                                                     </button>
-                                                                                 )}
-                                                                             </div>
-                                                                         ))}
-                                                                         <button
-                                                                             type="button"
-                                                                             onClick={() => {
-                                                                                 setTaskItems(prev => prev.map((it, i) => {
-                                                                                     if (i !== index) return it;
-                                                                                     const curr = it.quoteConceptos && it.quoteConceptos.length > 0 ? [...it.quoteConceptos] : [{ descripcion: '', cantidad: '1', precio: '' }];
-                                                                                     return { ...it, quoteConceptos: [...curr, { descripcion: '', cantidad: '1', precio: '' }] };
-                                                                                 }));
-                                                                             }}
-                                                                             style={{ background: '#ffffff', color: '#d97706', border: '1px dashed #f59e0b', padding: '6px', borderRadius: '6px', cursor: 'pointer', fontSize: '11.5px', fontWeight: '700' }}
-                                                                         >
-                                                                             + Agregar Concepto al Punto {index + 1}
-                                                                         </button>
-                                                                     </div>
-                                                                 </div>
+                                                        {item.isQuoteIncluded !== false && (
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '10px' }}>
+                                                                {/* 1. CONCEPTOS DE SERVICIO PARA ESTE PUNTO */}
+                                                                <div>
+                                                                    <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#92400e', marginBottom: '6px', textTransform: 'uppercase' }}>
+                                                                        1. Mano de Obra / Concepto de Servicio:
+                                                                    </label>
+                                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                                        {(item.quoteConceptos && item.quoteConceptos.length > 0 ? item.quoteConceptos : [{ descripcion: item.descripcion || '', cantidad: '1', precio: '' }]).map((concepto, cIdx) => (
+                                                                            <div key={cIdx} style={{ display: 'flex', gap: '8px', alignItems: 'center', background: '#ffffff', padding: '8px 10px', borderRadius: '8px', border: '1px solid #fed7aa' }}>
+                                                                                <input
+                                                                                    placeholder="Descripción del concepto (ej. Reparación de fuga)..."
+                                                                                    value={concepto.descripcion}
+                                                                                    onChange={(e) => {
+                                                                                        const val = e.target.value;
+                                                                                        setTaskItems(prev => prev.map((it, i) => {
+                                                                                            if (i !== index) return it;
+                                                                                            const currConceptos = it.quoteConceptos && it.quoteConceptos.length > 0 ? [...it.quoteConceptos] : [{ descripcion: '', cantidad: '1', precio: '' }];
+                                                                                            currConceptos[cIdx] = { ...currConceptos[cIdx], descripcion: val };
+                                                                                            return { ...it, quoteConceptos: currConceptos };
+                                                                                        }));
+                                                                                    }}
+                                                                                    style={{ flex: 3, padding: '7px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px' }}
+                                                                                />
+                                                                                <input
+                                                                                    type="number"
+                                                                                    placeholder="Cant."
+                                                                                    value={concepto.cantidad}
+                                                                                    onChange={(e) => {
+                                                                                        const val = e.target.value;
+                                                                                        setTaskItems(prev => prev.map((it, i) => {
+                                                                                            if (i !== index) return it;
+                                                                                            const currConceptos = it.quoteConceptos && it.quoteConceptos.length > 0 ? [...it.quoteConceptos] : [{ descripcion: '', cantidad: '1', precio: '' }];
+                                                                                            currConceptos[cIdx] = { ...currConceptos[cIdx], cantidad: val };
+                                                                                            return { ...it, quoteConceptos: currConceptos };
+                                                                                        }));
+                                                                                    }}
+                                                                                    style={{ width: '55px', padding: '7px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px' }}
+                                                                                />
+                                                                                <input
+                                                                                    type="number"
+                                                                                    placeholder="Precio ($)"
+                                                                                    value={concepto.precio}
+                                                                                    onChange={(e) => {
+                                                                                        const val = e.target.value;
+                                                                                        setTaskItems(prev => prev.map((it, i) => {
+                                                                                            if (i !== index) return it;
+                                                                                            const currConceptos = it.quoteConceptos && it.quoteConceptos.length > 0 ? [...it.quoteConceptos] : [{ descripcion: '', cantidad: '1', precio: '' }];
+                                                                                            currConceptos[cIdx] = { ...currConceptos[cIdx], precio: val };
+                                                                                            return { ...it, quoteConceptos: currConceptos };
+                                                                                        }));
+                                                                                    }}
+                                                                                    style={{ width: '85px', padding: '7px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px' }}
+                                                                                />
+                                                                                {(item.quoteConceptos || []).length > 1 && (
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={() => {
+                                                                                            setTaskItems(prev => prev.map((it, i) => {
+                                                                                                if (i !== index) return it;
+                                                                                                const currConceptos = (it.quoteConceptos || []).filter((_, idx) => idx !== cIdx);
+                                                                                                return { ...it, quoteConceptos: currConceptos };
+                                                                                            }));
+                                                                                        }}
+                                                                                        style={{ background: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca', borderRadius: '6px', padding: '5px 8px', cursor: 'pointer', fontSize: '11px' }}
+                                                                                    >
+                                                                                        ✕
+                                                                                    </button>
+                                                                                )}
+                                                                            </div>
+                                                                        ))}
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => {
+                                                                                setTaskItems(prev => prev.map((it, i) => {
+                                                                                    if (i !== index) return it;
+                                                                                    const curr = it.quoteConceptos && it.quoteConceptos.length > 0 ? [...it.quoteConceptos] : [{ descripcion: '', cantidad: '1', precio: '' }];
+                                                                                    return { ...it, quoteConceptos: [...curr, { descripcion: '', cantidad: '1', precio: '' }] };
+                                                                                }));
+                                                                            }}
+                                                                            style={{ background: '#ffffff', color: '#d97706', border: '1px dashed #f59e0b', padding: '6px', borderRadius: '6px', cursor: 'pointer', fontSize: '11.5px', fontWeight: '700' }}
+                                                                        >
+                                                                            + Agregar Concepto al Punto {index + 1}
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
 
-                                                                 {/* 2. MATERIALES PARA ESTE PUNTO */}
-                                                                 <div>
-                                                                     <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#92400e', marginBottom: '6px', textTransform: 'uppercase' }}>
-                                                                         2. Materiales / Refacciones de este punto: <span style={{ fontWeight: '400', fontSize: '10px' }}>(Opcional)</span>
-                                                                     </label>
-                                                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                                                         {(item.quoteMateriales || []).map((mat, mIdx) => (
-                                                                             <div key={mIdx} style={{ display: 'flex', gap: '8px', alignItems: 'center', background: '#ffffff', padding: '8px 10px', borderRadius: '8px', border: '1px solid #fed7aa' }}>
-                                                                                 <input
-                                                                                     placeholder="Nombre del material..."
-                                                                                     value={mat.nombre}
-                                                                                     onChange={(e) => {
-                                                                                         const val = e.target.value;
-                                                                                         setTaskItems(prev => prev.map((it, i) => {
-                                                                                             if (i !== index) return it;
-                                                                                             const currMats = [...(it.quoteMateriales || [])];
-                                                                                             currMats[mIdx] = { ...currMats[mIdx], nombre: val };
-                                                                                             return { ...it, quoteMateriales: currMats };
-                                                                                         }));
-                                                                                     }}
-                                                                                     style={{ flex: 3, padding: '7px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px' }}
-                                                                                 />
-                                                                                 <input
-                                                                                     type="number"
-                                                                                     placeholder="Cant."
-                                                                                     value={mat.cantidad}
-                                                                                     onChange={(e) => {
-                                                                                         const val = e.target.value;
-                                                                                         setTaskItems(prev => prev.map((it, i) => {
-                                                                                             if (i !== index) return it;
-                                                                                             const currMats = [...(it.quoteMateriales || [])];
-                                                                                             currMats[mIdx] = { ...currMats[mIdx], cantidad: val };
-                                                                                             return { ...it, quoteMateriales: currMats };
-                                                                                         }));
-                                                                                     }}
-                                                                                     style={{ width: '55px', padding: '7px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px' }}
-                                                                                 />
-                                                                                 <input
-                                                                                     type="number"
-                                                                                     placeholder="Costo ($)"
-                                                                                     value={mat.precio}
-                                                                                     onChange={(e) => {
-                                                                                         const val = e.target.value;
-                                                                                         setTaskItems(prev => prev.map((it, i) => {
-                                                                                             if (i !== index) return it;
-                                                                                             const currMats = [...(it.quoteMateriales || [])];
-                                                                                             currMats[mIdx] = { ...currMats[mIdx], precio: val };
-                                                                                             return { ...it, quoteMateriales: currMats };
-                                                                                         }));
-                                                                                     }}
-                                                                                     style={{ width: '85px', padding: '7px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px' }}
-                                                                                 />
-                                                                                 <button
-                                                                                     type="button"
-                                                                                     onClick={() => {
-                                                                                         setTaskItems(prev => prev.map((it, i) => {
-                                                                                             if (i !== index) return it;
-                                                                                             const currMats = (it.quoteMateriales || []).filter((_, idx) => idx !== mIdx);
-                                                                                             return { ...it, quoteMateriales: currMats };
-                                                                                         }));
-                                                                                     }}
-                                                                                     style={{ background: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca', borderRadius: '6px', padding: '5px 8px', cursor: 'pointer', fontSize: '11px' }}
-                                                                                 >
-                                                                                     ✕
-                                                                                 </button>
-                                                                             </div>
-                                                                         ))}
-                                                                         <button
-                                                                             type="button"
-                                                                             onClick={() => {
-                                                                                 setTaskItems(prev => prev.map((it, i) => {
-                                                                                     if (i !== index) return it;
-                                                                                     const curr = it.quoteMateriales ? [...it.quoteMateriales] : [];
-                                                                                     return { ...it, quoteMateriales: [...curr, { nombre: '', cantidad: '1', precio: '' }] };
-                                                                                 }));
-                                                                             }}
-                                                                             style={{ background: '#ffffff', color: '#64748b', border: '1px dashed #cbd5e1', padding: '6px', borderRadius: '6px', cursor: 'pointer', fontSize: '11.5px', fontWeight: '700' }}
-                                                                         >
-                                                                             + Agregar Material al Punto {index + 1}
-                                                                         </button>
-                                                                     </div>
-                                                                 </div>
-                                                             </div>
-                                                         )}
-                                                     </div>
-                                                 )}
-                                             </div>
-                                         ))}
-                                     </div>
-                                 </div>
+                                                                {/* 2. MATERIALES PARA ESTE PUNTO */}
+                                                                <div>
+                                                                    <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#92400e', marginBottom: '6px', textTransform: 'uppercase' }}>
+                                                                        2. Materiales / Refacciones de este punto: <span style={{ fontWeight: '400', fontSize: '10px' }}>(Opcional)</span>
+                                                                    </label>
+                                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                                        {(item.quoteMateriales || []).map((mat, mIdx) => (
+                                                                            <div key={mIdx} style={{ display: 'flex', gap: '8px', alignItems: 'center', background: '#ffffff', padding: '8px 10px', borderRadius: '8px', border: '1px solid #fed7aa' }}>
+                                                                                <input
+                                                                                    placeholder="Nombre del material..."
+                                                                                    value={mat.nombre}
+                                                                                    onChange={(e) => {
+                                                                                        const val = e.target.value;
+                                                                                        setTaskItems(prev => prev.map((it, i) => {
+                                                                                            if (i !== index) return it;
+                                                                                            const currMats = [...(it.quoteMateriales || [])];
+                                                                                            currMats[mIdx] = { ...currMats[mIdx], nombre: val };
+                                                                                            return { ...it, quoteMateriales: currMats };
+                                                                                        }));
+                                                                                    }}
+                                                                                    style={{ flex: 3, padding: '7px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px' }}
+                                                                                />
+                                                                                <input
+                                                                                    type="number"
+                                                                                    placeholder="Cant."
+                                                                                    value={mat.cantidad}
+                                                                                    onChange={(e) => {
+                                                                                        const val = e.target.value;
+                                                                                        setTaskItems(prev => prev.map((it, i) => {
+                                                                                            if (i !== index) return it;
+                                                                                            const currMats = [...(it.quoteMateriales || [])];
+                                                                                            currMats[mIdx] = { ...currMats[mIdx], cantidad: val };
+                                                                                            return { ...it, quoteMateriales: currMats };
+                                                                                        }));
+                                                                                    }}
+                                                                                    style={{ width: '55px', padding: '7px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px' }}
+                                                                                />
+                                                                                <input
+                                                                                    type="number"
+                                                                                    placeholder="Costo ($)"
+                                                                                    value={mat.precio}
+                                                                                    onChange={(e) => {
+                                                                                        const val = e.target.value;
+                                                                                        setTaskItems(prev => prev.map((it, i) => {
+                                                                                            if (i !== index) return it;
+                                                                                            const currMats = [...(it.quoteMateriales || [])];
+                                                                                            currMats[mIdx] = { ...currMats[mIdx], precio: val };
+                                                                                            return { ...it, quoteMateriales: currMats };
+                                                                                        }));
+                                                                                    }}
+                                                                                    style={{ width: '85px', padding: '7px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px' }}
+                                                                                />
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => {
+                                                                                        setTaskItems(prev => prev.map((it, i) => {
+                                                                                            if (i !== index) return it;
+                                                                                            const currMats = (it.quoteMateriales || []).filter((_, idx) => idx !== mIdx);
+                                                                                            return { ...it, quoteMateriales: currMats };
+                                                                                        }));
+                                                                                    }}
+                                                                                    style={{ background: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca', borderRadius: '6px', padding: '5px 8px', cursor: 'pointer', fontSize: '11px' }}
+                                                                                >
+                                                                                    ✕
+                                                                                </button>
+                                                                            </div>
+                                                                        ))}
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => {
+                                                                                setTaskItems(prev => prev.map((it, i) => {
+                                                                                    if (i !== index) return it;
+                                                                                    const curr = it.quoteMateriales ? [...it.quoteMateriales] : [];
+                                                                                    return { ...it, quoteMateriales: [...curr, { nombre: '', cantidad: '1', precio: '' }] };
+                                                                                }));
+                                                                            }}
+                                                                            style={{ background: '#ffffff', color: '#64748b', border: '1px dashed #cbd5e1', padding: '6px', borderRadius: '6px', cursor: 'pointer', fontSize: '11.5px', fontWeight: '700' }}
+                                                                        >
+                                                                            + Agregar Material al Punto {index + 1}
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
 
-                                { !isSOS && (
+                                {!isSOS && (
                                     <div style={{ marginTop: '18px', background: '#f8fafc', padding: '16px 18px', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
                                         <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13.5px', fontWeight: '700', color: '#1e293b', cursor: 'pointer' }}>
                                             <input
@@ -10863,16 +10829,16 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                     {editingTaskId ? "Actualizar" : "Guardar"}
                                 </button>
                                 <button
-                                    onClick={() => { 
-                                        setIsAddModalOpen(false); 
-                                        setEditingTaskId(null); 
-                                        setNewTaskDescription(""); 
+                                    onClick={() => {
+                                        setIsAddModalOpen(false);
+                                        setEditingTaskId(null);
+                                        setNewTaskDescription("");
                                         setCustomServiceType("");
-                                        setIsQuoteIncluded(false); 
-                                        setQuoteConceptos([]); 
+                                        setIsQuoteIncluded(false);
+                                        setQuoteConceptos([]);
                                         setQuoteMateriales([]);
-                                        setQuoteComentarios(""); 
-                                        setNewQuoteFileName(""); 
+                                        setQuoteComentarios("");
+                                        setNewQuoteFileName("");
                                         setActivityPhotos([]);
                                         setServiceMarca("");
                                         setServiceModelo("");
@@ -10925,7 +10891,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                         }
                                         return parsed;
                                     }
-                                } catch (_) {}
+                                } catch (_) { }
                             }
                         }
 
@@ -11009,9 +10975,9 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                     }}
                     onClick={() => setSelectedZoomImage(null)}
                 >
-                    <div 
-                        style={{ 
-                            position: 'relative', maxWidth: '95%', maxHeight: '95%', display: 'flex', flexDirection: 'column', 
+                    <div
+                        style={{
+                            position: 'relative', maxWidth: '95%', maxHeight: '95%', display: 'flex', flexDirection: 'column',
                             alignItems: 'center', background: '#fff', padding: '30px', borderRadius: '24px', overflowY: 'auto'
                         }}
                         onClick={(e) => e.stopPropagation()}
@@ -11022,16 +10988,16 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                         >
                             ✕
                         </button>
-                        
+
                         <h2 style={{ fontSize: '24px', fontWeight: '800', color: '#1e293b', marginBottom: '20px', width: '100%', textAlign: 'left' }}>Detalles de la Evidencia</h2>
-                        
+
                         {trabajo?.descripcion && (
                             <div style={{ width: '100%', marginBottom: '24px' }}>
                                 <span style={{ display: 'block', fontSize: '12px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '8px' }}>Problema Reportado</span>
                                 <p style={{ fontSize: '18px', color: '#334155', background: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0', margin: 0, lineHeight: '1.6' }}>"{trabajo.descripcion}"</p>
                             </div>
                         )}
-                        
+
                         <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                             <span style={{ display: 'block', fontSize: '12px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '12px', alignSelf: 'flex-start' }}>Foto Adjunta</span>
                             <img
@@ -11046,26 +11012,26 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
 
             {/* MODAL DE RECHAZO CON MOTIVO */}
             {showRejectionModal && (
-                <div 
-                    style={{ 
-                        position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', 
-                        background: 'rgba(0, 0, 0, 0.6)', zIndex: 10001, display: 'flex', 
-                        alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' 
+                <div
+                    style={{
+                        position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+                        background: 'rgba(0, 0, 0, 0.6)', zIndex: 10001, display: 'flex',
+                        alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)'
                     }}
                     onClick={() => setShowRejectionModal(false)}
                 >
-                    <div 
-                        style={{ 
-                            background: '#fff', borderRadius: '28px', padding: '35px', width: '92%', 
+                    <div
+                        style={{
+                            background: '#fff', borderRadius: '28px', padding: '35px', width: '92%',
                             maxWidth: '480px', boxShadow: '0 20px 50px rgba(0,0,0,0.15)',
                             animation: 'modalSlideUp 0.3s ease-out'
                         }}
                         onClick={(e) => e.stopPropagation()}
                     >
                         <div style={{ textAlign: 'center', marginBottom: '25px' }}>
-                            <div style={{ 
-                                width: '60px', height: '60px', background: '#fef2f2', borderRadius: '50%', 
-                                display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 15px' 
+                            <div style={{
+                                width: '60px', height: '60px', background: '#fef2f2', borderRadius: '50%',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 15px'
                             }}>
                                 <span style={{ fontSize: '30px' }}>📄</span>
                             </div>
@@ -11079,9 +11045,9 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                             value={rejectionReason}
                             onChange={(e) => setRejectionReason(e.target.value)}
                             placeholder="Ej: El presupuesto es muy elevado / Los materiales no son los requeridos..."
-                            style={{ 
-                                width: '100%', minHeight: '130px', padding: '16px', borderRadius: '18px', 
-                                border: '2px solid #e2e8f0', fontSize: '15px', color: '#475569', 
+                            style={{
+                                width: '100%', minHeight: '130px', padding: '16px', borderRadius: '18px',
+                                border: '2px solid #e2e8f0', fontSize: '15px', color: '#475569',
                                 boxSizing: 'border-box', fontFamily: 'inherit', resize: 'none',
                                 outline: 'none', transition: 'border-color 0.2s'
                             }}
@@ -11091,19 +11057,19 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                         <div style={{ display: 'flex', gap: '12px', marginTop: '25px' }}>
                             <button
                                 onClick={() => setShowRejectionModal(false)}
-                                style={{ 
-                                    flex: 1, padding: '14px', borderRadius: '15px', border: 'none', 
-                                    background: '#f1f5f9', color: '#64748b', fontWeight: '800', 
-                                    cursor: 'pointer', fontSize: '14px' 
+                                style={{
+                                    flex: 1, padding: '14px', borderRadius: '15px', border: 'none',
+                                    background: '#f1f5f9', color: '#64748b', fontWeight: '800',
+                                    cursor: 'pointer', fontSize: '14px'
                                 }}
                             >
                                 Cancelar
                             </button>
                             <button
                                 onClick={handleSubmitRejection}
-                                style={{ 
-                                    flex: 2, padding: '14px', borderRadius: '15px', border: 'none', 
-                                    background: 'linear-gradient(135deg, #ef4444, #dc2626)', color: '#fff', 
+                                style={{
+                                    flex: 2, padding: '14px', borderRadius: '15px', border: 'none',
+                                    background: 'linear-gradient(135deg, #ef4444, #dc2626)', color: '#fff',
                                     fontWeight: '800', cursor: 'pointer', fontSize: '14px',
                                     boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)'
                                 }}
@@ -11121,11 +11087,11 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                     <div className={styles.modalContent} onClick={(e) => e.stopPropagation()} style={{ maxWidth: '800px', width: '90%' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #f1f5f9', paddingBottom: '16px', marginBottom: '20px' }}>
                             <h2 style={{ margin: 0, fontSize: '24px', fontWeight: '800', color: '#1e293b' }}>Contacto y Ubicación</h2>
-                            <button 
+                            <button
                                 onClick={() => setIsSucursalModalOpen(false)}
-                                style={{ 
-                                    background: '#fef2f2', color: '#ef4444', border: 'none', 
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center', 
+                                style={{
+                                    background: '#fef2f2', color: '#ef4444', border: 'none',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
                                     padding: '8px', borderRadius: '50%', cursor: 'pointer',
                                     transition: 'background 0.2s'
                                 }}
@@ -11134,7 +11100,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                 <HiOutlineXMark size={24} strokeWidth={2.5} />
                             </button>
                         </div>
-                        
+
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px' }}>
                             {/* Contactos */}
                             <div className={styles.bentoCard} style={{ margin: 0, border: '1.5px solid #e2e8f0', boxShadow: '0 4px 20px rgba(0,0,0,0.03)', height: '100%' }}>
@@ -11258,7 +11224,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                     isOpen={isAdminLevantamientoModalOpen}
                     onClose={() => setIsAdminLevantamientoModalOpen(false)}
                     data={adminLevantamientoData}
-                    onSave={() => {}} 
+                    onSave={() => { }}
                     isReadOnly={true}
                 />
             )}
@@ -11272,7 +11238,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                 <HiOutlineXMark size={24} strokeWidth={2.5} style={{ stroke: 'currentColor' }} />
                             </span>
                         </button>
-                        
+
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '25px', borderBottom: '1px solid #f1f5f9', paddingBottom: '20px' }}>
                             <div style={{ background: '#fff1f2', padding: '10px', borderRadius: '12px', color: '#e11d48' }}>
                                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -11311,7 +11277,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: '8px', width: '100%', boxSizing: 'border-box' }}>
                                                         {photos.map((url, pIdx) => (
                                                             <div key={pIdx} style={{ position: 'relative', paddingTop: '100%', borderRadius: '8px', overflow: 'hidden', border: '1px solid #cbd5e1', cursor: 'zoom-in' }} onClick={(e) => { e.stopPropagation(); setSelectedZoomImage(url); }}>
-                                                                <img src={url} alt={`Evidencia ${idx+1}-${pIdx+1}`} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                                <img src={url} alt={`Evidencia ${idx + 1}-${pIdx + 1}`} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
                                                             </div>
                                                         ))}
                                                     </div>
@@ -11336,7 +11302,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '12px', width: '100%', boxSizing: 'border-box' }}>
                                             {parseFotoUrls(trabajo.foto_url).map((url, idx) => (
                                                 <div key={idx} style={{ position: 'relative', paddingTop: '100%', borderRadius: '12px', overflow: 'hidden', border: '1px solid #e2e8f0', cursor: 'zoom-in' }} onClick={(e) => { e.stopPropagation(); setSelectedZoomImage(url); }}>
-                                                    <img src={url} alt={`Evidencia ${idx+1}`} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                    <img src={url} alt={`Evidencia ${idx + 1}`} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
                                                 </div>
                                             ))}
                                         </div>
@@ -11348,14 +11314,14 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                         {/* BOTONES PARA TÉCNICO: Aceptar, Rechazar dentro del modal */}
                         {isTechRole && ['Asignado', 'Solicitud', 'Pendiente'].includes(trabajo?.estado || '') && (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%', marginTop: '20px' }}>
-                                <button 
-                                    onClick={handleAceptarAsignacion} 
+                                <button
+                                    onClick={handleAceptarAsignacion}
                                     style={{ padding: '14px 20px', background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', color: '#fff', border: 'none', borderRadius: '12px', fontSize: '15px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 4px 12px rgba(16,185,129,0.25)', transition: 'all 0.2s ease', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}
                                 >
                                     ✅ Aceptar Asignación
                                 </button>
-                                <button 
-                                    onClick={() => { setShowZoomModal(false); handleRechazarAsignacion(); }} 
+                                <button
+                                    onClick={() => { setShowZoomModal(false); handleRechazarAsignacion(); }}
                                     style={{ padding: '14px 20px', background: '#fff1f2', color: '#e11d48', border: '1px solid #ffe4e6', borderRadius: '12px', fontSize: '15px', fontWeight: '800', cursor: 'pointer', transition: 'all 0.2s ease', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}
                                 >
                                     ❌ Rechazar Asignación
@@ -11372,25 +11338,25 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                     <div style={{ background: '#ffffff', borderRadius: '24px', width: '100%', maxWidth: '400px', padding: '35px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', animation: 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)' }}>
                         <h2 style={{ margin: '0 0 15px 0', fontSize: '20px', fontWeight: '800', color: '#0f172a', textAlign: 'center' }}>Hora de Llegada</h2>
                         <p style={{ fontSize: '14px', color: '#64748b', textAlign: 'center', marginBottom: '25px' }}>Por favor indica a qué hora estimas llegar a la sucursal para que el encargado esté enterado.</p>
-                        
+
                         <div style={{ marginBottom: '25px' }}>
                             <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '8px' }}>Hora Estimada (ej. 14:30)</label>
-                            <input 
-                                type="time" 
-                                value={horaLlegada} 
-                                onChange={e => setHoraLlegada(e.target.value)} 
+                            <input
+                                type="time"
+                                value={horaLlegada}
+                                onChange={e => setHoraLlegada(e.target.value)}
                                 style={{ width: '100%', padding: '12px 16px', borderRadius: '12px', border: '1px solid #cbd5e1', fontSize: '16px', color: '#0f172a', outline: 'none', background: '#f8fafc' }}
                             />
                         </div>
-                        
+
                         <div style={{ display: 'flex', gap: '12px' }}>
-                            <button 
+                            <button
                                 onClick={() => setShowHoraLlegadaModal(false)}
                                 style={{ flex: 1, padding: '14px', background: '#f1f5f9', color: '#64748b', border: 'none', borderRadius: '12px', fontSize: '15px', fontWeight: '700', cursor: 'pointer' }}
                             >
                                 Cancelar
                             </button>
-                            <button 
+                            <button
                                 onClick={handleConfirmHoraLlegada}
                                 style={{ flex: 1, padding: '14px', background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', color: 'white', border: 'none', borderRadius: '12px', fontSize: '15px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 4px 12px rgba(16,185,129,0.2)' }}
                             >
@@ -11436,7 +11402,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                             {isSOS ? '¿Enviar Cotización de Emergencia?' : '¿Enviar Información al Administrador?'}
                         </h3>
                         <p style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#64748b', lineHeight: '1.6' }}>
-                            {isSOS 
+                            {isSOS
                                 ? 'La cotización desglosada será enviada al Cliente y al Administrador para su autorización inmediata.'
                                 : 'Una vez confirmado, el Administrador General recibirá los registros de tu visita.'}
                         </p>
@@ -11571,7 +11537,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                         } else {
                                             // 1. Actualizar trabajo actual a 'En Espera' y visitado: true
                                             await updateEstadoTrabajo(Number(id), { estado: 'En Espera', visitado: true });
-                                            
+
                                             // 2. Si pertenece a un grupo [Grupo: REQ-xxxx], sincronizar todos los trabajos hermanos
                                             if (groupedJobs && groupedJobs.length > 0) {
                                                 for (const gJob of groupedJobs) {
@@ -11629,28 +11595,28 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
 
             {/* PDF PREVIEW MODAL */}
             {showPDFPreview && trabajo && (
-                <CotizacionPDFPreview 
-                    trabajo={trabajo} 
-                    subTareas={subTareas} 
-                    costo={costo} 
-                    notas={notas} 
+                <CotizacionPDFPreview
+                    trabajo={trabajo}
+                    subTareas={subTareas}
+                    costo={costo}
+                    notas={notas}
                     materials={adminQuoteMaterials}
                     manoObra={adminManoObra}
-                    onClose={() => setShowPDFPreview(false)} 
+                    onClose={() => setShowPDFPreview(false)}
                 />
             )}
 
             {previewQuote && trabajo && (() => {
                 const { materials, manoObra, notes } = parseQuoteMaterials(previewQuote.descripcion || "");
                 return (
-                    <CotizacionPDFPreview 
-                        trabajo={trabajo} 
-                        subTareas={subTareas} 
-                        costo={previewQuote.monto} 
-                        notas={notes} 
+                    <CotizacionPDFPreview
+                        trabajo={trabajo}
+                        subTareas={subTareas}
+                        costo={previewQuote.monto}
+                        notas={notes}
                         materials={materials}
                         manoObra={manoObra}
-                        onClose={() => setPreviewQuote(null)} 
+                        onClose={() => setPreviewQuote(null)}
                     />
                 );
             })()}
