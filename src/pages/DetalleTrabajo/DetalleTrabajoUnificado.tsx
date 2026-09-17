@@ -6592,7 +6592,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                             })();
 
                             const canEditCotizacion = isSOS ? false : isAdminUser;
-                            const showLeftColumn = cotizaciones.length > 0 || canEditCotizacion || (isSOS && isTechRole);
+                            const showLeftColumn = cotizaciones.length > 0 || (isSOS && isTechRole);
                             const hasTechData = Boolean(subTareas.some(t => t.esCotizacion) || actualReporte || (quoteHistory && quoteHistory.length > 0));
 
                             return (
@@ -7308,11 +7308,11 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                     </>
                                 )}
 
-                                {/* VISTA ADMIN: columna izquierda (gestión de cotizaciones), columna derecha (actividades del técnico) */}
+                                {/* VISTA ADMIN: elementos en pantalla completa (gestión de cotizaciones y actividades del técnico) */}
                                 {!['cliente', 'encargado', 'gerente-sucursal'].includes(user?.role || '') && !isTechRole && (
-                                    <div className={showLeftColumn ? styles.adminCotizacionGrid : styles.adminCotizacionGridSingle}>
+                                    <div className={styles.adminCotizacionGridSingle}>
                                         
-                                        {/* COLUMNA PRINCIPAL (IZQUIERDA): lista de cotizaciones y formulario */}
+                                        {/* COLUMNA PRINCIPAL (IZQUIERDA): lista de cotizaciones previas si existen */}
                                         {showLeftColumn && (
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%', maxWidth: '100%' }}>
                                                     {/* Admin Banner for Re-Cotización / Rejected Quote */}
@@ -7562,14 +7562,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                                     {cotizaciones.length} cotizacion{cotizaciones.length !== 1 ? 'es' : ''}
                                                                 </span>
                                                             </div>
-                                                            {canEditCotizacion && (
-                                                                <button
-                                                                    onClick={() => { setShowAddQuoteForm(true); setCosto(''); setNotas(''); }}
-                                                                    style={{ padding: '7px 14px', background: 'linear-gradient(135deg, #f26522, #d14d13)', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '12px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', boxShadow: '0 4px 12px rgba(242,101,34,0.3)', whiteSpace: 'nowrap' }}
-                                                                >
-                                                                    <HiOutlineCurrencyDollar size={14} /> + Agregar otra
-                                                                </button>
-                                                            )}
+                                                            {/* Botón de agregar otra cotización manual oculto por flujo autónomo */}
                                                         </div>
 
                                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
@@ -7745,296 +7738,10 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                         <span style={{ fontSize: '18px' }}>✅</span> Asignar Trabajo al Técnico
                                                     </button>
                                                 )}
-
-                                                        {/* BOTÓN PARA NUEVA COTIZACIÓN */}
-                                                {!showAddQuoteForm ? (
-                                                    canEditCotizacion && (
-                                                        <button
-                                                            onClick={() => setShowAddQuoteForm(true)}
-                                                            style={{ width: '100%', padding: '20px', background: '#fff', border: '2px dashed #cbd5e1', borderRadius: '20px', color: '#64748b', fontSize: '16px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', transition: 'all 0.2s' }}
-                                                            onMouseEnter={(e) => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.borderColor = '#94a3b8'; e.currentTarget.style.color = '#1e293b'; }}
-                                                            onMouseLeave={(e) => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = '#cbd5e1'; e.currentTarget.style.color = '#64748b'; }}
-                                                        >
-                                                            <HiOutlineDocumentPlus size={24} color="#f26522" />
-                                                            Elaborar Propuesta
-                                                        </button>
-                                                    )
-                                                ) : (
-                                                    /* FORMULARIO NUEVA COTIZACIÓN MÚLTIPLE */
-                                                    <div style={{ background: '#fff', borderRadius: '24px', padding: '24px 18px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9', boxSizing: 'border-box', width: '100%', maxWidth: '100%' }}>
-                                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '22px', paddingBottom: '16px', borderBottom: '2px solid #f8fafc', flexWrap: 'wrap', gap: '10px' }}>
-                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                                <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'linear-gradient(135deg, #f26522, #d14d13)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                                                    <HiOutlineCurrencyDollar size={20} color="white" />
-                                                                </div>
-                                                                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#1e293b' }}>
-                                                                    Elaboración de Propuestas ({cotizacionesFormItems.length})
-                                                                </h3>
-                                                            </div>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => {
-                                                                    setCotizacionesFormItems([
-                                                                        ...cotizacionesFormItems,
-                                                                        { id: `item_${Date.now()}`, manoObra: '0', materials: [{ material: '', piezas: '', precio: '' }], notas: '', minimized: false }
-                                                                    ]);
-                                                                }}
-                                                                style={{ background: '#fff7ed', color: '#f26522', border: '1px solid #fed7aa', padding: '8px 16px', borderRadius: '10px', fontSize: '13px', fontWeight: '800', cursor: 'pointer', transition: 'all 0.2s' }}
-                                                            >
-                                                                + Nueva Propuesta
-                                                            </button>
-                                                        </div>
-
-                                                        <div className={styles.cardTransparentScroll} style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '20px', maxHeight: '520px', width: '100%', boxSizing: 'border-box' }}>
-                                                            {cotizacionesFormItems.map((item, idx) => {
-                                                                const itemMatsTotal = item.materials.reduce((acc, m) => acc + ((parseFloat(m.precio) || 0) * (parseFloat(m.piezas) || 1)), 0);
-                                                                const itemTotal = (parseFloat(item.manoObra) || 0) + itemMatsTotal;
-
-                                                                return (
-                                                                    <div key={item.id} style={{ background: '#fafafa', border: '1.5px solid #e2e8f0', borderRadius: '16px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', width: '100%', boxSizing: 'border-box' }}>
-                                                                        {/* Cabecera del item */}
-                                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
-                                                                            <span style={{ fontSize: '14px', fontWeight: '800', color: '#1e293b' }}>
-                                                                                Propuesta #{idx + 1}{item.titulo ? ` - ${item.titulo}` : ''}
-                                                                            </span>
-                                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                                                <button
-                                                                                    type="button"
-                                                                                    onClick={() => {
-                                                                                        setCotizacionesFormItems(cotizacionesFormItems.map(c => c.id === item.id ? { ...c, minimized: !c.minimized } : c));
-                                                                                    }}
-                                                                                    style={{ background: '#f1f5f9', border: 'none', borderRadius: '6px', padding: '4px 10px', fontSize: '11px', color: '#64748b', cursor: 'pointer', fontWeight: '700' }}
-                                                                                >
-                                                                                    {item.minimized ? 'Expandir ▼' : 'Minimizar ▲'}
-                                                                                </button>
-                                                                                {cotizacionesFormItems.length > 1 && (
-                                                                                    <button
-                                                                                        type="button"
-                                                                                        onClick={() => {
-                                                                                        setCotizacionesFormItems(cotizacionesFormItems.filter(c => c.id !== item.id));
-                                                                                    }}
-                                                                                        style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '6px', padding: '4px 8px', fontSize: '11px', color: '#ef4444', cursor: 'pointer', fontWeight: '700' }}
-                                                                                    >
-                                                                                        ✕ Eliminar
-                                                                                    </button>
-                                                                                )}
-                                                                            </div>
-                                                                        </div>
-
-                                                                        {item.minimized ? (
-                                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '13px', color: '#475569' }}>
-                                                                                {item.titulo && <span style={{ fontWeight: 'bold' }}>Título: {item.titulo}</span>}
-                                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                                                    <span>Notas: {item.notas ? (item.notas.length > 30 ? `${item.notas.substring(0, 30)}...` : item.notas) : 'Sin notas'}</span>
-                                                                                    <strong style={{ color: '#f26522', fontSize: '15px' }}>${itemTotal.toLocaleString('es-MX')}</strong>
-                                                                                </div>
-                                                                            </div>
-                                                                        ) : (
-                                                                            <>
-                                                                                {/* Detalle del item */}
-                                                                                <div style={{ marginBottom: '8px', width: '100%', boxSizing: 'border-box' }}>
-                                                                                    <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Título de la Propuesta / Problema</label>
-                                                                                    <input
-                                                                                        type="text"
-                                                                                        placeholder="Ej: Cambio de compresor, reparación de fuga, etc."
-                                                                                        value={item.titulo || ""}
-                                                                                        onChange={(e) => {
-                                                                                            setCotizacionesFormItems(cotizacionesFormItems.map(c => c.id === item.id ? { ...c, titulo: e.target.value } : c));
-                                                                                        }}
-                                                                                        style={{ width: '100%', minWidth: 0, padding: '8px 12px', borderRadius: '10px', border: '1.5px solid #cbd5e1', fontSize: '14px', boxSizing: 'border-box' }}
-                                                                                    />
-                                                                                </div>
-                                                                                <div style={{ width: '100%', boxSizing: 'border-box' }}>
-                                                                                    <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Mano de Obra ($)</label>
-                                                                                    <div style={{ position: 'relative', width: '100%', boxSizing: 'border-box' }}>
-                                                                                        <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '16px', fontWeight: '900', color: '#f26522' }}>$</span>
-                                                                                        <input
-                                                                                            type="number"
-                                                                                            placeholder="Mano de obra..."
-                                                                                            value={item.manoObra || ""}
-                                                                                            onChange={(e) => {
-                                                                                                setCotizacionesFormItems(cotizacionesFormItems.map(c => c.id === item.id ? { ...c, manoObra: e.target.value } : c));
-                                                                                            }}
-                                                                                            style={{ width: '100%', minWidth: 0, padding: '8px 12px 8px 28px', borderRadius: '10px', border: '1.5px solid #cbd5e1', fontSize: '14px', boxSizing: 'border-box' }}
-                                                                                        />
-                                                                                    </div>
-                                                                                </div>
-
-                                                                                <div style={{ width: '100%', boxSizing: 'border-box' }}>
-                                                                                    <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Materiales y Piezas</label>
-                                                                                    <div style={{ background: '#f8fafc', padding: '10px', borderRadius: '10px', border: '1px solid #cbd5e1', width: '100%', boxSizing: 'border-box' }}>
-                                                                                        {item.materials.map((mat, mIdx) => (
-                                                                                            <div key={mIdx} style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '10px', paddingBottom: '10px', borderBottom: mIdx < item.materials.length - 1 ? '1px solid #e2e8f0' : 'none', width: '100%', boxSizing: 'border-box' }}>
-                                                                                                <input
-                                                                                                    placeholder="Material / Refacción"
-                                                                                                    value={mat.material}
-                                                                                                    onChange={(e) => {
-                                                                                                        setCotizacionesFormItems(cotizacionesFormItems.map(c => {
-                                                                                                            if (c.id === item.id) {
-                                                                                                                const newM = [...c.materials];
-                                                                                                                newM[mIdx].material = e.target.value;
-                                                                                                                return { ...c, materials: newM };
-                                                                                                            }
-                                                                                                            return c;
-                                                                                                        }));
-                                                                                                    }}
-                                                                                                    style={{ width: '100%', minWidth: 0, padding: '7px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', boxSizing: 'border-box' }}
-                                                                                                />
-                                                                                                <div style={{ display: 'grid', gridTemplateColumns: item.materials.length > 1 ? 'minmax(0, 1fr) minmax(0, 1.4fr) auto' : 'minmax(0, 1fr) minmax(0, 1.4fr)', gap: '8px', alignItems: 'center', width: '100%', boxSizing: 'border-box' }}>
-                                                                                                    <input
-                                                                                                        type="number"
-                                                                                                        placeholder="Cant"
-                                                                                                        value={mat.piezas}
-                                                                                                        onChange={(e) => {
-                                                                                                            setCotizacionesFormItems(cotizacionesFormItems.map(c => {
-                                                                                                                if (c.id === item.id) {
-                                                                                                                    const newM = [...c.materials];
-                                                                                                                    newM[mIdx].piezas = e.target.value;
-                                                                                                                    return { ...c, materials: newM };
-                                                                                                                }
-                                                                                                                return c;
-                                                                                                            }));
-                                                                                                        }}
-                                                                                                        style={{ width: '100%', minWidth: 0, padding: '7px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', boxSizing: 'border-box' }}
-                                                                                                    />
-                                                                                                    <input
-                                                                                                        type="number"
-                                                                                                        placeholder="Precio ($)"
-                                                                                                        value={mat.precio}
-                                                                                                        onChange={(e) => {
-                                                                                                            setCotizacionesFormItems(cotizacionesFormItems.map(c => {
-                                                                                                                if (c.id === item.id) {
-                                                                                                                    const newM = [...c.materials];
-                                                                                                                    newM[mIdx].precio = e.target.value;
-                                                                                                                    return { ...c, materials: newM };
-                                                                                                                }
-                                                                                                                return c;
-                                                                                                            }));
-                                                                                                        }}
-                                                                                                        style={{ width: '100%', minWidth: 0, padding: '7px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', boxSizing: 'border-box' }}
-                                                                                                    />
-                                                                                                    {item.materials.length > 1 && (
-                                                                                                        <button
-                                                                                                            type="button"
-                                                                                                            onClick={() => {
-                                                                                                                setCotizacionesFormItems(cotizacionesFormItems.map(c => {
-                                                                                                                    if (c.id === item.id) {
-                                                                                                                        return { ...c, materials: c.materials.filter((_, idx) => idx !== mIdx) };
-                                                                                                                    }
-                                                                                                                    return c;
-                                                                                                                }));
-                                                                                                            }}
-                                                                                                            style={{ background: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca', padding: '7px 10px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', flexShrink: 0, boxSizing: 'border-box' }}
-                                                                                                        >
-                                                                                                            ✕
-                                                                                                        </button>
-                                                                                                    )}
-                                                                                                </div>
-                                                                                            </div>
-                                                                                        ))}
-                                                                                        <button
-                                                                                            type="button"
-                                                                                            onClick={() => {
-                                                                                                setCotizacionesFormItems(cotizacionesFormItems.map(c => {
-                                                                                                    if (c.id === item.id) {
-                                                                                                        return { ...c, materials: [...c.materials, { material: '', piezas: '', precio: '' }] };
-                                                                                                    }
-                                                                                                    return c;
-                                                                                                }));
-                                                                                            }}
-                                                                                            style={{ background: 'transparent', color: '#f26522', border: '1px dashed #f26522', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', width: '100%', boxSizing: 'border-box' }}
-                                                                                        >
-                                                                                            + Añadir material o refacción
-                                                                                        </button>
-                                                                                    </div>
-                                                                                </div>
-
-                                                                                <div>
-                                                                                    <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Notas para el cliente</label>
-                                                                                    <textarea
-                                                                                        placeholder="Ej: Incluye mano de obra..."
-                                                                                        value={item.notas}
-                                                                                        onChange={(e) => {
-                                                                                            setCotizacionesFormItems(cotizacionesFormItems.map(c => c.id === item.id ? { ...c, notas: e.target.value } : c));
-                                                                                        }}
-                                                                                        style={{ width: '100%', padding: '8px 12px', borderRadius: '10px', border: '1.5px solid #cbd5e1', fontSize: '13px', boxSizing: 'border-box', fontFamily: 'inherit', resize: 'vertical', minHeight: '60px' }}
-                                                                                    />
-                                                                                </div>
-
-                                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff7ed', padding: '10px 12px', borderRadius: '8px', border: '1px solid #fed7aa' }}>
-                                                                                    <span style={{ fontSize: '12px', fontWeight: '800', color: '#92400e' }}>Importe Propuesta</span>
-                                                                                    <strong style={{ fontSize: '16px', color: '#f26522' }}>${itemTotal.toLocaleString('es-MX')}</strong>
-                                                                                </div>
-
-                                                                                <button
-                                                                                    type="button"
-                                                                                    onClick={() => {
-                                                                                        setAdminManoObra(item.manoObra);
-                                                                                        setAdminQuoteMaterials(item.materials);
-                                                                                        setNotas(item.notas);
-                                                                                        setCosto(String(itemTotal));
-                                                                                        setShowPDFPreview(true);
-                                                                                    }}
-                                                                                    style={{ width: '100%', padding: '8px 12px', background: '#f8fafc', border: '1px solid #cbd5e1', color: '#1e293b', borderRadius: '8px', fontSize: '12px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-                                                                                >
-                                                                                    <HiOutlineDocumentText size={16} color="#ef4444" /> Previsualizar PDF Propuesta #{idx + 1}
-                                                                                </button>
-                                                                            </>
-                                                                        )}
-                                                                    </div>
-                                                                );
-                                                            })}
-                                                        </div>
-
-                                                        {/* Preview Combinado global */}
-                                                        {cotizacionesFormItems.length > 1 && (
-                                                            <div style={{ marginBottom: '16px' }}>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => {
-                                                                        const combinedMats = cotizacionesFormItems.flatMap(item => item.materials.filter(m => m.material.trim()));
-                                                                        const combinedManoObra = cotizacionesFormItems.reduce((sum, item) => sum + (parseFloat(item.manoObra) || 0), 0);
-                                                                        const combinedNotes = cotizacionesFormItems.map((item, idx) => item.notas ? `[Propuesta #${idx + 1}]: ${item.notas}` : '').filter(Boolean).join('\n\n');
-                                                                        const combinedTotal = cotizacionesFormItems.reduce((sum, item) => {
-                                                                            const itemMatsTotal = item.materials.reduce((acc, m) => acc + ((parseFloat(m.precio) || 0) * (parseFloat(m.piezas) || 1)), 0);
-                                                                            return sum + (parseFloat(item.manoObra) || 0) + itemMatsTotal;
-                                                                        }, 0);
-                                                                        
-                                                                        setAdminManoObra(String(combinedManoObra));
-                                                                        setAdminQuoteMaterials(combinedMats);
-                                                                        setNotas(combinedNotes);
-                                                                        setCosto(String(combinedTotal));
-                                                                        setShowPDFPreview(true);
-                                                                    }}
-                                                                    style={{ width: '100%', padding: '12px', background: '#eff6ff', border: '1.5px solid #bfdbfe', color: '#1e3a8a', borderRadius: '12px', fontSize: '13px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'all 0.2s' }}
-                                                                >
-                                                                    <HiOutlineDocumentText size={18} color="#3b82f6" /> Ver PDF Combinado (Todas las Propuestas)
-                                                                </button>
-                                                            </div>
-                                                        )}
-                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                                            <button 
-                                                                type="button"
-                                                                onClick={handleEnviarCotizacionesMasivas}
-                                                                style={{ width: '100%', padding: '15.5px', background: 'linear-gradient(135deg, #f26522, #d14d13)', color: '#fff', border: 'none', borderRadius: '15px', fontSize: '14px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 8px 20px rgba(242,101,34,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-                                                            >
-                                                                <span>Enviar Cotización al Cliente</span>
-                                                            </button>
-
-                                                            <button 
-                                                                type="button"
-                                                                onClick={() => setShowAddQuoteForm(false)}
-                                                                style={{ width: '100%', padding: '15px', background: '#f8fafc', border: '2px solid #e2e8f0', color: '#64748b', borderRadius: '15px', fontSize: '14px', fontWeight: '700', cursor: 'pointer' }}
-                                                            >
-                                                                Cancelar
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                )}
                                             </div>
-                                            )}
+                                        )}
 
-                                    {/* COLUMNA DERECHA: Reporte, sugerencias y PDF del técnico (FIJA) */}
+                                    {/* ELEMENTOS PRINCIPALES DEL TÉCNICO EN PANTALLA COMPLETA */}
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%', maxWidth: '100%' }}>
                                                             {/* Banner para Técnico en SOS */}
                                                             {isSOS && isTechRole && (
@@ -8112,7 +7819,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                                     <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#f26522' }} />
                                                                     <span style={{ fontSize: '13px', fontWeight: '800', color: '#1e293b' }}>Sugerencias de monto del técnico</span>
                                                                 </div>
-                                                                <div className={styles.cardTransparentScroll} style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '520px' }}>
+                                                                <div className={styles.cardTransparentScroll} style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: 'none' }}>
                                                                     {subTareas.filter(t => t.esCotizacion).map(tarea => {
                                                                         let refaccionesSource = tarea.refacciones;
                                                                         if (!refaccionesSource || refaccionesSource.length === 0) {
