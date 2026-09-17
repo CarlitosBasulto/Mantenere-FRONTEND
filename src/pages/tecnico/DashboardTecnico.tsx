@@ -182,18 +182,20 @@ const DashboardTecnico: React.FC = () => {
     // 1. Solicitudes pendientes
     const colSolicitudes = trabajos.filter(t => ['Solicitud', 'Pendiente'].includes(t.estado));
     
+    const isSOSJob = (t: any) => t.tipo === 'SOS' || t.prioridad === 'Emergencia' || (t.titulo || '').includes('SOS') || t.isEmergency;
+
     // 2. Asignaciones de visitas (Visitas pendientes de evaluación del técnico en campo, antes de enviar al admin)
     const colVisita = trabajos.filter(t => 
         ['En Proceso', 'Asignado', 'Aceptada', 'En Espera'].includes(t.estado) && 
-        t.tipo === 'Visita' && 
+        (t.tipo === 'Visita' || isSOSJob(t)) && 
         !t.visitado &&
         !['Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución', 'Cotización Enviada', 'Cotización Rechazada'].includes(t.estado)
     );
     
-    // 3. Asignaciones de trabajo (Cotización Aceptada por cliente, En Ejecución, Trabajos directos asignados y SOS)
+    // 3. Asignaciones de trabajo (Cotización Aceptada por cliente, En Ejecución, Trabajos directos asignados)
     const colProceso = trabajos.filter(t => 
         ['Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución'].includes(t.estado) ||
-        (t.tipo !== 'Visita' && ['En Proceso', 'Asignado', 'Aceptada', 'En Espera', 'Cotización Enviada', 'Cotización Rechazada'].includes(t.estado))
+        (t.tipo !== 'Visita' && !isSOSJob(t) && ['En Proceso', 'Asignado', 'Aceptada', 'En Espera', 'Cotización Enviada', 'Cotización Rechazada'].includes(t.estado))
     );
     
     // 4. Trabajos finalizados

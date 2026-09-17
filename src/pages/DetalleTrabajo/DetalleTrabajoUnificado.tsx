@@ -2221,10 +2221,9 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
             }
 
             if (isSOS) {
-                setActiveTab('Registro');
-                showAlert("Emergencia Aceptada", "Has aceptado la asignación de emergencia. Procede al registro de los puntos y sus cotizaciones.", "success");
+                showAlert("Emergencia Aceptada", "Has aceptado la asignación de emergencia. Ahora puedes iniciar la visita cuando llegues a la sucursal.", "success");
             } else {
-                showAlert("Trabajo Aceptado", "Has aceptado la asignación. Ahora puedes iniciar el trabajo o visita cuando llegues.", "success");
+                showAlert("Trabajo Aceptado", "Has aceptado la asignación. Ahora puedes iniciar la visita cuando llegues a la sucursal.", "success");
             }
             setShowZoomModal(false);
         } catch (error) {
@@ -5567,22 +5566,16 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                     }
                                     return tabName === 'Datos' || tabName === 'Historial' || tabName === 'Trabajo';
                                 }
-                                // Técnico normal NUNCA ve la tab de Cotización (eso es responsabilidad del Admin), a menos que sea SOS
-                                if (tabName === 'Cotización' && !isSOS && (user?.role === 'tecnico' || user?.role === 'tecnico-normal')) return false;
-
-                                // EN SOS:
-                                // El Administrador NO elabora cotizaciones de emergencia (las elabora el técnico asignado).
-                                // Por lo tanto, el admin SOLO ve la pestaña cuando el técnico ya envió una propuesta para revisar/autorizar.
-                                if (tabName === 'Cotización' && isSOS) {
-                                    if (user?.role === 'admin' || isAutonomoAdminUser) {
-                                        return cotizaciones.length > 0 || ['Cotización Enviada', 'Cotización Aceptada', 'Cotización Aprobada', 'Cotización Rechazada', 'En Ejecución', 'Finalizado'].includes(trabajo.estado);
-                                    }
-                                    if (isTechRole) {
-                                        return ['Asignado', 'En Espera', 'Cotización Enviada', 'Cotización Rechazada', 'Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución', 'Finalizado'].includes(trabajo.estado);
-                                    }
-                                }
-
                                 if (tabName === 'Cotización') {
+                                    if (isTechRole || user?.role === 'tecnico' || user?.role === 'tecnico-normal' || user?.role === 'tecnico-autonomo') {
+                                        return cotizaciones.length > 0 || Boolean(trabajo?.visitado) || ['Cotización Enviada', 'Cotización Rechazada', 'Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución', 'Finalizado'].includes(trabajo.estado);
+                                    }
+                                    if (user?.role === 'cliente') {
+                                        return cotizaciones.length > 0 || ['Cotización Enviada', 'Cotización Aceptada', 'Cotización Aprobada'].includes(trabajo.estado);
+                                    }
+                                    if (isSOS && (user?.role === 'admin' || isAutonomoAdminUser)) {
+                                        return cotizaciones.length > 0 || Boolean(trabajo?.visitado) || ['Cotización Enviada', 'Cotización Aceptada', 'Cotización Aprobada', 'Cotización Rechazada', 'En Ejecución', 'Finalizado'].includes(trabajo.estado);
+                                    }
                                     return true;
                                 }
                                 if (tabName === 'Registro') {
@@ -6357,8 +6350,8 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                     {/* BOTONES PARA TÉCNICO: Aceptar, Rechazar, Empezar */}
                                     {(isTechRole || user?.role === 'tecnico' || user?.role === 'tecnico-normal' || user?.role === 'tecnico-autonomo' || location.pathname.startsWith('/tecnico-autonomo')) && (
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%', marginTop: '12px' }}>
-                                            {/* SOS: Estado Asignado -> Debe aceptar o rechazar */}
-                                            {isSOS && trabajo.estado === 'Asignado' && (
+                                            {/* Estado Asignado -> Debe aceptar o rechazar */}
+                                            {trabajo.estado === 'Asignado' && (
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
                                                     <button
                                                         onClick={handleAceptarAsignacion}
@@ -6381,7 +6374,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                         onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')}
                                                         onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}
                                                     >
-                                                        ✅ Aceptar Emergencia y Cotizar
+                                                        {isSOS ? '🚨 Aceptar Emergencia' : '✅ Aceptar Asignación'}
                                                     </button>
                                                     <button
                                                         onClick={handleTecnicoRechazarAsignacion}
@@ -6408,82 +6401,57 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                 </div>
                                             )}
 
-                                            {/* Normal: Estado Asignado -> Debe aceptar o rechazar */}
-                                            {!isSOS && trabajo.estado === 'Asignado' && (
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
-                                                    <button
-                                                        onClick={handleAceptarAsignacion}
-                                                        style={{
-                                                            padding: '12px 14px',
-                                                            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                                                            color: '#fff',
-                                                            border: 'none',
-                                                            borderRadius: '12px',
-                                                            fontSize: '13px',
-                                                            fontWeight: '800',
-                                                            cursor: 'pointer',
-                                                            boxShadow: '0 4px 12px rgba(16,185,129,0.3)',
-                                                            transition: 'all 0.2s ease',
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            justifyContent: 'center',
-                                                            gap: '8px'
-                                                        }}
-                                                        onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')}
-                                                        onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}
-                                                    >
-                                                        ✅ Aceptar Asignación
-                                                    </button>
-                                                    <button
-                                                        onClick={handleTecnicoRechazarAsignacion}
-                                                        style={{
-                                                            padding: '10px 14px',
-                                                            background: '#fff1f2',
-                                                            color: '#e11d48',
-                                                            border: '1.5px solid #fecdd3',
-                                                            borderRadius: '12px',
-                                                            fontSize: '13px',
-                                                            fontWeight: '800',
-                                                            cursor: 'pointer',
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            justifyContent: 'center',
-                                                            gap: '8px',
-                                                            transition: 'all 0.2s ease'
-                                                        }}
-                                                        onMouseEnter={e => (e.currentTarget.style.background = '#ffe4e6')}
-                                                        onMouseLeave={e => (e.currentTarget.style.background = '#fff1f2')}
-                                                    >
-                                                        ❌ Rechazar Asignación
-                                                    </button>
-                                                </div>
-                                            )}
-
-                                            {/* SOS: Estado En Espera -> Elaborar cotización / registro */}
-                                            {isSOS && trabajo.estado === 'En Espera' && (
+                                            {/* Estado En Espera -> Puede iniciar Visita o Trabajo según corresponda */}
+                                            {trabajo.estado === 'En Espera' && (
                                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '10px' }}>
-                                                    <button
-                                                        onClick={() => setActiveTab('Registro')}
-                                                        style={{ padding: '12px 10px', background: 'linear-gradient(135deg, #f26522 0%, #d14d13 100%)', color: '#fff', border: 'none', borderRadius: '12px', fontSize: '13px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 4px 12px rgba(242,101,34,0.25)', transition: 'all 0.2s ease' }}
-                                                        onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')}
-                                                        onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}
-                                                    >
-                                                        📝 Realizar Registro y Cotización (SOS)
-                                                    </button>
-                                                </div>
-                                            )}
-
-                                            {/* Una vez en espera (flujo normal), puede iniciar Visita o Trabajo según el tipo */}
-                                            {!isSOS && trabajo.estado === 'En Espera' && (
-                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '10px' }}>
-                                                    {trabajo.tipo === 'Visita' && !trabajo.visitado ? (
-                                                        <button onClick={() => handleEmpezarTrabajoTipo('Visita')} style={{ padding: '12px 10px', background: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)', color: '#fff', border: 'none', borderRadius: '12px', fontSize: '13px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 4px 12px rgba(30,41,59,0.2)', transition: 'all 0.2s ease' }} onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')} onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}>📍 Iniciar Visita</button>
-                                                    ) : (trabajo.tipo === 'Visita' && trabajo.visitado && !cotizaciones.some(c => c.estado === 'Aprobada')) ? (
+                                                    {(trabajo.tipo === 'Visita' || isSOS || !trabajo.visitado) && !trabajo.visitado ? (
+                                                        <button
+                                                            onClick={() => handleEmpezarTrabajoTipo('Visita')}
+                                                            style={{
+                                                                padding: '12px 10px',
+                                                                background: isSOS ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' : 'linear-gradient(135deg, #1e293b 0%, #334155 100%)',
+                                                                color: '#fff',
+                                                                border: 'none',
+                                                                borderRadius: '12px',
+                                                                fontSize: '13px',
+                                                                fontWeight: '800',
+                                                                cursor: 'pointer',
+                                                                boxShadow: isSOS ? '0 4px 14px rgba(239,68,68,0.3)' : '0 4px 12px rgba(30,41,59,0.2)',
+                                                                transition: 'all 0.2s ease',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                gap: '8px'
+                                                            }}
+                                                            onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')}
+                                                            onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}
+                                                        >
+                                                            {isSOS ? '🚨 Iniciar Visita de Emergencia' : '📍 Iniciar Visita'}
+                                                        </button>
+                                                    ) : (trabajo.visitado && !cotizaciones.some(c => c.estado === 'Aprobada' || c.estado === 'Aceptada') && !['Cotización Aceptada', 'Cotización Aprobada', 'En Ejecución'].includes(trabajo.estado)) ? (
                                                         <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '12px', border: '1px solid #e2e8f0', textAlign: 'center', color: '#64748b', fontSize: '13px', fontWeight: '600' }}>
-                                                            ⏳ Visita completada. Esperando cotización del Administrador y aprobación del cliente.
+                                                            ⏳ Visita completada. Esperando cotización y aprobación del cliente.
                                                         </div>
                                                     ) : (
-                                                        <button onClick={() => handleEmpezarTrabajoTipo('Trabajo')} style={{ padding: '12px 10px', background: 'linear-gradient(135deg, #f26522 0%, #d14d13 100%)', color: '#fff', border: 'none', borderRadius: '12px', fontSize: '13px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 4px 12px rgba(242,101,34,0.25)', transition: 'all 0.2s ease' }} onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')} onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}>🛠️ Iniciar Trabajo</button>
+                                                        <button
+                                                            onClick={() => handleEmpezarTrabajoTipo('Trabajo')}
+                                                            style={{
+                                                                padding: '12px 10px',
+                                                                background: 'linear-gradient(135deg, #f26522 0%, #d14d13 100%)',
+                                                                color: '#fff',
+                                                                border: 'none',
+                                                                borderRadius: '12px',
+                                                                fontSize: '13px',
+                                                                fontWeight: '800',
+                                                                cursor: 'pointer',
+                                                                boxShadow: '0 4px 12px rgba(242,101,34,0.25)',
+                                                                transition: 'all 0.2s ease'
+                                                            }}
+                                                            onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')}
+                                                            onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}
+                                                        >
+                                                            🛠️ Iniciar Trabajo
+                                                        </button>
                                                     )}
                                                 </div>
                                             )}
@@ -7252,120 +7220,30 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                         </div>
                                                     )}
 
-                                                    {/* SOS: FORMULARIO DE COTIZACIÓN RÁPIDA PARA EL TÉCNICO AUTÓNOMO */}
-                                                    {isSOS && isTechRole && (cotizaciones.length === 0 || trabajo?.estado === 'Cotización Rechazada' || cotizaciones.some(c => c.estado === 'Rechazada')) ? (
-                                                        <div style={{
-                                                            background: '#fff',
-                                                            borderRadius: '24px',
-                                                            padding: '28px',
-                                                            boxShadow: '0 4px 24px rgba(0,0,0,0.06)',
-                                                            border: '2px solid #fed7aa'
-                                                        }}>
-                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px', paddingBottom: '14px', borderBottom: '2px solid #fff7ed' }}>
-                                                                <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: 'linear-gradient(135deg, #ea580c, #c2410c)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '20px' }}>
-                                                                    🚨
-                                                                </div>
-                                                                <div>
-                                                                    <h3 style={{ margin: 0, fontSize: '17px', fontWeight: '800', color: '#9a3412' }}>
-                                                                        Propuesta de Cotización SOS (Emergencia)
-                                                                    </h3>
-                                                                    <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#c2410c' }}>
-                                                                        Al ser una emergencia, define directamente el monto total estimado para la aprobación del administrador.
-                                                                    </p>
-                                                                </div>
+                                                    {/* Estado de Cotización cuando aún no hay cotizaciones generadas */}
+                                                    {cotizaciones.length === 0 && !canEditCotizacion && !trabajo?.visitado ? (
+                                                        <div style={{ background: '#fff', borderRadius: '24px', padding: '40px', textAlign: 'center', boxShadow: '0 4px 24px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '280px' }}>
+                                                            <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: isSOS ? '#fff7ed' : '#f0f9ff', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px', fontSize: '28px' }}>
+                                                                {isSOS ? '🚨' : '📍'}
                                                             </div>
-
-                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                                                <div>
-                                                                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '800', color: '#1e293b', marginBottom: '6px' }}>
-                                                                        Monto Total Estimado ($ MXN) *
-                                                                    </label>
-                                                                    <div style={{ position: 'relative' }}>
-                                                                        <span style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', fontWeight: '900', color: '#ea580c', fontSize: '18px' }}>$</span>
-                                                                        <input
-                                                                            type="number"
-                                                                            value={sosQuoteMonto}
-                                                                            onChange={e => setSosQuoteMonto(e.target.value)}
-                                                                            placeholder="Ej. 1800"
-                                                                            style={{
-                                                                                width: '100%',
-                                                                                padding: '14px 16px 14px 34px',
-                                                                                borderRadius: '12px',
-                                                                                border: '2px solid #fed7aa',
-                                                                                fontSize: '18px',
-                                                                                fontWeight: '800',
-                                                                                color: '#1e293b',
-                                                                                boxSizing: 'border-box'
-                                                                            }}
-                                                                        />
-                                                                    </div>
-                                                                </div>
-
-                                                                <div>
-                                                                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '800', color: '#1e293b', marginBottom: '6px' }}>
-                                                                        Concepto / Diagnóstico Rápido
-                                                                    </label>
-                                                                    <input
-                                                                        type="text"
-                                                                        value={sosQuoteConcepto}
-                                                                        onChange={e => setSosQuoteConcepto(e.target.value)}
-                                                                        placeholder="Ej. Reparación y sustitución de componente eléctrico dañado"
-                                                                        style={{
-                                                                            width: '100%',
-                                                                            padding: '12px 14px',
-                                                                            borderRadius: '12px',
-                                                                            border: '1.5px solid #cbd5e1',
-                                                                            fontSize: '14px',
-                                                                            boxSizing: 'border-box'
-                                                                        }}
-                                                                    />
-                                                                </div>
-
-                                                                <div>
-                                                                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '800', color: '#1e293b', marginBottom: '6px' }}>
-                                                                        Notas Adicionales (Opcional)
-                                                                    </label>
-                                                                    <textarea
-                                                                        value={sosQuoteNotas}
-                                                                        onChange={e => setSosQuoteNotas(e.target.value)}
-                                                                        placeholder="Detalles sobre materiales requeridos, tiempo de atención, etc."
-                                                                        rows={3}
-                                                                        style={{
-                                                                            width: '100%',
-                                                                            padding: '12px 14px',
-                                                                            borderRadius: '12px',
-                                                                            border: '1.5px solid #cbd5e1',
-                                                                            fontSize: '13px',
-                                                                            fontFamily: 'inherit',
-                                                                            resize: 'vertical',
-                                                                            boxSizing: 'border-box'
-                                                                        }}
-                                                                    />
-                                                                </div>
-
-                                                                <button
-                                                                    onClick={handleEnviarCotizacionSOSDirecta}
-                                                                    disabled={isSubmittingSosQuote}
-                                                                    style={{
-                                                                        marginTop: '6px',
-                                                                        padding: '16px',
-                                                                        background: isSubmittingSosQuote ? '#94a3b8' : 'linear-gradient(135deg, #ea580c 0%, #c2410c 100%)',
-                                                                        color: 'white',
-                                                                        border: 'none',
-                                                                        borderRadius: '14px',
-                                                                        fontSize: '15px',
-                                                                        fontWeight: '800',
-                                                                        cursor: isSubmittingSosQuote ? 'not-allowed' : 'pointer',
-                                                                        display: 'flex',
-                                                                        alignItems: 'center',
-                                                                        justifyContent: 'center',
-                                                                        gap: '10px',
-                                                                        boxShadow: '0 4px 16px rgba(234, 88, 12, 0.35)'
-                                                                    }}
-                                                                >
-                                                                    {isSubmittingSosQuote ? 'Enviando propuesta...' : '🚀 Enviar Cotización de Emergencia'}
-                                                                </button>
-                                                            </div>
+                                                            <h3 style={{ margin: '0 0 8px 0', fontSize: '18px', fontWeight: '800', color: isSOS ? '#9a3412' : '#0369a1' }}>
+                                                                {isSOS ? 'Evaluación de Emergencia Pendiente' : 'Visita Pendiente de Evaluación'}
+                                                            </h3>
+                                                            <p style={{ margin: '0 0 20px 0', color: '#64748b', fontSize: '14px', maxWidth: '420px', lineHeight: 1.5 }}>
+                                                                Para generar la cotización, primero debes registrar los problemas encontrados, evidencias y conceptos en la pestaña <strong>Registro</strong>.
+                                                            </p>
+                                                            <button
+                                                                onClick={() => {
+                                                                    if (trabajo?.estado === 'En Espera') {
+                                                                        handleEmpezarTrabajoTipo('Visita');
+                                                                    } else {
+                                                                        setActiveTab('Registro');
+                                                                    }
+                                                                }}
+                                                                style={{ padding: '12px 24px', background: isSOS ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' : 'linear-gradient(135deg, #f26522 0%, #d14d13 100%)', color: 'white', border: 'none', borderRadius: '12px', fontSize: '14px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 4px 12px rgba(242, 101, 34, 0.25)' }}
+                                                            >
+                                                                {trabajo?.estado === 'En Espera' ? (isSOS ? '🚨 Iniciar Visita de Emergencia' : '📍 Iniciar Visita') : '📋 Ir a Registro de Actividad'}
+                                                            </button>
                                                         </div>
                                                     ) : isSOS && isAdminUser && cotizaciones.length === 0 ? (
                                                         <div style={{ background: '#fff', borderRadius: '24px', padding: '40px', textAlign: 'center', boxShadow: '0 4px 24px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '300px' }}>
@@ -7374,7 +7252,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                             </div>
                                                             <h3 style={{ margin: '0 0 8px 0', fontSize: '18px', fontWeight: '800', color: '#991b1b' }}>Emergencia SOS — Esperando Cotización del Técnico</h3>
                                                             <p style={{ margin: '0 0 20px 0', color: '#64748b', fontSize: '14px', maxWidth: '80%' }}>
-                                                                El administrador no elabora cotizaciones de emergencia. El técnico asignado {trabajo?.tecnico ? `(${trabajo.tecnico})` : ''} debe acudir a la sucursal y formular la propuesta de cotización directamente.
+                                                                El administrador no elabora cotizaciones de emergencia. El técnico asignado {trabajo?.tecnico ? `(${trabajo.tecnico})` : ''} debe acudir a la sucursal y registrar la visita de emergencia.
                                                             </p>
                                                             <button
                                                                 onClick={() => setActiveTab('Datos')}
@@ -9337,7 +9215,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                 )}
 
                                 {/* CASO 2: TRABAJO EN ESTADO "EN ESPERA" (Debe comenzar registro) */}
-                                {(user?.role === 'tecnico' || user?.role === 'tecnico-normal') && trabajo.estado === 'En Espera' && (
+                                {(isTechRole || user?.role === 'tecnico' || user?.role === 'tecnico-normal' || user?.role === 'tecnico-autonomo') && trabajo.estado === 'En Espera' && (
                                     <div style={{
                                         width: '100%',
                                         maxWidth: '480px',
@@ -9350,10 +9228,12 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                         boxSizing: 'border-box'
                                     }}>
                                         <div style={{ textAlign: 'center', padding: '14px 10px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px' }}>
-                                            <div style={{ fontSize: '36px', lineHeight: 1 }}>📍</div>
-                                            <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#1e293b', margin: 0 }}>Asignación Aceptada</h3>
+                                            <div style={{ fontSize: '36px', lineHeight: 1 }}>{isSOS ? '🚨' : '📍'}</div>
+                                            <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#1e293b', margin: 0 }}>
+                                                {isSOS ? 'Emergencia Aceptada' : 'Asignación Aceptada'}
+                                            </h3>
                                             <p style={{ fontSize: '13.5px', color: '#64748b', maxWidth: '380px', margin: 0, lineHeight: '1.45' }}>
-                                                Ya has aceptado este trabajo. Presiona el botón "Comenzar Registro" cuando estés listo para evaluar los problemas de la sucursal.
+                                                Ya has aceptado esta solicitud. Presiona el botón para iniciar la visita y registrar los problemas y evidencias en la sucursal.
                                             </p>
                                             <button
                                                 onClick={() => handleEmpezarTrabajoTipo('Visita')}
@@ -9361,21 +9241,21 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                                     width: '100%',
                                                     maxWidth: '280px',
                                                     padding: '11px 20px',
-                                                    background: 'linear-gradient(135deg, #f26522 0%, #d14d13 100%)',
+                                                    background: isSOS ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' : 'linear-gradient(135deg, #f26522 0%, #d14d13 100%)',
                                                     color: '#ffffff',
                                                     border: 'none',
                                                     borderRadius: '12px',
                                                     fontSize: '14px',
                                                     fontWeight: '800',
                                                     cursor: 'pointer',
-                                                    boxShadow: '0 4px 12px rgba(242, 101, 34, 0.25)',
+                                                    boxShadow: isSOS ? '0 4px 12px rgba(239, 68, 68, 0.3)' : '0 4px 12px rgba(242, 101, 34, 0.25)',
                                                     transition: 'all 0.2s',
                                                     marginTop: '4px'
                                                 }}
                                                 onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
                                                 onMouseLeave={e => e.currentTarget.style.transform = 'none'}
                                             >
-                                                🚀 Comenzar Registro
+                                                {isSOS ? '🚨 Iniciar Visita de Emergencia' : '🚀 Comenzar Registro'}
                                             </button>
                                         </div>
                                     </div>
@@ -9385,7 +9265,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                 {Boolean(trabajo.estado === 'En Proceso' || trabajo.estado === 'Cotización Enviada' || trabajo.visitado) && (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%' }}>
                                         {/* Botón de Agregar (Solo visible si está en proceso y no se ha finalizado/enviado) */}
-                                        {((user?.role === 'tecnico' || user?.role === 'tecnico-normal') || user?.role === 'admin') && (trabajo.tipo === 'Visita' || isSOS) && !trabajo.visitado && trabajo.estado === 'En Proceso' && (
+                                        {((isTechRole || user?.role === 'tecnico' || user?.role === 'tecnico-normal' || user?.role === 'tecnico-autonomo') || user?.role === 'admin' || isAutonomoAdminUser) && (trabajo.tipo === 'Visita' || isSOS) && !trabajo.visitado && trabajo.estado === 'En Proceso' && (
                                             <div style={{ width: '100%' }}>
                                                 <button
                                                     onClick={openNewTaskModal}
@@ -9412,7 +9292,7 @@ const DetalleTrabajoUnificado: React.FC<{ config: DetalleTrabajoConfig }> = ({ c
                                         )}
 
                                         {/* BOTÓN DE CONFIRMAR DATOS Y ENVIAR AL ADMIN / CLIENTE */}
-                                        {(user?.role === 'tecnico' || user?.role === 'tecnico-normal') && subTareas.length > 0 && (
+                                        {(isTechRole || user?.role === 'tecnico' || user?.role === 'tecnico-normal' || user?.role === 'tecnico-autonomo') && subTareas.length > 0 && (
                                             <div style={{ marginTop: '10px', display: 'flex', justifyContent: 'center', width: '100%' }}>
                                                 {trabajo?.visitado ? (
                                                     <div style={{ background: '#f0fdf4', border: '1.5px solid #86efac', borderRadius: '16px', padding: '16px 24px', display: 'flex', alignItems: 'center', gap: '10px', color: '#166534', fontWeight: '800', fontSize: '14px', boxShadow: '0 4px 12px rgba(34, 197, 94, 0.15)' }}>
